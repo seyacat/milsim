@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crear Juego - Milsim</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .create-game-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--spacing-xl);
+        }
+        
+        .create-game-card {
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .create-game-title {
+            text-align: center;
+            margin-bottom: var(--spacing-2xl);
+            font-size: var(--font-size-3xl);
+        }
+        
+        .create-game-form .btn {
+            margin-top: var(--spacing-md);
+        }
+        
+        .form-buttons {
+            display: flex;
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-lg);
+        }
+        
+        .form-buttons .btn {
+            flex: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="create-game-container">
+        <div class="card create-game-card">
+            <h1 class="create-game-title">Crear Nuevo Juego</h1>
+            <form id="createGameForm" class="create-game-form">
+                <div class="form-group">
+                    <label for="name" class="form-label">Nombre del Juego:</label>
+                    <input type="text" id="name" name="name" class="form-input" required placeholder="Ingresa el nombre del juego">
+                </div>
+                
+                <div class="form-buttons">
+                    <button type="button" class="btn btn-secondary" onclick="cancel()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear Juego</button>
+                </div>
+                <div class="message message-error" id="errorMessage" style="display: none;"></div>
+                <div class="message message-success" id="successMessage" style="display: none;"></div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        // Check if user is logged in
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            // In a real app, you would decode the JWT token to get user info
+            // For now, we'll use a dummy user ID
+            currentUser = { id: 1 }; // This should come from the token
+        }
+
+        // Handle form submission
+        document.getElementById('createGameForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const name = document.getElementById('name').value;
+            const errorMessage = document.getElementById('errorMessage');
+            const successMessage = document.getElementById('successMessage');
+            
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+            
+            if (!name.trim()) {
+                errorMessage.textContent = 'El nombre del juego es requerido';
+                errorMessage.style.display = 'block';
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/games', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        name: name.trim(),
+                        ownerId: currentUser.id 
+                    })
+                });
+                
+                if (response.ok) {
+                    const game = await response.json();
+                    successMessage.textContent = '¡Juego creado exitosamente! Redirigiendo...';
+                    successMessage.style.display = 'block';
+                    
+                    // Redirect to the game page
+                    setTimeout(() => {
+                        window.location.href = `game.html?id=${game.id}`;
+                    }, 1500);
+                } else {
+                    const error = await response.json();
+                    errorMessage.textContent = error.message || 'Error al crear el juego';
+                    errorMessage.style.display = 'block';
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Error de conexión';
+                errorMessage.style.display = 'block';
+            }
+        });
+
+        // Cancel function
+        function cancel() {
+            window.location.href = 'dashboard.html';
+        }
+
+        // Initialize page
+        checkAuth();
+    </script>
+</body>
+</html>

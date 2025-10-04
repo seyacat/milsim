@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Milsim</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: var(--spacing-lg);
+        }
+        
+        .game-card {
+            background: var(--surface-light);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: var(--spacing-xl);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .game-card:hover {
+            border-color: var(--primary-light);
+            box-shadow: var(--shadow-lg);
+            transform: translateY(-2px);
+        }
+        
+        .game-card h3 {
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-sm);
+            font-size: var(--font-size-xl);
+        }
+        
+        .game-card p {
+            color: var(--text-secondary);
+            margin-bottom: var(--spacing-md);
+            line-height: 1.4;
+        }
+        
+        .game-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: var(--spacing-md);
+            font-size: var(--font-size-sm);
+            color: var(--text-muted);
+        }
+        
+        .join-btn {
+            width: 100%;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: var(--spacing-2xl);
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header flex justify-between items-center">
+            <h1>Dashboard - Milsim Games</h1>
+            <div class="flex gap-2">
+                <button class="btn btn-success" onclick="createGame()">Crear Juego</button>
+                <button class="btn btn-danger" onclick="logout()">Cerrar Sesión</button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2 class="mb-3">Juegos Disponibles</h2>
+            <div id="gamesList" class="games-grid">
+                <div class="loading">Cargando juegos...</div>
+            </div>
+            <div class="message message-error" id="errorMessage" style="display: none;"></div>
+            <div class="message message-success" id="successMessage" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+
+        // Check if user is logged in
+        function checkAuth() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            // In a real app, you would decode the JWT token to get user info
+            // For now, we'll use a dummy user ID
+            currentUser = { id: 1 }; // This should come from the token
+            loadGames();
+        }
+
+        // Load games from API
+        async function loadGames() {
+            try {
+                const response = await fetch('/api/games');
+                if (!response.ok) {
+                    throw new Error('Error al cargar los juegos');
+                }
+                const games = await response.json();
+                displayGames(games);
+            } catch (error) {
+                showError('Error al cargar los juegos: ' + error.message);
+            }
+        }
+
+        // Display games in the grid
+        function displayGames(games) {
+            const gamesList = document.getElementById('gamesList');
+            
+            if (games.length === 0) {
+                gamesList.innerHTML = '<div class="empty-state">No hay juegos disponibles</div>';
+                return;
+            }
+
+            gamesList.innerHTML = games.map(game => `
+                <div class="game-card" onclick="enterGame(${game.id})">
+                    <h3>${game.name}</h3>
+                    <p>${game.description || 'Sin descripción'}</p>
+                    <div class="game-info">
+                        <span class="status-${game.status}">Estado: ${game.status}</span>
+                        <span>Jugadores: ${game.players ? game.players.length : 0}/${game.maxPlayers}</span>
+                    </div>
+                    <button class="btn btn-primary join-btn"
+                            onclick="event.stopPropagation(); joinGame(${game.id})"
+                            ${isUserInGame(game) ? 'disabled' : ''}
+                            ${game.players && game.players.length >= game.maxPlayers ? 'disabled' : ''}>
+                        ${isUserInGame(game) ? 'Ya unido' : 'Unirse al Juego'}
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // Check if current user is already in the game
+        function isUserInGame(game) {
+            if (!game.players || !currentUser) return false;
+            return game.players.some(player => player.user && player.user.id === currentUser.id);
+        }
+
+        // Join a game
+        async function joinGame(gameId) {
+            try {
+                const response = await fetch(`/api/games/${gameId}/join`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ userId: currentUser.id })
+                });
+
+                if (response.ok) {
+                    showSuccess('¡Te has unido al juego exitosamente!');
+                    loadGames(); // Reload games to update the UI
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Error al unirse al juego');
+                }
+            } catch (error) {
+                showError('Error: ' + error.message);
+            }
+        }
+
+        // Enter game function
+        function enterGame(gameId) {
+            window.location.href = `game.html?id=${gameId}`;
+        }
+
+        // Create game function
+        function createGame() {
+            window.location.href = 'create-game.html';
+        }
+
+        // Show error message
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 3000);
+        }
+
+        // Logout function
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = 'login.html';
+        }
+
+        // Initialize dashboard
+        checkAuth();
+    </script>
+</body>
+</html>
