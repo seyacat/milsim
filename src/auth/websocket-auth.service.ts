@@ -1,19 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { Socket } from 'socket.io';
+import { AuthService } from './auth.service';
 
 @Injectable()
 export class WebsocketAuthService {
+  constructor(private readonly authService: AuthService) {}
+
   async validateToken(token: string): Promise<any> {
-    // For now, we'll use a simple token validation
-    // In a real app, you would validate JWT tokens here
     if (!token) {
       throw new Error('Token not provided');
     }
 
     try {
-      // Simple token validation - in production, use JWT
-      const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
-      return decoded;
+      // Use the actual auth service to validate the token
+      const user = await this.authService.validateToken(token);
+      return user;
     } catch (error) {
       throw new Error('Invalid token');
     }

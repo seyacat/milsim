@@ -7,9 +7,10 @@ import { Player } from './entities/player.entity';
 import { ControlPoint } from './entities/control-point.entity';
 import { GamesGateway } from './games.gateway';
 import { WebsocketAuthService } from '../auth/websocket-auth.service';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Game, Player, ControlPoint])],
+  imports: [TypeOrmModule.forFeature([Game, Player, ControlPoint]), AuthModule],
   controllers: [GamesController],
   providers: [GamesService, GamesGateway, WebsocketAuthService],
 })
