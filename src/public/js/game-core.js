@@ -58,14 +58,20 @@ function initializeWebSocket(gameId) {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}`;
     
-    socket = io(wsUrl);
+    // Get authentication token
+    const token = localStorage.getItem('token');
+    
+    socket = io(wsUrl, {
+        auth: {
+            token: token
+        }
+    });
 
     socket.on('connect', () => {
         console.log('WebSocket connected');
         // Join the game room
         socket.emit('joinGame', {
-            gameId: parseInt(gameId),
-            userId: currentUser.id
+            gameId: parseInt(gameId)
         });
     });
 
@@ -346,8 +352,7 @@ async function leaveGame() {
             // Leave via WebSocket first
             if (socket) {
                 socket.emit('leaveGame', {
-                    gameId: currentGame.id,
-                    userId: currentUser.id
+                    gameId: currentGame.id
                 });
             }
 
@@ -356,8 +361,8 @@ async function leaveGame() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ userId: currentUser.id })
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
             });
 
             if (response.ok) {

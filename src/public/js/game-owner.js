@@ -151,8 +151,7 @@ function addControlPointMarker(controlPoint) {
         className: 'control-point-marker',
         html: `
             <div style="
-                background: ${iconColor};
-                border: 2px solid white;
+                background: ${iconColor}33;
                 border-radius: 50%;
                 width: 20px;
                 height: 20px;
@@ -184,6 +183,11 @@ function addControlPointMarker(controlPoint) {
 
     // Add click outside listener for popup
     marker.on('popupopen', function() {
+        // Remove map click handler to prevent conflicts while editing
+        if (map && mapClickHandler) {
+            map.off('click', mapClickHandler);
+        }
+        
         setTimeout(() => {
             document.addEventListener('click', closeControlPointEditPopup);
         }, 100);
@@ -191,6 +195,13 @@ function addControlPointMarker(controlPoint) {
 
     marker.on('popupclose', function() {
         document.removeEventListener('click', closeControlPointEditPopup);
+        
+        // Re-enable map click handler after popup is closed
+        setTimeout(() => {
+            if (map && mapClickHandler) {
+                map.on('click', mapClickHandler);
+            }
+        }, 100);
     });
 
     // Store control point data on marker for reference
@@ -252,6 +263,13 @@ function closeControlPointEditPopup(e) {
     if (popup && !popup.contains(e.target) && !e.target.closest('.leaflet-popup')) {
         // Close all open popups
         map.closePopup();
+        
+        // Re-enable map click handler after a short delay
+        setTimeout(() => {
+            if (map && mapClickHandler) {
+                map.on('click', mapClickHandler);
+            }
+        }, 100);
     }
 }
 

@@ -7,6 +7,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { GamesService } from './games.service';
+import { WebsocketAuthService } from '../auth/websocket-auth.service';
 
 @WebSocketGateway({
   cors: {
@@ -18,22 +19,47 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  constructor(private readonly gamesService: GamesService) {}
+  private connectedUsers = new Map<string, any>(); // socket.id -> user data
 
-  handleConnection(client: Socket) {
-    console.log(`Client connected: ${client.id}`);
+  constructor(
+    private readonly gamesService: GamesService,
+    private readonly websocketAuthService: WebsocketAuthService,
+  ) {}
+
+  async handleConnection(client: Socket) {
+    try {
+      console.log(`Client connecting: ${client.id}`);
+      
+      // Authenticate the user
+      const user = await this.websocketAuthService.authenticateSocket(client);
+      
+      // Store user data
+      this.connectedUsers.set(client.id, user);
+      
+      console.log(`Client authenticated and connected: ${client.id}, User: ${user.id}`);
+    } catch (error) {
+      console.log(`Authentication failed for client: ${client.id}`, error.message);
+      client.disconnect();
+    }
   }
 
   handleDisconnect(client: Socket) {
     console.log(`Client disconnected: ${client.id}`);
+    this.connectedUsers.delete(client.id);
   }
 
   @SubscribeMessage('joinGame')
   async handleJoinGame(
     client: Socket,
-    payload: { gameId: number; userId: number },
+    payload: { gameId: number },
   ) {
     const { gameId } = payload;
+    const user = this.connectedUsers.get(client.id);
+    
+    if (!user) {
+      client.emit('joinError', { message: 'User not authenticated' });
+      return;
+    }
 
     try {
       // Join the room for this specific game
@@ -42,13 +68,22 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Get updated game data
       const game = await this.gamesService.findOne(gameId);
 
+      // Join the game via service
+      await this.gamesService.joinGame(gameId, user.id);
+
+      // Get updated game data
+      const updatedGame = await this.gamesService.findOne(gameId);
+
       // Notify all clients in the game room about the updated player list
       this.server.to(`game_${gameId}`).emit('gameUpdate', {
         type: 'playerJoined',
-        game,
+        game: updatedGame,
       });
 
-      client.emit('joinSuccess', { message: 'Successfully joined game' });
+      client.emit('joinSuccess', {
+        message: 'Successfully joined game',
+        user: { id: user.id, name: user.name }
+      });
     } catch (error: any) {
       client.emit('joinError', { message: 'Failed to join game' });
     }
@@ -57,9 +92,15 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('leaveGame')
   async handleLeaveGame(
     client: Socket,
-    payload: { gameId: number; userId: number },
+    payload: { gameId: number },
   ) {
     const { gameId } = payload;
+    const user = this.connectedUsers.get(client.id);
+    
+    if (!user) {
+      client.emit('leaveError', { message: 'User not authenticated' });
+      return;
+    }
 
     try {
       // Leave the game room
@@ -68,13 +109,19 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Get updated game data
       const game = await this.gamesService.findOne(gameId);
 
+      // Get updated game data
+      const updatedGame = await this.gamesService.findOne(gameId);
+
       // Notify all clients in the game room about the updated player list
       this.server.to(`game_${gameId}`).emit('gameUpdate', {
         type: 'playerLeft',
-        game,
+        game: updatedGame,
       });
 
-      client.emit('leaveSuccess', { message: 'Successfully left game' });
+      client.emit('leaveSuccess', {
+        message: 'Successfully left game',
+        user: { id: user.id, name: user.name }
+      });
     } catch (error: any) {
       client.emit('leaveError', { message: 'Failed to leave game' });
     }
