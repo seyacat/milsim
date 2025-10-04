@@ -43,9 +43,17 @@ function checkAuth() {
         return;
     }
     
-    // In a real app, you would decode the JWT token to get user info
-    // For now, we'll use a dummy user ID
-    currentUser = { id: 1, name: 'Jugador' }; // This should come from the token
+    // Decode JWT token to get user info
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        currentUser = {
+            id: payload.id || 1,
+            name: payload.name || 'Usuario'
+        };
+    } catch (error) {
+        // Fallback to dummy user if token decoding fails
+        currentUser = { id: 1, name: 'Usuario' };
+    }
     
     // Initialize WebSocket connection
     initializeWebSocket(gameId);
@@ -109,6 +117,11 @@ function initializeWebSocket(gameId) {
 
     socket.on('joinSuccess', (data) => {
         console.log('Successfully joined game room');
+        // Update current user with authenticated data from server
+        if (data.user) {
+            currentUser = data.user;
+            updateGameInfo();
+        }
     });
 
     socket.on('joinError', (data) => {
@@ -161,6 +174,7 @@ function updateGameInfo() {
     document.getElementById('gameStatus').textContent = currentGame.status;
     document.getElementById('playerCount').textContent = `${currentGame.players ? currentGame.players.length : 0}/${currentGame.maxPlayers}`;
     document.getElementById('gameOwner').textContent = currentGame.owner ? currentGame.owner.name : 'Desconocido';
+    document.getElementById('currentUser').textContent = currentUser ? currentUser.name : 'Desconocido';
     
     // Update controls visibility
     const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
@@ -442,6 +456,27 @@ function goBack() {
     }
 }
 
+// Map control functions
+function reloadPage() {
+    window.location.reload();
+}
+
+function centerOnUser() {
+    if (userMarker) {
+        const userPosition = userMarker.getLatLng();
+        map.setView(userPosition, 16);
+    }
+}
+
+function centerOnSite() {
+    map.eachLayer((layer) => {
+        if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.type === 'site') {
+            const sitePosition = layer.getLatLng();
+            map.setView(sitePosition, 16);
+        }
+    });
+}
+
 // Clean up on page unload
 window.addEventListener('beforeunload', () => {
     if (watchId) {
@@ -452,12 +487,15 @@ window.addEventListener('beforeunload', () => {
     }
 });
 
-// Make toast functions available globally
+// Make functions available globally
 window.showToast = showToast;
 window.showSuccess = showSuccess;
 window.showError = showError;
 window.showWarning = showWarning;
 window.showInfo = showInfo;
+window.reloadPage = reloadPage;
+window.centerOnUser = centerOnUser;
+window.centerOnSite = centerOnSite;
 
 // Initialize when page loads
 window.onload = initialize;
