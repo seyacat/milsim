@@ -4,6 +4,7 @@ import {
   ManyToOne,
   CreateDateColumn,
   JoinColumn,
+  Column,
 } from 'typeorm';
 import { Game } from './game.entity';
 import { User } from '../../auth/entities/user.entity';
@@ -23,4 +24,7 @@ export class Player {
 
   @CreateDateColumn()
   joinedAt: Date;
+
+  @Column({ nullable: true })
+  team: string; // 'blue', 'red', 'green', 'yellow', or 'none' for no team
 }

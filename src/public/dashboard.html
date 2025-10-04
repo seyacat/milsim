@@ -89,9 +89,19 @@
                 return;
             }
             
-            // In a real app, you would decode the JWT token to get user info
-            // For now, we'll use a dummy user ID
-            currentUser = { id: 1 }; // This should come from the token
+            // Decode JWT token to get user info
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                currentUser = {
+                    id: payload.id || 1,
+                    name: payload.name || 'Usuario'
+                };
+                console.log('Current user:', currentUser);
+            } catch (error) {
+                console.error('Error decoding token:', error);
+                // Fallback to dummy user if token decoding fails
+                currentUser = { id: 1, name: 'Usuario' };
+            }
             loadGames();
         }
 
@@ -126,14 +136,38 @@
                         <span class="status-${game.status}">Estado: ${game.status}</span>
                         <span>Jugadores: ${game.players ? game.players.length : 0}/${game.maxPlayers}</span>
                     </div>
-                    <button class="btn btn-primary join-btn"
-                            onclick="event.stopPropagation(); joinGame(${game.id})"
-                            ${isUserInGame(game) ? 'disabled' : ''}
-                            ${game.players && game.players.length >= game.maxPlayers ? 'disabled' : ''}>
-                        ${isUserInGame(game) ? 'Ya unido' : 'Unirse al Juego'}
-                    </button>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button class="btn btn-primary" style="flex: 1;"
+                                onclick="event.stopPropagation(); enterGame(${game.id})">
+                            ${isUserInGame(game) ? 'Entrar al Juego' : 'Unirse al Juego'}
+                        </button>
+                        ${isGameOwner(game) ? `
+                            <button class="btn btn-danger"
+                                    onclick="event.stopPropagation(); deleteGame(${game.id})"
+                                    title="Eliminar juego">
+                                🗑️
+                            </button>
+                        ` : ''}
+                    </div>
                 </div>
             `).join('');
+        }
+
+        // Check if current user is the owner of the game
+        function isGameOwner(game) {
+            if (!game.owner || !currentUser) {
+                console.log('isGameOwner: missing game.owner or currentUser', { gameOwner: game.owner, currentUser });
+                return false;
+            }
+            
+            const isOwner = game.owner.id === currentUser.id;
+            console.log('isGameOwner check:', {
+                gameId: game.id,
+                gameOwnerId: game.owner.id,
+                currentUserId: currentUser.id,
+                isOwner: isOwner
+            });
+            return isOwner;
         }
 
         // Check if current user is already in the game
@@ -159,6 +193,34 @@
                 } else {
                     const error = await response.json();
                     throw new Error(error.message || 'Error al unirse al juego');
+                }
+            } catch (error) {
+                showError('Error: ' + error.message);
+            }
+        }
+
+        // Delete game function
+        async function deleteGame(gameId) {
+            if (!confirm('¿Estás seguro de que quieres eliminar este juego? Esta acción no se puede deshacer.')) {
+                return;
+            }
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/games/${gameId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (response.ok) {
+                    showSuccess('Juego eliminado exitosamente');
+                    loadGames(); // Reload games to update the UI
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Error al eliminar el juego');
                 }
             } catch (error) {
                 showError('Error: ' + error.message);

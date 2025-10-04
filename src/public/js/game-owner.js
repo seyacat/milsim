@@ -14,7 +14,10 @@ function initializeOwnerFeatures() {
     // Add click handler for owners to create control points
     mapClickHandler = function(e) {
         console.log('Owner clicked on map');
-        showControlPointMenu(e.latlng);
+        // Only show menu if no menu is currently visible
+        if (!controlPointMenuVisible) {
+            showControlPointMenu(e.latlng);
+        }
     };
     
     map.on('click', mapClickHandler);
@@ -39,6 +42,7 @@ function showControlPointMenu(latlng) {
             <h3 style="margin: 0 0 10px 0; color: #333;">Crear Punto de Control</h3>
             <div style="display: flex; gap: 5px; justify-content: flex-end;">
                 <button onclick="createControlPoint(${latlng.lat}, ${latlng.lng})" style="padding: 5px 10px; background: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer;">Crear</button>
+                <button onclick="closeControlPointMenu()" style="padding: 5px 10px; background: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer;">Cancelar</button>
             </div>
         </div>
     `;
@@ -67,9 +71,7 @@ function closeControlPointMenuOutside(e) {
 
 // Close control point menu
 function closeControlPointMenu() {
-    // Close any open popups
-    map.closePopup();
-    
+    // Remove the menu element first
     const menu = document.getElementById('controlPointMenu');
     if (menu) {
         menu.remove();
@@ -83,9 +85,14 @@ function closeControlPointMenu() {
         // Ignore if listener doesn't exist
     }
     
+    // Close any open popups
+    map.closePopup();
+    
     // Re-enable map click handler after a short delay to prevent immediate reopening
     setTimeout(() => {
         if (map && mapClickHandler) {
+            // Remove any existing handler first to avoid duplicates
+            map.off('click', mapClickHandler);
             map.on('click', mapClickHandler);
         }
     }, 100);

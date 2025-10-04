@@ -8,6 +8,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { GamesService } from './games.service';
 import { WebsocketAuthService } from '../auth/websocket-auth.service';
+import { AuthService } from '../auth/auth.service';
 
 @WebSocketGateway({
   cors: {
@@ -20,6 +21,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   server: Server;
 
   private connectedUsers = new Map<string, any>(); // socket.id -> user data
+  private playerPositions = new Map<
+    number,
+    { lat: number; lng: number; accuracy: number; socketId: string }
+  >(); // user.id -> position data
 
   constructor(
     private readonly gamesService: GamesService,
@@ -45,6 +50,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleDisconnect(client: Socket) {
     console.log(`Client disconnected: ${client.id}`);
+    const user = this.connectedUsers.get(client.id);
+    if (user) {
+      this.playerPositions.delete(user.id);
+    }
     this.connectedUsers.delete(client.id);
   }
 
@@ -62,13 +71,39 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     try {
+      // Check if user is already connected from another device
+      let existingSocketId: string | null = null;
+      this.connectedUsers.forEach((existingUser, socketId) => {
+        if (existingUser.id === user.id && socketId !== client.id) {
+          existingSocketId = socketId;
+        }
+      });
+
+      // If user is already connected from another device, disconnect the old connection
+      if (existingSocketId) {
+        console.log(`User ${user.id} is already connected from socket ${existingSocketId}, disconnecting...`);
+        
+        // Send message to old device to leave the game
+        const oldSocket = this.server.sockets.sockets.get(existingSocketId);
+        if (oldSocket) {
+          oldSocket.emit('forceDisconnect', {
+            message: 'Has sido desconectado porque te has conectado desde otro dispositivo'
+          });
+          oldSocket.disconnect();
+        }
+        
+        // Remove old connection from tracking
+        this.connectedUsers.delete(existingSocketId);
+        this.playerPositions.delete(user.id);
+      }
+
       // Join the room for this specific game
       client.join(`game_${gameId}`);
 
       // Get updated game data
       const game = await this.gamesService.findOne(gameId);
 
-      // Join the game via service
+      // Join the game via service (this will handle the case where user is already in the game)
       await this.gamesService.joinGame(gameId, user.id);
 
       // Get updated game data
@@ -80,12 +115,47 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         game: updatedGame,
       });
 
+      // Check if user is owner and send stored positions
+      const currentGame = await this.gamesService.findOne(gameId);
+      if (currentGame.owner && currentGame.owner.id === user.id) {
+        // Send all stored positions to the owner
+        const positions: Array<{
+          userId: number;
+          userName: string;
+          lat: number;
+          lng: number;
+          accuracy: number;
+        }> = [];
+        this.playerPositions.forEach((position, userId) => {
+          const connectedUser = Array.from(this.connectedUsers.values()).find(u => u.id === userId);
+          if (connectedUser) {
+            positions.push({
+              userId: userId,
+              userName: connectedUser.name,
+              lat: position.lat,
+              lng: position.lng,
+              accuracy: position.accuracy
+            });
+          }
+        });
+        
+        if (positions.length > 0) {
+          client.emit('gameAction', {
+            action: 'playerPositionsResponse',
+            data: { positions },
+            from: 'server'
+          });
+        }
+      }
+
       client.emit('joinSuccess', {
         message: 'Successfully joined game',
         user: { id: user.id, name: user.name }
       });
     } catch (error: any) {
-      client.emit('joinError', { message: 'Failed to join game' });
+      console.error('Error joining game:', error);
+      console.error('Error details:', error.message, error.stack);
+      client.emit('joinError', { message: 'Failed to join game: ' + error.message });
     }
   }
 
@@ -182,6 +252,249 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
             data: { controlPointId: data.controlPointId },
             from: client.id,
           });
+          break;
+        }
+
+        case 'positionUpdate': {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            // Store the player's position
+            this.playerPositions.set(user.id, {
+              lat: data.lat,
+              lng: data.lng,
+              accuracy: data.accuracy,
+              socketId: client.id
+            });
+
+            // Broadcast position update to all clients in the game
+            this.server.to(`game_${gameId}`).emit('gameAction', {
+              action: 'positionUpdate',
+              data: {
+                userId: user.id,
+                userName: user.name,
+                lat: data.lat,
+                lng: data.lng,
+                accuracy: data.accuracy
+              },
+              from: client.id,
+            });
+          }
+          break;
+        }
+
+        case 'takeControlPoint': {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            // Broadcast the take action to all clients
+            this.server.to(`game_${gameId}`).emit('gameAction', {
+              action: 'controlPointTaken',
+              data: {
+                controlPointId: data.controlPointId,
+                userId: user.id,
+                userName: user.name
+              },
+              from: client.id,
+            });
+          }
+          break;
+        }
+
+        case 'updatePlayerTeam': {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            try {
+              let playerId = data.playerId;
+              
+              // If playerId is not provided but userId is, find the player by userId
+              if (!playerId && data.userId) {
+                const game = await this.gamesService.findOne(gameId);
+                const player = game.players?.find(p => p.user.id === data.userId);
+                if (player) {
+                  playerId = player.id;
+                } else {
+                  throw new Error('No se pudo encontrar el jugador para el usuario');
+                }
+              }
+              
+              const updatedPlayer = await this.gamesService.updatePlayerTeam(
+                playerId,
+                data.team
+              );
+
+              // Broadcast the team update to all clients
+              this.server.to(`game_${gameId}`).emit('gameAction', {
+                action: 'playerTeamUpdated',
+                data: {
+                  playerId: playerId,
+                  userId: updatedPlayer.user.id,
+                  userName: updatedPlayer.user.name,
+                  team: data.team
+                },
+                from: client.id,
+              });
+            } catch (error: any) {
+              client.emit('gameActionError', {
+                action: 'updatePlayerTeam',
+                error: error.message,
+              });
+            }
+          }
+          break;
+        }
+
+        case 'startGame': {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            try {
+              const startedGame = await this.gamesService.startGame(gameId, user.id);
+              this.server.to(`game_${gameId}`).emit('gameAction', {
+                action: 'gameStateChanged',
+                data: { game: startedGame },
+                from: client.id,
+              });
+            } catch (error: any) {
+              client.emit('gameActionError', {
+                action: 'startGame',
+                error: error.message,
+              });
+            }
+          }
+          break;
+        }
+
+        case 'pauseGame': {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            try {
+              const pausedGame = await this.gamesService.pauseGame(gameId, user.id);
+              this.server.to(`game_${gameId}`).emit('gameAction', {
+                action: 'gameStateChanged',
+                data: { game: pausedGame },
+                from: client.id,
+              });
+            } catch (error: any) {
+              client.emit('gameActionError', {
+                action: 'pauseGame',
+                error: error.message,
+              });
+            }
+          }
+          break;
+        }
+
+        case 'resumeGame': {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            try {
+              const resumedGame = await this.gamesService.resumeGame(gameId, user.id);
+              this.server.to(`game_${gameId}`).emit('gameAction', {
+                action: 'gameStateChanged',
+                data: { game: resumedGame },
+                from: client.id,
+              });
+            } catch (error: any) {
+              client.emit('gameActionError', {
+                action: 'resumeGame',
+                error: error.message,
+              });
+            }
+          }
+          break;
+        }
+
+        case 'endGame': {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            try {
+              const endedGame = await this.gamesService.endGame(gameId, user.id);
+              this.server.to(`game_${gameId}`).emit('gameAction', {
+                action: 'gameStateChanged',
+                data: { game: endedGame },
+                from: client.id,
+              });
+            } catch (error: any) {
+              client.emit('gameActionError', {
+                action: 'endGame',
+                error: error.message,
+              });
+            }
+          }
+          break;
+        }
+
+        case 'updateTeamCount': {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            try {
+              const updatedGame = await this.gamesService.updateTeamCount(
+                gameId,
+                data.teamCount,
+                user.id
+              );
+              this.server.to(`game_${gameId}`).emit('gameAction', {
+                action: 'teamCountUpdated',
+                data: { game: updatedGame },
+                from: client.id,
+              });
+            } catch (error: any) {
+              client.emit('gameActionError', {
+                action: 'updateTeamCount',
+                error: error.message,
+              });
+            }
+          }
+          break;
+        }
+
+        case 'addTime': {
+          // TODO: Implement add time functionality
+          console.log('Add time action received:', data);
+          break;
+        }
+
+        case 'requestPlayerPositions': {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            // Check if user is the game owner
+            const game = await this.gamesService.findOne(gameId);
+            if (game.owner && game.owner.id === user.id) {
+              // Collect current positions of all connected players
+              const positions: Array<{
+                userId: number;
+                userName: string;
+                lat: number;
+                lng: number;
+                accuracy: number;
+              }> = [];
+              
+              // Get all connected users in this game
+              const gameRoom = this.server.sockets.adapter.rooms.get(`game_${gameId}`);
+              if (gameRoom) {
+                for (const socketId of gameRoom) {
+                  const connectedUser = this.connectedUsers.get(socketId);
+                  if (connectedUser && connectedUser.id !== user.id) {
+                    const position = this.playerPositions.get(connectedUser.id);
+                    if (position) {
+                      positions.push({
+                        userId: connectedUser.id,
+                        userName: connectedUser.name,
+                        lat: position.lat,
+                        lng: position.lng,
+                        accuracy: position.accuracy
+                      });
+                    }
+                  }
+                }
+              }
+              
+              // Send positions back to the requesting owner
+              client.emit('gameAction', {
+                action: 'playerPositionsResponse',
+                data: { positions },
+                from: client.id,
+              });
+            }
+          }
           break;
         }
 

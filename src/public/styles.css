@@ -415,3 +415,147 @@ body {
         opacity: 0;
     }
 }
+
+/* Player markers - Stick figures with team colors and background circles */
+.player-marker {
+    background: transparent !important;
+    border: none !important;
+    width: 24px !important;
+    height: 24px !important;
+    text-align: center;
+    font-size: 16px;
+    line-height: 24px;
+    margin-left: -12px !important;
+    margin-top: -24px !important;
+    position: relative;
+}
+
+.player-marker::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(128, 128, 128, 0.5);
+    z-index: 1;
+}
+
+.player-marker::after {
+    content: "🧍‍♂️";
+    display: block;
+    filter: brightness(0.8) saturate(0.8);
+    position: relative;
+    z-index: 2;
+    transform: translateX(1px);
+}
+
+/* Team colors for player markers */
+.player-marker.blue::before {
+    background: rgba(52, 152, 219, 0.5) !important;
+}
+
+.player-marker.red::before {
+    background: rgba(231, 76, 60, 0.5) !important;
+}
+
+.player-marker.green::before {
+    background: rgba(39, 174, 96, 0.5) !important;
+}
+
+.player-marker.yellow::before {
+    background: rgba(241, 196, 15, 0.5) !important;
+}
+
+.player-marker.none::before {
+    background: rgba(149, 165, 166, 0.5) !important;
+}
+
+/* Current user marker - same as player but with black border */
+.user-marker {
+    background: transparent !important;
+    border: none !important;
+    width: 24px !important;
+    height: 24px !important;
+    text-align: center;
+    font-size: 16px;
+    line-height: 24px;
+    margin-left: -12px !important;
+    margin-top: -24px !important;
+    position: relative;
+}
+
+.user-marker::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(128, 128, 128, 0.5);
+    border: 2px solid black;
+    z-index: 1;
+}
+
+.user-marker::after {
+    content: "🧍‍♂️";
+    display: block;
+    filter: drop-shadow(0 0 2px black) drop-shadow(0 0 1px black);
+    position: relative;
+    z-index: 2;
+    transform: translateX(1px);
+}
+
+/* Team colors for current user marker */
+.user-marker.blue::before {
+    background: rgba(52, 152, 219, 0.5) !important;
+    border: 2px solid black;
+}
+
+.user-marker.red::before {
+    background: rgba(231, 76, 60, 0.5) !important;
+    border: 2px solid black;
+}
+
+.user-marker.green::before {
+    background: rgba(39, 174, 96, 0.5) !important;
+    border: 2px solid black;
+}
+
+.user-marker.yellow::before {
+    background: rgba(241, 196, 15, 0.5) !important;
+    border: 2px solid black;
+}
+
+.user-marker.none::before {
+    background: rgba(149, 165, 166, 0.5) !important;
+    border: 2px solid black;
+}
+
+/* Accuracy circles - 50% opacity team colors, no border */
+.accuracy-circle {
+    stroke: none !important;
+    fill-opacity: 0.5 !important;
+}
+
+.accuracy-circle.blue {
+    fill: #3498db !important;
+}
+
+.accuracy-circle.red {
+    fill: #e74c3c !important;
+}
+
+.accuracy-circle.green {
+    fill: #27ae60 !important;
+}
+
+.accuracy-circle.yellow {
+    fill: #f1c40f !important;
+}
+
+.accuracy-circle.none {
+    fill: #95a5a6 !important;
+}

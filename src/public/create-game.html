@@ -71,9 +71,19 @@
                 return;
             }
             
-            // In a real app, you would decode the JWT token to get user info
-            // For now, we'll use a dummy user ID
-            currentUser = { id: 1 }; // This should come from the token
+            // Decode JWT token to get user info
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                currentUser = {
+                    id: payload.id || 1,
+                    name: payload.name || 'Usuario'
+                };
+                console.log('Current user for game creation:', currentUser);
+            } catch (error) {
+                console.error('Error decoding token:', error);
+                // Fallback to dummy user if token decoding fails
+                currentUser = { id: 1, name: 'Usuario' };
+            }
         }
 
         // Handle form submission

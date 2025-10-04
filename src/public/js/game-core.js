@@ -122,10 +122,22 @@ function initializeWebSocket(gameId) {
             currentUser = data.user;
             updateGameInfo();
         }
+        
+        // If user is owner, request current positions from all players
+        if (currentGame && currentGame.owner && currentGame.owner.id === currentUser.id) {
+            requestPlayerPositions();
+        }
     });
 
     socket.on('joinError', (data) => {
         showError('Error al unirse al juego: ' + data.message);
+    });
+
+    socket.on('forceDisconnect', (data) => {
+        showError(data.message);
+        setTimeout(() => {
+            window.location.href = 'dashboard.html';
+        }, 3000);
     });
 }
 
@@ -137,6 +149,7 @@ async function loadGame(gameId) {
             throw new Error('Error al cargar el juego');
         }
         currentGame = await response.json();
+        console.log('Game loaded:', currentGame);
         updateGameInfo();
         updatePlayerMarkers();
         loadControlPoints(gameId);
@@ -158,8 +171,12 @@ async function loadControlPoints(gameId) {
         // Load control points from the game data
         if (currentGame && currentGame.controlPoints && Array.isArray(currentGame.controlPoints)) {
             currentGame.controlPoints.forEach(controlPoint => {
-                if (window.addControlPointMarker) {
+                // Use appropriate function based on user role
+                const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+                if (isOwner && window.addControlPointMarker) {
                     window.addControlPointMarker(controlPoint);
+                } else if (window.addControlPointMarkerPlayer) {
+                    window.addControlPointMarkerPlayer(controlPoint);
                 }
             });
         }
@@ -182,57 +199,171 @@ function updateGameInfo() {
     
     if (isOwner) {
         document.getElementById('ownerControls').style.display = 'block';
-        document.getElementById('leaveGameBtn').style.display = 'none';
+        document.getElementById('playersBtn').style.display = 'block';
+        
+        // Update game state controls
+        updateGameStateControls();
+        
         // Initialize owner-specific functionality
         if (window.initializeOwnerFeatures) {
             window.initializeOwnerFeatures();
         }
     } else if (isPlayer) {
-        document.getElementById('leaveGameBtn').style.display = 'block';
         document.getElementById('ownerControls').style.display = 'none';
+        document.getElementById('playersBtn').style.display = 'none';
+        document.getElementById('timeSelectorContainer').style.display = 'none';
+        // Initialize player-specific functionality
+        if (window.initializePlayerFeatures) {
+            window.initializePlayerFeatures();
+        }
+    }
+    
+    // Update player team selection (for non-owners when game is stopped)
+    if (window.updatePlayerTeamSelection) {
+        window.updatePlayerTeamSelection();
     }
 }
 
 // Update player markers on map
 function updatePlayerMarkers() {
-    // Clear existing markers
-    Object.values(playerMarkers).forEach(marker => {
-        if (marker) map.removeLayer(marker);
+    // Clear existing markers (except user's own marker)
+    Object.entries(playerMarkers).forEach(([playerId, marker]) => {
+        if (playerId !== currentUser.id.toString() && marker) {
+            map.removeLayer(marker);
+        }
     });
-    playerMarkers = {};
+    
+    // Keep only user's own marker
+    const userMarkerId = currentUser.id.toString();
+    if (playerMarkers[userMarkerId]) {
+        const tempMarker = playerMarkers[userMarkerId];
+        playerMarkers = {};
+        playerMarkers[userMarkerId] = tempMarker;
+    } else {
+        playerMarkers = {};
+    }
 
     // Check if we have valid game and players data
     if (!currentGame || !currentGame.players || !Array.isArray(currentGame.players)) {
         return;
     }
 
-    // Add markers for all players
+    // Add markers for all players (will be updated with real positions via WebSocket)
     currentGame.players.forEach(player => {
-        // Skip if player data is incomplete
-        if (!player || !player.user || !player.user.id) {
+        // Skip if player data is incomplete or it's the current user
+        if (!player || !player.user || !player.user.id || player.user.id === currentUser.id) {
             return;
         }
 
-        // For demo purposes, use random positions near the user
-        // In a real app, players would send their actual GPS positions
-        const lat = userMarker ? userMarker.getLatLng().lat + (Math.random() - 0.5) * 0.01 : 0;
-        const lng = userMarker ? userMarker.getLatLng().lng + (Math.random() - 0.5) * 0.01 : 0;
+        // Check visibility rules
+        const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+        const isStopped = currentGame.status === 'stopped';
+        const currentPlayer = currentGame.players?.find(p => p.user.id === currentUser.id);
         
-        const isOwner = currentGame.owner && player.user.id === currentGame.owner.id;
-        const marker = L.marker([lat, lng], {
+        // Owner can always see all players
+        if (!isOwner) {
+            // For non-owners, check team visibility rules
+            if (!isStopped) {
+                // In running/paused state, only show same team players
+                if (!currentPlayer || !player || currentPlayer.team !== player.team) {
+                    return; // Skip creating marker for this player
+                }
+            }
+            // In stopped state, all players can see each other
+        }
+
+        // Create initial marker at default position (will be updated when position data arrives)
+        const targetIsOwner = currentGame.owner && player.user.id === currentGame.owner.id;
+        const teamClass = player.team && player.team !== 'none' ? player.team : 'none';
+        const marker = L.marker([0, 0], {
             icon: L.divIcon({
-                className: isOwner ? 'owner-marker' : 'player-marker',
-                iconSize: isOwner ? [16, 16] : [12, 12],
+                className: `player-marker ${teamClass}`,
+                iconSize: [24, 24],
             })
         }).addTo(map);
         
+        const teamInfo = player.team && player.team !== 'none' ? `<br>Equipo: ${player.team.toUpperCase()}` : '';
+        
         marker.bindPopup(`
             <strong>${player.user.name || 'Jugador'}</strong><br>
-            ${isOwner ? 'Propietario' : 'Jugador'}
+            ${targetIsOwner ? 'Propietario' : 'Jugador'}${teamInfo}<br>
+            <em>Esperando posición GPS...</em>
         `);
         
         playerMarkers[player.user.id] = marker;
     });
+}
+
+// Update individual player marker with real position data
+function updatePlayerMarker(positionData) {
+    const { userId, userName, lat, lng, accuracy } = positionData;
+    
+    // Skip if it's the current user
+    if (userId === currentUser.id) {
+        return;
+    }
+
+    // Check if current user should see this player's position
+    const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+    const isStopped = currentGame.status === 'stopped';
+    
+    // Owner can always see all players
+    if (isOwner) {
+        // Owner can see everyone
+    } else {
+        // For non-owners, check team visibility rules
+        const currentPlayer = currentGame.players?.find(p => p.user.id === currentUser.id);
+        const targetPlayer = currentGame.players?.find(p => p.user.id === userId);
+        
+        if (!isStopped) {
+            // In running/paused state, only show same team players
+            if (!currentPlayer || !targetPlayer || currentPlayer.team !== targetPlayer.team) {
+                // Remove marker if it exists and shouldn't be visible
+                if (playerMarkers[userId]) {
+                    map.removeLayer(playerMarkers[userId]);
+                    delete playerMarkers[userId];
+                }
+                return;
+            }
+        }
+        // In stopped state, all players can see each other
+    }
+
+    let marker = playerMarkers[userId];
+    const targetPlayer = currentGame.players?.find(p => p.user.id === userId);
+    const teamClass = targetPlayer?.team && targetPlayer.team !== 'none' ? targetPlayer.team : 'none';
+    
+    if (!marker) {
+        // Create new marker if it doesn't exist
+        const targetIsOwner = currentGame.owner && userId === currentGame.owner.id;
+        marker = L.marker([lat, lng], {
+            icon: L.divIcon({
+                className: `player-marker ${teamClass}`,
+                iconSize: [24, 24],
+            })
+        }).addTo(map);
+        playerMarkers[userId] = marker;
+        
+        // No accuracy circles - using decorative background circles instead
+    } else {
+        // Update existing marker position
+        marker.setLatLng([lat, lng]);
+        
+        // No accuracy circles - using decorative background circles instead
+    }
+    
+    // Store accuracy for popup info only
+    marker.accuracy = accuracy;
+    
+    // Update popup with position info
+    const targetIsOwner = currentGame.owner && userId === currentGame.owner.id;
+    const teamInfo = targetPlayer?.team && targetPlayer.team !== 'none' ? `<br>Equipo: ${targetPlayer.team.toUpperCase()}` : '';
+    
+    marker.bindPopup(`
+        <strong>${userName || 'Jugador'}</strong><br>
+        ${targetIsOwner ? 'Propietario' : 'Jugador'}${teamInfo}<br>
+        <small>Precisión: ${Math.round(accuracy)}m</small>
+    `);
 }
 
 // Start GPS tracking
@@ -257,11 +388,23 @@ function startGPS() {
 
             // Update user marker on map
             if (!userMarker) {
-                userMarker = L.marker([lat, lng]).addTo(map);
+                const currentPlayer = currentGame.players?.find(p => p.user.id === currentUser.id);
+                const teamClass = currentPlayer?.team && currentPlayer.team !== 'none' ? currentPlayer.team : 'none';
+                userMarker = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        className: `user-marker ${teamClass}`,
+                        iconSize: [24, 24],
+                    })
+                }).addTo(map);
                 userMarker.bindPopup('<strong>Tu ubicación</strong>').openPopup();
+                
+                // No accuracy circles for user
+                
                 map.setView([lat, lng], 16);
             } else {
                 userMarker.setLatLng([lat, lng]);
+                
+                // No accuracy circles for user
             }
 
             // Update player markers when user moves
@@ -300,54 +443,6 @@ function startGPS() {
     );
 }
 
-// Handle game actions from other players
-function handleGameAction(data) {
-    switch (data.action) {
-        case 'positionUpdate':
-            // Update other player positions
-            if (data.from !== socket.id && playerMarkers[data.from]) {
-                // In a real app, update marker position based on received data
-                console.log('Position update from:', data.from, data.data);
-            }
-            break;
-        case 'playerJoined':
-        case 'playerLeft':
-            // Reload game data to reflect changes
-            loadGame(currentGame.id);
-            break;
-        case 'controlPointCreated':
-            console.log('Control point created:', data.data);
-            if (window.addControlPointMarker) {
-                window.addControlPointMarker(data.data);
-            }
-            break;
-        case 'controlPointUpdated':
-            console.log('Control point updated:', data.data);
-            // Update existing marker
-            map.eachLayer((layer) => {
-                if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.id) {
-                    layer.controlPointData = data.data;
-                    layer.bindPopup(window.createControlPointEditMenu(data.data, layer));
-                    // Close popup if it's open
-                    if (layer.isPopupOpen()) {
-                        layer.closePopup();
-                    }
-                }
-            });
-            break;
-        case 'controlPointDeleted':
-            console.log('Control point deleted:', data.data);
-            // Remove marker
-            map.eachLayer((layer) => {
-                if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.controlPointId) {
-                    map.removeLayer(layer);
-                }
-            });
-            break;
-        default:
-            console.log('Unhandled game action:', data.action);
-    }
-}
 
 // Game control functions
 async function startGame() {
@@ -496,6 +591,527 @@ window.showInfo = showInfo;
 window.reloadPage = reloadPage;
 window.centerOnUser = centerOnUser;
 window.centerOnSite = centerOnSite;
+
+// Teams management functionality
+let selectedTeamCount = 2;
+let playersData = [];
+
+// Open teams dialog
+function openTeamsDialog() {
+    document.getElementById('teamsDialog').style.display = 'flex';
+    loadPlayersData();
+}
+
+// Close teams dialog
+function closeTeamsDialog() {
+    document.getElementById('teamsDialog').style.display = 'none';
+}
+
+// Set team count
+function setTeamCount(count) {
+    selectedTeamCount = count;
+    
+    // Update active state of buttons
+    document.querySelectorAll('.team-count-btn').forEach(btn => {
+        if (btn.dataset.count === count.toString()) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+    
+    // Send team count update to server
+    if (socket && currentGame) {
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'updateTeamCount',
+            data: {
+                teamCount: count
+            }
+        });
+    }
+    
+    // Refresh players list immediately for owner
+    if (currentGame.owner && currentGame.owner.id === currentUser.id) {
+        loadPlayersData();
+    } else {
+        renderPlayersList();
+    }
+}
+
+// Load players data
+async function loadPlayersData() {
+    try {
+        const response = await fetch(`/api/games/${currentGame.id}/players`);
+        if (!response.ok) {
+            throw new Error('Error al cargar jugadores');
+        }
+        playersData = await response.json();
+        renderPlayersList();
+    } catch (error) {
+        showError('Error al cargar jugadores: ' + error.message);
+    }
+}
+
+// Render players list
+function renderPlayersList() {
+    const playersList = document.getElementById('playersList');
+    playersList.innerHTML = '';
+    
+    playersData.forEach(player => {
+        const playerRow = document.createElement('div');
+        playerRow.className = 'player-row';
+        
+        const teamButtons = createTeamButtons(player);
+        
+        playerRow.innerHTML = `
+            <div class="player-name">${player.user.name}</div>
+            <div class="player-teams">${teamButtons}</div>
+        `;
+        
+        playersList.appendChild(playerRow);
+    });
+}
+
+// Create team buttons for a player
+function createTeamButtons(player) {
+    const teamCount = currentGame?.teamCount || 2;
+    const teams = ['blue', 'red', 'green', 'yellow'].slice(0, teamCount);
+    let buttons = '';
+    
+    // Add team buttons
+    teams.forEach(team => {
+        const isActive = player.team === team;
+        buttons += `
+            <button class="team-btn ${team} ${isActive ? 'active' : ''}"
+                    onclick="updatePlayerTeam(${player.id}, '${team}')">
+                ${team.toUpperCase()}
+            </button>
+        `;
+    });
+    
+    // Add "none" button
+    const isNoneActive = player.team === 'none';
+    buttons += `
+        <button class="team-btn none ${isNoneActive ? 'active' : ''}"
+                onclick="updatePlayerTeam(${player.id}, 'none')">
+            NONE
+        </button>
+    `;
+    
+    return buttons;
+}
+
+// Update player team
+function updatePlayerTeam(playerId, team) {
+    if (socket && currentGame) {
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'updatePlayerTeam',
+            data: {
+                playerId,
+                team
+            }
+        });
+    }
+}
+
+// Handle player team updates
+function handlePlayerTeamUpdate(data) {
+    // Update local players data for owner dialog
+    const playerIndex = playersData.findIndex(p => p.id === data.playerId);
+    if (playerIndex !== -1) {
+        playersData[playerIndex].team = data.team;
+        renderPlayersList();
+    }
+    
+    // Update currentGame players data for team selection interface
+    if (currentGame && currentGame.players) {
+        const gamePlayerIndex = currentGame.players.findIndex(p => p.id === data.playerId);
+        if (gamePlayerIndex !== -1) {
+            currentGame.players[gamePlayerIndex].team = data.team;
+        }
+    }
+    
+    // Update player marker with new team color
+    updatePlayerMarkerTeam(data.playerId, data.team);
+    
+    // Show notification
+    if (data.userId !== currentUser.id) {
+        showInfo(`${data.userName} ha sido asignado al equipo ${data.team || 'none'}`);
+    }
+}
+
+// Update player marker with new team
+function updatePlayerMarkerTeam(playerId, team) {
+    const marker = playerMarkers[playerId];
+    if (marker) {
+        const teamClass = team && team !== 'none' ? team : 'none';
+        const currentPosition = marker.getLatLng();
+        const currentAccuracy = marker.accuracy || 0;
+        
+        // Remove existing marker
+        map.removeLayer(marker);
+        
+        // Create new marker with updated team class
+        const newMarker = L.marker(currentPosition, {
+            icon: L.divIcon({
+                className: `player-marker ${teamClass}`,
+                iconSize: [24, 24],
+            })
+        }).addTo(map);
+        
+        // Update popup with current info
+        const targetPlayer = currentGame.players?.find(p => p.user.id === playerId);
+        const targetIsOwner = currentGame.owner && playerId === currentGame.owner.id;
+        const teamInfo = targetPlayer?.team && targetPlayer.team !== 'none' ? `<br>Equipo: ${targetPlayer.team.toUpperCase()}` : '';
+        
+        newMarker.bindPopup(`
+            <strong>${targetPlayer?.user?.name || 'Jugador'}</strong><br>
+            ${targetIsOwner ? 'Propietario' : 'Jugador'}${teamInfo}<br>
+            <small>Precisión: ${Math.round(currentAccuracy)}m</small>
+        `);
+        
+        playerMarkers[playerId] = newMarker;
+    }
+}
+
+// Add event listener for players button
+document.addEventListener('DOMContentLoaded', function() {
+    const playersBtn = document.getElementById('playersBtn');
+    if (playersBtn) {
+        playersBtn.addEventListener('click', openTeamsDialog);
+    }
+    
+    // Initialize team count buttons
+    document.querySelectorAll('.team-count-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            setTeamCount(parseInt(this.dataset.count));
+        });
+    });
+    
+    // Set initial team count from game data
+    if (currentGame && currentGame.teamCount) {
+        setTeamCount(currentGame.teamCount);
+    } else {
+        setTeamCount(2);
+    }
+    
+    // Add event listener for time selector
+    const timeSelector = document.getElementById('timeSelector');
+    if (timeSelector) {
+        timeSelector.addEventListener('change', function() {
+            const selectedTime = parseInt(this.value);
+            updateGameTime(selectedTime);
+        });
+    }
+});
+
+// Handle game actions from other players
+function handleGameAction(data) {
+    switch (data.action) {
+        case 'positionUpdate':
+            // Update other player positions with real GPS data
+            if (data.data.userId !== currentUser.id) {
+                updatePlayerMarker(data.data);
+            }
+            break;
+        case 'playerJoined':
+        case 'playerLeft':
+            // Reload game data to reflect changes
+            loadGame(currentGame.id);
+            break;
+        case 'controlPointCreated':
+            console.log('Control point created:', data.data);
+            if (window.addControlPointMarker) {
+                window.addControlPointMarker(data.data);
+            }
+            break;
+        case 'controlPointUpdated':
+            console.log('Control point updated:', data.data);
+            // Update existing marker
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.id) {
+                    layer.controlPointData = data.data;
+                    layer.bindPopup(window.createControlPointEditMenu(data.data, layer));
+                    // Close popup if it's open
+                    if (layer.isPopupOpen()) {
+                        layer.closePopup();
+                    }
+                }
+            });
+            break;
+        case 'controlPointDeleted':
+            console.log('Control point deleted:', data.data);
+            // Remove marker
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.controlPointId) {
+                    map.removeLayer(layer);
+                }
+            });
+            break;
+        case 'controlPointTaken':
+            // Show notification when a control point is taken
+            if (data.data.userId !== currentUser.id) {
+                showInfo(`${data.data.userName} ha tomado un punto de control`);
+            }
+            break;
+        case 'playerTeamUpdated':
+            handlePlayerTeamUpdate(data.data);
+            
+            // Update the affected player's data in currentGame
+            if (currentGame && currentGame.players) {
+                const playerIndex = currentGame.players.findIndex(p => p.id === data.data.playerId);
+                if (playerIndex !== -1) {
+                    currentGame.players[playerIndex].team = data.data.team;
+                }
+            }
+            
+            // Update player team selection interface for the affected user
+            if (data.data.userId === currentUser.id && window.updatePlayerTeamSelection) {
+                window.updatePlayerTeamSelection();
+                // Also update user marker with new team color
+                updateUserMarkerTeam();
+            }
+            break;
+        case 'gameStateChanged':
+            // Update game state and controls
+            if (data.data && data.data.game) {
+                currentGame = data.data.game;
+                updateGameInfo();
+                
+                // Update player team selection when game state changes
+                if (window.updatePlayerTeamSelection) {
+                    window.updatePlayerTeamSelection();
+                }
+            }
+            break;
+        case 'teamCountUpdated':
+            // Update game data and refresh team selection
+            if (data.data && data.data.game) {
+                currentGame = data.data.game;
+                updateGameInfo();
+                
+                // Reload the complete game data to ensure we have the latest player information
+                loadGame(currentGame.id);
+                
+                // Update player team selection interface
+                if (window.updatePlayerTeamSelection) {
+                    window.updatePlayerTeamSelection();
+                }
+                
+                // Reload players data for owner's dialog
+                if (currentGame.owner && currentGame.owner.id === currentUser.id) {
+                    loadPlayersData();
+                }
+            }
+            break;
+            
+        case 'playerPositionsResponse':
+            // Handle response with current player positions
+            if (data.data && Array.isArray(data.data.positions)) {
+                data.data.positions.forEach(position => {
+                    if (position.userId !== currentUser.id) {
+                        updatePlayerMarker(position);
+                    }
+                });
+            }
+            break;
+
+        case 'timeUpdated':
+            // Handle time updates (countdown or timer)
+            if (data.data && data.data.remainingTime !== undefined) {
+                updateTimeDisplay(data.data.remainingTime);
+            }
+            break;
+        default:
+            console.log('Unhandled game action:', data.action);
+    }
+}
+
+// Update game state controls based on current game status
+function updateGameStateControls() {
+    if (!currentGame) return;
+    
+    const status = currentGame.status || 'stopped';
+    console.log('Updating game state controls for status:', status);
+    
+    const timeSelector = document.getElementById('timeSelectorContainer');
+    const timeControls = document.getElementById('timeControls');
+    const startBtn = document.getElementById('startGameBtn');
+    const pauseBtn = document.getElementById('pauseGameBtn');
+    const resumeBtn = document.getElementById('resumeGameBtn');
+    const endBtn = document.getElementById('endGameBtn');
+    
+    // Reset all controls
+    if (timeSelector) timeSelector.style.display = 'none';
+    if (timeControls) timeControls.style.display = 'none';
+    if (startBtn) startBtn.style.display = 'none';
+    if (pauseBtn) pauseBtn.style.display = 'none';
+    if (resumeBtn) resumeBtn.style.display = 'none';
+    if (endBtn) endBtn.style.display = 'none';
+    
+    switch (status) {
+        case 'stopped':
+            console.log('Showing stopped state controls');
+            if (timeSelector) timeSelector.style.display = 'block';
+            if (startBtn) startBtn.style.display = 'block';
+            break;
+        case 'running':
+            console.log('Showing running state controls');
+            if (timeControls) timeControls.style.display = 'flex';
+            if (pauseBtn) pauseBtn.style.display = 'block';
+            if (endBtn) endBtn.style.display = 'block';
+            break;
+        case 'paused':
+            console.log('Showing paused state controls');
+            if (timeControls) timeControls.style.display = 'flex';
+            if (resumeBtn) resumeBtn.style.display = 'block';
+            if (endBtn) endBtn.style.display = 'block';
+            break;
+    }
+    
+    // Debug: Log current state of elements
+    console.log('Controls state:', {
+        timeSelector: timeSelector ? timeSelector.style.display : 'not found',
+        timeControls: timeControls ? timeControls.style.display : 'not found',
+        startBtn: startBtn ? startBtn.style.display : 'not found',
+        pauseBtn: pauseBtn ? pauseBtn.style.display : 'not found',
+        resumeBtn: resumeBtn ? resumeBtn.style.display : 'not found',
+        endBtn: endBtn ? endBtn.style.display : 'not found'
+    });
+}
+
+// Update game time
+function updateGameTime(timeInSeconds) {
+    if (socket && currentGame) {
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'updateGameTime',
+            data: {
+                timeInSeconds: timeInSeconds
+            }
+        });
+        
+        let timeText = 'indefinido';
+        if (timeInSeconds > 0) {
+            const minutes = timeInSeconds / 60;
+            timeText = `${minutes} min`;
+        }
+        
+        showSuccess(`Tiempo del juego actualizado: ${timeText}`);
+    }
+}
+
+// Game state management functions
+function startGame() {
+    if (socket && currentGame) {
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'startGame'
+        });
+    }
+}
+
+function pauseGame() {
+    if (socket && currentGame) {
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'pauseGame'
+        });
+    }
+}
+
+function resumeGame() {
+    if (socket && currentGame) {
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'resumeGame'
+        });
+    }
+}
+
+function endGame() {
+    if (socket && currentGame) {
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'endGame'
+        });
+    }
+}
+
+function addTime(seconds) {
+    if (socket && currentGame) {
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'addTime',
+            data: {
+                seconds: seconds
+            }
+        });
+        
+        const minutes = seconds / 60;
+        showSuccess(`Se agregaron ${minutes} minutos al juego`);
+    }
+}
+
+// Update user marker with current team
+function updateUserMarkerTeam() {
+    if (userMarker) {
+        const currentPlayer = currentGame.players?.find(p => p.user.id === currentUser.id);
+        const teamClass = currentPlayer?.team && currentPlayer.team !== 'none' ? currentPlayer.team : 'none';
+        const currentPosition = userMarker.getLatLng();
+        
+        // Remove existing marker
+        map.removeLayer(userMarker);
+        
+        // Create new marker with updated team class
+        userMarker = L.marker(currentPosition, {
+            icon: L.divIcon({
+                className: `user-marker ${teamClass}`,
+                iconSize: [24, 24],
+            })
+        }).addTo(map);
+        userMarker.bindPopup('<strong>Tu ubicación</strong>');
+    }
+}
+
+// Make functions available globally
+window.openTeamsDialog = openTeamsDialog;
+window.closeTeamsDialog = closeTeamsDialog;
+window.setTeamCount = setTeamCount;
+window.updatePlayerTeam = updatePlayerTeam;
+window.updateGameTime = updateGameTime;
+window.startGame = startGame;
+window.pauseGame = pauseGame;
+window.resumeGame = resumeGame;
+window.updateUserMarkerTeam = updateUserMarkerTeam;
+// Update time display
+function updateTimeDisplay(remainingTime) {
+    const gameStatusElement = document.getElementById('gameStatus');
+    if (gameStatusElement) {
+        if (remainingTime === 0 || remainingTime === null) {
+            gameStatusElement.textContent = 'indefinido';
+        } else {
+            const minutes = Math.floor(remainingTime / 60);
+            const seconds = remainingTime % 60;
+            gameStatusElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+    }
+}
+
+window.endGame = endGame;
+window.addTime = addTime;
+
+// Request current player positions (for owners)
+function requestPlayerPositions() {
+    if (socket && currentGame) {
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'requestPlayerPositions'
+        });
+    }
+}
 
 // Initialize when page loads
 window.onload = initialize;

@@ -23,11 +23,14 @@ export class Game {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @Column({ default: 'waiting' })
-  status: string; // waiting, in_progress, finished
+  @Column({ default: 'stopped' })
+  status: string; // stopped, running, paused
 
   @Column({ default: 10 })
   maxPlayers: number;
+
+  @Column({ default: 2 })
+  teamCount: number; // Number of teams (2, 3, or 4)
 
   @CreateDateColumn()
   createdAt: Date;
@@ -42,6 +45,6 @@ export class Game {
   @OneToMany(() => Player, player => player.game)
   players: Player[];
 
-  @OneToMany(() => ControlPoint, (controlPoint) => controlPoint.game)
+  @OneToMany(() => ControlPoint, controlPoint => controlPoint.game)
   controlPoints: ControlPoint[];
 }

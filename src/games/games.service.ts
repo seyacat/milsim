@@ -66,7 +66,9 @@ export class GamesService {
       where: { game: { id: gameId }, user: { id: userId } },
     });
     if (existingPlayer) {
-      throw new ConflictException('User is already in this game');
+      // User is already in the game, return the existing player (allow reconnection)
+      console.log(`User ${userId} is already in game ${gameId}, allowing reconnection`);
+      return existingPlayer;
     }
 
     // Check if game is full
@@ -183,5 +185,167 @@ export class GamesService {
     }
 
     await this.controlPointsRepository.delete(id);
+  }
+
+  async updatePlayerTeam(playerId: number, team: string): Promise<Player> {
+    const player = await this.playersRepository.findOne({
+      where: { id: playerId },
+      relations: ['user'],
+    });
+    
+    if (!player) {
+      throw new NotFoundException('Player not found');
+    }
+
+    // Validate team value
+    const validTeams = ['blue', 'red', 'green', 'yellow', 'none'];
+    if (!validTeams.includes(team)) {
+      throw new ConflictException('Invalid team value');
+    }
+
+    player.team = team;
+    return this.playersRepository.save(player);
+  }
+
+  async getPlayersByGame(gameId: number): Promise<Player[]> {
+    return this.playersRepository.find({
+      where: { game: { id: gameId } },
+      relations: ['user'],
+      order: { joinedAt: 'ASC' },
+    });
+  }
+
+  async deleteGame(gameId: number, userId: number): Promise<void> {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+      relations: ['players', 'controlPoints', 'owner'],
+    });
+    
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    // Check if user is the owner of the game
+    if (game.owner.id !== userId) {
+      throw new ConflictException('Solo el propietario del juego puede eliminarlo');
+    }
+
+    // Delete related players
+    if (game.players && game.players.length > 0) {
+      await this.playersRepository.remove(game.players);
+    }
+
+    // Delete related control points
+    if (game.controlPoints && game.controlPoints.length > 0) {
+      await this.controlPointsRepository.remove(game.controlPoints);
+    }
+
+    // Delete the game
+    await this.gamesRepository.delete(gameId);
+  }
+
+  async startGame(gameId: number, userId: number): Promise<Game> {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+      relations: ['owner'],
+    });
+    
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    // Check if user is the owner of the game
+    if (game.owner.id !== userId) {
+      throw new ConflictException('Solo el propietario del juego puede iniciarlo');
+    }
+
+    // Update game status
+    game.status = 'running';
+    return this.gamesRepository.save(game);
+  }
+
+  async pauseGame(gameId: number, userId: number): Promise<Game> {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+      relations: ['owner'],
+    });
+    
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    // Check if user is the owner of the game
+    if (game.owner.id !== userId) {
+      throw new ConflictException('Solo el propietario del juego puede pausarlo');
+    }
+
+    // Update game status
+    game.status = 'paused';
+    return this.gamesRepository.save(game);
+  }
+
+  async resumeGame(gameId: number, userId: number): Promise<Game> {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+      relations: ['owner'],
+    });
+    
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    // Check if user is the owner of the game
+    if (game.owner.id !== userId) {
+      throw new ConflictException('Solo el propietario del juego puede reanudarlo');
+    }
+
+    // Update game status
+    game.status = 'running';
+    return this.gamesRepository.save(game);
+  }
+
+  async endGame(gameId: number, userId: number): Promise<Game> {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+      relations: ['owner'],
+    });
+    
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    // Check if user is the owner of the game
+    if (game.owner.id !== userId) {
+      throw new ConflictException('Solo el propietario del juego puede finalizarlo');
+    }
+
+    // Update game status
+    game.status = 'stopped';
+    return this.gamesRepository.save(game);
+  }
+
+  async updateTeamCount(gameId: number, teamCount: number, userId: number): Promise<Game> {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+      relations: ['owner'],
+    });
+    
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    // Check if user is the owner of the game
+    if (game.owner.id !== userId) {
+      throw new ConflictException('Solo el propietario del juego puede cambiar el número de equipos');
+    }
+
+    // Validate team count (2, 3, or 4)
+    if (![2, 3, 4].includes(teamCount)) {
+      throw new ConflictException('El número de equipos debe ser 2, 3 o 4');
+    }
+
+    // Update team count
+    game.teamCount = teamCount;
+    return this.gamesRepository.save(game);
   }
 }

@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Headers, UnauthorizedException } from '@nestjs/common';
+import { AuthService } from '../auth/auth.service';
 import { GamesService } from './games.service';
 import { Game } from './entities/game.entity';
 import { Player } from './entities/player.entity';
@@ -6,7 +7,10 @@ import { ControlPoint } from './entities/control-point.entity';
 
 @Controller('api/games')
 export class GamesController {
-  constructor(private readonly gamesService: GamesService) {}
+  constructor(
+    private readonly gamesService: GamesService,
+    private readonly authService: AuthService,
+  ) {}
 
   @Get()
   async findAll(): Promise<Game[]> {
@@ -33,6 +37,11 @@ export class GamesController {
     return this.gamesService.getPlayerGames(+userId);
   }
 
+  @Get(':id/players')
+  async getGamePlayers(@Param('id') id: string): Promise<Player[]> {
+    return this.gamesService.getPlayersByGame(+id);
+  }
+
   @Post('control-points')
   async createControlPoint(
     @Body('name') name: string,
@@ -48,6 +57,21 @@ export class GamesController {
       longitude,
       gameId,
     });
+  }
+
+  @Delete(':id')
+  async deleteGame(
+    @Param('id') id: string,
+    @Headers('authorization') authHeader: string,
+  ): Promise<void> {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Token de autorización requerido');
+    }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    const user = await this.authService.validateToken(token);
+    
+    return this.gamesService.deleteGame(+id, user.id);
   }
 
 }
