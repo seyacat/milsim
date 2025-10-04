@@ -118,34 +118,23 @@ async function createControlPoint(lat, lng) {
     // Generate a default name based on coordinates
     const name = `Punto ${Math.round(lat * 10000)}-${Math.round(lng * 10000)}`;
     
-    try {
-        const response = await fetch('/api/games/control-points', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
+    // Send create control point via WebSocket
+    if (socket && currentGame) {
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'createControlPoint',
+            data: {
                 name,
                 description: '',
                 latitude: lat,
                 longitude: lng,
                 gameId: currentGame.id,
                 type: defaultType
-            })
+            }
         });
-
-        if (response.ok) {
-            const controlPoint = await response.json();
-            console.log('Control point created:', controlPoint);
-            addControlPointMarker(controlPoint);
-            closeControlPointMenu();
-            showSuccess('Punto de control creado exitosamente');
-        } else {
-            const error = await response.json();
-            throw new Error(error.message || 'Error al crear el punto de control');
-        }
-    } catch (error) {
-        showError('Error: ' + error.message);
+        
+        // The marker will be added when we receive the 'controlPointCreated' event
+        closeControlPointMenu();
     }
 }
 
@@ -153,12 +142,16 @@ async function createControlPoint(lat, lng) {
 function addControlPointMarker(controlPoint) {
     console.log('Adding control point marker:', controlPoint);
     
-    // Create house icon
-    const houseIcon = L.divIcon({
+    // Create icon based on type
+    const isSite = controlPoint.type === 'site';
+    const iconColor = isSite ? '#FF9800' : '#2196F3';
+    const iconEmoji = isSite ? '🏠' : '🚩';
+    
+    const controlPointIcon = L.divIcon({
         className: 'control-point-marker',
         html: `
             <div style="
-                background: #FF9800;
+                background: ${iconColor};
                 border: 2px solid white;
                 border-radius: 50%;
                 width: 20px;
@@ -170,14 +163,14 @@ function addControlPointMarker(controlPoint) {
                 color: white;
                 font-weight: bold;
                 box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-            ">🏠</div>
+            ">${iconEmoji}</div>
         `,
         iconSize: [20, 20],
         iconAnchor: [10, 10]
     });
 
     const marker = L.marker([controlPoint.latitude, controlPoint.longitude], {
-        icon: houseIcon
+        icon: controlPointIcon
     }).addTo(map);
 
     // Create popup with edit options
@@ -304,16 +297,8 @@ function updateControlPoint(controlPointId, markerId) {
             }
         });
         
-        // Update the marker locally and close popup
-        map.eachLayer((layer) => {
-            if (layer instanceof L.Marker && layer._leaflet_id === markerId) {
-                layer.controlPointData = { ...layer.controlPointData, name, type };
-                layer.bindPopup(createControlPointEditMenu(layer.controlPointData, layer));
-                showSuccess('Punto actualizado exitosamente');
-                // Close the popup after update
-                layer.closePopup();
-            }
-        });
+        // The marker will be updated when we receive the 'controlPointUpdated' event
+        showSuccess('Punto actualizado exitosamente');
     }
 }
 
@@ -333,12 +318,7 @@ function deleteControlPoint(controlPointId, markerId) {
             }
         });
         
-        // Remove the marker locally
-        map.eachLayer((layer) => {
-            if (layer instanceof L.Marker && layer._leaflet_id === markerId) {
-                map.removeLayer(layer);
-            }
-        });
+        // The marker will be removed when we receive the 'controlPointDeleted' event
         showSuccess('Punto eliminado exitosamente');
     }
 }

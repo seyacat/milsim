@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Game } from './entities/game.entity';
@@ -26,7 +30,7 @@ export class GamesService {
   async findOne(id: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
       where: { id },
-      relations: ['owner', 'players', 'players.user'],
+      relations: ['owner', 'players', 'players.user', 'controlPoints'],
     });
     if (!game) {
       throw new NotFoundException('Game not found');
@@ -108,12 +112,14 @@ export class GamesService {
       const existingSite = await this.controlPointsRepository.findOne({
         where: {
           game: { id: controlPointData.gameId },
-          type: 'site'
-        }
+          type: 'site',
+        },
       });
       
       if (existingSite) {
-        throw new ConflictException('Solo puede haber un punto de tipo Site por juego');
+        throw new ConflictException(
+          'Solo puede haber un punto de tipo Site por juego',
+        );
       }
     }
 
@@ -125,7 +131,10 @@ export class GamesService {
     return this.controlPointsRepository.save(controlPoint);
   }
 
-  async updateControlPoint(id: number, updateData: { name: string; type: string }): Promise<ControlPoint> {
+  async updateControlPoint(
+    id: number,
+    updateData: { name: string; type: string },
+  ): Promise<ControlPoint> {
     const controlPoint = await this.controlPointsRepository.findOne({
       where: { id },
       relations: ['game'],
@@ -145,7 +154,9 @@ export class GamesService {
       });
       
       if (existingSite && existingSite.id !== id) {
-        throw new ConflictException('Solo puede haber un punto de tipo Site por juego');
+        throw new ConflictException(
+          'Solo puede haber un punto de tipo Site por juego',
+        );
       }
     }
 
@@ -164,7 +175,7 @@ export class GamesService {
 
   async deleteControlPoint(id: number): Promise<void> {
     const controlPoint = await this.controlPointsRepository.findOne({
-      where: { id }
+      where: { id },
     });
     
     if (!controlPoint) {

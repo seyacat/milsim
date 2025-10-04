@@ -89,6 +89,11 @@ function initializeWebSocket(gameId) {
         handleGameAction(data);
     });
 
+    socket.on('gameActionError', (data) => {
+        console.log('Game action error:', data);
+        showError('Error: ' + data.error);
+    });
+
     socket.on('gameState', (game) => {
         console.log('Game state received:', game);
         currentGame = game;
@@ -115,8 +120,32 @@ async function loadGame(gameId) {
         currentGame = await response.json();
         updateGameInfo();
         updatePlayerMarkers();
+        loadControlPoints(gameId);
     } catch (error) {
         showError('Error al cargar el juego: ' + error.message);
+    }
+}
+
+// Load control points for the game
+async function loadControlPoints(gameId) {
+    try {
+        // Clear existing control point markers
+        map.eachLayer((layer) => {
+            if (layer instanceof L.Marker && layer.controlPointData) {
+                map.removeLayer(layer);
+            }
+        });
+
+        // Load control points from the game data
+        if (currentGame && currentGame.controlPoints && Array.isArray(currentGame.controlPoints)) {
+            currentGame.controlPoints.forEach(controlPoint => {
+                if (window.addControlPointMarker) {
+                    window.addControlPointMarker(controlPoint);
+                }
+            });
+        }
+    } catch (error) {
+        console.error('Error loading control points:', error);
     }
 }
 
@@ -265,6 +294,35 @@ function handleGameAction(data) {
         case 'playerLeft':
             // Reload game data to reflect changes
             loadGame(currentGame.id);
+            break;
+        case 'controlPointCreated':
+            console.log('Control point created:', data.data);
+            if (window.addControlPointMarker) {
+                window.addControlPointMarker(data.data);
+            }
+            break;
+        case 'controlPointUpdated':
+            console.log('Control point updated:', data.data);
+            // Update existing marker
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.id) {
+                    layer.controlPointData = data.data;
+                    layer.bindPopup(window.createControlPointEditMenu(data.data, layer));
+                    // Close popup if it's open
+                    if (layer.isPopupOpen()) {
+                        layer.closePopup();
+                    }
+                }
+            });
+            break;
+        case 'controlPointDeleted':
+            console.log('Control point deleted:', data.data);
+            // Remove marker
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.controlPointId) {
+                    map.removeLayer(layer);
+                }
+            });
             break;
         default:
             console.log('Unhandled game action:', data.action);

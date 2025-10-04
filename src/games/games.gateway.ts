@@ -29,7 +29,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('joinGame')
-  async handleJoinGame(client: Socket, payload: { gameId: number; userId: number }) {
+  async handleJoinGame(
+    client: Socket,
+    payload: { gameId: number; userId: number },
+  ) {
     const { gameId } = payload;
 
     try {
@@ -46,13 +49,16 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
 
       client.emit('joinSuccess', { message: 'Successfully joined game' });
-    } catch (error) {
+    } catch (error: any) {
       client.emit('joinError', { message: 'Failed to join game' });
     }
   }
 
   @SubscribeMessage('leaveGame')
-  async handleLeaveGame(client: Socket, payload: { gameId: number; userId: number }) {
+  async handleLeaveGame(
+    client: Socket,
+    payload: { gameId: number; userId: number },
+  ) {
     const { gameId } = payload;
 
     try {
@@ -69,21 +75,84 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
 
       client.emit('leaveSuccess', { message: 'Successfully left game' });
-    } catch (error) {
+    } catch (error: any) {
       client.emit('leaveError', { message: 'Failed to leave game' });
     }
   }
 
   @SubscribeMessage('gameAction')
-  async handleGameAction(client: Socket, payload: { gameId: number; action: string; data: any }) {
+  async handleGameAction(
+    client: Socket,
+    payload: { gameId: number; action: string; data: any },
+  ) {
     const { gameId, action, data } = payload;
 
-    // Broadcast the action to all clients in the game room
-    this.server.to(`game_${gameId}`).emit('gameAction', {
-      action,
-      data,
-      from: client.id,
-    });
+    try {
+      switch (action) {
+        case 'createControlPoint': {
+          const newControlPoint = await this.gamesService.createControlPoint({
+            name: data.name,
+            description: data.description || '',
+            latitude: data.latitude,
+            longitude: data.longitude,
+            gameId: data.gameId,
+            type: data.type || 'control_point',
+          });
+
+          // Broadcast the new control point to all clients
+          this.server.to(`game_${gameId}`).emit('gameAction', {
+            action: 'controlPointCreated',
+            data: newControlPoint,
+            from: client.id,
+          });
+          break;
+        }
+
+        case 'updateControlPoint': {
+          const updatedControlPoint = await this.gamesService.updateControlPoint(
+            data.controlPointId,
+            {
+              name: data.name,
+              type: data.type,
+            },
+          );
+
+          // Broadcast the updated control point to all clients
+          this.server.to(`game_${gameId}`).emit('gameAction', {
+            action: 'controlPointUpdated',
+            data: updatedControlPoint,
+            from: client.id,
+          });
+          break;
+        }
+
+        case 'deleteControlPoint': {
+          await this.gamesService.deleteControlPoint(data.controlPointId);
+
+          // Broadcast the deletion to all clients
+          this.server.to(`game_${gameId}`).emit('gameAction', {
+            action: 'controlPointDeleted',
+            data: { controlPointId: data.controlPointId },
+            from: client.id,
+          });
+          break;
+        }
+
+        default:
+          // For other actions, just broadcast as before
+          this.server.to(`game_${gameId}`).emit('gameAction', {
+            action,
+            data,
+            from: client.id,
+          });
+      }
+    } catch (error: any) {
+      // Send error back to the client that initiated the action
+      client.emit('gameActionError', {
+        action,
+        error: error.message,
+      });
+    }
   }
 
   @SubscribeMessage('getGameState')
@@ -93,7 +162,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const game = await this.gamesService.findOne(gameId);
       client.emit('gameState', game);
-    } catch (error) {
+    } catch (error: any) {
       client.emit('gameStateError', { message: 'Failed to get game state' });
     }
   }
