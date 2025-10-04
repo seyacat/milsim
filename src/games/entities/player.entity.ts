@@ -18,6 +18,7 @@ export class Player {
   @JoinColumn({ name: 'gameId' })
   game: Game;
 
+
   @ManyToOne(() => User)
   @JoinColumn({ name: 'userId' })
   user: User;

@@ -5,12 +5,14 @@ import { GamesService } from './games.service';
 import { Game } from './entities/game.entity';
 import { Player } from './entities/player.entity';
 import { ControlPoint } from './entities/control-point.entity';
+import { GameInstance } from './entities/game-instance.entity';
+import { GameHistory } from './entities/game-history.entity';
 import { GamesGateway } from './games.gateway';
 import { WebsocketAuthService } from '../auth/websocket-auth.service';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Game, Player, ControlPoint]), AuthModule],
+  imports: [TypeOrmModule.forFeature([Game, Player, ControlPoint, GameInstance, GameHistory]), AuthModule],
   controllers: [GamesController],
   providers: [GamesService, GamesGateway, WebsocketAuthService],
 })

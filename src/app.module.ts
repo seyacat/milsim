@@ -9,6 +9,8 @@ import { User } from './auth/entities/user.entity';
 import { Game } from './games/entities/game.entity';
 import { Player } from './games/entities/player.entity';
 import { ControlPoint } from './games/entities/control-point.entity';
+import { GameInstance } from './games/entities/game-instance.entity';
+import { GameHistory } from './games/entities/game-history.entity';
 
 @Module({
   imports: [
@@ -24,7 +26,7 @@ import { ControlPoint } from './games/entities/control-point.entity';
         username: configService.get('DB_USERNAME'),
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_DATABASE'),
-        entities: [User, Game, Player, ControlPoint],
+        entities: [User, Game, Player, ControlPoint, GameInstance, GameHistory],
         synchronize: true,
       }),
       inject: [ConfigService],

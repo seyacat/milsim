@@ -11,6 +11,7 @@ import {
 import { Player } from './player.entity';
 import { User } from '../../auth/entities/user.entity';
 import { ControlPoint } from './control-point.entity';
+import { GameInstance } from './game-instance.entity';
 
 @Entity('games')
 export class Game {
@@ -35,6 +36,9 @@ export class Game {
   @Column({ type: 'int', nullable: true })
   totalTime: number; // Total game time in seconds (null for unlimited)
 
+  @Column({ type: 'int', nullable: true })
+  instanceId: number | null; // Reference to active game instance
+
   @CreateDateColumn()
   createdAt: Date;
 
@@ -50,4 +54,7 @@ export class Game {
 
   @OneToMany(() => ControlPoint, controlPoint => controlPoint.game)
   controlPoints: ControlPoint[];
+
+  @OneToMany(() => GameInstance, gameInstance => gameInstance.game)
+  instances: GameInstance[];
 }

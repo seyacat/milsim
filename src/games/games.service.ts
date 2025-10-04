@@ -8,6 +8,8 @@ import { Repository } from 'typeorm';
 import { Game } from './entities/game.entity';
 import { Player } from './entities/player.entity';
 import { ControlPoint } from './entities/control-point.entity';
+import { GameInstance } from './entities/game-instance.entity';
+import { GameHistory } from './entities/game-history.entity';
 
 interface GameTimer {
   gameId: number;
@@ -29,6 +31,10 @@ export class GamesService {
     private playersRepository: Repository<Player>,
     @InjectRepository(ControlPoint)
     private controlPointsRepository: Repository<ControlPoint>,
+    @InjectRepository(GameInstance)
+    private gameInstancesRepository: Repository<GameInstance>,
+    @InjectRepository(GameHistory)
+    private gameHistoryRepository: Repository<GameHistory>,
   ) {}
 
   async findAll(): Promise<Game[]> {
@@ -270,9 +276,20 @@ export class GamesService {
       throw new ConflictException('Solo el propietario del juego puede iniciarlo');
     }
 
-    // Update game status
+    // Create game instance when game starts
+    const gameInstance = await this.createGameInstance(gameId);
+
+    // Update game status and set instanceId
     game.status = 'running';
+    game.instanceId = gameInstance.id;
     const updatedGame = await this.gamesRepository.save(game);
+
+    // Add game started event to history
+    await this.addGameHistory(gameInstance.id, 'game_started', {
+      gameId,
+      startedBy: userId,
+      timestamp: new Date(),
+    });
 
     // Start timer if game has time limit
     if (game.totalTime && game.totalTime > 0) {
@@ -301,6 +318,15 @@ export class GamesService {
     game.status = 'paused';
     const updatedGame = await this.gamesRepository.save(game);
 
+    // Add game paused event to history if there's an active instance
+    if (game.instanceId) {
+      await this.addGameHistory(game.instanceId, 'game_paused', {
+        gameId,
+        pausedBy: userId,
+        timestamp: new Date(),
+      });
+    }
+
     // Pause timer if exists
     this.pauseGameTimer(gameId);
 
@@ -326,6 +352,15 @@ export class GamesService {
     game.status = 'running';
     const updatedGame = await this.gamesRepository.save(game);
 
+    // Add game resumed event to history if there's an active instance
+    if (game.instanceId) {
+      await this.addGameHistory(game.instanceId, 'game_resumed', {
+        gameId,
+        resumedBy: userId,
+        timestamp: new Date(),
+      });
+    }
+
     // Resume timer if exists
     this.resumeGameTimer(gameId);
 
@@ -347,8 +382,18 @@ export class GamesService {
       throw new ConflictException('Solo el propietario del juego puede finalizarlo');
     }
 
-    // Update game status
+    // Add game ended event to history if there's an active instance
+    if (game.instanceId) {
+      await this.addGameHistory(game.instanceId, 'game_ended', {
+        gameId,
+        endedBy: userId,
+        timestamp: new Date(),
+      });
+    }
+
+    // Update game status and set instanceId to null
     game.status = 'stopped';
+    game.instanceId = null;
     const updatedGame = await this.gamesRepository.save(game);
 
     // Stop timer if exists
@@ -408,6 +453,18 @@ export class GamesService {
       } else if (timer.remainingTime <= 0) {
         // Time's up - end the game
         this.endGame(gameId, 0).catch(console.error); // 0 is system user ID
+        
+        // Add time expired event to history
+        this.gamesRepository.findOne({ where: { id: gameId } })
+          .then(game => {
+            if (game && game.instanceId) {
+              return this.addGameHistory(game.instanceId, 'time_expired', {
+                gameId,
+                timestamp: new Date(),
+              });
+            }
+          })
+          .catch(console.error);
       }
     }, 1000);
 
@@ -473,5 +530,72 @@ export class GamesService {
     await this.gamesRepository.save(game);
 
     return game;
+  }
+
+  // Game Instance methods
+  async createGameInstance(gameId: number): Promise<GameInstance> {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+    });
+    
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    // Create a new game instance with the same settings as the game
+    const gameInstance = this.gameInstancesRepository.create({
+      name: game.name,
+      description: game.description,
+      status: game.status,
+      maxPlayers: game.maxPlayers,
+      teamCount: game.teamCount,
+      totalTime: game.totalTime,
+      game: { id: gameId },
+    });
+
+    const savedInstance = await this.gameInstancesRepository.save(gameInstance);
+
+    // Update the game with the new instance ID
+    game.instanceId = savedInstance.id;
+    await this.gamesRepository.save(game);
+
+    return savedInstance;
+  }
+
+  async getGameInstance(gameId: number): Promise<GameInstance | null> {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+    });
+    
+    if (!game || !game.instanceId) {
+      return null;
+    }
+
+    return this.gameInstancesRepository.findOne({
+      where: { id: game.instanceId },
+      relations: ['history'],
+    });
+  }
+
+  // Game History methods
+  async addGameHistory(
+    gameInstanceId: number,
+    eventType: string,
+    data?: any,
+  ): Promise<GameHistory> {
+    const gameHistory = this.gameHistoryRepository.create({
+      eventType,
+      data,
+      gameInstance: { id: gameInstanceId },
+    });
+
+    return this.gameHistoryRepository.save(gameHistory);
+  }
+
+  async getGameHistory(gameInstanceId: number): Promise<GameHistory[]> {
+    return this.gameHistoryRepository.find({
+      where: { gameInstance: { id: gameInstanceId } },
+      order: { timestamp: 'DESC' },
+    });
   }
 }
