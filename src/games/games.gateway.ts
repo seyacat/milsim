@@ -447,8 +447,25 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
 
         case 'addTime': {
-          // TODO: Implement add time functionality
-          console.log('Add time action received:', data);
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            try {
+              const game = await this.gamesService.findOne(gameId);
+              if (game.owner && game.owner.id === user.id) {
+                const updatedGame = await this.gamesService.addTime(gameId, data.minutes);
+                this.server.to(`game_${gameId}`).emit('gameAction', {
+                  action: 'timeAdded',
+                  data: { game: updatedGame },
+                  from: client.id,
+                });
+              }
+            } catch (error: any) {
+              client.emit('gameActionError', {
+                action: 'addTime',
+                error: error.message,
+              });
+            }
+          }
           break;
         }
 
@@ -524,6 +541,18 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('gameState', game);
     } catch (error: any) {
       client.emit('gameStateError', { message: 'Failed to get game state' });
+    }
+  }
+
+  @SubscribeMessage('getGameTime')
+  async handleGetGameTime(client: Socket, payload: { gameId: number }) {
+    const { gameId } = payload;
+
+    try {
+      const timeData = await this.gamesService.getGameTime(gameId);
+      client.emit('gameTime', timeData);
+    } catch (error: any) {
+      client.emit('gameTimeError', { message: 'Failed to get game time' });
     }
   }
 

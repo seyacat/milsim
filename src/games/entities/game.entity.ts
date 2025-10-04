@@ -32,6 +32,9 @@ export class Game {
   @Column({ default: 2 })
   teamCount: number; // Number of teams (2, 3, or 4)
 
+  @Column({ type: 'int', nullable: true })
+  totalTime: number; // Total game time in seconds (null for unlimited)
+
   @CreateDateColumn()
   createdAt: Date;
 

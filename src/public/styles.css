@@ -486,6 +486,11 @@ body {
     position: relative;
 }
 
+/* Custom popup positioning for user marker - move the entire popup higher */
+.user-marker-popup {
+    bottom: 17px !important;
+}
+
 .user-marker::before {
     content: "";
     position: absolute;
@@ -505,7 +510,7 @@ body {
     filter: drop-shadow(0 0 2px black) drop-shadow(0 0 1px black);
     position: relative;
     z-index: 2;
-    transform: translateX(1px);
+    transform: translate(2px, 2px);
 }
 
 /* Team colors for current user marker */

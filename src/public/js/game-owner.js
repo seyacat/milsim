@@ -20,6 +20,8 @@ function initializeOwnerFeatures() {
         }
     };
     
+    // Remove any existing handler first to avoid duplicates
+    map.off('click', mapClickHandler);
     map.on('click', mapClickHandler);
 }
 
@@ -34,6 +36,7 @@ function showControlPointMenu(latlng) {
     // Remove map click handler to prevent multiple menus
     if (map && mapClickHandler) {
         map.off('click', mapClickHandler);
+        console.log('Map click handler removed for menu');
     }
 
     // Create menu content
@@ -94,8 +97,9 @@ function closeControlPointMenu() {
             // Remove any existing handler first to avoid duplicates
             map.off('click', mapClickHandler);
             map.on('click', mapClickHandler);
+            console.log('Map click handler re-enabled');
         }
-    }, 100);
+    }, 200); // Increased delay to ensure menu is fully closed
 }
 
 // Check if game already has a Site

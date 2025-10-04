@@ -283,3 +283,4 @@ window.addControlPointMarkerPlayer = addControlPointMarkerPlayer;
 window.takeControlPoint = takeControlPoint;
 window.updatePlayerTeamSelection = updatePlayerTeamSelection;
 window.selectPlayerTeam = selectPlayerTeam;
+window.createControlPointPlayerMenu = createControlPointPlayerMenu;
