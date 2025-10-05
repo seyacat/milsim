@@ -24,7 +24,7 @@
             background: var(--surface-light);
             border: 1px solid var(--border);
             border-radius: var(--radius-lg);
-            padding: var(--spacing-xl);
+            padding: var(--spacing-lg);
             transition: all 0.3s ease;
             cursor: pointer;
         }
@@ -77,7 +77,23 @@
         </div>
         
         <div class="card">
-            <h2 class="mb-3">Juegos Disponibles</h2>
+            <!-- Search and Filter Controls -->
+            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 250px;">
+                    <input type="text" id="searchInput" placeholder="Buscar por nombre..."
+                           class="form-input" style="width: 100%;">
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label class="checkbox-label" style="display: flex; align-items: center; gap: 5px;">
+                        <input type="checkbox" id="ownGamesToggle">
+                        <span style="font-size: 12px;">Mostrar solo mis juegos</span>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Protection/Separator -->
+            <div style="height: 1px; background: var(--border); margin: 15px 0;"></div>
+            
             <div id="gamesList" class="games-grid">
                 <div class="loading">Cargando juegos...</div>
             </div>
@@ -127,38 +143,73 @@
             }
         }
 
-        // Display games in the grid
+        let allGames = []; // Store all games for filtering
+
+        // Display games in the grid with sorting and filtering
         function displayGames(games) {
+            allGames = games; // Store all games for filtering
+            
+            // Apply filters and sorting
+            const filteredGames = filterAndSortGames(games);
+            
             const gamesList = document.getElementById('gamesList');
             
-            if (games.length === 0) {
-                gamesList.innerHTML = '<div class="empty-state">No hay juegos disponibles</div>';
+            if (filteredGames.length === 0) {
+                gamesList.innerHTML = '<div class="empty-state">No hay juegos que coincidan con los filtros</div>';
                 return;
             }
 
-            gamesList.innerHTML = games.map(game => `
+            gamesList.innerHTML = filteredGames.map(game => `
                 <div class="game-card" onclick="enterGame(${game.id})">
-                    <h3>${game.name}</h3>
-                    <p>${game.description || 'Sin descripción'}</p>
-                    <div class="game-info">
-                        <span class="status-${game.status}">Estado: ${game.status}</span>
-                        <span>Jugadores conectados: ${game.activeConnections || 0}</span>
-                    </div>
-                    <div style="display: flex; gap: 10px; margin-top: 10px;">
-                        <button class="btn btn-primary" style="flex: 1;"
-                                onclick="event.stopPropagation(); enterGame(${game.id})">
-                            ${isUserInGame(game) ? 'Entrar al Juego' : 'Unirse al Juego'}
-                        </button>
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-muted);">
+                        <span style="font-weight: 600; font-size: 14px;">${game.name}</span>
+                        <span>Owner:${game.owner?.name || 'Desconocido'}</span>
+                        <span class="status-${game.status}">Status:${game.status}</span>
+                        <span>Players:${game.activeConnections || 0}</span>
                         ${isGameOwner(game) ? `
-                            <button class="btn btn-danger"
+                            <button class="btn btn-danger btn-sm"
                                     onclick="event.stopPropagation(); deleteGame(${game.id})"
                                     title="Eliminar juego">
                                 🗑️
                             </button>
-                        ` : ''}
+                        ` : '<span></span>'}
                     </div>
                 </div>
             `).join('');
+        }
+
+        // Filter and sort games based on current filters
+        function filterAndSortGames(games) {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const showOnlyOwnGames = document.getElementById('ownGamesToggle').checked;
+            
+            let filteredGames = games.filter(game => {
+                // Filter by search term
+                const matchesSearch = game.name.toLowerCase().includes(searchTerm) ||
+                                    (game.description && game.description.toLowerCase().includes(searchTerm));
+                
+                // Filter by own games if enabled
+                const matchesOwnGames = !showOnlyOwnGames || isGameOwner(game);
+                
+                return matchesSearch && matchesOwnGames;
+            });
+            
+            // Sort by active connections (descending)
+            filteredGames.sort((a, b) => {
+                const connectionsA = a.activeConnections || 0;
+                const connectionsB = b.activeConnections || 0;
+                return connectionsB - connectionsA;
+            });
+            
+            // Limit to 10 games
+            return filteredGames.slice(0, 10);
+        }
+
+        // Update games display when filters change
+        function updateGamesDisplay() {
+            if (allGames.length > 0) {
+                displayGames(allGames);
+            }
         }
 
         // Check if current user is the owner of the game
@@ -272,7 +323,16 @@
         }
 
         // Initialize dashboard
-        checkAuth();
+        function initializeDashboard() {
+            checkAuth();
+            
+            // Add event listeners for search and filter
+            document.getElementById('searchInput').addEventListener('input', updateGamesDisplay);
+            document.getElementById('ownGamesToggle').addEventListener('change', updateGamesDisplay);
+        }
+
+        // Initialize dashboard
+        initializeDashboard();
     </script>
     <script src="js/pwa-install.js"></script>
 </body>
