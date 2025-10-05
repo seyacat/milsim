@@ -28,6 +28,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     number,
     { lat: number; lng: number; accuracy: number; socketId: string }
   >(); // user.id -> position data
+  private gameConnections = new Map<number, Set<string>>(); // gameId -> Set of socket IDs
 
   constructor(
     @Inject(forwardRef(() => GamesService))
@@ -43,7 +44,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // Store user data
       this.connectedUsers.set(client.id, user);
-      
+
       // Register connection for uptime tracking
       this.connectionTracker.registerConnection();
       console.log(
@@ -61,7 +62,25 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.playerPositions.delete(user.id);
     }
     this.connectedUsers.delete(client.id);
-    
+
+    // Remove client from all game connections and update counts
+    for (const [gameId, connections] of this.gameConnections.entries()) {
+      if (connections.has(client.id)) {
+        connections.delete(client.id);
+        const connectionCount = connections.size;
+        this.gamesService
+          .updateActiveConnections(gameId, connectionCount)
+          .then(() => {
+            console.log(
+              `[DISCONNECT] Active connections updated for game ${gameId}: ${connectionCount}`,
+            );
+          })
+          .catch(error => {
+            console.error(`[DISCONNECT] Error updating connections for game ${gameId}:`, error);
+          });
+      }
+    }
+
     // Unregister connection for uptime tracking
     this.connectionTracker.unregisterConnection();
     console.log(
@@ -115,6 +134,19 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Join the room for this specific game
       client.join(`game_${gameId}`);
       console.log(`[JOIN_GAME_WS] Client ${client.id} joined room game_${gameId}`);
+
+      // Track game connection
+      if (!this.gameConnections.has(gameId)) {
+        this.gameConnections.set(gameId, new Set());
+      }
+      this.gameConnections.get(gameId)?.add(client.id);
+
+      // Update active connections count in the game
+      const connectionCount = this.gameConnections.get(gameId)?.size || 0;
+      await this.gamesService.updateActiveConnections(gameId, connectionCount);
+      console.log(
+        `[JOIN_GAME_WS] Active connections updated for game ${gameId}: ${connectionCount}`,
+      );
 
       // Get updated game data
       const game = await this.gamesService.findOne(gameId);
@@ -195,6 +227,16 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       // Leave the game room
       client.leave(`game_${gameId}`);
+
+      // Remove game connection
+      this.gameConnections.get(gameId)?.delete(client.id);
+
+      // Update active connections count in the game
+      const connectionCount = this.gameConnections.get(gameId)?.size || 0;
+      await this.gamesService.updateActiveConnections(gameId, connectionCount);
+      console.log(
+        `[LEAVE_GAME_WS] Active connections updated for game ${gameId}: ${connectionCount}`,
+      );
 
       // Get updated game data
       const game = await this.gamesService.findOne(gameId);

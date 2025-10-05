@@ -36,6 +36,9 @@ export class Game {
   @Column({ type: 'int', nullable: true })
   totalTime: number | null; // Total game time in seconds (null for unlimited)
 
+  @Column({ default: 0 })
+  activeConnections: number; // Number of active connections to this game
+
   @Column({ type: 'int', nullable: true })
   instanceId: number | null; // Reference to active game instance
 

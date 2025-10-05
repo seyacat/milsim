@@ -142,7 +142,7 @@
                     <p>${game.description || 'Sin descripción'}</p>
                     <div class="game-info">
                         <span class="status-${game.status}">Estado: ${game.status}</span>
-                        <span>Jugadores: ${game.players ? game.players.length : 0}/${game.maxPlayers}</span>
+                        <span>Jugadores conectados: ${game.activeConnections || 0}</span>
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 10px;">
                         <button class="btn btn-primary" style="flex: 1;"

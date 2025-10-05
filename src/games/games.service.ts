@@ -942,4 +942,18 @@ export class GamesService {
       order: { timestamp: 'DESC' },
     });
   }
+
+  // Update active connections count for a game
+  async updateActiveConnections(gameId: number, connectionCount: number): Promise<Game> {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+    });
+
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    game.activeConnections = connectionCount;
+    return this.gamesRepository.save(game);
+  }
 }

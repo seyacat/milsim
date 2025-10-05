@@ -36,9 +36,7 @@ export class ConnectionTrackerService {
       );
     }
 
-    console.log(
-      `[CONNECTION_TRACKER] getUptimeInfo called, count: ${this.activeConnectionsCount}`,
-    );
+    console.log(`[CONNECTION_TRACKER] getUptimeInfo called, count: ${this.activeConnectionsCount}`);
 
     return {
       lastConnectionTime: this.lastConnectionTime.toISOString(),
