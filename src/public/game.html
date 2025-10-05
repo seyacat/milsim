@@ -3,6 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2d5a2d">
+    <meta name="description" content="Military simulation game with real-time location tracking">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Milsim">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiByeD0iMjQiIGZpbGw9IiMyZDVhMmQiLz4KPHBhdGggZD0iTTk2IDQ4QzY5LjQ5IDQ4IDQ4IDY5LjQ5IDQ4IDk2QzQ4IDEyMi41MSA2OS40OSAxNDQgOTYgMTQ0QzEyMi41MSAxNDQgMTQ0IDEyMi41MSAxNDQgOTZDMTQ0IDY5LjQ5IDEyMi41MSA0OCA5NiA0OFoiIGZpbGw9IiNlOGY1ZTgiLz4KPC9zdmc+Cg==">
+    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiByeD0iMjQiIGZpbGw9IiMyZDVhMmQiLz4KPHBhdGggZD0iTTk2IDQ4QzY5LjQ5IDQ4IDQ4IDY5LjQ5IDQ4IDk2QzQ4IDEyMi41MSA2OS40OSAxNDQgOTYgMTQ0QzEyMi41MSAxNDQgMTQ0IDEyMi41MSAxNDQgOTZDMTQ0IDY5LjQ5IDEyMi41MSA0OCA5NiA0OFoiIGZpbGw9IiNlOGY1ZTgiLz4KPC9zdmc+Cg==">
     <title>Juego - Milsim</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="styles.css">
@@ -226,6 +234,7 @@
             font-size: 12px;
             margin: 2px;
             transition: all 0.3s ease;
+            width: 100%;
         }
 
         .team-btn.blue { background: #2196F3; color: white; }
@@ -433,17 +442,18 @@
     <!-- Teams Dialog -->
     <div id="teamsDialog" class="modal" style="display: none;">
         <div class="modal-content" style="max-width: 600px; max-height: 80vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: center; align-items: center; margin-bottom: 20px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                 <h3 style="margin: 0;">Gestión de Equipos</h3>
+                <button onclick="closeTeamsDialog()" style="background: none; border: none; font-size: 20px; cursor: pointer; color: white;">×</button>
             </div>
             
             <!-- Team selection buttons -->
             <div style="margin-bottom: 20px;">
                 <h4 style="margin: 0 0 10px 0;">Número de Equipos:</h4>
                 <div style="display: flex; gap: 10px;">
-                    <button class="team-count-btn" data-count="2">2</button>
-                    <button class="team-count-btn" data-count="3">3</button>
-                    <button class="team-count-btn" data-count="4">4</button>
+                    <button class="team-count-btn" data-count="2" style="width: 100%;">2</button>
+                    <button class="team-count-btn" data-count="3" style="width: 100%;">3</button>
+                    <button class="team-count-btn" data-count="4" style="width: 100%;">4</button>
                 </div>
             </div>
             
@@ -486,5 +496,6 @@
     <script src="js/game-core.js"></script>
     <script src="js/game-owner.js"></script>
     <script src="js/game-player.js"></script>
+    <script src="js/pwa-install.js"></script>
 </body>
 </html>

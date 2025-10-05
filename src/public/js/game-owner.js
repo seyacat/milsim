@@ -352,6 +352,14 @@ function deleteControlPoint(controlPointId, markerId) {
     }
 }
 
+// Close teams dialog
+function closeTeamsDialog() {
+    const teamsDialog = document.getElementById('teamsDialog');
+    if (teamsDialog) {
+        teamsDialog.style.display = 'none';
+    }
+}
+
 // Make functions available globally
 window.initializeOwnerFeatures = initializeOwnerFeatures;
 window.showControlPointMenu = showControlPointMenu;
@@ -362,3 +370,4 @@ window.addControlPointMarker = addControlPointMarker;
 window.updateControlPoint = updateControlPoint;
 window.deleteControlPoint = deleteControlPoint;
 window.closeControlPointEditPopup = closeControlPointEditPopup;
+window.closeTeamsDialog = closeTeamsDialog;
