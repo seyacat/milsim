@@ -9,6 +9,7 @@
     "update-route53": "./update-route53.sh"
   },
   "dependencies": {
+    "certbot": "^5.0.3",
     "express": "^4.18.2"
   },
   "engines": {
