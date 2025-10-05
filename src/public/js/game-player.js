@@ -1,4 +1,5 @@
 // Player-specific functionality
+let isShowingTeamSelection = false;
 
 // Initialize player features
 function initializePlayerFeatures() {
@@ -41,6 +42,13 @@ function updatePlayerTeamSelection() {
 
 // Show team selection interface for players
 async function showPlayerTeamSelection() {
+    // Prevent multiple simultaneous calls
+    if (isShowingTeamSelection) {
+        return;
+    }
+    
+    isShowingTeamSelection = true;
+    
     // Remove existing team selection if any
     const existingSelection = document.getElementById('playerTeamSelection');
     if (existingSelection) {
@@ -128,6 +136,9 @@ async function showPlayerTeamSelection() {
     `;
     
     document.body.appendChild(teamSelection);
+    
+    // Reset flag after successful creation
+    isShowingTeamSelection = false;
 }
 
 // Hide team selection interface
@@ -136,6 +147,7 @@ function hidePlayerTeamSelection() {
     if (existingSelection) {
         existingSelection.remove();
     }
+    isShowingTeamSelection = false;
 }
 
 // Select player team
