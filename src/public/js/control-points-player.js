@@ -50,24 +50,21 @@ function addControlPointMarkerPlayer(controlPoint) {
     let iconEmoji = '🚩'; // Default for control_point
     
     // Check for bomb challenge - use bomb emoji if active
-    if (controlPoint.bombChallenge) {
+    if (controlPoint.hasBombChallenge) {
         iconEmoji = '💣';
-    }
-    
-    switch (controlPoint.type) {
-        case 'site':
-            iconColor = '#FF9800';
-            if (!controlPoint.bombChallenge) {
+        iconColor = '#FF0000'; // Red for bomb
+    } else {
+        switch (controlPoint.type) {
+            case 'site':
+                iconColor = '#FF9800';
                 iconEmoji = '🏠';
-            }
-            break;
-        case 'control_point':
-        default:
-            iconColor = '#2196F3';
-            if (!controlPoint.bombChallenge) {
+                break;
+            case 'control_point':
+            default:
+                iconColor = '#2196F3';
                 iconEmoji = '🚩';
-            }
-            break;
+                break;
+        }
     }
     
     const controlPointIcon = L.divIcon({
@@ -96,18 +93,19 @@ function addControlPointMarkerPlayer(controlPoint) {
     }).addTo(map);
 
     // Add orange circle for position challenge if active
-    if (controlPoint.positionChallenge && controlPoint.minDistance) {
+    if (controlPoint.hasPositionChallenge && controlPoint.minDistance) {
         const circle = L.circle([controlPoint.latitude, controlPoint.longitude], {
             radius: controlPoint.minDistance,
-            color: '#FF9800',
-            fillColor: '#FF9800',
-            fillOpacity: 0.1,
-            weight: 2
+            color: '#FF9800', // Orange color
+            fillColor: 'transparent', // No fill
+            fillOpacity: 0,
+            weight: 2,
+            opacity: 0.8
         }).addTo(map);
         
         // Store circle reference on marker for later removal
         marker.positionCircle = circle;
-        console.log('Added position challenge circle with radius:', controlPoint.minDistance);
+        console.log('Added position challenge circle with radius:', controlPoint.minDistance, 'meters');
     }
 
     // Create popup with "Tomar" option for players
@@ -402,27 +400,43 @@ function updateControlPointPopups() {
 function refreshControlPointMarkers(controlPoints) {
     if (!map) return;
     
-    console.log('Refreshing control point markers with new settings:', controlPoints);
+    console.log('REFRESH PLAYER: Starting refresh with control points:', controlPoints);
+    console.log('REFRESH PLAYER: Number of control points:', controlPoints ? controlPoints.length : 0);
     
     // Remove all existing control point markers and circles
+    let removedCount = 0;
     map.eachLayer((layer) => {
         if (layer instanceof L.Marker && layer.controlPointData) {
             // Remove position circle if exists
             if (layer.positionCircle) {
                 map.removeLayer(layer.positionCircle);
+                console.log('REFRESH PLAYER: Removed position circle for control point:', layer.controlPointData.id);
             }
             map.removeLayer(layer);
+            removedCount++;
         }
     });
     
+    console.log('REFRESH PLAYER: Removed', removedCount, 'existing markers');
+    
     // Recreate all control point markers with updated settings
     if (controlPoints && Array.isArray(controlPoints)) {
-        controlPoints.forEach(controlPoint => {
+        console.log('REFRESH PLAYER: Creating', controlPoints.length, 'new markers');
+        controlPoints.forEach((controlPoint, index) => {
+            console.log('REFRESH PLAYER: Creating marker', index + 1, 'for control point:', controlPoint.id, controlPoint.name);
+            console.log('REFRESH PLAYER: Control point data:', {
+                hasPositionChallenge: controlPoint.hasPositionChallenge,
+                minDistance: controlPoint.minDistance,
+                hasBombChallenge: controlPoint.hasBombChallenge,
+                type: controlPoint.type
+            });
             addControlPointMarkerPlayer(controlPoint);
         });
+    } else {
+        console.log('REFRESH PLAYER: No control points to create');
     }
     
-    console.log('Control point markers refreshed');
+    console.log('REFRESH PLAYER: Player control point markers refreshed successfully');
 }
 
 // Make functions available globally
