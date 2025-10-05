@@ -65,33 +65,28 @@ export class AuthService {
       {
         id: user.id,
         name: user.name,
-        email: user.email
+        email: user.email,
       },
       this.jwtSecret,
-      { expiresIn: '24h' }
+      { expiresIn: '24h' },
     );
   }
 
   async validateToken(token: string): Promise<any> {
-    console.log('AuthService.validateToken called with token:', token ? token.substring(0, 20) + '...' : 'null');
     try {
-      console.log('Verifying JWT token...');
       const decoded = jwt.verify(token, this.jwtSecret) as any;
-      console.log('JWT decoded successfully:', decoded);
-      
+
       // Get fresh user data from database
-      console.log('Looking for user in database with id:', decoded.id);
       const user = await this.usersRepository.findOne({
         where: { id: decoded.id },
-        select: ['id', 'name', 'email']
+        select: ['id', 'name', 'email'],
       });
-      
+
       if (!user) {
         console.error('User not found in database for id:', decoded.id);
         throw new UnauthorizedException('User not found');
       }
-      
-      console.log('User found:', user);
+
       return user;
     } catch (error) {
       console.error('JWT validation failed:', error);

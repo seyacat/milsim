@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body, Param, Delete, Headers, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  Headers,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthService } from '../auth/auth.service';
 import { GamesService } from './games.service';
 import { Game } from './entities/game.entity';
@@ -70,8 +79,7 @@ export class GamesController {
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
     const user = await this.authService.validateToken(token);
-    
+
     return this.gamesService.deleteGame(+id, user.id);
   }
-
 }

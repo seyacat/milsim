@@ -2,6 +2,8 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  Inject,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -10,11 +12,13 @@ import { Player } from './entities/player.entity';
 import { ControlPoint } from './entities/control-point.entity';
 import { GameInstance } from './entities/game-instance.entity';
 import { GameHistory } from './entities/game-history.entity';
+import { GamesGateway } from './games.gateway';
 
 interface GameTimer {
   gameId: number;
-  totalTime: number; // Total time in seconds
-  remainingTime: number; // Remaining time in seconds
+  totalTime: number | null; // Total time in seconds (null for unlimited)
+  remainingTime: number | null; // Remaining time in seconds (null for unlimited)
+  elapsedTime: number; // Elapsed time in seconds (always tracked)
   startTime: Date; // When the game started
   intervalId?: NodeJS.Timeout;
   isRunning: boolean;
@@ -35,6 +39,8 @@ export class GamesService {
     private gameInstancesRepository: Repository<GameInstance>,
     @InjectRepository(GameHistory)
     private gameHistoryRepository: Repository<GameHistory>,
+    @Inject(forwardRef(() => GamesGateway))
+    private gamesGateway: GamesGateway,
   ) {}
 
   async findAll(): Promise<Game[]> {
@@ -58,6 +64,7 @@ export class GamesService {
   async create(gameData: Partial<Game>, ownerId: number): Promise<Game> {
     const game = this.gamesRepository.create({
       ...gameData,
+      totalTime: gameData.totalTime || 3600, // Default to 1 hour if not specified
       owner: { id: ownerId },
     });
     const savedGame = await this.gamesRepository.save(game);
@@ -84,7 +91,6 @@ export class GamesService {
     });
     if (existingPlayer) {
       // User is already in the game, return the existing player (allow reconnection)
-      console.log(`User ${userId} is already in game ${gameId}, allowing reconnection`);
       return existingPlayer;
     }
 
@@ -107,7 +113,7 @@ export class GamesService {
       where: { user: { id: userId } },
       relations: ['game', 'game.owner', 'game.players', 'game.players.user'],
     });
-    return players.map((player) => player.game);
+    return players.map(player => player.game);
   }
 
   async createControlPoint(controlPointData: {
@@ -134,11 +140,9 @@ export class GamesService {
           type: 'site',
         },
       });
-      
+
       if (existingSite) {
-        throw new ConflictException(
-          'Solo puede haber un punto de tipo Site por juego',
-        );
+        throw new ConflictException('Solo puede haber un punto de tipo Site por juego');
       }
     }
 
@@ -158,7 +162,7 @@ export class GamesService {
       where: { id },
       relations: ['game'],
     });
-    
+
     if (!controlPoint) {
       throw new NotFoundException('Control point not found');
     }
@@ -171,17 +175,15 @@ export class GamesService {
           type: 'site',
         },
       });
-      
+
       if (existingSite && existingSite.id !== id) {
-        throw new ConflictException(
-          'Solo puede haber un punto de tipo Site por juego',
-        );
+        throw new ConflictException('Solo puede haber un punto de tipo Site por juego');
       }
     }
 
     // Update the control point
     await this.controlPointsRepository.update(id, updateData);
-    
+
     // Return the updated control point
     const updatedControlPoint = await this.controlPointsRepository.findOne({
       where: { id },
@@ -196,7 +198,7 @@ export class GamesService {
     const controlPoint = await this.controlPointsRepository.findOne({
       where: { id },
     });
-    
+
     if (!controlPoint) {
       throw new NotFoundException('Control point not found');
     }
@@ -209,7 +211,7 @@ export class GamesService {
       where: { id: playerId },
       relations: ['user'],
     });
-    
+
     if (!player) {
       throw new NotFoundException('Player not found');
     }
@@ -237,7 +239,7 @@ export class GamesService {
       where: { id: gameId },
       relations: ['players', 'controlPoints', 'owner'],
     });
-    
+
     if (!game) {
       throw new NotFoundException('Game not found');
     }
@@ -266,7 +268,7 @@ export class GamesService {
       where: { id: gameId },
       relations: ['owner'],
     });
-    
+
     if (!game) {
       throw new NotFoundException('Game not found');
     }
@@ -292,8 +294,16 @@ export class GamesService {
     });
 
     // Start timer if game has time limit
-    if (game.totalTime && game.totalTime > 0) {
+    console.log(`Game ${gameId} totalTime: ${game.totalTime}, type: ${typeof game.totalTime}`);
+    console.log(`Game ${gameId} status: ${game.status}`);
+
+    // ALWAYS start timer for running games, even if totalTime is null
+    if (game.status === 'running') {
+      console.log(`Starting timer for game ${gameId} with total time: ${game.totalTime}s`);
+      console.log(`GamesGateway available: ${!!this.gamesGateway}`);
       this.startGameTimer(gameId, game.totalTime);
+    } else {
+      console.log(`Game ${gameId} is not running, not starting timer`);
     }
 
     return updatedGame;
@@ -304,7 +314,7 @@ export class GamesService {
       where: { id: gameId },
       relations: ['owner'],
     });
-    
+
     if (!game) {
       throw new NotFoundException('Game not found');
     }
@@ -330,6 +340,9 @@ export class GamesService {
     // Pause timer if exists
     this.pauseGameTimer(gameId);
 
+    // Force broadcast time update on pause
+    this.forceTimeBroadcast(gameId);
+
     return updatedGame;
   }
 
@@ -338,7 +351,7 @@ export class GamesService {
       where: { id: gameId },
       relations: ['owner'],
     });
-    
+
     if (!game) {
       throw new NotFoundException('Game not found');
     }
@@ -364,6 +377,9 @@ export class GamesService {
     // Resume timer if exists
     this.resumeGameTimer(gameId);
 
+    // Force broadcast time update on resume
+    this.forceTimeBroadcast(gameId);
+
     return updatedGame;
   }
 
@@ -372,7 +388,7 @@ export class GamesService {
       where: { id: gameId },
       relations: ['owner'],
     });
-    
+
     if (!game) {
       throw new NotFoundException('Game not found');
     }
@@ -399,6 +415,48 @@ export class GamesService {
     // Stop timer if exists
     this.stopGameTimer(gameId);
 
+    // Force broadcast final time update on game end
+    this.forceTimeBroadcast(gameId);
+
+    return updatedGame;
+  }
+
+  // End game automatically when time expires (system action)
+  async endGameAutomatically(gameId: number): Promise<Game> {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+      relations: ['owner'],
+    });
+
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    // Add game ended event to history if there's an active instance
+    if (game.instanceId) {
+      await this.addGameHistory(game.instanceId, 'game_ended_automatically', {
+        gameId,
+        endedBy: 'system',
+        timestamp: new Date(),
+      });
+    }
+
+    // Update game status and set instanceId to null
+    game.status = 'stopped';
+    game.instanceId = null;
+    const updatedGame = await this.gamesRepository.save(game);
+
+    // Stop timer if exists
+    this.stopGameTimer(gameId);
+
+    // Force broadcast final time update on game end
+    this.forceTimeBroadcast(gameId);
+
+    // Broadcast game state change
+    if (this.gamesGateway) {
+      this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
+    }
+
     return updatedGame;
   }
 
@@ -407,14 +465,16 @@ export class GamesService {
       where: { id: gameId },
       relations: ['owner'],
     });
-    
+
     if (!game) {
       throw new NotFoundException('Game not found');
     }
 
     // Check if user is the owner of the game
     if (game.owner.id !== userId) {
-      throw new ConflictException('Solo el propietario del juego puede cambiar el número de equipos');
+      throw new ConflictException(
+        'Solo el propietario del juego puede cambiar el número de equipos',
+      );
     }
 
     // Validate team count (2, 3, or 4)
@@ -428,7 +488,7 @@ export class GamesService {
   }
 
   // Timer management methods
-  private startGameTimer(gameId: number, totalTime: number): void {
+  private startGameTimer(gameId: number, totalTime: number | null): void {
     // Stop existing timer if any
     this.stopGameTimer(gameId);
 
@@ -436,40 +496,86 @@ export class GamesService {
       gameId,
       totalTime,
       remainingTime: totalTime,
+      elapsedTime: 0,
       startTime: new Date(),
       isRunning: true,
     };
 
-    // Start countdown interval
+    console.log(`[TIMER] Creating timer for game ${gameId}:`, timer);
+    console.log(`[TIMER] Timer object created, intervalId will be set`);
+
+    // Start countdown interval (update every second internally, broadcast every 20 seconds)
+    console.log(`[TIMER] Setting interval for game ${gameId}`);
     timer.intervalId = setInterval(() => {
-      if (timer.isRunning && timer.remainingTime > 0) {
-        timer.remainingTime--;
-        
-        // Broadcast time update to all connected clients
-        // This will be handled by the gateway
-        console.log(`Game ${gameId} time update: ${timer.remainingTime}s remaining`);
-        
-        // TODO: Broadcast time update via WebSocket
-      } else if (timer.remainingTime <= 0) {
-        // Time's up - end the game
-        this.endGame(gameId, 0).catch(console.error); // 0 is system user ID
-        
-        // Add time expired event to history
-        this.gamesRepository.findOne({ where: { id: gameId } })
-          .then(game => {
-            if (game && game.instanceId) {
-              return this.addGameHistory(game.instanceId, 'time_expired', {
-                gameId,
-                timestamp: new Date(),
-              });
-            }
-          })
-          .catch(console.error);
+      console.log(
+        `[TIMER] Timer tick for game ${gameId}: elapsed=${timer.elapsedTime}, isRunning=${timer.isRunning}`,
+      );
+      if (timer.isRunning) {
+        timer.elapsedTime++;
+
+        // Log every 5 seconds for debugging
+        if (timer.elapsedTime % 5 === 0) {
+          console.log(
+            `[DEBUG] Game ${gameId} - Elapsed: ${timer.elapsedTime}s, Remaining: ${timer.remainingTime}, Total: ${timer.totalTime}`,
+          );
+        }
+
+        // Update remaining time if there's a total time limit
+        if (timer.totalTime !== null && timer.remainingTime !== null) {
+          timer.remainingTime = Math.max(0, timer.totalTime - timer.elapsedTime);
+        }
+
+        // Broadcast time update every 20 seconds or on special conditions
+        const shouldBroadcast =
+          timer.elapsedTime % 20 === 0 || // Every 20 seconds
+          (timer.totalTime !== null && timer.remainingTime !== null && timer.remainingTime <= 60) || // Last minute warning
+          (timer.totalTime !== null && timer.remainingTime !== null && timer.remainingTime <= 0); // Time expired
+
+        if (shouldBroadcast && this.gamesGateway) {
+          console.log(
+            `[TIMER] Broadcasting time update for game ${gameId}: elapsed=${timer.elapsedTime}, remaining=${timer.remainingTime}`,
+          );
+          this.gamesGateway.broadcastTimeUpdate(gameId, {
+            remainingTime: timer.remainingTime,
+            playedTime: timer.elapsedTime,
+            totalTime: timer.totalTime,
+          });
+        }
+
+        // Check if time's up for limited games
+        if (timer.totalTime !== null && timer.remainingTime !== null && timer.remainingTime <= 0) {
+          // Time's up - end the game automatically (system action)
+          this.endGameAutomatically(gameId).catch(console.error);
+
+          // Add time expired event to history
+          this.gamesRepository
+            .findOne({ where: { id: gameId } })
+            .then(game => {
+              if (game && game.instanceId) {
+                return this.addGameHistory(game.instanceId, 'time_expired', {
+                  gameId,
+                  timestamp: new Date(),
+                });
+              }
+            })
+            .catch(console.error);
+        }
       }
     }, 1000);
 
+    console.log(`[TIMER] Interval set, storing timer for game ${gameId}`);
     this.gameTimers.set(gameId, timer);
-    console.log(`Started timer for game ${gameId}, total time: ${totalTime}s`);
+    console.log(`[TIMER] Started timer for game ${gameId}, total time: ${totalTime}s`);
+
+    // Send initial time update
+    if (this.gamesGateway) {
+      console.log(`[TIMER] Sending initial time update for game ${gameId}`);
+      this.gamesGateway.broadcastTimeUpdate(gameId, {
+        remainingTime: timer.remainingTime,
+        playedTime: timer.elapsedTime,
+        totalTime: timer.totalTime,
+      });
+    }
   }
 
   private pauseGameTimer(gameId: number): void {
@@ -497,13 +603,31 @@ export class GamesService {
     }
   }
 
+  // Force broadcast time update (used for important events)
+  private forceTimeBroadcast(gameId: number): void {
+    const timer = this.gameTimers.get(gameId);
+    if (timer && this.gamesGateway) {
+      console.log(
+        `[TIMER] Force broadcasting time update for game ${gameId}: elapsed=${timer.elapsedTime}, remaining=${timer.remainingTime}`,
+      );
+      this.gamesGateway.broadcastTimeUpdate(gameId, {
+        remainingTime: timer.remainingTime,
+        playedTime: timer.elapsedTime,
+        totalTime: timer.totalTime,
+      });
+    }
+  }
+
   // Get current time for a game
-  getGameTime(gameId: number): { remainingTime: number; totalTime: number } | null {
+  getGameTime(
+    gameId: number,
+  ): { remainingTime: number | null; totalTime: number | null; playedTime: number } | null {
     const timer = this.gameTimers.get(gameId);
     if (timer) {
       return {
         remainingTime: timer.remainingTime,
         totalTime: timer.totalTime,
+        playedTime: timer.elapsedTime,
       };
     }
     return null;
@@ -515,13 +639,12 @@ export class GamesService {
       throw new Error('No hay un temporizador activo para este juego');
     }
 
-    if (timer.totalTime) {
+    if (timer.totalTime !== null && timer.remainingTime !== null) {
       timer.totalTime += minutes * 60;
       timer.remainingTime += minutes * 60;
     } else {
       // If game was indefinite, now it becomes limited
-      const elapsed = timer.totalTime - timer.remainingTime;
-      timer.totalTime = elapsed + (minutes * 60);
+      timer.totalTime = timer.elapsedTime + minutes * 60;
       timer.remainingTime = minutes * 60;
     }
 
@@ -532,12 +655,34 @@ export class GamesService {
     return game;
   }
 
+  async updateGameTime(gameId: number, timeInSeconds: number, userId: number): Promise<Game> {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+      relations: ['owner'],
+    });
+
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    // Check if user is the owner of the game
+    if (game.owner.id !== userId) {
+      throw new ConflictException('Solo el propietario del juego puede cambiar el tiempo');
+    }
+
+    // Update game time
+    game.totalTime = timeInSeconds;
+    const updatedGame = await this.gamesRepository.save(game);
+
+    return updatedGame;
+  }
+
   // Game Instance methods
   async createGameInstance(gameId: number): Promise<GameInstance> {
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
     });
-    
+
     if (!game) {
       throw new NotFoundException('Game not found');
     }
@@ -566,7 +711,7 @@ export class GamesService {
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
     });
-    
+
     if (!game || !game.instanceId) {
       return null;
     }

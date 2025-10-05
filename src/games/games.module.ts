@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { GamesController } from './games.controller';
 import { GamesService } from './games.service';
@@ -12,8 +12,12 @@ import { WebsocketAuthService } from '../auth/websocket-auth.service';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Game, Player, ControlPoint, GameInstance, GameHistory]), AuthModule],
+  imports: [
+    TypeOrmModule.forFeature([Game, Player, ControlPoint, GameInstance, GameHistory]),
+    AuthModule,
+  ],
   controllers: [GamesController],
   providers: [GamesService, GamesGateway, WebsocketAuthService],
+  exports: [GamesService],
 })
 export class GamesModule {}

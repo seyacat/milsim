@@ -5,6 +5,7 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
+import { Inject, forwardRef } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { GamesService } from './games.service';
 import { WebsocketAuthService } from '../auth/websocket-auth.service';
@@ -27,29 +28,25 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   >(); // user.id -> position data
 
   constructor(
+    @Inject(forwardRef(() => GamesService))
     private readonly gamesService: GamesService,
     private readonly websocketAuthService: WebsocketAuthService,
   ) {}
 
   async handleConnection(client: Socket) {
     try {
-      console.log(`Client connecting: ${client.id}`);
-      
       // Authenticate the user
       const user = await this.websocketAuthService.authenticateSocket(client);
-      
+
       // Store user data
       this.connectedUsers.set(client.id, user);
-      
-      console.log(`Client authenticated and connected: ${client.id}, User: ${user.id}`);
     } catch (error) {
-      console.log(`Authentication failed for client: ${client.id}`, error.message);
+      console.error(`Authentication failed for client: ${client.id}`, error.message);
       client.disconnect();
     }
   }
 
   handleDisconnect(client: Socket) {
-    console.log(`Client disconnected: ${client.id}`);
     const user = this.connectedUsers.get(client.id);
     if (user) {
       this.playerPositions.delete(user.id);
@@ -58,13 +55,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('joinGame')
-  async handleJoinGame(
-    client: Socket,
-    payload: { gameId: number },
-  ) {
+  async handleJoinGame(client: Socket, payload: { gameId: number }) {
     const { gameId } = payload;
     const user = this.connectedUsers.get(client.id);
-    
+
     if (!user) {
       client.emit('joinError', { message: 'User not authenticated' });
       return;
@@ -81,17 +75,19 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // If user is already connected from another device, disconnect the old connection
       if (existingSocketId) {
-        console.log(`User ${user.id} is already connected from socket ${existingSocketId}, disconnecting...`);
-        
+        console.log(
+          `User ${user.id} is already connected from socket ${existingSocketId}, disconnecting...`,
+        );
+
         // Send message to old device to leave the game
         const oldSocket = this.server.sockets.sockets.get(existingSocketId);
         if (oldSocket) {
           oldSocket.emit('forceDisconnect', {
-            message: 'Has sido desconectado porque te has conectado desde otro dispositivo'
+            message: 'Has sido desconectado porque te has conectado desde otro dispositivo',
           });
           oldSocket.disconnect();
         }
-        
+
         // Remove old connection from tracking
         this.connectedUsers.delete(existingSocketId);
         this.playerPositions.delete(user.id);
@@ -134,23 +130,23 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               userName: connectedUser.name,
               lat: position.lat,
               lng: position.lng,
-              accuracy: position.accuracy
+              accuracy: position.accuracy,
             });
           }
         });
-        
+
         if (positions.length > 0) {
           client.emit('gameAction', {
             action: 'playerPositionsResponse',
             data: { positions },
-            from: 'server'
+            from: 'server',
           });
         }
       }
 
       client.emit('joinSuccess', {
         message: 'Successfully joined game',
-        user: { id: user.id, name: user.name }
+        user: { id: user.id, name: user.name },
       });
     } catch (error: any) {
       console.error('Error joining game:', error);
@@ -160,13 +156,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('leaveGame')
-  async handleLeaveGame(
-    client: Socket,
-    payload: { gameId: number },
-  ) {
+  async handleLeaveGame(client: Socket, payload: { gameId: number }) {
     const { gameId } = payload;
     const user = this.connectedUsers.get(client.id);
-    
+
     if (!user) {
       client.emit('leaveError', { message: 'User not authenticated' });
       return;
@@ -190,7 +183,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       client.emit('leaveSuccess', {
         message: 'Successfully left game',
-        user: { id: user.id, name: user.name }
+        user: { id: user.id, name: user.name },
       });
     } catch (error: any) {
       client.emit('leaveError', { message: 'Failed to leave game' });
@@ -198,10 +191,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('gameAction')
-  async handleGameAction(
-    client: Socket,
-    payload: { gameId: number; action: string; data: any },
-  ) {
+  async handleGameAction(client: Socket, payload: { gameId: number; action: string; data: any }) {
     const { gameId, action, data } = payload;
 
     try {
@@ -263,7 +253,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               lat: data.lat,
               lng: data.lng,
               accuracy: data.accuracy,
-              socketId: client.id
+              socketId: client.id,
             });
 
             // Broadcast position update to all clients in the game
@@ -274,7 +264,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 userName: user.name,
                 lat: data.lat,
                 lng: data.lng,
-                accuracy: data.accuracy
+                accuracy: data.accuracy,
               },
               from: client.id,
             });
@@ -291,7 +281,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               data: {
                 controlPointId: data.controlPointId,
                 userId: user.id,
-                userName: user.name
+                userName: user.name,
               },
               from: client.id,
             });
@@ -304,7 +294,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           if (user) {
             try {
               let playerId = data.playerId;
-              
+
               // If playerId is not provided but userId is, find the player by userId
               if (!playerId && data.userId) {
                 const game = await this.gamesService.findOne(gameId);
@@ -315,11 +305,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                   throw new Error('No se pudo encontrar el jugador para el usuario');
                 }
               }
-              
-              const updatedPlayer = await this.gamesService.updatePlayerTeam(
-                playerId,
-                data.team
-              );
+
+              const updatedPlayer = await this.gamesService.updatePlayerTeam(playerId, data.team);
 
               // Broadcast the team update to all clients
               this.server.to(`game_${gameId}`).emit('gameAction', {
@@ -328,7 +315,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                   playerId: playerId,
                   userId: updatedPlayer.user.id,
                   userName: updatedPlayer.user.name,
-                  team: data.team
+                  team: data.team,
                 },
                 from: client.id,
               });
@@ -429,7 +416,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               const updatedGame = await this.gamesService.updateTeamCount(
                 gameId,
                 data.teamCount,
-                user.id
+                user.id,
               );
               this.server.to(`game_${gameId}`).emit('gameAction', {
                 action: 'teamCountUpdated',
@@ -469,6 +456,33 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           break;
         }
 
+        case 'updateGameTime': {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            try {
+              const game = await this.gamesService.findOne(gameId);
+              if (game.owner && game.owner.id === user.id) {
+                const updatedGame = await this.gamesService.updateGameTime(
+                  gameId,
+                  data.timeInSeconds,
+                  user.id,
+                );
+                this.server.to(`game_${gameId}`).emit('gameAction', {
+                  action: 'gameTimeUpdated',
+                  data: { game: updatedGame },
+                  from: client.id,
+                });
+              }
+            } catch (error: any) {
+              client.emit('gameActionError', {
+                action: 'updateGameTime',
+                error: error.message,
+              });
+            }
+          }
+          break;
+        }
+
         case 'requestPlayerPositions': {
           const user = this.connectedUsers.get(client.id);
           if (user) {
@@ -483,7 +497,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 lng: number;
                 accuracy: number;
               }> = [];
-              
+
               // Get all connected users in this game
               const gameRoom = this.server.sockets.adapter.rooms.get(`game_${gameId}`);
               if (gameRoom) {
@@ -497,13 +511,13 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                         userName: connectedUser.name,
                         lat: position.lat,
                         lng: position.lng,
-                        accuracy: position.accuracy
+                        accuracy: position.accuracy,
                       });
                     }
                   }
                 }
               }
-              
+
               // Send positions back to the requesting owner
               client.emit('gameAction', {
                 action: 'playerPositionsResponse',
@@ -562,5 +576,17 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       type: 'gameUpdated',
       game,
     });
+  }
+
+  // Method to broadcast time updates to all connected clients in a game
+  broadcastTimeUpdate(
+    gameId: number,
+    timeData: {
+      remainingTime: number | null;
+      playedTime: number;
+      totalTime: number | null;
+    },
+  ) {
+    this.server.to(`game_${gameId}`).emit('timeUpdate', timeData);
   }
 }

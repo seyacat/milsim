@@ -6,6 +6,8 @@ let map = null;
 let userMarker = null;
 let playerMarkers = {};
 let watchId = null;
+let localTimer = null;
+let lastTimeUpdate = null;
 
 // Initialize map and game
 function initialize() {
@@ -145,9 +147,28 @@ function initializeWebSocket(gameId) {
         }, 3000);
     });
 
+    socket.on('timeUpdate', (data) => {
+        console.log('Time update received:', data);
+        if (data) {
+            console.log(`[FRONTEND] Time update - Played: ${data.playedTime}s, Remaining: ${data.remainingTime}, Total: ${data.totalTime}`);
+            handleTimeUpdate(data);
+        } else {
+            // Handle case when there's no timer (unlimited game)
+            console.log('[FRONTEND] No time data received, using defaults');
+            handleTimeUpdate({ remainingTime: null, playedTime: 0, totalTime: null });
+        }
+    });
+
     socket.on('gameTime', (data) => {
         console.log('Game time received:', data);
-        updateTimeDisplay(data.remainingTime);
+        if (data) {
+            console.log(`[FRONTEND] Game time - Played: ${data.playedTime}s, Remaining: ${data.remainingTime}, Total: ${data.totalTime}`);
+            handleTimeUpdate(data);
+        } else {
+            // Handle case when there's no timer (unlimited game)
+            console.log('[FRONTEND] No game time data received, using defaults');
+            handleTimeUpdate({ remainingTime: null, playedTime: 0, totalTime: null });
+        }
     });
 
     socket.on('gameTimeError', (data) => {
@@ -232,6 +253,9 @@ function updateGameInfo() {
         
         // Update game state controls
         updateGameStateControls();
+        
+        // Sync time selector with current game time
+        syncTimeSelector();
         
         // Initialize owner-specific functionality
         if (window.initializeOwnerFeatures) {
@@ -616,6 +640,10 @@ window.addEventListener('beforeunload', () => {
     if (socket) {
         socket.disconnect();
     }
+    if (localTimer) {
+        clearInterval(localTimer);
+        localTimer = null;
+    }
 });
 
 // Make functions available globally
@@ -936,6 +964,21 @@ function handleGameAction(data) {
                 currentGame = data.data.game;
                 updateGameInfo();
                 
+                // Handle local timer based on game state
+                if (currentGame.status !== 'running') {
+                    if (localTimer) {
+                        clearInterval(localTimer);
+                        localTimer = null;
+                        console.log('[FRONTEND] Local timer stopped - game not running');
+                    }
+                } else if (!localTimer && lastTimeUpdate) {
+                    // Game is running, start local timer if not already running
+                    console.log('[FRONTEND] Starting local timer - game resumed');
+                    localTimer = setInterval(() => {
+                        updateTimeDisplay();
+                    }, 1000);
+                }
+                
                 // Update player team selection when game state changes
                 if (window.updatePlayerTeamSelection) {
                     window.updatePlayerTeamSelection();
@@ -974,11 +1017,21 @@ function handleGameAction(data) {
             }
             break;
 
-        case 'timeUpdated':
+        case 'timeUpdate':
             // Handle time updates (countdown or timer)
             console.log('Time update received:', data.data);
             if (data.data && data.data.remainingTime !== undefined) {
                 updateTimeDisplay(data.data.remainingTime);
+            }
+            break;
+        case 'gameTimeUpdated':
+            // Update game data when time is changed
+            if (data.data && data.data.game) {
+                currentGame = data.data.game;
+                // Sync the time selector with the new value
+                if (window.syncTimeSelector) {
+                    window.syncTimeSelector();
+                }
             }
             break;
         default:
@@ -1149,9 +1202,73 @@ window.startGame = startGame;
 window.pauseGame = pauseGame;
 window.resumeGame = resumeGame;
 window.updateUserMarkerTeam = updateUserMarkerTeam;
-// Update time display
-function updateTimeDisplay(remainingTime) {
-    console.log('Updating time display, remainingTime:', remainingTime);
+window.syncTimeSelector = syncTimeSelector;
+// Sync time selector with current game time
+function syncTimeSelector() {
+    const timeSelector = document.getElementById('timeSelector');
+    if (timeSelector && currentGame) {
+        let selectedValue = '0'; // Default to indefinite
+        
+        if (currentGame.totalTime !== null && currentGame.totalTime !== undefined) {
+            // Find the closest matching option
+            const options = [
+                { value: 20, label: '20 seg (test)' },
+                { value: 300, label: '5 min' },
+                { value: 600, label: '10 min' },
+                { value: 1200, label: '20 min' },
+                { value: 0, label: 'indefinido' }
+            ];
+            
+            // Find exact match first
+            const exactMatch = options.find(opt => opt.value === currentGame.totalTime);
+            if (exactMatch) {
+                selectedValue = exactMatch.value.toString();
+            } else {
+                // If no exact match, use the current value as is
+                selectedValue = currentGame.totalTime.toString();
+            }
+        }
+        
+        timeSelector.value = selectedValue;
+    }
+}
+
+// Handle time updates from server and start local timer
+function handleTimeUpdate(timeData) {
+    console.log('Handling time update:', timeData);
+    
+    // Store the last time update from server
+    lastTimeUpdate = {
+        ...timeData,
+        receivedAt: Date.now()
+    };
+    
+    // Stop existing local timer
+    if (localTimer) {
+        clearInterval(localTimer);
+        localTimer = null;
+    }
+    
+    // Start local timer for smooth updates
+    if (currentGame && currentGame.status === 'running') {
+        console.log('[FRONTEND] Starting local timer');
+        localTimer = setInterval(() => {
+            updateTimeDisplay();
+        }, 1000);
+    }
+    
+    // Update display immediately with server data
+    updateTimeDisplay();
+}
+
+// Update time display using local timer or server data
+function updateTimeDisplay() {
+    let timeData = lastTimeUpdate;
+    
+    if (!timeData) {
+        console.log('No time data available');
+        return;
+    }
     
     const gameStatusElement = document.getElementById('gameStatus');
     const timePlayedElement = document.getElementById('timePlayed');
@@ -1159,46 +1276,49 @@ function updateTimeDisplay(remainingTime) {
     const timeRemainingElement = document.getElementById('timeRemaining');
     
     if (gameStatusElement && timePlayedElement && timeRemainingContainer && timeRemainingElement) {
-        console.log('Found all time elements');
+        // Calculate elapsed time since last server update
+        let elapsedSinceUpdate = 0;
+        if (timeData.receivedAt) {
+            elapsedSinceUpdate = Math.floor((Date.now() - timeData.receivedAt) / 1000);
+        }
         
-        // Calculate time played (assuming game started at some point)
-        // For now, we'll use a simple approach - this should be improved with actual game start time
-        const timePlayed = currentGame.totalTime ? currentGame.totalTime - remainingTime : 0;
-        console.log('Time played calculated:', timePlayed);
+        // Calculate current played time (server time + local elapsed time)
+        const currentPlayedTime = timeData.playedTime + elapsedSinceUpdate;
         
         // Format time played
-        const playedMinutes = Math.floor(timePlayed / 60);
-        const playedSeconds = timePlayed % 60;
+        const playedMinutes = Math.floor(currentPlayedTime / 60);
+        const playedSeconds = currentPlayedTime % 60;
         const timePlayedText = `${playedMinutes}:${playedSeconds.toString().padStart(2, '0')}`;
         timePlayedElement.textContent = timePlayedText;
-        console.log('Time played formatted:', timePlayedText);
         
         // Handle remaining time
-        if (remainingTime === 0 || remainingTime === null) {
+        if (timeData.remainingTime === null || timeData.remainingTime === undefined) {
             // Time indefinite - only show time played
-            console.log('Time indefinite mode');
             gameStatusElement.textContent = 'indefinido';
             timeRemainingContainer.style.display = 'none';
         } else {
             // Time limited - show both time played and remaining
-            const minutes = Math.floor(remainingTime / 60);
-            const seconds = remainingTime % 60;
+            const currentRemainingTime = Math.max(0, timeData.remainingTime - elapsedSinceUpdate);
+            const minutes = Math.floor(currentRemainingTime / 60);
+            const seconds = currentRemainingTime % 60;
             const timeRemainingText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-            console.log('Time remaining formatted:', timeRemainingText);
             
             gameStatusElement.textContent = timeRemainingText;
             timeRemainingElement.textContent = timeRemainingText;
             timeRemainingContainer.style.display = 'block';
+            
+            // If time is up, stop local timer
+            if (currentRemainingTime <= 0 && localTimer) {
+                clearInterval(localTimer);
+                localTimer = null;
+                console.log('[FRONTEND] Local timer stopped - time expired');
+            }
         }
         
-        console.log('Time display updated successfully');
-    } else {
-        console.log('Missing time elements:', {
-            gameStatusElement: !!gameStatusElement,
-            timePlayedElement: !!timePlayedElement,
-            timeRemainingContainer: !!timeRemainingContainer,
-            timeRemainingElement: !!timeRemainingElement
-        });
+        // Debug log every 10 seconds
+        if (currentPlayedTime % 10 === 0) {
+            console.log(`[FRONTEND] Local timer - Played: ${currentPlayedTime}s, Elapsed since update: ${elapsedSinceUpdate}s`);
+        }
     }
 }
 
