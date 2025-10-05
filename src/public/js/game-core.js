@@ -155,12 +155,10 @@ function initializeWebSocket(gameId) {
 
     socket.on('joinError', (data) => {
         showError('Error al unirse al juego: ' + data.message);
-        // Only redirect if the game doesn't exist
-        if (data.message.includes('Game not found') || data.message.includes('juego no encontrado')) {
-            setTimeout(() => {
-                window.location.href = 'dashboard.html';
-            }, 3000);
-        }
+        // Always redirect to dashboard on join error after showing the error
+        setTimeout(() => {
+            window.location.href = 'dashboard.html';
+        }, 3000);
     });
 
     socket.on('forceDisconnect', (data) => {
@@ -218,12 +216,10 @@ async function loadGame(gameId) {
         loadControlPoints(gameId);
     } catch (error) {
         showError('Error al cargar el juego: ' + error.message);
-        // Only redirect if the game doesn't exist
-        if (error.message.includes('Game not found') || error.message.includes('juego no encontrado')) {
-            setTimeout(() => {
-                window.location.href = 'dashboard.html';
-            }, 3000);
-        }
+        // Always redirect to dashboard on load error after showing the error
+        setTimeout(() => {
+            window.location.href = 'dashboard.html';
+        }, 3000);
     }
 }
 
@@ -509,7 +505,7 @@ function startGPS() {
                 // Create popup with custom class for positioning
                 const popup = L.popup({
                     className: 'user-marker-popup'
-                }).setContent('<strong>Tu ubicación</strong>');
+                }).setContent('<strong>Tú.</strong>');
                 
                 userMarker.bindPopup(popup).openPopup();
                 
@@ -1283,7 +1279,7 @@ function updateUserMarkerTeam() {
         // Create popup with custom class for positioning
         const popup = L.popup({
             className: 'user-marker-popup'
-        }).setContent('<strong>Tu ubicación</strong>');
+        }).setContent('<strong>Tú.</strong>');
         
         userMarker.bindPopup(popup);
     }

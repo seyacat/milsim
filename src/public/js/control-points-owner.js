@@ -298,15 +298,15 @@ function createControlPointEditMenu(controlPoint, marker) {
         <option value="100" ${defaultMinAccuracy === 100 ? 'selected' : ''}>100m (Muy baja precisión)</option>
     `;
     const positionInputs = `
-        <div style="margin-bottom: 10px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Distancia Mínima:</label>
-            <select id="controlPointMinDistance_${controlPoint.id}" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+        <div class="form-group">
+            <label class="form-label">Distancia Mínima:</label>
+            <select id="controlPointMinDistance_${controlPoint.id}" class="form-input">
                 ${distanceOptions}
             </select>
         </div>
-        <div style="margin-bottom: 10px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Accuracy Mínimo:</label>
-            <select id="controlPointMinAccuracy_${controlPoint.id}" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+        <div class="form-group">
+            <label class="form-label">Accuracy Mínimo:</label>
+            <select id="controlPointMinAccuracy_${controlPoint.id}" class="form-input">
                 ${accuracyOptions}
             </select>
         </div>
@@ -316,9 +316,9 @@ function createControlPointEditMenu(controlPoint, marker) {
     // Check if code challenge should be active based on stored checkbox state
     const codeChallengeChecked = controlPoint.hasCodeChallenge || false;
     const codeInputs = `
-        <div style="margin-bottom: 10px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Code:</label>
-            <input type="text" id="controlPointCode_${controlPoint.id}" value="${controlPoint.code || ''}" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;" placeholder="Código para tomar">
+        <div class="form-group">
+            <label class="form-label">Code:</label>
+            <input type="text" id="controlPointCode_${controlPoint.id}" value="${controlPoint.code || ''}" class="form-input" placeholder="Código para tomar">
         </div>
     `;
 
@@ -340,19 +340,19 @@ function createControlPointEditMenu(controlPoint, marker) {
     `;
     
     const bombInputs = `
-        <div style="margin-bottom: 10px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Bomb Time:</label>
-            <select id="controlPointBombTime_${controlPoint.id}" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+        <div class="form-group">
+            <label class="form-label">Bomb Time:</label>
+            <select id="controlPointBombTime_${controlPoint.id}" class="form-input">
                 ${bombTimeOptions}
             </select>
         </div>
-        <div style="margin-bottom: 10px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Armed Code:</label>
-            <input type="text" id="controlPointArmedCode_${controlPoint.id}" value="${controlPoint.armedCode || ''}" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;" placeholder="Código para armar">
+        <div class="form-group">
+            <label class="form-label">Armed Code:</label>
+            <input type="text" id="controlPointArmedCode_${controlPoint.id}" value="${controlPoint.armedCode || ''}" class="form-input" placeholder="Código para armar">
         </div>
-        <div style="margin-bottom: 10px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Disarmed Code:</label>
-            <input type="text" id="controlPointDisarmedCode_${controlPoint.id}" value="${controlPoint.disarmedCode || ''}" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;" placeholder="Código para desarmar">
+        <div class="form-group">
+            <label class="form-label">Disarmed Code:</label>
+            <input type="text" id="controlPointDisarmedCode_${controlPoint.id}" value="${controlPoint.disarmedCode || ''}" class="form-input" placeholder="Código para desarmar">
         </div>
     `;
     
@@ -361,7 +361,7 @@ function createControlPointEditMenu(controlPoint, marker) {
             <h4 class="edit-title">Editar Punto</h4>
             <div class="form-group">
                 <label class="form-label">Tipo:</label>
-                <select id="controlPointType_${controlPoint.id}" class="form-select">
+                <select id="controlPointType_${controlPoint.id}" class="form-input">
                     ${typeOptions}
                 </select>
             </div>
