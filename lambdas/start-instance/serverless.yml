@@ -1,0 +1,26 @@
+service: start-ec2-instance
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-east-1
+  environment:
+    EC2_INSTANCE_ID: ${env:EC2_INSTANCE_ID}
+
+functions:
+  startInstance:
+    handler: index.handler
+    events:
+      - http:
+          path: /start-instance
+          method: get
+          cors: true
+    iamRoleStatements:
+      - Effect: Allow
+        Action:
+          - ec2:DescribeInstances
+          - ec2:StartInstances
+        Resource: "*"
+
+plugins:
+  - serverless-dotenv-plugin

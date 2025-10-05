@@ -1,0 +1,86 @@
+{
+  "D:\\milsim\\lambdas\\start-instance\\serverless.yml": {
+    "versionFramework": "4.20.2",
+    "servicePath": "D:\\milsim\\lambdas\\start-instance\\serverless.yml",
+    "serviceConfigFileName": "serverless.yml",
+    "service": {
+      "service": "start-ec2-instance",
+      "provider": {
+        "name": "aws",
+        "runtime": "nodejs18.x",
+        "region": "us-east-1",
+        "environment": {
+          "EC2_INSTANCE_ID": "i-xxxxxxxxxxxxxxxxx"
+        },
+        "stage": "dev",
+        "versionFunctions": true
+      },
+      "functions": {
+        "startInstance": {
+          "handler": "index.handler",
+          "events": [
+            {
+              "http": {
+                "path": "/start-instance",
+                "method": "get",
+                "cors": true
+              }
+            }
+          ],
+          "iamRoleStatements": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "ec2:DescribeInstances",
+                "ec2:StartInstances"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+      },
+      "plugins": [
+        "serverless-dotenv-plugin"
+      ]
+    },
+    "provider": {
+      "name": "aws",
+      "runtime": "nodejs18.x",
+      "region": "us-east-1",
+      "environment": {
+        "EC2_INSTANCE_ID": "i-xxxxxxxxxxxxxxxxx"
+      },
+      "stage": "dev",
+      "versionFunctions": true
+    },
+    "dashboard": {
+      "isEnabledForService": false,
+      "requiredAuthentication": false,
+      "orgFeaturesInUse": null,
+      "orgObservabilityIntegrations": null,
+      "serviceAppId": null,
+      "serviceProvider": null,
+      "instanceParameters": null
+    },
+    "error": {
+      "message": "Serverless plugin \"serverless-dotenv-plugin\" not found. Make sure it's installed and listed in the \"plugins\" section of your serverless config file. Use the --debug flag to learn more.",
+      "stack": "ServerlessError2: Serverless plugin \"serverless-dotenv-plugin\" not found. Make sure it's installed and listed in the \"plugins\" section of your serverless config file. Use the --debug flag to learn more.\n    at PluginManager.resolveServicePlugins (file:///C:/Users/seyac/.serverless/releases/4.20.2/package/dist/sf-core.js:1303:3214)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async PluginManager.loadAllPlugins (file:///C:/Users/seyac/.serverless/releases/4.20.2/package/dist/sf-core.js:1303:1592)\n    at async Serverless.init (file:///C:/Users/seyac/.serverless/releases/4.20.2/package/dist/sf-core.js:1310:9843)\n    at async runFramework (file:///C:/Users/seyac/.serverless/releases/4.20.2/package/dist/sf-core.js:1337:839)\n    at async TraditionalRunner.run (file:///C:/Users/seyac/.serverless/releases/4.20.2/package/dist/sf-core.js:1333:28331)\n    at async route (file:///C:/Users/seyac/.serverless/releases/4.20.2/package/dist/sf-core.js:1508:2878)\n    at async Object.run (file:///C:/Users/seyac/.serverless/releases/4.20.2/package/dist/sf-core.js:1509:3661)\n    at async run2 (file:///C:/Users/seyac/.serverless/releases/4.20.2/package/dist/sf-core.js:1509:4815)",
+      "code": "PLUGIN_NOT_FOUND"
+    },
+    "serviceRawFile": "service: start-ec2-instance\r\n\r\nprovider:\r\n  name: aws\r\n  runtime: nodejs18.x\r\n  region: us-east-1\r\n  environment:\r\n    EC2_INSTANCE_ID: ${env:EC2_INSTANCE_ID}\r\n\r\nfunctions:\r\n  startInstance:\r\n    handler: index.handler\r\n    events:\r\n      - http:\r\n          path: /start-instance\r\n          method: get\r\n          cors: true\r\n    iamRoleStatements:\r\n      - Effect: Allow\r\n        Action:\r\n          - ec2:DescribeInstances\r\n          - ec2:StartInstances\r\n        Resource: \"*\"\r\n\r\nplugins:\r\n  - serverless-dotenv-plugin",
+    "command": [
+      "deploy"
+    ],
+    "options": {},
+    "orgId": "4N8Tw807rrrTqlghQK",
+    "orgName": "seyacat",
+    "userId": "77qsyfh3GzHcjw8RND",
+    "userName": "seyacat",
+    "serviceProviderAwsAccountId": "147464502454",
+    "serviceProviderAwsCfStackId": null,
+    "serviceProviderAwsCfStackCreated": null,
+    "serviceProviderAwsCfStackUpdated": null,
+    "serviceProviderAwsCfStackStatus": null,
+    "serviceProviderAwsCfStackOutputs": null
+  }
+}
