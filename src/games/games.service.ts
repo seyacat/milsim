@@ -293,13 +293,15 @@ export class GamesService {
       timestamp: new Date(),
     });
 
-    // Start timer if game has time limit
+    // Start timer for running games (both limited and indefinite)
     console.log(`Game ${gameId} totalTime: ${game.totalTime}, type: ${typeof game.totalTime}`);
     console.log(`Game ${gameId} status: ${game.status}`);
 
-    // ALWAYS start timer for running games, even if totalTime is null
+    // ALWAYS start timer for running games, even if totalTime is null (indefinite games)
     if (game.status === 'running') {
-      console.log(`Starting timer for game ${gameId} with total time: ${game.totalTime}s`);
+      console.log(
+        `Starting timer for game ${gameId} with total time: ${game.totalTime}s (indefinite: ${game.totalTime === null})`,
+      );
       console.log(`GamesGateway available: ${!!this.gamesGateway}`);
       this.startGameTimer(gameId, game.totalTime);
     } else {
@@ -494,8 +496,8 @@ export class GamesService {
 
     const timer: GameTimer = {
       gameId,
-      totalTime,
-      remainingTime: totalTime,
+      totalTime: totalTime === 0 ? null : totalTime, // Treat 0 as indefinite (null)
+      remainingTime: totalTime === 0 ? null : totalTime, // Treat 0 as indefinite (null)
       elapsedTime: 0,
       startTime: new Date(),
       isRunning: true,
@@ -530,7 +532,7 @@ export class GamesService {
           });
         }
 
-        // Check if time's up for limited games
+        // Check if time's up for limited games (only if totalTime is not null)
         if (timer.totalTime !== null && timer.remainingTime !== null && timer.remainingTime <= 0) {
           // Time's up - end the game automatically (system action)
           console.log(`[TIMER] Time expired for game ${gameId}, ending automatically`);
@@ -548,6 +550,9 @@ export class GamesService {
               }
             })
             .catch(console.error);
+        } else if (timer.totalTime === null) {
+          // For indefinite games, just log the elapsed time without ending the game
+          console.log(`[TIMER] Indefinite game ${gameId} - elapsed time: ${timer.elapsedTime}s`);
         }
       }
     }, 1000); // 1 second interval
@@ -613,12 +618,16 @@ export class GamesService {
   ): { remainingTime: number | null; totalTime: number | null; playedTime: number } | null {
     const timer = this.gameTimers.get(gameId);
     if (timer) {
+      console.log(
+        `[GET_GAME_TIME] Game ${gameId} - totalTime: ${timer.totalTime}, remainingTime: ${timer.remainingTime}, elapsedTime: ${timer.elapsedTime}`,
+      );
       return {
         remainingTime: timer.remainingTime,
         totalTime: timer.totalTime,
         playedTime: timer.elapsedTime,
       };
     }
+    console.log(`[GET_GAME_TIME] No timer found for game ${gameId}`);
     return null;
   }
 
@@ -637,41 +646,89 @@ export class GamesService {
       elapsedTime: timer.elapsedTime,
     });
 
-    if (timer.totalTime !== null && timer.remainingTime !== null) {
-      timer.totalTime += seconds;
-      timer.remainingTime += seconds;
-      console.log(
-        `[ADD_TIME] Updated timer: totalTime=${timer.totalTime}, remainingTime=${timer.remainingTime}`,
-      );
+    // Handle negative time (removing time)
+    if (seconds < 0) {
+      // For limited games, ensure we don't go below elapsed time
+      if (timer.totalTime !== null && timer.remainingTime !== null) {
+        const newTotalTime = Math.max(timer.elapsedTime, timer.totalTime + seconds);
+        const newRemainingTime = Math.max(0, timer.remainingTime + seconds);
+        
+        timer.totalTime = newTotalTime;
+        timer.remainingTime = newRemainingTime;
+        console.log(
+          `[ADD_TIME] Removed time: totalTime=${timer.totalTime}, remainingTime=${timer.remainingTime}`,
+        );
+      } else {
+        // For indefinite games, cannot remove time
+        console.log(`[ADD_TIME] Cannot remove time from indefinite game`);
+        throw new Error('No se puede quitar tiempo de un juego indefinido');
+      }
     } else {
-      // If game was indefinite, now it becomes limited
-      timer.totalTime = timer.elapsedTime + seconds;
-      timer.remainingTime = seconds;
-      console.log(
-        `[ADD_TIME] Converted to limited: totalTime=${timer.totalTime}, remainingTime=${timer.remainingTime}`,
-      );
+      // Handle positive time (adding time)
+      if (timer.totalTime !== null && timer.remainingTime !== null) {
+        timer.totalTime += seconds;
+        timer.remainingTime += seconds;
+        console.log(
+          `[ADD_TIME] Added time: totalTime=${timer.totalTime}, remainingTime=${timer.remainingTime}`,
+        );
+      } else {
+        // If game was indefinite (null or 0), now it becomes limited
+        timer.totalTime = timer.elapsedTime + seconds;
+        timer.remainingTime = seconds;
+        console.log(
+          `[ADD_TIME] Converted to limited: totalTime=${timer.totalTime}, remainingTime=${timer.remainingTime}`,
+        );
+      }
     }
 
     const game = await this.findOne(gameId);
     console.log(`[ADD_TIME] Current game totalTime: ${game.totalTime}`);
 
-    // Ensure we're not setting NaN values
-    if (timer.totalTime !== null && !isNaN(timer.totalTime)) {
-      game.totalTime = timer.totalTime;
-      console.log(`[ADD_TIME] Setting game totalTime to: ${game.totalTime}`);
-    } else {
-      // If there's an issue, keep the original value
-      console.warn(
-        `[ADD_TIME] Invalid totalTime value: ${timer.totalTime}, keeping original value: ${game.totalTime}`,
-      );
-    }
+    // Update the appropriate entity based on game status
+    if (game.status === 'running' && game.instanceId) {
+      // Update game instance when game is running
+      const gameInstance = await this.gameInstancesRepository.findOne({
+        where: { id: game.instanceId },
+      });
 
-    try {
-      await this.gamesRepository.save(game);
-      console.log(`[ADD_TIME] Game saved successfully`);
-    } catch (error) {
-      console.error(`[ADD_TIME] Error saving game:`, error);
-      throw error;
+      if (gameInstance) {
+        // Ensure we're not setting NaN values
+        if (timer.totalTime !== null && !isNaN(timer.totalTime)) {
+          gameInstance.totalTime = timer.totalTime;
+          console.log(`[ADD_TIME] Setting game instance totalTime to: ${gameInstance.totalTime}`);
+        } else {
+          console.warn(
+            `[ADD_TIME] Invalid totalTime value: ${timer.totalTime}, keeping original value: ${gameInstance.totalTime}`,
+          );
+        }
+
+        try {
+          await this.gameInstancesRepository.save(gameInstance);
+          console.log(`[ADD_TIME] Game instance saved successfully`);
+        } catch (error) {
+          console.error(`[ADD_TIME] Error saving game instance:`, error);
+          throw error;
+        }
+      }
+    } else {
+      // Update game entity when game is stopped
+      // Ensure we're not setting NaN values
+      if (timer.totalTime !== null && !isNaN(timer.totalTime)) {
+        game.totalTime = timer.totalTime;
+        console.log(`[ADD_TIME] Setting game totalTime to: ${game.totalTime}`);
+      } else {
+        console.warn(
+          `[ADD_TIME] Invalid totalTime value: ${timer.totalTime}, keeping original value: ${game.totalTime}`,
+        );
+      }
+
+      try {
+        await this.gamesRepository.save(game);
+        console.log(`[ADD_TIME] Game saved successfully`);
+      } catch (error) {
+        console.error(`[ADD_TIME] Error saving game:`, error);
+        throw error;
+      }
     }
 
     // Force broadcast the updated time
@@ -705,11 +762,37 @@ export class GamesService {
       throw new ConflictException('Solo el propietario del juego puede cambiar el tiempo');
     }
 
-    // Update game time
-    game.totalTime = timeInSeconds;
-    const updatedGame = await this.gamesRepository.save(game);
+    // Treat 0 as indefinite (null)
+    const effectiveTime = timeInSeconds === 0 ? null : timeInSeconds;
 
-    return updatedGame;
+    // Update the appropriate entity based on game status
+    if (game.status === 'running' && game.instanceId) {
+      // Update game instance when game is running
+      const gameInstance = await this.gameInstancesRepository.findOne({
+        where: { id: game.instanceId },
+      });
+
+      if (gameInstance) {
+        gameInstance.totalTime = effectiveTime;
+        await this.gameInstancesRepository.save(gameInstance);
+      }
+    } else {
+      // Update game entity when game is stopped
+      game.totalTime = effectiveTime;
+      await this.gamesRepository.save(game);
+    }
+
+    // Update timer if exists
+    const timer = this.gameTimers.get(gameId);
+    if (timer) {
+      timer.totalTime = effectiveTime;
+      timer.remainingTime = effectiveTime;
+    }
+
+    // Force broadcast the updated time
+    this.forceTimeBroadcast(gameId);
+
+    return game;
   }
 
   // Game Instance methods
