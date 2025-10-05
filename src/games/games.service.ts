@@ -123,6 +123,10 @@ export class GamesService {
     longitude: number;
     gameId: number;
     type?: string;
+    challengeType?: string;
+    code?: string;
+    armedCode?: string;
+    disarmedCode?: string;
   }): Promise<ControlPoint> {
     // Check if game exists
     const game = await this.gamesRepository.findOne({
@@ -136,6 +140,12 @@ export class GamesService {
     const validTypes = ['control_point', 'site', 'bomb'];
     if (controlPointData.type && !validTypes.includes(controlPointData.type)) {
       throw new ConflictException('Tipo de punto de control inválido');
+    }
+
+    // Validate challenge type
+    const validChallengeTypes = ['position', 'code'];
+    if (controlPointData.challengeType && !validChallengeTypes.includes(controlPointData.challengeType)) {
+      throw new ConflictException('Tipo de challenge inválido');
     }
 
     // Check if trying to create a Site and one already exists
@@ -162,7 +172,16 @@ export class GamesService {
 
   async updateControlPoint(
     id: number,
-    updateData: { name: string; type: string },
+    updateData: {
+      name: string;
+      type: string;
+      challengeType?: string;
+      code?: string;
+      armedCode?: string;
+      disarmedCode?: string;
+      minDistance?: number;
+      minAccuracy?: number;
+    },
   ): Promise<ControlPoint> {
     const controlPoint = await this.controlPointsRepository.findOne({
       where: { id },
@@ -177,6 +196,12 @@ export class GamesService {
     const validTypes = ['control_point', 'site', 'bomb'];
     if (updateData.type && !validTypes.includes(updateData.type)) {
       throw new ConflictException('Tipo de punto de control inválido');
+    }
+
+    // Validate challenge type
+    const validChallengeTypes = ['position', 'code'];
+    if (updateData.challengeType && !validChallengeTypes.includes(updateData.challengeType)) {
+      throw new ConflictException('Tipo de challenge inválido');
     }
 
     // Check if trying to change to Site and one already exists
@@ -563,9 +588,6 @@ export class GamesService {
 
         // Broadcast time update ONLY every 20 seconds
         if (timer.elapsedTime % 20 === 0 && this.gamesGateway) {
-          console.log(
-            `[TIMER] Broadcasting time update for game ${gameId}: elapsed=${timer.elapsedTime}, remaining=${timer.remainingTime}`,
-          );
           this.gamesGateway.broadcastTimeUpdate(gameId, {
             remainingTime: timer.remainingTime,
             playedTime: timer.elapsedTime,

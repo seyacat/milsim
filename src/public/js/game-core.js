@@ -242,10 +242,10 @@ async function loadControlPoints(gameId) {
             currentGame.controlPoints.forEach(controlPoint => {
                 // Use appropriate function based on user role
                 const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-                if (isOwner && window.addControlPointMarker) {
-                    window.addControlPointMarker(controlPoint);
-                } else if (window.addControlPointMarkerPlayer) {
-                    window.addControlPointMarkerPlayer(controlPoint);
+                if (isOwner && window.addOwnerControlPointMarker) {
+                    window.addOwnerControlPointMarker(controlPoint);
+                } else if (window.addPlayerControlPointMarker) {
+                    window.addPlayerControlPointMarker(controlPoint);
                 }
             });
         }
@@ -314,9 +314,13 @@ function updateGameInfo() {
     }
     
     // Update control point popups when game info is updated
-    if (window.updateControlPointPopups) {
-        console.log('Updating control point popups due to game info update');
-        window.updateControlPointPopups();
+    const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+    if (userIsOwner && window.updateOwnerControlPointPopups) {
+        console.log('Updating owner control point popups due to game info update');
+        window.updateOwnerControlPointPopups();
+    } else if (window.updatePlayerControlPointPopups) {
+        console.log('Updating player control point popups due to game info update');
+        window.updatePlayerControlPointPopups();
     }
     
     // Show game summary dialog if game is in finished state
@@ -947,10 +951,10 @@ function handleGameAction(data) {
             console.log('Control point created:', data.data);
             // Use appropriate function based on user role
             const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-            if (isOwner && window.addControlPointMarker) {
-                window.addControlPointMarker(data.data);
-            } else if (window.addControlPointMarkerPlayer) {
-                window.addControlPointMarkerPlayer(data.data);
+            if (isOwner && window.addOwnerControlPointMarker) {
+                window.addOwnerControlPointMarker(data.data);
+            } else if (window.addPlayerControlPointMarker) {
+                window.addPlayerControlPointMarker(data.data);
             }
             break;
         case 'controlPointUpdated':
@@ -962,10 +966,10 @@ function handleGameAction(data) {
                     
                     // Use appropriate popup function based on user role
                     const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-                    if (isOwner && window.createControlPointEditMenu) {
-                        layer.bindPopup(window.createControlPointEditMenu(data.data, layer));
-                    } else if (window.createControlPointPlayerMenu) {
-                        layer.bindPopup(window.createControlPointPlayerMenu(data.data, layer));
+                    if (isOwner && window.createOwnerControlPointEditMenu) {
+                        layer.bindPopup(window.createOwnerControlPointEditMenu(data.data, layer));
+                    } else if (window.createPlayerControlPointMenu) {
+                        layer.bindPopup(window.createPlayerControlPointMenu(data.data, layer));
                     }
                     
                     // Close popup if it's open
@@ -1041,9 +1045,13 @@ function handleGameAction(data) {
                 }
                 
                 // Update control point popups when game state changes
-                if (window.updateControlPointPopups) {
-                    console.log('Updating control point popups due to game state change');
-                    window.updateControlPointPopups();
+                const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+                if (isOwner && window.updateOwnerControlPointPopups) {
+                    console.log('Updating owner control point popups due to game state change');
+                    window.updateOwnerControlPointPopups();
+                } else if (window.updatePlayerControlPointPopups) {
+                    console.log('Updating player control point popups due to game state change');
+                    window.updatePlayerControlPointPopups();
                 }
             }
             break;

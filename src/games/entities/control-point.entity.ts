@@ -31,6 +31,24 @@ export class ControlPoint {
   @Column({ default: 'control_point' })
   type: string;
 
+  @Column({ nullable: true })
+  challengeType: string;
+
+  @Column({ nullable: true })
+  code: string;
+
+  @Column({ nullable: true })
+  armedCode: string;
+
+  @Column({ nullable: true })
+  disarmedCode: string;
+
+  @Column({ nullable: true })
+  minDistance: number;
+
+  @Column({ nullable: true })
+  minAccuracy: number;
+
   @ManyToOne(() => Game, game => game.controlPoints, {
     onDelete: 'CASCADE',
   })
