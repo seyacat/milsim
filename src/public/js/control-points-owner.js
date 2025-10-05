@@ -161,20 +161,26 @@ function addControlPointMarkerOwner(controlPoint) {
     console.log('Current game available for marker:', !!currentGame);
     console.log('Current user available for marker:', !!currentUser);
     
-    // Create icon based on type
+    // Create icon based on type and bomb challenge
     let iconColor = '#2196F3'; // Default for control_point
     let iconEmoji = '🚩'; // Default for control_point
     
-    switch (controlPoint.type) {
-        case 'site':
-            iconColor = '#FF9800';
-            iconEmoji = '🏠';
-            break;
-        case 'control_point':
-        default:
-            iconColor = '#2196F3';
-            iconEmoji = '🚩';
-            break;
+    // If bomb challenge is active, use bomb emoji regardless of type
+    if (controlPoint.hasBombChallenge) {
+        iconEmoji = '💣';
+        iconColor = '#FF0000'; // Red for bomb
+    } else {
+        switch (controlPoint.type) {
+            case 'site':
+                iconColor = '#FF9800';
+                iconEmoji = '🏠';
+                break;
+            case 'control_point':
+            default:
+                iconColor = '#2196F3';
+                iconEmoji = '🚩';
+                break;
+        }
     }
     
     const controlPointIcon = L.divIcon({
@@ -201,6 +207,22 @@ function addControlPointMarkerOwner(controlPoint) {
     const marker = L.marker([controlPoint.latitude, controlPoint.longitude], {
         icon: controlPointIcon
     }).addTo(map);
+
+    // Add orange circle if position challenge is active
+    if (controlPoint.hasPositionChallenge && controlPoint.minDistance) {
+        const circle = L.circle([controlPoint.latitude, controlPoint.longitude], {
+            radius: controlPoint.minDistance,
+            color: '#FF9800', // Orange color
+            fillColor: 'transparent', // No fill
+            fillOpacity: 0,
+            weight: 2,
+            opacity: 0.8
+        }).addTo(map);
+        
+        // Store circle reference with marker
+        marker.positionCircle = circle;
+        console.log('Position challenge circle added with radius:', controlPoint.minDistance, 'meters');
+    }
 
     // Create popup with edit options
     console.log('Creating edit menu for control point...');
@@ -658,6 +680,49 @@ function updateOwnerControlPointPopups() {
     console.log('Owner control point popups updated');
 }
 
+// Refresh control point markers - remove and recreate with updated settings (for owners)
+function refreshOwnerControlPointMarkers(controlPoints) {
+    if (!map) return;
+    
+    console.log('REFRESH OWNER: Starting refresh with control points:', controlPoints);
+    console.log('REFRESH OWNER: Number of control points:', controlPoints ? controlPoints.length : 0);
+    
+    // Remove all existing control point markers and circles
+    let removedCount = 0;
+    map.eachLayer((layer) => {
+        if (layer instanceof L.Marker && layer.controlPointData) {
+            // Remove position circle if exists
+            if (layer.positionCircle) {
+                map.removeLayer(layer.positionCircle);
+                console.log('REFRESH OWNER: Removed position circle for control point:', layer.controlPointData.id);
+            }
+            map.removeLayer(layer);
+            removedCount++;
+        }
+    });
+    
+    console.log('REFRESH OWNER: Removed', removedCount, 'existing markers');
+    
+    // Recreate all control point markers with updated settings
+    if (controlPoints && Array.isArray(controlPoints)) {
+        console.log('REFRESH OWNER: Creating', controlPoints.length, 'new markers');
+        controlPoints.forEach((controlPoint, index) => {
+            console.log('REFRESH OWNER: Creating marker', index + 1, 'for control point:', controlPoint.id, controlPoint.name);
+            console.log('REFRESH OWNER: Control point data:', {
+                hasPositionChallenge: controlPoint.hasPositionChallenge,
+                minDistance: controlPoint.minDistance,
+                hasBombChallenge: controlPoint.hasBombChallenge,
+                type: controlPoint.type
+            });
+            addControlPointMarkerOwner(controlPoint);
+        });
+    } else {
+        console.log('REFRESH OWNER: No control points to create');
+    }
+    
+    console.log('REFRESH OWNER: Owner control point markers refreshed successfully');
+}
+
 // Make functions available globally
 window.initializeOwnerControlPoints = initializeOwnerControlPoints;
 window.showControlPointMenu = showControlPointMenu;
@@ -669,6 +734,7 @@ window.updateControlPoint = updateControlPoint;
 window.deleteControlPoint = deleteControlPoint;
 window.createOwnerControlPointEditMenu = createControlPointEditMenu;
 window.updateOwnerControlPointPopups = updateOwnerControlPointPopups;
+window.refreshOwnerControlPointMarkers = refreshOwnerControlPointMarkers;
 window.togglePositionInputs = togglePositionInputs;
 window.toggleCodeInputs = toggleCodeInputs;
 window.toggleBombInputs = toggleBombInputs;

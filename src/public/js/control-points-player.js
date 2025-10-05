@@ -45,19 +45,28 @@ function addControlPointMarkerPlayer(controlPoint) {
         gameId: currentGame ? currentGame.id : 'undefined'
     });
     
-    // Create icon based on type
+    // Create icon based on type and challenges
     let iconColor = '#2196F3'; // Default for control_point
     let iconEmoji = '🚩'; // Default for control_point
+    
+    // Check for bomb challenge - use bomb emoji if active
+    if (controlPoint.bombChallenge) {
+        iconEmoji = '💣';
+    }
     
     switch (controlPoint.type) {
         case 'site':
             iconColor = '#FF9800';
-            iconEmoji = '🏠';
+            if (!controlPoint.bombChallenge) {
+                iconEmoji = '🏠';
+            }
             break;
         case 'control_point':
         default:
             iconColor = '#2196F3';
-            iconEmoji = '🚩';
+            if (!controlPoint.bombChallenge) {
+                iconEmoji = '🚩';
+            }
             break;
     }
     
@@ -85,6 +94,21 @@ function addControlPointMarkerPlayer(controlPoint) {
     const marker = L.marker([controlPoint.latitude, controlPoint.longitude], {
         icon: controlPointIcon
     }).addTo(map);
+
+    // Add orange circle for position challenge if active
+    if (controlPoint.positionChallenge && controlPoint.minDistance) {
+        const circle = L.circle([controlPoint.latitude, controlPoint.longitude], {
+            radius: controlPoint.minDistance,
+            color: '#FF9800',
+            fillColor: '#FF9800',
+            fillOpacity: 0.1,
+            weight: 2
+        }).addTo(map);
+        
+        // Store circle reference on marker for later removal
+        marker.positionCircle = circle;
+        console.log('Added position challenge circle with radius:', controlPoint.minDistance);
+    }
 
     // Create popup with "Tomar" option for players
     const popupContent = createControlPointPlayerMenu(controlPoint, marker);
@@ -374,11 +398,39 @@ function updateControlPointPopups() {
     console.log('Control point popups updated');
 }
 
+// Refresh control point markers - remove and recreate with updated settings
+function refreshControlPointMarkers(controlPoints) {
+    if (!map) return;
+    
+    console.log('Refreshing control point markers with new settings:', controlPoints);
+    
+    // Remove all existing control point markers and circles
+    map.eachLayer((layer) => {
+        if (layer instanceof L.Marker && layer.controlPointData) {
+            // Remove position circle if exists
+            if (layer.positionCircle) {
+                map.removeLayer(layer.positionCircle);
+            }
+            map.removeLayer(layer);
+        }
+    });
+    
+    // Recreate all control point markers with updated settings
+    if (controlPoints && Array.isArray(controlPoints)) {
+        controlPoints.forEach(controlPoint => {
+            addControlPointMarkerPlayer(controlPoint);
+        });
+    }
+    
+    console.log('Control point markers refreshed');
+}
+
 // Make functions available globally
 window.addPlayerControlPointMarker = addControlPointMarkerPlayer;
 window.takeControlPoint = takeControlPoint;
 window.createPlayerControlPointMenu = createControlPointPlayerMenu;
 window.updatePlayerControlPointPopups = updateControlPointPopups;
+window.refreshPlayerControlPointMarkers = refreshControlPointMarkers;
 window.submitCode = submitCode;
 window.closeCodeDialog = closeCodeDialog;
 window.calculateDistance = calculateDistance;

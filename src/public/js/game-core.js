@@ -108,11 +108,18 @@ function initializeWebSocket(gameId) {
 
     socket.on('gameUpdate', (data) => {
         console.log('Game update received:', data);
+        console.log('Game update type:', data.type);
         // Update the game state when changes occur
         if (data.game) {
             currentGame = data.game;
             updateGameInfo();
             updatePlayerMarkers();
+            
+            // Debug: Check if this is a gameUpdated event with control points
+            if (data.type === 'gameUpdated' && data.game.controlPoints) {
+                console.log('GameUpdated event received with control points:', data.game.controlPoints.length);
+                console.log('First control point data:', data.game.controlPoints[0]);
+            }
         }
     });
 
@@ -226,24 +233,34 @@ async function loadGame(gameId) {
 // Load control points for the game
 async function loadControlPoints(gameId) {
     try {
-        // Clear existing control point markers
-        map.eachLayer((layer) => {
-            if (layer instanceof L.Marker && layer.controlPointData) {
-                map.removeLayer(layer);
-            }
-        });
-
-        // Load control points from the game data
-        if (currentGame && currentGame.controlPoints && Array.isArray(currentGame.controlPoints)) {
-            currentGame.controlPoints.forEach(controlPoint => {
-                // Use appropriate function based on user role
-                const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-                if (isOwner && window.addOwnerControlPointMarker) {
-                    window.addOwnerControlPointMarker(controlPoint);
-                } else if (window.addPlayerControlPointMarker) {
-                    window.addPlayerControlPointMarker(controlPoint);
+        // Use refresh functions to load all control points with proper visualizations
+        const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+        if (isOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
+            console.log('Loading owner control points with refresh function');
+            window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
+        } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
+            console.log('Loading player control points with refresh function');
+            window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
+        } else {
+            // Fallback: Clear existing control point markers and add them individually
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker && layer.controlPointData) {
+                    map.removeLayer(layer);
                 }
             });
+
+            // Load control points from the game data
+            if (currentGame && currentGame.controlPoints && Array.isArray(currentGame.controlPoints)) {
+                currentGame.controlPoints.forEach(controlPoint => {
+                    // Use appropriate function based on user role
+                    const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+                    if (isOwner && window.addOwnerControlPointMarker) {
+                        window.addOwnerControlPointMarker(controlPoint);
+                    } else if (window.addPlayerControlPointMarker) {
+                        window.addPlayerControlPointMarker(controlPoint);
+                    }
+                });
+            }
         }
     } catch (error) {
         console.error('Error loading control points:', error);
@@ -963,25 +980,46 @@ function handleGameAction(data) {
                 armedCode: data.data.armedCode,
                 disarmedCode: data.data.disarmedCode
             });
-            // Update existing marker
-            map.eachLayer((layer) => {
-                if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.id) {
-                    layer.controlPointData = data.data;
-                    
-                    // Use appropriate popup function based on user role
-                    const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-                    if (isOwner && window.createOwnerControlPointEditMenu) {
-                        layer.bindPopup(window.createOwnerControlPointEditMenu(data.data, layer));
-                    } else if (window.createPlayerControlPointMenu) {
-                        layer.bindPopup(window.createPlayerControlPointMenu(data.data, layer));
-                    }
-                    
-                    // Close popup if it's open
-                    if (layer.isPopupOpen()) {
-                        layer.closePopup();
-                    }
+            
+            // Update the local control point data in currentGame
+            if (currentGame && currentGame.controlPoints) {
+                const controlPointIndex = currentGame.controlPoints.findIndex(cp => cp.id === data.data.id);
+                if (controlPointIndex !== -1) {
+                    currentGame.controlPoints[controlPointIndex] = data.data;
+                    console.log('Updated local control point data with latest changes');
                 }
-            });
+            }
+            
+            // Refresh all control point markers to apply visual changes (circles, bomb emoji, etc.)
+            const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+            if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
+                console.log('Refreshing owner control point markers with updated settings');
+                console.log('Control points to refresh:', currentGame.controlPoints.length);
+                window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
+            } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
+                console.log('Refreshing player control point markers with updated settings');
+                console.log('Control points to refresh:', currentGame.controlPoints.length);
+                window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
+            } else {
+                // Fallback: Update existing marker individually
+                map.eachLayer((layer) => {
+                    if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.id) {
+                        layer.controlPointData = data.data;
+                        
+                        // Use appropriate popup function based on user role
+                        if (userIsOwner && window.createOwnerControlPointEditMenu) {
+                            layer.bindPopup(window.createOwnerControlPointEditMenu(data.data, layer));
+                        } else if (window.createPlayerControlPointMenu) {
+                            layer.bindPopup(window.createPlayerControlPointMenu(data.data, layer));
+                        }
+                        
+                        // Close popup if it's open
+                        if (layer.isPopupOpen()) {
+                            layer.closePopup();
+                        }
+                    }
+                });
+            }
             break;
         case 'controlPointDeleted':
             console.log('Control point deleted:', data.data);
@@ -1076,6 +1114,27 @@ function handleGameAction(data) {
                 // Reload players data for owner's dialog
                 if (currentGame.owner && currentGame.owner.id === currentUser.id) {
                     loadPlayersData();
+                }
+            }
+            break;
+            
+        case 'gameUpdated':
+            // Handle complete game updates (including control points)
+            if (data.data && data.data.game) {
+                const previousGame = currentGame;
+                currentGame = data.data.game;
+                updateGameInfo();
+                
+                // Always refresh control point markers with the latest data from server
+                const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+                if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
+                    console.log('Refreshing owner control point markers due to game update with latest data');
+                    console.log('Game update control points:', currentGame.controlPoints.length);
+                    window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
+                } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
+                    console.log('Refreshing player control point markers due to game update with latest data');
+                    console.log('Game update control points:', currentGame.controlPoints.length);
+                    window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
                 }
             }
             break;

@@ -15,6 +15,7 @@ import { AuthService } from '../auth/auth.service';
   cors: {
     origin: '*',
     methods: ['GET', 'POST'],
+    credentials: true,
   },
 })
 export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -59,7 +60,11 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { gameId } = payload;
     const user = this.connectedUsers.get(client.id);
 
+    console.log(`[JOIN_GAME_WS] Client ${client.id} attempting to join game ${gameId}`);
+    console.log(`[JOIN_GAME_WS] User data:`, user);
+
     if (!user) {
+      console.error(`[JOIN_GAME_WS] User not authenticated for client ${client.id}`);
       client.emit('joinError', { message: 'User not authenticated' });
       return;
     }
@@ -76,7 +81,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // If user is already connected from another device, disconnect the old connection
       if (existingSocketId) {
         console.log(
-          `User ${user.id} is already connected from socket ${existingSocketId}, disconnecting...`,
+          `[JOIN_GAME_WS] User ${user.id} is already connected from socket ${existingSocketId}, disconnecting...`,
         );
 
         // Send message to old device to leave the game
@@ -95,25 +100,31 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // Join the room for this specific game
       client.join(`game_${gameId}`);
+      console.log(`[JOIN_GAME_WS] Client ${client.id} joined room game_${gameId}`);
 
       // Get updated game data
       const game = await this.gamesService.findOne(gameId);
+      console.log(`[JOIN_GAME_WS] Game data retrieved:`, game?.name);
 
       // Join the game via service (this will handle the case where user is already in the game)
       await this.gamesService.joinGame(gameId, user.id);
+      console.log(`[JOIN_GAME_WS] User ${user.id} joined game ${gameId} via service`);
 
       // Get updated game data
       const updatedGame = await this.gamesService.findOne(gameId);
+      console.log(`[JOIN_GAME_WS] Updated game data:`, updatedGame?.players?.length, 'players');
 
       // Notify all clients in the game room about the updated player list
       this.server.to(`game_${gameId}`).emit('gameUpdate', {
         type: 'playerJoined',
         game: updatedGame,
       });
+      console.log(`[JOIN_GAME_WS] Game update broadcasted to room game_${gameId}`);
 
       // Check if user is owner and send stored positions
       const currentGame = await this.gamesService.findOne(gameId);
       if (currentGame.owner && currentGame.owner.id === user.id) {
+        console.log(`[JOIN_GAME_WS] User ${user.id} is owner, sending stored positions`);
         // Send all stored positions to the owner
         const positions: Array<{
           userId: number;
@@ -141,6 +152,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
             data: { positions },
             from: 'server',
           });
+          console.log(`[JOIN_GAME_WS] Sent ${positions.length} positions to owner`);
         }
       }
 
@@ -148,10 +160,11 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         message: 'Successfully joined game',
         user: { id: user.id, name: user.name },
       });
+      console.log(`[JOIN_GAME_WS] Join success sent to client ${client.id}`);
     } catch (error: any) {
-      console.error('Error joining game:', error);
-      console.error('Error details:', error.message, error.stack);
-      client.emit('joinError', { message: 'Failed to join game: ' + error.message });
+      console.error('[JOIN_GAME_WS] Error joining game:', error);
+      console.error('[JOIN_GAME_WS] Error details:', error.message, error.stack);
+      client.emit('joinError', { message: error.message });
     }
   }
 
@@ -234,11 +247,25 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
             },
           );
 
+          // Get the complete updated game with all control points AFTER the update
+          const updatedGame = await this.gamesService.findOne(gameId);
+
+          console.log('[UPDATE_CONTROL_POINT] Updated game data:', {
+            controlPointsCount: updatedGame.controlPoints?.length,
+            firstControlPoint: updatedGame.controlPoints?.[0],
+          });
+
           // Broadcast the updated control point to all clients
           this.server.to(`game_${gameId}`).emit('gameAction', {
             action: 'controlPointUpdated',
             data: updatedControlPoint,
             from: client.id,
+          });
+
+          // Also broadcast the complete game update so frontend has all control points
+          this.server.to(`game_${gameId}`).emit('gameUpdate', {
+            type: 'gameUpdated',
+            game: updatedGame,
           });
           break;
         }

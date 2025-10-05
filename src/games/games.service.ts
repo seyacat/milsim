@@ -76,26 +76,37 @@ export class GamesService {
   }
 
   async joinGame(gameId: number, userId: number): Promise<Player> {
+    console.log(`[JOIN_GAME] Attempting to join game ${gameId} with user ${userId}`);
+
     // Check if game exists
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
       relations: ['owner', 'players'],
     });
     if (!game) {
+      console.error(`[JOIN_GAME] Game ${gameId} not found`);
       throw new NotFoundException('Game not found');
     }
+
+    console.log(
+      `[JOIN_GAME] Game found: ${game.name}, players: ${game.players?.length || 0}/${game.maxPlayers}`,
+    );
 
     // Check if user is already in the game
     const existingPlayer = await this.playersRepository.findOne({
       where: { game: { id: gameId }, user: { id: userId } },
     });
     if (existingPlayer) {
+      console.log(`[JOIN_GAME] User ${userId} is already in game ${gameId}, allowing reconnection`);
       // User is already in the game, return the existing player (allow reconnection)
       return existingPlayer;
     }
 
     // Check if game is full
     if (game.players.length >= game.maxPlayers) {
+      console.error(
+        `[JOIN_GAME] Game ${gameId} is full: ${game.players.length}/${game.maxPlayers}`,
+      );
       throw new ConflictException('Game is full');
     }
 
@@ -105,7 +116,11 @@ export class GamesService {
       user: { id: userId },
     });
 
-    return this.playersRepository.save(player);
+    console.log(`[JOIN_GAME] Creating new player entry for user ${userId} in game ${gameId}`);
+    const savedPlayer = await this.playersRepository.save(player);
+    console.log(`[JOIN_GAME] Player ${savedPlayer.id} created successfully`);
+
+    return savedPlayer;
   }
 
   async getPlayerGames(userId: number): Promise<Game[]> {
@@ -144,7 +159,10 @@ export class GamesService {
 
     // Validate challenge type
     const validChallengeTypes = ['position', 'code'];
-    if (controlPointData.challengeType && !validChallengeTypes.includes(controlPointData.challengeType)) {
+    if (
+      controlPointData.challengeType &&
+      !validChallengeTypes.includes(controlPointData.challengeType)
+    ) {
       throw new ConflictException('Tipo de challenge inválido');
     }
 
