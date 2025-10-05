@@ -409,6 +409,26 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           break;
         }
 
+        case 'restartGame': {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            try {
+              const restartedGame = await this.gamesService.restartGame(gameId, user.id);
+              this.server.to(`game_${gameId}`).emit('gameAction', {
+                action: 'gameStateChanged',
+                data: { game: restartedGame },
+                from: client.id,
+              });
+            } catch (error: any) {
+              client.emit('gameActionError', {
+                action: 'restartGame',
+                error: error.message,
+              });
+            }
+          }
+          break;
+        }
+
         case 'updateTeamCount': {
           const user = this.connectedUsers.get(client.id);
           if (user) {

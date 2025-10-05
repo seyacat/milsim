@@ -409,9 +409,8 @@ export class GamesService {
       });
     }
 
-    // Update game status and set instanceId to null
-    game.status = 'stopped';
-    game.instanceId = null;
+    // Update game status to finished (keep instanceId for game summary)
+    game.status = 'finished';
     const updatedGame = await this.gamesRepository.save(game);
 
     // Stop timer if exists
@@ -419,6 +418,44 @@ export class GamesService {
 
     // Force broadcast final time update on game end
     this.forceTimeBroadcast(gameId);
+
+    return updatedGame;
+  }
+
+  // Restart game from finished state
+  async restartGame(gameId: number, userId: number): Promise<Game> {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+      relations: ['owner'],
+    });
+
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    // Check if user is the owner of the game
+    if (game.owner.id !== userId) {
+      throw new ConflictException('Solo el propietario del juego puede reiniciarlo');
+    }
+
+    // Check if game is in finished state
+    if (game.status !== 'finished') {
+      throw new ConflictException('Solo se puede reiniciar un juego que ha finalizado');
+    }
+
+    // Update game status to stopped and clear instanceId
+    game.status = 'stopped';
+    game.instanceId = null;
+    const updatedGame = await this.gamesRepository.save(game);
+
+    // Add game restarted event to history
+    if (game.instanceId) {
+      await this.addGameHistory(game.instanceId, 'game_restarted', {
+        gameId,
+        restartedBy: userId,
+        timestamp: new Date(),
+      });
+    }
 
     return updatedGame;
   }
@@ -443,9 +480,8 @@ export class GamesService {
       });
     }
 
-    // Update game status and set instanceId to null
-    game.status = 'stopped';
-    game.instanceId = null;
+    // Update game status to finished (keep instanceId for game summary)
+    game.status = 'finished';
     const updatedGame = await this.gamesRepository.save(game);
 
     // Stop timer if exists

@@ -62,6 +62,7 @@ async function showPlayerTeamSelection() {
         color: white;
         backdrop-filter: blur(10px);
         max-width: 300px;
+        pointer-events: auto;
     `;
     
     // Get current player's team - ensure we have the latest data
@@ -114,7 +115,10 @@ async function showPlayerTeamSelection() {
     `;
     
     teamSelection.innerHTML = `
-        <h4 style="margin: 0 0 10px 0; color: white; font-size: 14px;">Selecciona tu equipo:</h4>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h4 style="margin: 0; color: white; font-size: 14px;">Selecciona tu equipo:</h4>
+            <button onclick="hidePlayerTeamSelection()" style="background: none; border: none; color: white; font-size: 16px; cursor: pointer; padding: 0; width: 20px; height: 20px;">×</button>
+        </div>
         <div style="display: flex; flex-wrap: wrap; gap: 5px;">
             ${teamButtons}
         </div>
@@ -284,3 +288,5 @@ window.takeControlPoint = takeControlPoint;
 window.updatePlayerTeamSelection = updatePlayerTeamSelection;
 window.selectPlayerTeam = selectPlayerTeam;
 window.createControlPointPlayerMenu = createControlPointPlayerMenu;
+window.showPlayerTeamSelection = showPlayerTeamSelection;
+window.hidePlayerTeamSelection = hidePlayerTeamSelection;

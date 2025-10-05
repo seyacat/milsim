@@ -265,6 +265,10 @@ function updateGameInfo() {
         document.getElementById('ownerControls').style.display = 'none';
         document.getElementById('playersBtn').style.display = 'none';
         document.getElementById('timeSelectorContainer').style.display = 'none';
+        
+        // Add or remove team selection button based on game state
+        addTeamSelectionButton();
+        
         // Initialize player-specific functionality
         if (window.initializePlayerFeatures) {
             window.initializePlayerFeatures();
@@ -274,6 +278,15 @@ function updateGameInfo() {
     // Update player team selection (for non-owners when game is stopped)
     if (window.updatePlayerTeamSelection) {
         window.updatePlayerTeamSelection();
+    }
+    
+    // Show game summary dialog if game is in finished state
+    if (currentGame.status === 'finished') {
+        console.log('Game is in finished state, opening summary dialog');
+        openGameSummaryDialog();
+    } else if (currentGame.status === 'stopped') {
+        // Close game summary dialog when returning to stopped state (for all users)
+        closeGameSummaryDialog();
     }
 }
 
@@ -961,8 +974,14 @@ function handleGameAction(data) {
         case 'gameStateChanged':
             // Update game state and controls
             if (data.data && data.data.game) {
+                const previousStatus = currentGame ? currentGame.status : null;
                 currentGame = data.data.game;
                 updateGameInfo();
+                
+                // Show game summary dialog when game enters finished state
+                if (currentGame.status === 'finished' && previousStatus !== 'finished') {
+                    openGameSummaryDialog();
+                }
                 
                 // Handle local timer based on game state
                 if (currentGame.status !== 'running') {
@@ -1052,6 +1071,7 @@ function updateGameStateControls() {
     const pauseBtn = document.getElementById('pauseGameBtn');
     const resumeBtn = document.getElementById('resumeGameBtn');
     const endBtn = document.getElementById('endGameBtn');
+    const restartBtn = document.getElementById('restartGameBtn');
     
     // Reset all controls
     if (timeSelector) timeSelector.style.display = 'none';
@@ -1060,6 +1080,7 @@ function updateGameStateControls() {
     if (pauseBtn) pauseBtn.style.display = 'none';
     if (resumeBtn) resumeBtn.style.display = 'none';
     if (endBtn) endBtn.style.display = 'none';
+    if (restartBtn) restartBtn.style.display = 'none';
     
     switch (status) {
         case 'stopped':
@@ -1073,12 +1094,19 @@ function updateGameStateControls() {
             if (pauseBtn) pauseBtn.style.display = 'block';
             // End button should NOT be visible in running state
             if (endBtn) endBtn.style.display = 'none';
+            // Close Teams Management dialog when game starts
+            closeTeamsDialog();
             break;
         case 'paused':
             console.log('Showing paused state controls');
             if (timeControls) timeControls.style.display = 'flex';
             if (resumeBtn) resumeBtn.style.display = 'block';
             if (endBtn) endBtn.style.display = 'block';
+            break;
+        case 'finished':
+            console.log('Showing finished state controls');
+            // Show restart button in finished state
+            if (restartBtn) restartBtn.style.display = 'block';
             break;
     }
     
@@ -1147,6 +1175,15 @@ function endGame() {
         socket.emit('gameAction', {
             gameId: currentGame.id,
             action: 'endGame'
+        });
+    }
+}
+
+function restartGame() {
+    if (socket && currentGame) {
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'restartGame'
         });
     }
 }
@@ -1324,9 +1361,57 @@ function updateTimeDisplay() {
     }
 }
 
+// Open game summary dialog
+function openGameSummaryDialog() {
+    console.log('Attempting to open game summary dialog');
+    const dialog = document.getElementById('gameSummaryDialog');
+    if (dialog) {
+        console.log('Game summary dialog found, setting display to flex');
+        dialog.style.display = 'flex';
+        updateGameSummaryContent();
+    } else {
+        console.error('Game summary dialog element not found!');
+    }
+}
+
+// Close game summary dialog
+function closeGameSummaryDialog() {
+    document.getElementById('gameSummaryDialog').style.display = 'none';
+}
+
+// Update game summary content
+function updateGameSummaryContent() {
+    if (!currentGame) return;
+    
+    // Calculate duration (you can enhance this with actual game history data)
+    const durationElement = document.getElementById('summaryDuration');
+    const playersElement = document.getElementById('summaryPlayers');
+    const teamsElement = document.getElementById('summaryTeams');
+    const controlPointsElement = document.getElementById('summaryControlPoints');
+    
+    if (durationElement) {
+        durationElement.textContent = 'Por implementar';
+    }
+    
+    if (playersElement) {
+        playersElement.textContent = currentGame.players ? currentGame.players.length : 0;
+    }
+    
+    if (teamsElement) {
+        teamsElement.textContent = currentGame.teamCount || 2;
+    }
+    
+    if (controlPointsElement) {
+        controlPointsElement.textContent = currentGame.controlPoints ? currentGame.controlPoints.length : 0;
+    }
+}
+
 window.endGame = endGame;
+window.restartGame = restartGame;
 window.addTime = addTime;
 window.updateTimeDisplay = updateTimeDisplay;
+window.openGameSummaryDialog = openGameSummaryDialog;
+window.closeGameSummaryDialog = closeGameSummaryDialog;
 
 // Request current player positions (for owners)
 function requestPlayerPositions() {
@@ -1335,6 +1420,33 @@ function requestPlayerPositions() {
             gameId: currentGame.id,
             action: 'requestPlayerPositions'
         });
+    }
+}
+
+// Add team selection button to location info for players
+function addTeamSelectionButton() {
+    const locationInfo = document.querySelector('.location-info');
+    if (!locationInfo) return;
+    
+    // Remove existing team button if any
+    const existingButton = document.getElementById('playerTeamBtn');
+    if (existingButton) {
+        existingButton.remove();
+    }
+    
+    // Only show team selection button when game is stopped
+    if (currentGame && currentGame.status === 'stopped') {
+        // Create team selection button
+        const teamButton = document.createElement('button');
+        teamButton.id = 'playerTeamBtn';
+        teamButton.className = 'btn btn-secondary';
+        teamButton.style.cssText = 'margin-top: 10px; width: 100%;';
+        teamButton.textContent = 'Sel Equipo';
+        teamButton.onclick = function() {
+            showPlayerTeamSelection();
+        };
+        
+        locationInfo.appendChild(teamButton);
     }
 }
 

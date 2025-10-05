@@ -25,7 +25,7 @@ export class Game {
   description: string;
 
   @Column({ default: 'stopped' })
-  status: string; // stopped, running, paused
+  status: string; // stopped, running, paused, finished
 
   @Column({ default: 10 })
   maxPlayers: number;
