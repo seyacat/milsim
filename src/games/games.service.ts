@@ -956,4 +956,33 @@ export class GamesService {
     game.activeConnections = connectionCount;
     return this.gamesRepository.save(game);
   }
+  async updateGame(gameId: number, updateData: { name?: string }, userId: number): Promise<Game> {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+      relations: ['owner'],
+    });
+
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    // Check if user is the owner of the game
+    if (game.owner.id !== userId) {
+      throw new ConflictException('Solo el propietario del juego puede actualizarlo');
+    }
+
+    // Update the game with new data
+    if (updateData.name !== undefined) {
+      game.name = updateData.name;
+    }
+
+    const updatedGame = await this.gamesRepository.save(game);
+
+    // Broadcast the update to all connected clients
+    if (this.gamesGateway) {
+      this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
+    }
+
+    return updatedGame;
+  }
 }

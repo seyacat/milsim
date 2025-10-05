@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   Delete,
+  Patch,
   Headers,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -81,5 +82,21 @@ export class GamesController {
     const user = await this.authService.validateToken(token);
 
     return this.gamesService.deleteGame(+id, user.id);
+  }
+
+  @Patch(':id')
+  async updateGame(
+    @Param('id') id: string,
+    @Body() updateData: { name?: string },
+    @Headers('authorization') authHeader: string,
+  ): Promise<Game> {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Token de autorización requerido');
+    }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    const user = await this.authService.validateToken(token);
+
+    return this.gamesService.updateGame(+id, updateData, user.id);
   }
 }

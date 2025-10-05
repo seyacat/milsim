@@ -280,6 +280,13 @@ async function loadControlPoints(gameId) {
 // Update game information display
 function updateGameInfo() {
     document.getElementById('gameTitle').textContent = currentGame.name;
+    
+    // Show/hide edit pencil for game owner
+    const editPencil = document.getElementById('editPencil');
+    if (editPencil) {
+        const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+        editPencil.style.display = isOwner ? 'block' : 'none';
+    }
     document.getElementById('gameStatus').textContent = currentGame.status;
     document.getElementById('playerCount').textContent = `${currentGame.players ? currentGame.players.length : 0}/${currentGame.maxPlayers}`;
     document.getElementById('gameOwner').textContent = currentGame.owner ? currentGame.owner.name : 'Desconocido';
@@ -1587,6 +1594,140 @@ function addTeamSelectionButton() {
         locationInfo.appendChild(teamButton);
     }
 }
+
+// Game name editing functionality
+function enableGameNameEdit() {
+    const gameTitle = document.getElementById('gameTitle');
+    const editPencil = document.getElementById('editPencil');
+    
+    if (!gameTitle || !editPencil) return;
+    
+    // Store original name
+    const originalName = gameTitle.textContent;
+    
+    // Create input field
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'game-name-input';
+    input.value = originalName;
+    input.maxLength = 50;
+    
+    // Create save button (checkmark)
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'save-name-btn';
+    saveBtn.textContent = '✓';
+    saveBtn.title = 'Guardar';
+    
+    // Create cancel button (X)
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'cancel-name-btn';
+    cancelBtn.textContent = '✗';
+    cancelBtn.title = 'Cancelar';
+    
+    // Replace title with input and buttons
+    gameTitle.style.display = 'none';
+    editPencil.style.display = 'none';
+    
+    const container = gameTitle.parentElement;
+    container.appendChild(input);
+    container.appendChild(saveBtn);
+    container.appendChild(cancelBtn);
+    
+    // Focus input
+    input.focus();
+    input.select();
+    
+    // Save function
+    const saveName = async () => {
+        const newName = input.value.trim();
+        if (newName && newName !== originalName) {
+            try {
+                await updateGameName(newName);
+            } catch (error) {
+                showError('Error al actualizar el nombre: ' + error.message);
+                // Restore original name on error
+                gameTitle.textContent = originalName;
+            }
+        }
+        exitEditMode();
+    };
+    
+    // Cancel function
+    const cancelEdit = () => {
+        exitEditMode();
+    };
+    
+    // Event listeners
+    saveBtn.addEventListener('click', saveName);
+    cancelBtn.addEventListener('click', cancelEdit);
+    
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            saveName();
+        } else if (e.key === 'Escape') {
+            cancelEdit();
+        }
+    });
+    
+    // Exit edit mode function
+    function exitEditMode() {
+        // Remove input and buttons
+        input.remove();
+        saveBtn.remove();
+        cancelBtn.remove();
+        
+        // Restore title and pencil
+        gameTitle.style.display = 'block';
+        editPencil.style.display = 'block';
+    }
+}
+
+// Update game name via API
+async function updateGameName(newName) {
+    if (!currentGame) return;
+    
+    const token = localStorage.getItem('token');
+    const response = await fetch(`/api/games/${currentGame.id}`, {
+        method: 'PATCH',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ name: newName })
+    });
+    
+    if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Error al actualizar el nombre');
+    }
+    
+    const updatedGame = await response.json();
+    currentGame.name = updatedGame.name;
+    document.getElementById('gameTitle').textContent = updatedGame.name;
+    
+    // Notify other players via WebSocket
+    if (socket) {
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'gameUpdated',
+            data: { game: updatedGame }
+        });
+    }
+    
+    showSuccess('Nombre del juego actualizado');
+}
+
+// Add event listener for edit pencil
+document.addEventListener('DOMContentLoaded', function() {
+    const editPencil = document.getElementById('editPencil');
+    if (editPencil) {
+        editPencil.addEventListener('click', enableGameNameEdit);
+    }
+});
+
+// Make functions available globally
+window.enableGameNameEdit = enableGameNameEdit;
+window.updateGameName = updateGameName;
 
 // Initialize when page loads
 window.onload = initialize;

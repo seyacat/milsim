@@ -373,6 +373,84 @@
             }
         }
 
+        /* Edit pencil and name editing styles */
+        .game-title-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .edit-pencil {
+            color: #4CAF50;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            opacity: 0.7;
+            transform: translateY(-3px);
+        }
+        
+        .edit-pencil:hover {
+            opacity: 1;
+        }
+        
+        .game-name-input {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid #4CAF50;
+            border-radius: 4px;
+            color: white;
+            padding: 4px 8px;
+            font-size: 16px;
+            font-weight: bold;
+            width: 200px;
+            outline: none;
+        }
+        
+        .game-name-input:focus {
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+        }
+        
+        .save-name-btn {
+            background: #4CAF50;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px 8px;
+            margin-left: 5px;
+            transition: all 0.2s ease;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .save-name-btn:hover {
+            background: #45a049;
+        }
+        
+        .cancel-name-btn {
+            background: #666;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px 8px;
+            margin-left: 5px;
+            transition: all 0.2s ease;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .cancel-name-btn:hover {
+            background: #555;
+        }
     </style>
 </head>
 <body>
@@ -380,7 +458,10 @@
 
     <div class="game-overlay">
         <div class="game-info">
-            <h2 id="gameTitle">Cargando...</h2>
+            <div class="game-title-container">
+                <h2 id="gameTitle">Cargando...</h2>
+                <span id="editPencil" class="edit-pencil" style="display: none;" title="Editar nombre del juego">✏️</span>
+            </div>
             <div class="game-details">
                 <div>Estado: <span id="gameStatus">Cargando...</span></div>
                 <div>Jugadores: <span id="playerCount">0/0</span></div>
