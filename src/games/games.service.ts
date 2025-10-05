@@ -151,9 +151,26 @@ export class GamesService {
       throw new NotFoundException('Game not found');
     }
 
+    // Check if there are any existing Sites in the game
+    const existingSite = await this.controlPointsRepository.findOne({
+      where: {
+        game: { id: controlPointData.gameId },
+        type: 'site',
+      },
+    });
+
+    console.log(
+      `[CREATE_CONTROL_POINT] Existing site found: ${!!existingSite}, requested type: ${controlPointData.type}`,
+    );
+
+    // If no Site exists, force the new control point to be a Site
+    const finalType = existingSite ? controlPointData.type || 'control_point' : 'site';
+
+    console.log(`[CREATE_CONTROL_POINT] Final type determined: ${finalType}`);
+
     // Validate control point type
     const validTypes = ['control_point', 'site', 'bomb'];
-    if (controlPointData.type && !validTypes.includes(controlPointData.type)) {
+    if (finalType && !validTypes.includes(finalType)) {
       throw new ConflictException('Tipo de punto de control inválido');
     }
 
@@ -166,22 +183,14 @@ export class GamesService {
       throw new ConflictException('Tipo de challenge inválido');
     }
 
-    // Check if trying to create a Site and one already exists
-    if (controlPointData.type === 'site') {
-      const existingSite = await this.controlPointsRepository.findOne({
-        where: {
-          game: { id: controlPointData.gameId },
-          type: 'site',
-        },
-      });
-
-      if (existingSite) {
-        throw new ConflictException('Solo puede haber un punto de tipo Site por juego');
-      }
+    // Check if trying to create a Site and one already exists (should not happen with the logic above, but keeping for safety)
+    if (finalType === 'site' && existingSite) {
+      throw new ConflictException('Solo puede haber un punto de tipo Site por juego');
     }
 
     const controlPoint = this.controlPointsRepository.create({
       ...controlPointData,
+      type: finalType,
       game: { id: controlPointData.gameId },
     });
 

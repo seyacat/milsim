@@ -118,21 +118,12 @@ function hasSiteControlPoint() {
 
 // Create control point
 async function createControlPoint(lat, lng) {
-    // Check if this is the first control point (no control points exist yet)
-    let isFirstControlPoint = true;
-    map.eachLayer((layer) => {
-        if (layer instanceof L.Marker && layer.controlPointData) {
-            isFirstControlPoint = false;
-        }
-    });
-    
-    // Determine default type: first point is Site, others are Control Point
-    const defaultType = isFirstControlPoint ? 'site' : 'control_point';
-    
     // Generate a default name based on coordinates
     const name = `Punto ${Math.round(lat * 10000)}-${Math.round(lng * 10000)}`;
     
     // Send create control point via WebSocket
+    // The backend will automatically determine if this should be a Site
+    // based on whether there are already any Sites in the game
     if (socket && currentGame) {
         socket.emit('gameAction', {
             gameId: currentGame.id,
@@ -142,8 +133,8 @@ async function createControlPoint(lat, lng) {
                 description: '',
                 latitude: lat,
                 longitude: lng,
-                gameId: currentGame.id,
-                type: defaultType
+                gameId: currentGame.id
+                // Type is not specified - backend will determine automatically
             }
         });
         
@@ -390,6 +381,7 @@ function createControlPointEditMenu(controlPoint, marker) {
                 <input type="text" id="controlPointEditName_${controlPoint.id}" value="${controlPoint.name}" class="form-input">
             </div>
             
+            ${controlPoint.type !== 'site' ? `
             <div class="challenges-section">
                 <h5 class="challenges-title">Challenges</h5>
                 
@@ -426,6 +418,7 @@ function createControlPointEditMenu(controlPoint, marker) {
                     </div>
                 </div>
             </div>
+            ` : ''}
             
             <div class="action-buttons">
                 <button onclick="window.updateControlPoint(${controlPoint.id}, ${marker._leaflet_id})" class="btn btn-primary">Actualizar</button>

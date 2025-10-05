@@ -272,7 +272,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
             latitude: data.latitude,
             longitude: data.longitude,
             gameId: data.gameId,
-            type: data.type || 'control_point',
+            type: data.type,
           });
 
           // Broadcast the new control point to all clients
