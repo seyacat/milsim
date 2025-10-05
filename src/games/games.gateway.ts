@@ -10,6 +10,7 @@ import { Server, Socket } from 'socket.io';
 import { GamesService } from './games.service';
 import { WebsocketAuthService } from '../auth/websocket-auth.service';
 import { AuthService } from '../auth/auth.service';
+import { ConnectionTrackerService } from '../connection-tracker.service';
 
 @WebSocketGateway({
   cors: {
@@ -32,6 +33,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @Inject(forwardRef(() => GamesService))
     private readonly gamesService: GamesService,
     private readonly websocketAuthService: WebsocketAuthService,
+    private readonly connectionTracker: ConnectionTrackerService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -41,6 +43,12 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // Store user data
       this.connectedUsers.set(client.id, user);
+      
+      // Register connection for uptime tracking
+      this.connectionTracker.registerConnection();
+      console.log(
+        `[CONNECTION_TRACKER] Connection registered for client ${client.id}, active connections: ${this.connectionTracker.getActiveConnectionsCount()}`,
+      );
     } catch (error) {
       console.error(`Authentication failed for client: ${client.id}`, error.message);
       client.disconnect();
@@ -53,6 +61,12 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.playerPositions.delete(user.id);
     }
     this.connectedUsers.delete(client.id);
+    
+    // Unregister connection for uptime tracking
+    this.connectionTracker.unregisterConnection();
+    console.log(
+      `[CONNECTION_TRACKER] Connection unregistered for client ${client.id}, active connections: ${this.connectionTracker.getActiveConnectionsCount()}`,
+    );
   }
 
   @SubscribeMessage('joinGame')

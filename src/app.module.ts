@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { GamesModule } from './games/games.module';
+import { SharedModule } from './shared/shared.module';
 import { User } from './auth/entities/user.entity';
 import { Game } from './games/entities/game.entity';
 import { Player } from './games/entities/player.entity';
@@ -33,6 +34,7 @@ import { GameHistory } from './games/entities/game-history.entity';
     }),
     AuthModule,
     GamesModule,
+    SharedModule,
   ],
   controllers: [AppController],
   providers: [AppService],
