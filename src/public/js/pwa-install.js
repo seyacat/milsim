@@ -16,6 +16,17 @@ class PWAInstaller {
     async registerServiceWorker() {
         if ('serviceWorker' in navigator) {
             try {
+                // Clear all caches first
+                await this.clearServiceWorkerCache();
+                
+                // Unregister any existing service workers
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (let registration of registrations) {
+                    await registration.unregister();
+                    console.log('Service Worker unregistered:', registration);
+                }
+                
+                // Register new service worker
                 const registration = await navigator.serviceWorker.register('/sw.js', {
                     scope: '/'
                 });
@@ -28,6 +39,22 @@ class PWAInstaller {
             } catch (error) {
                 console.error('Service Worker registration failed:', error);
             }
+        }
+    }
+    
+    // Clear service worker cache
+    async clearServiceWorkerCache() {
+        try {
+            if ('caches' in window) {
+                const cacheNames = await caches.keys();
+                for (const cacheName of cacheNames) {
+                    await caches.delete(cacheName);
+                    console.log('Cache deleted:', cacheName);
+                }
+                console.log('All caches cleared successfully');
+            }
+        } catch (error) {
+            console.error('Error clearing cache:', error);
         }
     }
 
@@ -239,6 +266,16 @@ class PWAInstaller {
 document.addEventListener('DOMContentLoaded', () => {
     window.pwaInstaller = new PWAInstaller();
 });
+
+// Global function to clear service worker cache manually
+window.clearPWACache = async function() {
+    if (window.pwaInstaller) {
+        await window.pwaInstaller.clearServiceWorkerCache();
+        console.log('PWA cache cleared manually');
+    } else {
+        console.error('PWA installer not initialized');
+    }
+};
 
 // Export for module usage
 if (typeof module !== 'undefined' && module.exports) {
