@@ -539,15 +539,11 @@ export class GamesService {
       isRunning: true,
     };
 
-    console.log(`[TIMER] Creating timer for game ${gameId}:`, timer);
-    console.log(`[TIMER] Timer object created, intervalId will be set`);
+    
 
     // Start countdown interval (update every second internally, broadcast every 20 seconds)
-    console.log(`[TIMER] Setting interval for game ${gameId}`);
     timer.intervalId = setInterval(() => {
-      console.log(
-        `[TIMER] Timer tick for game ${gameId}: elapsed=${timer.elapsedTime}, isRunning=${timer.isRunning}`,
-      );
+      
       if (timer.isRunning) {
         timer.elapsedTime++;
 
@@ -654,16 +650,13 @@ export class GamesService {
   ): { remainingTime: number | null; totalTime: number | null; playedTime: number } | null {
     const timer = this.gameTimers.get(gameId);
     if (timer) {
-      console.log(
-        `[GET_GAME_TIME] Game ${gameId} - totalTime: ${timer.totalTime}, remainingTime: ${timer.remainingTime}, elapsedTime: ${timer.elapsedTime}`,
-      );
+      
       return {
         remainingTime: timer.remainingTime,
         totalTime: timer.totalTime,
         playedTime: timer.elapsedTime,
       };
     }
-    console.log(`[GET_GAME_TIME] No timer found for game ${gameId}`);
     return null;
   }
 

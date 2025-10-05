@@ -33,12 +33,6 @@ class PWAInstaller {
 
     // Handle install prompt
     setupInstallPrompt() {
-        // Don't show install button on game page
-        if (window.location.pathname.includes('game.html')) {
-            console.log('Skipping install button on game page');
-            return;
-        }
-
         window.addEventListener('beforeinstallprompt', (e) => {
             console.log('beforeinstallprompt event fired');
             e.preventDefault();
@@ -88,7 +82,7 @@ class PWAInstaller {
             const styles = `
                 .pwa-install-btn {
                     position: fixed;
-                    bottom: 20px;
+                    top: 20px;
                     left: 50%;
                     transform: translateX(-50%);
                     background: var(--primary);
@@ -228,6 +222,7 @@ class PWAInstaller {
             }
         }, 3000);
     }
+
 
     // Check if PWA is installable
     isInstallable() {

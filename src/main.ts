@@ -13,14 +13,16 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Serve static files from public directory at root path
-  app.useStaticAssets(join(process.cwd(), 'src', 'public'), {
-    prefix: '/',
-  });
-
   // Enable WebSocket adapter
   app.useWebSocketAdapter(new IoAdapter(app));
 
-  await app.listen(process.env.PORT ?? 3000);
+  // Serve static files from public directory at root path
+  // This should come after controller routes to avoid conflicts
+  app.useStaticAssets(join(process.cwd(), 'src', 'public'), {
+    prefix: '/',
+    index: false, // Disable automatic index.html serving
+  });
+
+  await app.listen(process.env.PORT ?? 6600);
 }
 bootstrap();
