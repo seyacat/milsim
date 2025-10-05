@@ -47,10 +47,8 @@ function showControlPointMenu(latlng) {
     // Create menu content
     const menuContent = `
         <div id="controlPointMenu">
-            <h3 style="margin: 0 0 10px 0; color: #333;">Crear Punto de Control</h3>
-            <div style="display: flex; gap: 5px; justify-content: flex-end;">
-                <button onclick="window.createControlPoint(${latlng.lat}, ${latlng.lng})" style="padding: 5px 10px; background: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer;">Crear</button>
-                <button onclick="window.closeControlPointMenu()" style="padding: 5px 10px; background: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer;">Cancelar</button>
+            <div style="display: flex; justify-content: center;">
+                <button onclick="window.createControlPoint(${latlng.lat}, ${latlng.lng})" style="padding: 8px 16px; margin: 0 10px 0 5px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Crear Punto de Control</button>
             </div>
         </div>
     `;

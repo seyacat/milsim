@@ -119,6 +119,16 @@ function initializeWebSocket(gameId) {
             if (data.type === 'gameUpdated' && data.game.controlPoints) {
                 console.log('GameUpdated event received with control points:', data.game.controlPoints.length);
                 console.log('First control point data:', data.game.controlPoints[0]);
+                
+                // Also refresh control point markers when gameUpdate event contains control points
+                const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+                if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
+                    console.log('Refreshing owner control point markers from gameUpdate event');
+                    window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
+                } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
+                    console.log('Refreshing player control point markers from gameUpdate event');
+                    window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
+                }
             }
         }
     });
@@ -972,11 +982,9 @@ function handleGameAction(data) {
             break;
         case 'controlPointUpdated':
             console.log('Control point updated - Full data:', data.data);
-            console.log('Control point updated - Position fields:', {
-                minDistance: data.data.minDistance,
-                minAccuracy: data.data.minAccuracy,
-                challengeType: data.data.challengeType,
-                code: data.data.code,
+            console.log('Control point updated - Bomb challenge fields:', {
+                hasBombChallenge: data.data.hasBombChallenge,
+                bombTime: data.data.bombTime,
                 armedCode: data.data.armedCode,
                 disarmedCode: data.data.disarmedCode
             });
@@ -987,7 +995,13 @@ function handleGameAction(data) {
                 if (controlPointIndex !== -1) {
                     currentGame.controlPoints[controlPointIndex] = data.data;
                     console.log('Updated local control point data with latest changes');
+                } else {
+                    console.log('Control point not found in currentGame.controlPoints, adding it');
+                    currentGame.controlPoints.push(data.data);
                 }
+            } else {
+                console.log('No currentGame.controlPoints array found, creating one');
+                currentGame.controlPoints = [data.data];
             }
             
             // Refresh all control point markers to apply visual changes (circles, bomb emoji, etc.)
@@ -995,12 +1009,15 @@ function handleGameAction(data) {
             if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
                 console.log('Refreshing owner control point markers with updated settings');
                 console.log('Control points to refresh:', currentGame.controlPoints.length);
+                console.log('First control point:', currentGame.controlPoints[0]);
                 window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
             } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
                 console.log('Refreshing player control point markers with updated settings');
                 console.log('Control points to refresh:', currentGame.controlPoints.length);
+                console.log('First control point:', currentGame.controlPoints[0]);
                 window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
             } else {
+                console.log('Using fallback method to update individual control point marker');
                 // Fallback: Update existing marker individually
                 map.eachLayer((layer) => {
                     if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.id) {
@@ -1120,20 +1137,25 @@ function handleGameAction(data) {
             
         case 'gameUpdated':
             // Handle complete game updates (including control points)
-            if (data.data && data.data.game) {
-                const previousGame = currentGame;
-                currentGame = data.data.game;
-                updateGameInfo();
+            if (data && data.game) {
+                console.log('GameUpdated event received with full game data');
+                console.log('Game control points count:', data.game.controlPoints ? data.game.controlPoints.length : 0);
                 
+                const previousGame = currentGame;
+                currentGame = data.game;
+                updateGameInfo();
+
                 // Always refresh control point markers with the latest data from server
                 const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
                 if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
                     console.log('Refreshing owner control point markers due to game update with latest data');
                     console.log('Game update control points:', currentGame.controlPoints.length);
+                    console.log('First control point:', currentGame.controlPoints[0]);
                     window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
                 } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
                     console.log('Refreshing player control point markers due to game update with latest data');
                     console.log('Game update control points:', currentGame.controlPoints.length);
+                    console.log('First control point:', currentGame.controlPoints[0]);
                     window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
                 }
             }
