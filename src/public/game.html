@@ -57,6 +57,7 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
+            min-width: 200px;
         }
 
         .btn {
@@ -388,7 +389,12 @@
         <div>Lat: <span id="currentLat">-</span></div>
         <div>Lng: <span id="currentLng">-</span></div>
         <div>Precisión: <span id="accuracy">-</span>m</div>
+        <div id="timeControls" style="display: none; gap: 5px; margin-top: 10px;">
+            <button class="btn btn-secondary" onclick="addTime(60)" style="width: 100%;">+1 min</button>
+            <button class="btn btn-secondary" onclick="addTime(300)" style="width: 100%;">+5 min</button>
+        </div>
         <button id="playersBtn" class="btn btn-secondary" style="margin-top: 10px; width: 100%; display: none;">JUGADORES</button>
+        
         <div id="timeSelectorContainer" style="margin-top: 10px; display: none;">
             <label for="timeSelector" style="color: white; font-size: 12px; display: block; margin-bottom: 5px;">Tiempo:</label>
             <select id="timeSelector" style="width: 100%; padding: 5px; border-radius: 3px; background: #333; color: white; border: 1px solid #666;">
