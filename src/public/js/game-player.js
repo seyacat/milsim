@@ -200,25 +200,37 @@ function selectPlayerTeam(team) {
 // Create control point interaction menu for players
 function createControlPointPlayerMenu(controlPoint, marker) {
     const menu = document.createElement('div');
-    menu.style.cssText = `
-        min-width: 200px;
-        padding: 10px;
-    `;
+    menu.className = 'control-point-popup';
     
     const isSite = controlPoint.type === 'site';
-    const pointType = isSite ? 'Site' : 'Control Point';
+    const isBomb = controlPoint.type === 'bomb';
+    let pointType = 'Control Point';
+    
+    if (isSite) {
+        pointType = 'Site';
+    } else if (isBomb) {
+        pointType = 'Bomb';
+    }
+    
+    // Debug: Log current game state for troubleshooting
+    console.log('Creating control point menu:', {
+        controlPointId: controlPoint.id,
+        gameStatus: currentGame ? currentGame.status : 'no currentGame',
+        isGameRunning: currentGame && currentGame.status === 'running'
+    });
+    
+    // Only show "Take" button when game is running
+    const isGameRunning = currentGame && currentGame.status === 'running';
+    const takeButton = isGameRunning ? `
+        <div class="action-buttons">
+            <button class="take-button" onclick="takeControlPoint(${controlPoint.id})">Tomar</button>
+        </div>
+    ` : '';
     
     menu.innerHTML = `
-        <h4 style="margin: 0 0 10px 0; color: #333;">${pointType}</h4>
-        <div style="margin-bottom: 10px;">
-            <strong>${controlPoint.name}</strong>
-        </div>
-        <div style="margin-bottom: 10px;">
-            <small>${controlPoint.description || 'Sin descripción'}</small>
-        </div>
-        <div style="display: flex; gap: 5px; justify-content: flex-end;">
-            <button onclick="takeControlPoint(${controlPoint.id})" style="padding: 5px 10px; background: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer;">Tomar</button>
-        </div>
+        <h4>${pointType}</h4>
+        <div class="point-name">${controlPoint.name}</div>
+        ${takeButton}
     `;
     
     return menu;
@@ -227,11 +239,31 @@ function createControlPointPlayerMenu(controlPoint, marker) {
 // Add control point marker to map for players
 function addControlPointMarkerPlayer(controlPoint) {
     console.log('Adding control point marker for player:', controlPoint);
+    console.log('Current game state when adding marker:', {
+        hasCurrentGame: !!currentGame,
+        gameStatus: currentGame ? currentGame.status : 'undefined',
+        gameId: currentGame ? currentGame.id : 'undefined'
+    });
     
     // Create icon based on type
-    const isSite = controlPoint.type === 'site';
-    const iconColor = isSite ? '#FF9800' : '#2196F3';
-    const iconEmoji = isSite ? '🏠' : '🚩';
+    let iconColor = '#2196F3'; // Default for control_point
+    let iconEmoji = '🚩'; // Default for control_point
+    
+    switch (controlPoint.type) {
+        case 'site':
+            iconColor = '#FF9800';
+            iconEmoji = '🏠';
+            break;
+        case 'bomb':
+            iconColor = '#F44336';
+            iconEmoji = '💣';
+            break;
+        case 'control_point':
+        default:
+            iconColor = '#2196F3';
+            iconEmoji = '🚩';
+            break;
+    }
     
     const controlPointIcon = L.divIcon({
         className: 'control-point-marker',
@@ -278,6 +310,12 @@ function addControlPointMarkerPlayer(controlPoint) {
 function takeControlPoint(controlPointId) {
     console.log('Taking control point:', controlPointId);
     
+    // Check if game is running before allowing action
+    if (!currentGame || currentGame.status !== 'running') {
+        showError('No puedes tomar puntos de control cuando el juego no está en ejecución');
+        return;
+    }
+    
     // Send take control point action via WebSocket
     if (socket && currentGame) {
         socket.emit('gameAction', {
@@ -293,6 +331,35 @@ function takeControlPoint(controlPointId) {
     }
 }
 
+// Update all control point popups when game state changes
+function updateControlPointPopups() {
+    if (!map) return;
+    
+    console.log('Updating control point popups, current game state:', {
+        hasCurrentGame: !!currentGame,
+        gameStatus: currentGame ? currentGame.status : 'undefined'
+    });
+    
+    map.eachLayer((layer) => {
+        if (layer instanceof L.Marker && layer.controlPointData) {
+            const popupContent = createControlPointPlayerMenu(layer.controlPointData, layer);
+            layer.bindPopup(popupContent, {
+                closeOnClick: false,
+                autoClose: false,
+                closeButton: true
+            });
+            
+            // If popup is currently open, update it
+            if (layer.isPopupOpen()) {
+                layer.closePopup();
+                layer.openPopup();
+            }
+        }
+    });
+    
+    console.log('Control point popups updated');
+}
+
 // Make functions available globally
 window.initializePlayerFeatures = initializePlayerFeatures;
 window.addControlPointMarkerPlayer = addControlPointMarkerPlayer;
@@ -302,3 +369,4 @@ window.selectPlayerTeam = selectPlayerTeam;
 window.createControlPointPlayerMenu = createControlPointPlayerMenu;
 window.showPlayerTeamSelection = showPlayerTeamSelection;
 window.hidePlayerTeamSelection = hidePlayerTeamSelection;
+window.updateControlPointPopups = updateControlPointPopups;

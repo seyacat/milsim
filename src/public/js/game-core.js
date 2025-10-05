@@ -47,6 +47,7 @@ function checkAuth() {
     
     if (!gameId) {
         showError('ID del juego no especificado');
+        // Redirect to dashboard when no game ID is specified
         setTimeout(() => {
             window.location.href = 'dashboard.html';
         }, 2000);
@@ -96,17 +97,13 @@ function initializeWebSocket(gameId) {
     socket.on('disconnect', () => {
         console.log('WebSocket disconnected');
         showError('Conexión perdida con el servidor');
-        setTimeout(() => {
-            window.location.href = 'dashboard.html';
-        }, 3000);
+        // Don't redirect on disconnect - just show error
     });
 
     socket.on('connect_error', (error) => {
         console.error('WebSocket connection error:', error);
         showError('Error de conexión con el servidor: ' + error.message);
-        setTimeout(() => {
-            window.location.href = 'dashboard.html';
-        }, 3000);
+        // Don't redirect on connection error - just show error
     });
 
     socket.on('gameUpdate', (data) => {
@@ -158,10 +155,12 @@ function initializeWebSocket(gameId) {
 
     socket.on('joinError', (data) => {
         showError('Error al unirse al juego: ' + data.message);
-        // Redirect to dashboard after showing error
-        setTimeout(() => {
-            window.location.href = 'dashboard.html';
-        }, 3000);
+        // Only redirect if the game doesn't exist
+        if (data.message.includes('Game not found') || data.message.includes('juego no encontrado')) {
+            setTimeout(() => {
+                window.location.href = 'dashboard.html';
+            }, 3000);
+        }
     });
 
     socket.on('forceDisconnect', (data) => {
@@ -206,6 +205,10 @@ async function loadGame(gameId) {
     try {
         const response = await fetch(`/api/games/${gameId}`);
         if (!response.ok) {
+            // Check if it's a 404 (game not found) error
+            if (response.status === 404) {
+                throw new Error('Game not found');
+            }
             throw new Error('Error al cargar el juego');
         }
         currentGame = await response.json();
@@ -215,10 +218,12 @@ async function loadGame(gameId) {
         loadControlPoints(gameId);
     } catch (error) {
         showError('Error al cargar el juego: ' + error.message);
-        // Redirect to dashboard after showing error
-        setTimeout(() => {
-            window.location.href = 'dashboard.html';
-        }, 3000);
+        // Only redirect if the game doesn't exist
+        if (error.message.includes('Game not found') || error.message.includes('juego no encontrado')) {
+            setTimeout(() => {
+                window.location.href = 'dashboard.html';
+            }, 3000);
+        }
     }
 }
 
@@ -306,6 +311,12 @@ function updateGameInfo() {
     // Update player team selection (for non-owners when game is stopped)
     if (window.updatePlayerTeamSelection) {
         window.updatePlayerTeamSelection();
+    }
+    
+    // Update control point popups when game info is updated
+    if (window.updateControlPointPopups) {
+        console.log('Updating control point popups due to game info update');
+        window.updateControlPointPopups();
     }
     
     // Show game summary dialog if game is in finished state
@@ -1027,6 +1038,12 @@ function handleGameAction(data) {
                 // Update player team selection when game state changes
                 if (window.updatePlayerTeamSelection) {
                     window.updatePlayerTeamSelection();
+                }
+                
+                // Update control point popups when game state changes
+                if (window.updateControlPointPopups) {
+                    console.log('Updating control point popups due to game state change');
+                    window.updateControlPointPopups();
                 }
             }
             break;

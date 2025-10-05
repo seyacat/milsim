@@ -564,3 +564,56 @@ body {
 .accuracy-circle.none {
     fill: #95a5a6 !important;
 }
+
+/* Control Point Popup Styles */
+.control-point-popup {
+    min-width: 180px;
+    padding: 8px;
+}
+
+.control-point-popup h4 {
+    margin: 0 0 5px 0;
+    color: #333;
+    font-size: 13px;
+}
+
+.control-point-popup .point-name {
+    margin-bottom: 5px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.control-point-popup .point-description {
+    margin-bottom: 5px;
+    font-size: 10px;
+    color: #666;
+}
+
+.control-point-popup .action-buttons {
+    display: flex;
+    gap: 3px;
+    justify-content: flex-end;
+    margin-top: 5px;
+}
+
+.control-point-popup .take-button {
+    padding: 4px 8px;
+    background: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.control-point-popup .take-button:hover {
+    background: #45a049;
+}
+
+.control-point-popup .game-inactive {
+    text-align: center;
+    color: #666;
+    font-style: italic;
+    margin-top: 5px;
+    font-size: 11px;
+}

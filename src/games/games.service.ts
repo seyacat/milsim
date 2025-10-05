@@ -132,6 +132,12 @@ export class GamesService {
       throw new NotFoundException('Game not found');
     }
 
+    // Validate control point type
+    const validTypes = ['control_point', 'site', 'bomb'];
+    if (controlPointData.type && !validTypes.includes(controlPointData.type)) {
+      throw new ConflictException('Tipo de punto de control inválido');
+    }
+
     // Check if trying to create a Site and one already exists
     if (controlPointData.type === 'site') {
       const existingSite = await this.controlPointsRepository.findOne({
@@ -165,6 +171,12 @@ export class GamesService {
 
     if (!controlPoint) {
       throw new NotFoundException('Control point not found');
+    }
+
+    // Validate control point type
+    const validTypes = ['control_point', 'site', 'bomb'];
+    if (updateData.type && !validTypes.includes(updateData.type)) {
+      throw new ConflictException('Tipo de punto de control inválido');
     }
 
     // Check if trying to change to Site and one already exists

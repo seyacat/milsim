@@ -154,9 +154,24 @@ function addControlPointMarker(controlPoint) {
     console.log('Adding control point marker:', controlPoint);
     
     // Create icon based on type
-    const isSite = controlPoint.type === 'site';
-    const iconColor = isSite ? '#FF9800' : '#2196F3';
-    const iconEmoji = isSite ? '🏠' : '🚩';
+    let iconColor = '#2196F3'; // Default for control_point
+    let iconEmoji = '🚩'; // Default for control_point
+    
+    switch (controlPoint.type) {
+        case 'site':
+            iconColor = '#FF9800';
+            iconEmoji = '🏠';
+            break;
+        case 'bomb':
+            iconColor = '#F44336';
+            iconEmoji = '💣';
+            break;
+        case 'control_point':
+        default:
+            iconColor = '#2196F3';
+            iconEmoji = '🚩';
+            break;
+    }
     
     const controlPointIcon = L.divIcon({
         className: 'control-point-marker',
@@ -235,15 +250,17 @@ function createControlPointEditMenu(controlPoint, marker) {
     
     let typeOptions = '';
     if (hasOtherSite && controlPoint.type !== 'site') {
-        // If there's already a Site and this is not it, only show Control Point
+        // If there's already a Site and this is not it, only show Control Point and Bomb
         typeOptions = `
-            <option value="control_point" selected>Control Point</option>
+            <option value="control_point" ${controlPoint.type === 'control_point' ? 'selected' : ''}>Control Point</option>
+            <option value="bomb" ${controlPoint.type === 'bomb' ? 'selected' : ''}>Bomb</option>
         `;
     } else {
-        // Show both options
+        // Show all options
         typeOptions = `
             <option value="site" ${controlPoint.type === 'site' ? 'selected' : ''}>Site</option>
             <option value="control_point" ${!controlPoint.type || controlPoint.type === 'control_point' ? 'selected' : ''}>Control Point</option>
+            <option value="bomb" ${controlPoint.type === 'bomb' ? 'selected' : ''}>Bomb</option>
         `;
     }
     
