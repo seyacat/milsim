@@ -109,26 +109,28 @@ class PWAInstaller {
             const styles = `
                 .pwa-install-btn {
                     position: fixed;
-                    top: 20px;
+                    top: 10px;
                     left: 50%;
                     transform: translateX(-50%);
                     background: var(--primary);
                     color: var(--text-primary);
                     border: none;
-                    border-radius: var(--radius-lg);
-                    padding: var(--spacing-md) var(--spacing-lg);
-                    font-size: var(--font-size-base);
+                    border-radius: 8px;
+                    padding: 6px 12px;
+                    font-size: 12px;
                     font-weight: bold;
                     cursor: pointer;
-                    box-shadow: var(--shadow-lg);
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
                     z-index: 10000;
                     transition: all 0.3s ease;
                     backdrop-filter: blur(10px);
+                    min-width: auto;
+                    white-space: nowrap;
                 }
                 .pwa-install-btn:hover {
                     background: var(--primary-light);
-                    transform: translateX(-50%) translateY(-2px);
-                    box-shadow: var(--shadow-xl);
+                    transform: translateX(-50%) translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
                 }
                 .pwa-install-btn.hidden {
                     display: none;
