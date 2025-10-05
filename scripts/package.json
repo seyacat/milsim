@@ -1,0 +1,17 @@
+{
+  "name": "milsim-scripts",
+  "version": "1.0.0",
+  "description": "Utility scripts for Milsim application",
+  "scripts": {
+    "update-certbot": "node update-certbot.js",
+    "certbot-server": "node certbot-verification-server.js",
+    "check-uptime": "./check-uptime.sh",
+    "update-route53": "./update-route53.sh"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
