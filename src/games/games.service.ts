@@ -181,6 +181,10 @@ export class GamesService {
       disarmedCode?: string;
       minDistance?: number;
       minAccuracy?: number;
+      hasPositionChallenge?: boolean;
+      hasCodeChallenge?: boolean;
+      hasBombChallenge?: boolean;
+      bombTime?: number;
     },
   ): Promise<ControlPoint> {
     const controlPoint = await this.controlPointsRepository.findOne({

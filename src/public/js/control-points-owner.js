@@ -243,10 +243,17 @@ function addControlPointMarkerOwner(controlPoint) {
 // Create control point edit menu
 function createControlPointEditMenu(controlPoint, marker) {
     const menu = document.createElement('div');
-    menu.style.cssText = `
-        min-width: 350px;
-        padding: 10px;
-    `;
+    menu.className = 'control-point-edit-menu';
+    
+    console.log('Creating edit menu with control point data:', {
+        id: controlPoint.id,
+        minDistance: controlPoint.minDistance,
+        minAccuracy: controlPoint.minAccuracy,
+        challengeType: controlPoint.challengeType,
+        code: controlPoint.code,
+        armedCode: controlPoint.armedCode,
+        disarmedCode: controlPoint.disarmedCode
+    });
     
     // Check if there's already a Site in the game (excluding current point)
     const hasOtherSite = hasSiteControlPoint() && controlPoint.type !== 'site';
@@ -265,49 +272,79 @@ function createControlPointEditMenu(controlPoint, marker) {
         `;
     }
     
+    // Position challenge section
+    // Check if position challenge should be active based on stored checkbox state
+    const positionChallengeChecked = controlPoint.hasPositionChallenge || false;
+    
+    // Set default values for dropdowns if not already set
+    const defaultMinDistance = controlPoint.minDistance || 25; // Default to 25m
+    const defaultMinAccuracy = controlPoint.minAccuracy || 20; // Default to 20m
+    
     // Distance options (in meters)
     const distanceOptions = `
-        <option value="5" ${controlPoint.minDistance === 5 ? 'selected' : ''}>5m (Muy cercano)</option>
-        <option value="10" ${controlPoint.minDistance === 10 ? 'selected' : ''}>10m (Cercano)</option>
-        <option value="25" ${controlPoint.minDistance === 25 ? 'selected' : ''}>25m (Medio)</option>
-        <option value="50" ${controlPoint.minDistance === 50 ? 'selected' : ''}>50m (Lejano)</option>
-        <option value="100" ${controlPoint.minDistance === 100 ? 'selected' : ''}>100m (Muy lejano)</option>
+        <option value="5" ${defaultMinDistance === 5 ? 'selected' : ''}>5m (Muy cercano)</option>
+        <option value="10" ${defaultMinDistance === 10 ? 'selected' : ''}>10m (Cercano)</option>
+        <option value="25" ${defaultMinDistance === 25 ? 'selected' : ''}>25m (Medio)</option>
+        <option value="50" ${defaultMinDistance === 50 ? 'selected' : ''}>50m (Lejano)</option>
+        <option value="100" ${defaultMinDistance === 100 ? 'selected' : ''}>100m (Muy lejano)</option>
     `;
     
     // Accuracy options (in meters)
     const accuracyOptions = `
-        <option value="5" ${controlPoint.minAccuracy === 5 ? 'selected' : ''}>5m (Alta precisión)</option>
-        <option value="10" ${controlPoint.minAccuracy === 10 ? 'selected' : ''}>10m (Buena precisión)</option>
-        <option value="20" ${controlPoint.minAccuracy === 20 ? 'selected' : ''}>20m (Precisión media)</option>
-        <option value="50" ${controlPoint.minAccuracy === 50 ? 'selected' : ''}>50m (Baja precisión)</option>
-        <option value="100" ${controlPoint.minAccuracy === 100 ? 'selected' : ''}>100m (Muy baja precisión)</option>
+        <option value="5" ${defaultMinAccuracy === 5 ? 'selected' : ''}>5m (Alta precisión)</option>
+        <option value="10" ${defaultMinAccuracy === 10 ? 'selected' : ''}>10m (Buena precisión)</option>
+        <option value="20" ${defaultMinAccuracy === 20 ? 'selected' : ''}>20m (Precisión media)</option>
+        <option value="50" ${defaultMinAccuracy === 50 ? 'selected' : ''}>50m (Baja precisión)</option>
+        <option value="100" ${defaultMinAccuracy === 100 ? 'selected' : ''}>100m (Muy baja precisión)</option>
     `;
-    
-    // Position challenge section
-    const positionChallengeChecked = controlPoint.challengeType === 'position' || controlPoint.minDistance || controlPoint.minAccuracy;
     const positionInputs = `
         <div style="margin-bottom: 10px;">
             <label style="display: block; margin-bottom: 5px; font-weight: bold;">Distancia Mínima:</label>
             <select id="controlPointMinDistance_${controlPoint.id}" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
-                <option value="">Sin restricción</option>
                 ${distanceOptions}
             </select>
         </div>
         <div style="margin-bottom: 10px;">
             <label style="display: block; margin-bottom: 5px; font-weight: bold;">Accuracy Mínimo:</label>
             <select id="controlPointMinAccuracy_${controlPoint.id}" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
-                <option value="">Sin restricción</option>
                 ${accuracyOptions}
             </select>
         </div>
     `;
     
     // Code challenge section
-    const codeChallengeChecked = controlPoint.challengeType === 'code' || controlPoint.code || controlPoint.armedCode || controlPoint.disarmedCode;
+    // Check if code challenge should be active based on stored checkbox state
+    const codeChallengeChecked = controlPoint.hasCodeChallenge || false;
     const codeInputs = `
         <div style="margin-bottom: 10px;">
             <label style="display: block; margin-bottom: 5px; font-weight: bold;">Code:</label>
             <input type="text" id="controlPointCode_${controlPoint.id}" value="${controlPoint.code || ''}" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;" placeholder="Código para tomar">
+        </div>
+    `;
+
+    // Bomb challenge section
+    // Check if bomb challenge should be active based on stored checkbox state
+    const bombChallengeChecked = controlPoint.hasBombChallenge || false;
+    
+    // Set default bomb time if not already set
+    const defaultBombTime = controlPoint.bombTime || 300; // Default to 5 minutes
+    
+    // Bomb time options (in seconds)
+    const bombTimeOptions = `
+        <option value="60" ${defaultBombTime === 60 ? 'selected' : ''}>1 minuto</option>
+        <option value="120" ${defaultBombTime === 120 ? 'selected' : ''}>2 minutos</option>
+        <option value="180" ${defaultBombTime === 180 ? 'selected' : ''}>3 minutos</option>
+        <option value="300" ${defaultBombTime === 300 ? 'selected' : ''}>5 minutos</option>
+        <option value="600" ${defaultBombTime === 600 ? 'selected' : ''}>10 minutos</option>
+        <option value="900" ${defaultBombTime === 900 ? 'selected' : ''}>15 minutos</option>
+    `;
+    
+    const bombInputs = `
+        <div style="margin-bottom: 10px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Bomb Time:</label>
+            <select id="controlPointBombTime_${controlPoint.id}" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+                ${bombTimeOptions}
+            </select>
         </div>
         <div style="margin-bottom: 10px;">
             <label style="display: block; margin-bottom: 5px; font-weight: bold;">Armed Code:</label>
@@ -320,47 +357,60 @@ function createControlPointEditMenu(controlPoint, marker) {
     `;
     
     menu.innerHTML = `
-        <h4 style="margin: 0 0 10px 0; color: #333;">Editar Punto</h4>
-        <div style="margin-bottom: 10px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Tipo:</label>
-            <select id="controlPointType_${controlPoint.id}" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
-                ${typeOptions}
-            </select>
-        </div>
-        <div style="margin-bottom: 10px;">
-            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Nombre:</label>
-            <input type="text" id="controlPointEditName_${controlPoint.id}" value="${controlPoint.name}" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
-        </div>
-        
-        <div style="margin-bottom: 15px; border: 1px solid #ddd; padding: 10px; border-radius: 5px;">
-            <h5 style="margin: 0 0 10px 0; color: #555;">Challenges</h5>
+        <div class="control-point-edit-content">
+            <h4 class="edit-title">Editar Punto</h4>
+            <div class="form-group">
+                <label class="form-label">Tipo:</label>
+                <select id="controlPointType_${controlPoint.id}" class="form-select">
+                    ${typeOptions}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Nombre:</label>
+                <input type="text" id="controlPointEditName_${controlPoint.id}" value="${controlPoint.name}" class="form-input">
+            </div>
             
-            <!-- Position Challenge -->
-            <div style="margin-bottom: 10px;">
-                <label style="display: flex; align-items: center; margin-bottom: 5px;">
-                    <input type="checkbox" id="positionChallenge_${controlPoint.id}" ${positionChallengeChecked ? 'checked' : ''} style="margin-right: 8px;">
-                    <span style="font-weight: bold;">Position Challenge</span>
-                </label>
-                <div id="positionInputs_${controlPoint.id}" style="margin-left: 20px; ${positionChallengeChecked ? '' : 'display: none;'}">
-                    ${positionInputs}
+            <div class="challenges-section">
+                <h5 class="challenges-title">Challenges</h5>
+                
+                <!-- Position Challenge -->
+                <div class="challenge-group">
+                    <label class="challenge-label">
+                        <input type="checkbox" id="positionChallenge_${controlPoint.id}" ${positionChallengeChecked ? 'checked' : ''} class="challenge-checkbox">
+                        <span class="challenge-text">Position Challenge</span>
+                    </label>
+                    <div id="positionInputs_${controlPoint.id}" class="challenge-inputs ${positionChallengeChecked ? '' : 'hidden'}">
+                        ${positionInputs}
+                    </div>
+                </div>
+                
+                <!-- Code Challenge -->
+                <div class="challenge-group">
+                    <label class="challenge-label">
+                        <input type="checkbox" id="codeChallenge_${controlPoint.id}" ${codeChallengeChecked ? 'checked' : ''} class="challenge-checkbox">
+                        <span class="challenge-text">Code Challenge</span>
+                    </label>
+                    <div id="codeInputs_${controlPoint.id}" class="challenge-inputs ${codeChallengeChecked ? '' : 'hidden'}">
+                        ${codeInputs}
+                    </div>
+                </div>
+                
+                <!-- Bomb Challenge -->
+                <div class="challenge-group">
+                    <label class="challenge-label">
+                        <input type="checkbox" id="bombChallenge_${controlPoint.id}" ${bombChallengeChecked ? 'checked' : ''} class="challenge-checkbox">
+                        <span class="challenge-text">Bomb Challenge</span>
+                    </label>
+                    <div id="bombInputs_${controlPoint.id}" class="challenge-inputs ${bombChallengeChecked ? '' : 'hidden'}">
+                        ${bombInputs}
+                    </div>
                 </div>
             </div>
             
-            <!-- Code Challenge -->
-            <div style="margin-bottom: 10px;">
-                <label style="display: flex; align-items: center; margin-bottom: 5px;">
-                    <input type="checkbox" id="codeChallenge_${controlPoint.id}" ${codeChallengeChecked ? 'checked' : ''} style="margin-right: 8px;">
-                    <span style="font-weight: bold;">Code Challenge</span>
-                </label>
-                <div id="codeInputs_${controlPoint.id}" style="margin-left: 20px; ${codeChallengeChecked ? '' : 'display: none;'}">
-                    ${codeInputs}
-                </div>
+            <div class="action-buttons">
+                <button onclick="window.updateControlPoint(${controlPoint.id}, ${marker._leaflet_id})" class="btn btn-primary">Actualizar</button>
+                <button onclick="window.deleteControlPoint(${controlPoint.id}, ${marker._leaflet_id})" class="btn btn-danger">Eliminar</button>
             </div>
-        </div>
-        
-        <div style="display: flex; gap: 5px; justify-content: flex-end;">
-            <button onclick="window.updateControlPoint(${controlPoint.id}, ${marker._leaflet_id})" style="padding: 5px 10px; background: #4CAF50; color: white; border: none; border-radius: 3px; cursor: pointer;">Actualizar</button>
-            <button onclick="window.deleteControlPoint(${controlPoint.id}, ${marker._leaflet_id})" style="padding: 5px 10px; background: #f44336; color: white; border: none; border-radius: 3px; cursor: pointer;">Eliminar</button>
         </div>
     `;
     
@@ -368,57 +418,21 @@ function createControlPointEditMenu(controlPoint, marker) {
     console.log('Position challenge checked:', positionChallengeChecked);
     console.log('Code challenge checked:', codeChallengeChecked);
     
-    // Add event listeners to show/hide inputs based on checkboxes
-    setTimeout(() => {
-        const positionCheckbox = document.getElementById(`positionChallenge_${controlPoint.id}`);
-        const codeCheckbox = document.getElementById(`codeChallenge_${controlPoint.id}`);
-        const codeInputsDiv = document.getElementById(`codeInputs_${controlPoint.id}`);
-        const positionInputsDiv = document.getElementById(`positionInputs_${controlPoint.id}`);
-        const typeSelect = document.getElementById(`controlPointType_${controlPoint.id}`);
-        
-        console.log('Setting up event listeners for control point:', {
-            positionCheckbox: !!positionCheckbox,
-            codeCheckbox: !!codeCheckbox,
-            positionInputsDiv: !!positionInputsDiv,
-            codeInputsDiv: !!codeInputsDiv
-        });
-        
-        if (positionCheckbox && positionInputsDiv) {
-            console.log('Adding position checkbox listener');
-            positionCheckbox.addEventListener('change', function() {
-                console.log('Position checkbox changed:', this.checked);
-                positionInputsDiv.style.display = this.checked ? 'block' : 'none';
-            });
-        }
-        
-        if (codeCheckbox && codeInputsDiv) {
-            console.log('Adding code checkbox listener');
-            codeCheckbox.addEventListener('change', function() {
-                console.log('Code checkbox changed:', this.checked);
-                codeInputsDiv.style.display = this.checked ? 'block' : 'none';
-            });
-        }
-        
-        if (typeSelect) {
-            typeSelect.addEventListener('change', function() {
-                console.log('Type select changed');
-                // Update inputs when type changes
-                setTimeout(() => {
-                    const positionCheckbox = document.getElementById(`positionChallenge_${controlPoint.id}`);
-                    const codeCheckbox = document.getElementById(`codeChallenge_${controlPoint.id}`);
-                    const codeInputsDiv = document.getElementById(`codeInputs_${controlPoint.id}`);
-                    const positionInputsDiv = document.getElementById(`positionInputs_${controlPoint.id}`);
-                    
-                    if (positionCheckbox && positionInputsDiv) {
-                        positionInputsDiv.style.display = positionCheckbox.checked ? 'block' : 'none';
-                    }
-                    if (codeCheckbox && codeInputsDiv) {
-                        codeInputsDiv.style.display = codeCheckbox.checked ? 'block' : 'none';
-                    }
-                }, 100);
-            });
-        }
-    }, 100);
+    // Add inline onclick handlers for checkboxes
+    menu.innerHTML = menu.innerHTML.replace(
+        'id="positionChallenge_' + controlPoint.id + '"',
+        'id="positionChallenge_' + controlPoint.id + '" onclick="togglePositionInputs(\'' + controlPoint.id + '\')"'
+    );
+    
+    menu.innerHTML = menu.innerHTML.replace(
+        'id="codeChallenge_' + controlPoint.id + '"',
+        'id="codeChallenge_' + controlPoint.id + '" onclick="toggleCodeInputs(\'' + controlPoint.id + '\')"'
+    );
+    
+    menu.innerHTML = menu.innerHTML.replace(
+        'id="bombChallenge_' + controlPoint.id + '"',
+        'id="bombChallenge_' + controlPoint.id + '" onclick="toggleBombInputs(\'' + controlPoint.id + '\')"'
+    );
     
     return menu;
 }
@@ -430,13 +444,15 @@ function updateControlPoint(controlPointId, markerId) {
     const name = document.getElementById(`controlPointEditName_${controlPointId}`).value.trim();
     const positionChallenge = document.getElementById(`positionChallenge_${controlPointId}`).checked;
     const codeChallenge = document.getElementById(`codeChallenge_${controlPointId}`).checked;
+    const bombChallenge = document.getElementById(`bombChallenge_${controlPointId}`).checked;
     
     console.log('Updating control point:', {
         controlPointId,
         type,
         name,
         positionChallenge,
-        codeChallenge
+        codeChallenge,
+        bombChallenge
     });
     
     if (!name) {
@@ -464,54 +480,72 @@ function updateControlPoint(controlPointId, markerId) {
         }
     }
     
-    // Prepare update data
+    // Prepare update data - always send all fields
     const updateData = {
         controlPointId,
         name,
         type,
-        challengeType: null // We'll handle this differently now
+        hasPositionChallenge: positionChallenge,
+        hasCodeChallenge: codeChallenge,
+        hasBombChallenge: bombChallenge
     };
     
-    // Handle position challenge
-    if (positionChallenge) {
-        const minDistanceSelect = document.getElementById(`controlPointMinDistance_${controlPointId}`);
-        const minAccuracySelect = document.getElementById(`controlPointMinAccuracy_${controlPointId}`);
-        
-        const minDistance = minDistanceSelect ? minDistanceSelect.value : '';
-        const minAccuracy = minAccuracySelect ? minAccuracySelect.value : '';
-        
-        console.log('Position challenge values:', { minDistance, minAccuracy });
-        
-        updateData.minDistance = minDistance ? parseInt(minDistance) : null;
-        updateData.minAccuracy = minAccuracy ? parseInt(minAccuracy) : null;
-    } else {
-        // Clear position fields if position challenge is not checked
-        updateData.minDistance = null;
-        updateData.minAccuracy = null;
-    }
+    // Always get position challenge values, regardless of checkbox state
+    const minDistanceSelect = document.getElementById(`controlPointMinDistance_${controlPointId}`);
+    const minAccuracySelect = document.getElementById(`controlPointMinAccuracy_${controlPointId}`);
     
-    // Handle code challenge
-    if (codeChallenge) {
-        // Get all code fields
-        const code = document.getElementById(`controlPointCode_${controlPointId}`).value.trim();
-        const armedCode = document.getElementById(`controlPointArmedCode_${controlPointId}`).value.trim();
-        const disarmedCode = document.getElementById(`controlPointDisarmedCode_${controlPointId}`).value.trim();
-        
-        // Validate that at least one code is provided
-        if (!code && !armedCode && !disarmedCode) {
-            showWarning('Para challenges de código, debes ingresar al menos un código');
+    const minDistance = minDistanceSelect ? minDistanceSelect.value : '';
+    const minAccuracy = minAccuracySelect ? minAccuracySelect.value : '';
+    
+    console.log('Position challenge values:', { minDistance, minAccuracy });
+    
+    // Only validate if position challenge is checked
+    if (positionChallenge) {
+        if (!minDistance || !minAccuracy) {
+            showWarning('Para position challenge, debes seleccionar tanto la distancia mínima como el accuracy mínimo');
             return;
         }
-        
-        updateData.code = code || null;
-        updateData.armedCode = armedCode || null;
-        updateData.disarmedCode = disarmedCode || null;
-    } else {
-        // Clear code fields if code challenge is not checked
-        updateData.code = null;
-        updateData.armedCode = null;
-        updateData.disarmedCode = null;
     }
+    
+    // Always send position values (they will be null if not selected)
+    updateData.minDistance = minDistance ? parseInt(minDistance) : null;
+    updateData.minAccuracy = minAccuracy ? parseInt(minAccuracy) : null;
+    
+    // Always get code challenge values, regardless of checkbox state
+    const code = document.getElementById(`controlPointCode_${controlPointId}`).value.trim();
+    
+    // Only validate if code challenge is checked
+    if (codeChallenge) {
+        if (!code) {
+            showWarning('Para code challenge, debes ingresar un código');
+            return;
+        }
+    }
+    
+    // Always send code value (it will be null if empty)
+    updateData.code = code || null;
+    
+    // Always get bomb challenge values, regardless of checkbox state
+    const bombTimeSelect = document.getElementById(`controlPointBombTime_${controlPointId}`);
+    const armedCode = document.getElementById(`controlPointArmedCode_${controlPointId}`).value.trim();
+    const disarmedCode = document.getElementById(`controlPointDisarmedCode_${controlPointId}`).value.trim();
+    
+    const bombTime = bombTimeSelect ? bombTimeSelect.value : '';
+    
+    console.log('Bomb challenge values:', { bombTime, armedCode, disarmedCode });
+    
+    // Only validate if bomb challenge is checked
+    if (bombChallenge) {
+        if (!armedCode || !disarmedCode) {
+            showWarning('Para bomb challenge, debes ingresar tanto el código para armar como el código para desarmar');
+            return;
+        }
+    }
+    
+    // Always send bomb values (they will be null if not selected)
+    updateData.bombTime = bombTime ? parseInt(bombTime) : null;
+    updateData.armedCode = armedCode || null;
+    updateData.disarmedCode = disarmedCode || null;
     
     // Send update via WebSocket
     if (socket && currentGame) {
@@ -544,6 +578,54 @@ function deleteControlPoint(controlPointId, markerId) {
         
         // The marker will be removed when we receive the 'controlPointDeleted' event
         showSuccess('Punto eliminado exitosamente');
+    }
+}
+
+// Toggle position inputs visibility
+function togglePositionInputs(controlPointId) {
+    const checkbox = document.getElementById(`positionChallenge_${controlPointId}`);
+    const inputsDiv = document.getElementById(`positionInputs_${controlPointId}`);
+    
+    console.log('Toggle position inputs:', {
+        controlPointId,
+        checked: checkbox ? checkbox.checked : 'no checkbox',
+        inputsDiv: !!inputsDiv
+    });
+    
+    if (checkbox && inputsDiv) {
+        inputsDiv.classList.toggle('hidden', !checkbox.checked);
+    }
+}
+
+// Toggle code inputs visibility
+function toggleCodeInputs(controlPointId) {
+    const checkbox = document.getElementById(`codeChallenge_${controlPointId}`);
+    const inputsDiv = document.getElementById(`codeInputs_${controlPointId}`);
+    
+    console.log('Toggle code inputs:', {
+        controlPointId,
+        checked: checkbox ? checkbox.checked : 'no checkbox',
+        inputsDiv: !!inputsDiv
+    });
+    
+    if (checkbox && inputsDiv) {
+        inputsDiv.classList.toggle('hidden', !checkbox.checked);
+    }
+}
+
+// Toggle bomb inputs visibility
+function toggleBombInputs(controlPointId) {
+    const checkbox = document.getElementById(`bombChallenge_${controlPointId}`);
+    const inputsDiv = document.getElementById(`bombInputs_${controlPointId}`);
+    
+    console.log('Toggle bomb inputs:', {
+        controlPointId,
+        checked: checkbox ? checkbox.checked : 'no checkbox',
+        inputsDiv: !!inputsDiv
+    });
+    
+    if (checkbox && inputsDiv) {
+        inputsDiv.classList.toggle('hidden', !checkbox.checked);
     }
 }
 
@@ -587,3 +669,6 @@ window.updateControlPoint = updateControlPoint;
 window.deleteControlPoint = deleteControlPoint;
 window.createOwnerControlPointEditMenu = createControlPointEditMenu;
 window.updateOwnerControlPointPopups = updateOwnerControlPointPopups;
+window.togglePositionInputs = togglePositionInputs;
+window.toggleCodeInputs = toggleCodeInputs;
+window.toggleBombInputs = toggleBombInputs;

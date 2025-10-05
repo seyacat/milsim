@@ -221,6 +221,16 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
             {
               name: data.name,
               type: data.type,
+              challengeType: data.challengeType,
+              code: data.code,
+              armedCode: data.armedCode,
+              disarmedCode: data.disarmedCode,
+              minDistance: data.minDistance,
+              minAccuracy: data.minAccuracy,
+              hasPositionChallenge: data.hasPositionChallenge,
+              hasCodeChallenge: data.hasCodeChallenge,
+              hasBombChallenge: data.hasBombChallenge,
+              bombTime: data.bombTime,
             },
           );
 

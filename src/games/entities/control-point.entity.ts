@@ -49,6 +49,18 @@ export class ControlPoint {
   @Column({ nullable: true })
   minAccuracy: number;
 
+  @Column({ default: false })
+  hasPositionChallenge: boolean;
+
+  @Column({ default: false })
+  hasCodeChallenge: boolean;
+
+  @Column({ default: false })
+  hasBombChallenge: boolean;
+
+  @Column({ nullable: true })
+  bombTime: number;
+
   @ManyToOne(() => Game, game => game.controlPoints, {
     onDelete: 'CASCADE',
   })

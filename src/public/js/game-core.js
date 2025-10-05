@@ -958,7 +958,15 @@ function handleGameAction(data) {
             }
             break;
         case 'controlPointUpdated':
-            console.log('Control point updated:', data.data);
+            console.log('Control point updated - Full data:', data.data);
+            console.log('Control point updated - Position fields:', {
+                minDistance: data.data.minDistance,
+                minAccuracy: data.data.minAccuracy,
+                challengeType: data.data.challengeType,
+                code: data.data.code,
+                armedCode: data.data.armedCode,
+                disarmedCode: data.data.disarmedCode
+            });
             // Update existing marker
             map.eachLayer((layer) => {
                 if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.id) {
