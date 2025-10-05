@@ -34,7 +34,7 @@ export class Game {
   teamCount: number; // Number of teams (2, 3, or 4)
 
   @Column({ type: 'int', nullable: true })
-  totalTime: number; // Total game time in seconds (null for unlimited)
+  totalTime: number | null; // Total game time in seconds (null for unlimited)
 
   @Column({ type: 'int', nullable: true })
   instanceId: number | null; // Reference to active game instance

@@ -439,7 +439,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
             try {
               const game = await this.gamesService.findOne(gameId);
               if (game.owner && game.owner.id === user.id) {
-                const updatedGame = await this.gamesService.addTime(gameId, data.minutes);
+                const updatedGame = await this.gamesService.addTime(gameId, data.seconds);
                 this.server.to(`game_${gameId}`).emit('gameAction', {
                   action: 'timeAdded',
                   data: { game: updatedGame },

@@ -513,25 +513,13 @@ export class GamesService {
       if (timer.isRunning) {
         timer.elapsedTime++;
 
-        // Log every 5 seconds for debugging
-        if (timer.elapsedTime % 5 === 0) {
-          console.log(
-            `[DEBUG] Game ${gameId} - Elapsed: ${timer.elapsedTime}s, Remaining: ${timer.remainingTime}, Total: ${timer.totalTime}`,
-          );
-        }
-
         // Update remaining time if there's a total time limit
         if (timer.totalTime !== null && timer.remainingTime !== null) {
           timer.remainingTime = Math.max(0, timer.totalTime - timer.elapsedTime);
         }
 
-        // Broadcast time update every 20 seconds or on special conditions
-        const shouldBroadcast =
-          timer.elapsedTime % 20 === 0 || // Every 20 seconds
-          (timer.totalTime !== null && timer.remainingTime !== null && timer.remainingTime <= 60) || // Last minute warning
-          (timer.totalTime !== null && timer.remainingTime !== null && timer.remainingTime <= 0); // Time expired
-
-        if (shouldBroadcast && this.gamesGateway) {
+        // Broadcast time update ONLY every 20 seconds
+        if (timer.elapsedTime % 20 === 0 && this.gamesGateway) {
           console.log(
             `[TIMER] Broadcasting time update for game ${gameId}: elapsed=${timer.elapsedTime}, remaining=${timer.remainingTime}`,
           );
@@ -545,6 +533,7 @@ export class GamesService {
         // Check if time's up for limited games
         if (timer.totalTime !== null && timer.remainingTime !== null && timer.remainingTime <= 0) {
           // Time's up - end the game automatically (system action)
+          console.log(`[TIMER] Time expired for game ${gameId}, ending automatically`);
           this.endGameAutomatically(gameId).catch(console.error);
 
           // Add time expired event to history
@@ -561,7 +550,7 @@ export class GamesService {
             .catch(console.error);
         }
       }
-    }, 1000);
+    }, 1000); // 1 second interval
 
     console.log(`[TIMER] Interval set, storing timer for game ${gameId}`);
     this.gameTimers.set(gameId, timer);
@@ -633,24 +622,70 @@ export class GamesService {
     return null;
   }
 
-  async addTime(gameId: number, minutes: number): Promise<Game> {
+  async addTime(gameId: number, seconds: number): Promise<Game> {
+    console.log(`[ADD_TIME] Adding ${seconds} seconds to game ${gameId}`);
+
     const timer = this.gameTimers.get(gameId);
     if (!timer) {
+      console.error(`[ADD_TIME] No timer found for game ${gameId}`);
       throw new Error('No hay un temporizador activo para este juego');
     }
 
+    console.log(`[ADD_TIME] Current timer state:`, {
+      totalTime: timer.totalTime,
+      remainingTime: timer.remainingTime,
+      elapsedTime: timer.elapsedTime,
+    });
+
     if (timer.totalTime !== null && timer.remainingTime !== null) {
-      timer.totalTime += minutes * 60;
-      timer.remainingTime += minutes * 60;
+      timer.totalTime += seconds;
+      timer.remainingTime += seconds;
+      console.log(
+        `[ADD_TIME] Updated timer: totalTime=${timer.totalTime}, remainingTime=${timer.remainingTime}`,
+      );
     } else {
       // If game was indefinite, now it becomes limited
-      timer.totalTime = timer.elapsedTime + minutes * 60;
-      timer.remainingTime = minutes * 60;
+      timer.totalTime = timer.elapsedTime + seconds;
+      timer.remainingTime = seconds;
+      console.log(
+        `[ADD_TIME] Converted to limited: totalTime=${timer.totalTime}, remainingTime=${timer.remainingTime}`,
+      );
     }
 
     const game = await this.findOne(gameId);
-    game.totalTime = timer.totalTime;
-    await this.gamesRepository.save(game);
+    console.log(`[ADD_TIME] Current game totalTime: ${game.totalTime}`);
+
+    // Ensure we're not setting NaN values
+    if (timer.totalTime !== null && !isNaN(timer.totalTime)) {
+      game.totalTime = timer.totalTime;
+      console.log(`[ADD_TIME] Setting game totalTime to: ${game.totalTime}`);
+    } else {
+      // If there's an issue, keep the original value
+      console.warn(
+        `[ADD_TIME] Invalid totalTime value: ${timer.totalTime}, keeping original value: ${game.totalTime}`,
+      );
+    }
+
+    try {
+      await this.gamesRepository.save(game);
+      console.log(`[ADD_TIME] Game saved successfully`);
+    } catch (error) {
+      console.error(`[ADD_TIME] Error saving game:`, error);
+      throw error;
+    }
+
+    // Force broadcast the updated time
+    this.forceTimeBroadcast(gameId);
+
+    // Log game history
+    if (game.instanceId) {
+      const minutesAdded = seconds / 60;
+      await this.addGameHistory(game.instanceId, 'time_added', {
+        minutesAdded: minutesAdded,
+        newTotalTime: timer.totalTime,
+        newRemainingTime: timer.remainingTime,
+      });
+    }
 
     return game;
   }

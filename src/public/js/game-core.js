@@ -1071,7 +1071,8 @@ function updateGameStateControls() {
             console.log('Showing running state controls');
             if (timeControls) timeControls.style.display = 'flex';
             if (pauseBtn) pauseBtn.style.display = 'block';
-            if (endBtn) endBtn.style.display = 'block';
+            // End button should NOT be visible in running state
+            if (endBtn) endBtn.style.display = 'none';
             break;
         case 'paused':
             console.log('Showing paused state controls');
@@ -1294,7 +1295,7 @@ function updateTimeDisplay() {
         // Handle remaining time
         if (timeData.remainingTime === null || timeData.remainingTime === undefined) {
             // Time indefinite - only show time played
-            gameStatusElement.textContent = 'indefinido';
+            gameStatusElement.textContent = currentGame ? currentGame.status : 'indefinido';
             timeRemainingContainer.style.display = 'none';
         } else {
             // Time limited - show both time played and remaining
@@ -1303,7 +1304,8 @@ function updateTimeDisplay() {
             const seconds = currentRemainingTime % 60;
             const timeRemainingText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
             
-            gameStatusElement.textContent = timeRemainingText;
+            // Keep game status showing the actual game state
+            gameStatusElement.textContent = currentGame ? currentGame.status : 'running';
             timeRemainingElement.textContent = timeRemainingText;
             timeRemainingContainer.style.display = 'block';
             
