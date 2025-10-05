@@ -47,7 +47,9 @@ function checkAuth() {
     
     if (!gameId) {
         showError('ID del juego no especificado');
-        window.location.href = 'dashboard.html';
+        setTimeout(() => {
+            window.location.href = 'dashboard.html';
+        }, 2000);
         return;
     }
     
@@ -93,6 +95,18 @@ function initializeWebSocket(gameId) {
 
     socket.on('disconnect', () => {
         console.log('WebSocket disconnected');
+        showError('Conexión perdida con el servidor');
+        setTimeout(() => {
+            window.location.href = 'dashboard.html';
+        }, 3000);
+    });
+
+    socket.on('connect_error', (error) => {
+        console.error('WebSocket connection error:', error);
+        showError('Error de conexión con el servidor: ' + error.message);
+        setTimeout(() => {
+            window.location.href = 'dashboard.html';
+        }, 3000);
     });
 
     socket.on('gameUpdate', (data) => {
@@ -144,6 +158,10 @@ function initializeWebSocket(gameId) {
 
     socket.on('joinError', (data) => {
         showError('Error al unirse al juego: ' + data.message);
+        // Redirect to dashboard after showing error
+        setTimeout(() => {
+            window.location.href = 'dashboard.html';
+        }, 3000);
     });
 
     socket.on('forceDisconnect', (data) => {
@@ -197,6 +215,10 @@ async function loadGame(gameId) {
         loadControlPoints(gameId);
     } catch (error) {
         showError('Error al cargar el juego: ' + error.message);
+        // Redirect to dashboard after showing error
+        setTimeout(() => {
+            window.location.href = 'dashboard.html';
+        }, 3000);
     }
 }
 
@@ -625,9 +647,7 @@ function showInfo(message, duration = 5000) {
 
 // Utility functions
 function goBack() {
-    if (confirm('¿Estás seguro de que quieres salir del juego?')) {
-        window.location.href = 'dashboard.html';
-    }
+    window.location.href = 'dashboard.html';
 }
 
 // Map control functions
@@ -1260,6 +1280,7 @@ function syncTimeSelector() {
                 { value: 300, label: '5 min' },
                 { value: 600, label: '10 min' },
                 { value: 1200, label: '20 min' },
+                { value: 3600, label: '1 hora' },
                 { value: 0, label: 'indefinido' }
             ];
             
@@ -1274,6 +1295,7 @@ function syncTimeSelector() {
         }
         
         timeSelector.value = selectedValue;
+        console.log('Time selector synced to:', selectedValue, 'for game totalTime:', currentGame.totalTime);
     }
 }
 

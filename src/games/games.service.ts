@@ -64,7 +64,7 @@ export class GamesService {
   async create(gameData: Partial<Game>, ownerId: number): Promise<Game> {
     const game = this.gamesRepository.create({
       ...gameData,
-      totalTime: gameData.totalTime || 3600, // Default to 1 hour if not specified
+      totalTime: gameData.totalTime || 1200, // Default to 20 minutes if not specified
       owner: { id: ownerId },
     });
     const savedGame = await this.gamesRepository.save(game);
@@ -539,11 +539,8 @@ export class GamesService {
       isRunning: true,
     };
 
-    
-
     // Start countdown interval (update every second internally, broadcast every 20 seconds)
     timer.intervalId = setInterval(() => {
-      
       if (timer.isRunning) {
         timer.elapsedTime++;
 
@@ -650,7 +647,6 @@ export class GamesService {
   ): { remainingTime: number | null; totalTime: number | null; playedTime: number } | null {
     const timer = this.gameTimers.get(gameId);
     if (timer) {
-      
       return {
         remainingTime: timer.remainingTime,
         totalTime: timer.totalTime,
@@ -681,7 +677,7 @@ export class GamesService {
       if (timer.totalTime !== null && timer.remainingTime !== null) {
         const newTotalTime = Math.max(timer.elapsedTime, timer.totalTime + seconds);
         const newRemainingTime = Math.max(0, timer.remainingTime + seconds);
-        
+
         timer.totalTime = newTotalTime;
         timer.remainingTime = newRemainingTime;
         console.log(

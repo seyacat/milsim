@@ -99,6 +99,7 @@
             e.preventDefault();
             
             const name = document.getElementById('name').value;
+            const timeInSeconds = 1200; // Default 20 minutes
             const errorMessage = document.getElementById('errorMessage');
             const successMessage = document.getElementById('successMessage');
             
@@ -117,9 +118,10 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ 
+                    body: JSON.stringify({
                         name: name.trim(),
-                        ownerId: currentUser.id 
+                        ownerId: currentUser.id,
+                        totalTime: timeInSeconds
                     })
                 });
                 

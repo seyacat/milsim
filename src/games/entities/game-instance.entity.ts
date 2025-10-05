@@ -40,7 +40,7 @@ export class GameInstance {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @ManyToOne(() => Game)
+  @ManyToOne(() => Game, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'gameId' })
   game: Game;
 
