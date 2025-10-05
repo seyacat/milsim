@@ -326,6 +326,39 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           break;
         }
 
+        case 'updateControlPointPosition': {
+          const updatedControlPoint = await this.gamesService.updateControlPoint(
+            data.controlPointId,
+            {
+              latitude: data.latitude,
+              longitude: data.longitude,
+            },
+          );
+
+          // Get the complete updated game with all control points AFTER the update
+          const updatedGame = await this.gamesService.findOne(gameId);
+
+          console.log('[UPDATE_CONTROL_POINT_POSITION] Updated control point position:', {
+            controlPointId: data.controlPointId,
+            latitude: data.latitude,
+            longitude: data.longitude,
+          });
+
+          // Broadcast the updated control point to all clients
+          this.server.to(`game_${gameId}`).emit('gameAction', {
+            action: 'controlPointUpdated',
+            data: updatedControlPoint,
+            from: client.id,
+          });
+
+          // Also broadcast the complete game update so frontend has all control points
+          this.server.to(`game_${gameId}`).emit('gameUpdate', {
+            type: 'gameUpdated',
+            game: updatedGame,
+          });
+          break;
+        }
+
         case 'deleteControlPoint': {
           await this.gamesService.deleteControlPoint(data.controlPointId);
 

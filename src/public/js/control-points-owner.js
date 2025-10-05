@@ -421,6 +421,7 @@ function createControlPointEditMenu(controlPoint, marker) {
             ` : ''}
             
             <div class="action-buttons">
+                <button onclick="window.enableDragMode(${controlPoint.id}, ${marker._leaflet_id})" class="btn btn-move" title="Mover punto" style="background: rgba(33, 150, 243, 0.2); border: 1px solid #2196F3; color: #2196F3;">🧭</button>
                 <button onclick="window.updateControlPoint(${controlPoint.id}, ${marker._leaflet_id})" class="btn btn-primary">Actualizar</button>
                 <button onclick="window.deleteControlPoint(${controlPoint.id}, ${marker._leaflet_id})" class="btn btn-danger">Eliminar</button>
             </div>
@@ -714,6 +715,62 @@ function refreshOwnerControlPointMarkers(controlPoints) {
     console.log('REFRESH OWNER: Owner control point markers refreshed successfully');
 }
 
+// Enable drag mode for moving control points
+function enableDragMode(controlPointId, markerId) {
+    console.log(`Enabling drag mode for control point ${controlPointId}, marker ${markerId}`);
+    
+    // Find the marker
+    let targetMarker = null;
+    map.eachLayer((layer) => {
+        if (layer instanceof L.Marker && layer._leaflet_id === markerId && layer.controlPointData) {
+            targetMarker = layer;
+        }
+    });
+    
+    if (!targetMarker) {
+        console.error(`Marker not found for control point ${controlPointId}`);
+        return;
+    }
+    
+    // Close the popup menu
+    targetMarker.closePopup();
+    
+    // Make marker draggable
+    targetMarker.dragging.enable();
+    console.log('Marker dragging enabled');
+    
+    // Change cursor to indicate drag mode
+    targetMarker.getElement().style.cursor = 'move';
+    
+    // Add dragend event listener to update position when dragging stops
+    targetMarker.on('dragend', function(event) {
+        const marker = event.target;
+        const newPosition = marker.getLatLng();
+        console.log(`Marker dragged to new position: ${newPosition.lat}, ${newPosition.lng}`);
+        
+        // Update control point position via WebSocket
+        if (socket && currentGame) {
+            socket.emit('gameAction', {
+                gameId: currentGame.id,
+                action: 'updateControlPointPosition',
+                data: {
+                    controlPointId: controlPointId,
+                    latitude: newPosition.lat,
+                    longitude: newPosition.lng
+                }
+            });
+        }
+        
+        // Disable dragging after placement
+        marker.dragging.disable();
+        marker.getElement().style.cursor = '';
+        console.log('Drag mode disabled after placement');
+    });
+    
+    // Show instruction message
+    showSuccess('Arrastra el punto a la nueva ubicación y haz clic para colocarlo');
+}
+
 // Make functions available globally
 window.initializeOwnerControlPoints = initializeOwnerControlPoints;
 window.showControlPointMenu = showControlPointMenu;
@@ -729,3 +786,4 @@ window.refreshOwnerControlPointMarkers = refreshOwnerControlPointMarkers;
 window.togglePositionInputs = togglePositionInputs;
 window.toggleCodeInputs = toggleCodeInputs;
 window.toggleBombInputs = toggleBombInputs;
+window.enableDragMode = enableDragMode;

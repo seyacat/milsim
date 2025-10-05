@@ -200,8 +200,8 @@ export class GamesService {
   async updateControlPoint(
     id: number,
     updateData: {
-      name: string;
-      type: string;
+      name?: string;
+      type?: string;
       challengeType?: string;
       code?: string;
       armedCode?: string;
@@ -212,6 +212,8 @@ export class GamesService {
       hasCodeChallenge?: boolean;
       hasBombChallenge?: boolean;
       bombTime?: number;
+      latitude?: number;
+      longitude?: number;
     },
   ): Promise<ControlPoint> {
     const controlPoint = await this.controlPointsRepository.findOne({
