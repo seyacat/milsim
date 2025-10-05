@@ -17,10 +17,16 @@ function initialize() {
 
 // Initialize Leaflet map
 function initMap() {
-    map = L.map('map').setView([0, 0], 13);
+    map = L.map('map', {
+        zoomControl: true,
+        maxZoom: 22, // Increased from default 18
+        minZoom: 1
+    }).setView([0, 0], 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors'
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 22, // Match the map maxZoom
+        minZoom: 1
     }).addTo(map);
 
     // Add scale control
