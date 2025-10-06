@@ -149,7 +149,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       );
 
       // Get updated game data
-      const game = await this.gamesService.findOne(gameId);
+      const game = await this.gamesService.findOne(gameId, user.id);
       console.log(`[JOIN_GAME_WS] Game data retrieved:`, game?.name);
 
       // Join the game via service (this will handle the case where user is already in the game)
@@ -157,7 +157,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       console.log(`[JOIN_GAME_WS] User ${user.id} joined game ${gameId} via service`);
 
       // Get updated game data
-      const updatedGame = await this.gamesService.findOne(gameId);
+      const updatedGame = await this.gamesService.findOne(gameId, user.id);
       console.log(`[JOIN_GAME_WS] Updated game data:`, updatedGame?.players?.length, 'players');
 
       // Notify all clients in the game room about the updated player list
@@ -168,7 +168,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       console.log(`[JOIN_GAME_WS] Game update broadcasted to room game_${gameId}`);
 
       // Check if user is owner and send stored positions
-      const currentGame = await this.gamesService.findOne(gameId);
+      const currentGame = await this.gamesService.findOne(gameId, user.id);
       if (currentGame.owner && currentGame.owner.id === user.id) {
         console.log(`[JOIN_GAME_WS] User ${user.id} is owner, sending stored positions`);
         // Send all stored positions to the owner
@@ -239,10 +239,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       );
 
       // Get updated game data
-      const game = await this.gamesService.findOne(gameId);
+      const game = await this.gamesService.findOne(gameId, user.id);
 
       // Get updated game data
-      const updatedGame = await this.gamesService.findOne(gameId);
+      const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
       // Notify all clients in the game room about the updated player list
       this.server.to(`game_${gameId}`).emit('gameUpdate', {
@@ -266,6 +266,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       switch (action) {
         case 'createControlPoint': {
+          const user = this.connectedUsers.get(client.id);
           const newControlPoint = await this.gamesService.createControlPoint({
             name: data.name,
             description: data.description || '',
@@ -275,87 +276,147 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
             type: data.type,
           });
 
-          // Broadcast the new control point to all clients
+          // Remove sensitive code data before broadcasting to all clients
+          const { code, armedCode, disarmedCode, ...safeControlPoint } = newControlPoint;
+
+          // Broadcast the new control point to all clients (without codes)
           this.server.to(`game_${gameId}`).emit('gameAction', {
             action: 'controlPointCreated',
-            data: newControlPoint,
+            data: safeControlPoint,
             from: client.id,
           });
+
+          // Send the full control point data (with codes) only to the owner
+          if (user) {
+            const game = await this.gamesService.findOne(gameId, user.id);
+            if (game.owner && game.owner.id === user.id) {
+              client.emit('gameAction', {
+                action: 'controlPointCreated',
+                data: newControlPoint, // Full data with codes
+                from: client.id,
+              });
+            }
+          }
           break;
         }
 
         case 'updateControlPoint': {
-          const updatedControlPoint = await this.gamesService.updateControlPoint(
-            data.controlPointId,
-            {
-              name: data.name,
-              type: data.type,
-              challengeType: data.challengeType,
-              code: data.code,
-              armedCode: data.armedCode,
-              disarmedCode: data.disarmedCode,
-              minDistance: data.minDistance,
-              minAccuracy: data.minAccuracy,
-              hasPositionChallenge: data.hasPositionChallenge,
-              hasCodeChallenge: data.hasCodeChallenge,
-              hasBombChallenge: data.hasBombChallenge,
-              bombTime: data.bombTime,
-            },
-          );
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            const updatedControlPoint = await this.gamesService.updateControlPoint(
+              data.controlPointId,
+              {
+                name: data.name,
+                type: data.type,
+                challengeType: data.challengeType,
+                code: data.code,
+                armedCode: data.armedCode,
+                disarmedCode: data.disarmedCode,
+                minDistance: data.minDistance,
+                minAccuracy: data.minAccuracy,
+                hasPositionChallenge: data.hasPositionChallenge,
+                hasCodeChallenge: data.hasCodeChallenge,
+                hasBombChallenge: data.hasBombChallenge,
+                bombTime: data.bombTime,
+              },
+            );
 
-          // Get the complete updated game with all control points AFTER the update
-          const updatedGame = await this.gamesService.findOne(gameId);
+            // Get the complete updated game with all control points AFTER the update
+            const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-          console.log('[UPDATE_CONTROL_POINT] Updated game data:', {
-            controlPointsCount: updatedGame.controlPoints?.length,
-            firstControlPoint: updatedGame.controlPoints?.[0],
-          });
+            console.log('[UPDATE_CONTROL_POINT] Updated control point data:', {
+              id: updatedControlPoint.id,
+              name: updatedControlPoint.name,
+              hasCodeChallenge: updatedControlPoint.hasCodeChallenge,
+              hasBombChallenge: updatedControlPoint.hasBombChallenge,
+              hasPositionChallenge: updatedControlPoint.hasPositionChallenge,
+              // Don't log code values for security
+            });
 
-          // Broadcast the updated control point to all clients
-          this.server.to(`game_${gameId}`).emit('gameAction', {
-            action: 'controlPointUpdated',
-            data: updatedControlPoint,
-            from: client.id,
-          });
+            console.log('[UPDATE_CONTROL_POINT] Updated game data:', {
+              controlPointsCount: updatedGame.controlPoints?.length,
+              firstControlPoint: updatedGame.controlPoints?.[0],
+            });
 
-          // Also broadcast the complete game update so frontend has all control points
-          this.server.to(`game_${gameId}`).emit('gameUpdate', {
-            type: 'gameUpdated',
-            game: updatedGame,
-          });
+            // Remove sensitive code data before broadcasting to all clients
+            const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
+
+            // Broadcast the updated control point to all clients (without codes)
+            this.server.to(`game_${gameId}`).emit('gameAction', {
+              action: 'controlPointUpdated',
+              data: safeControlPoint,
+              from: client.id,
+            });
+
+            // Send the full control point data (with codes) only to the owner
+            if (user) {
+              const game = await this.gamesService.findOne(gameId, user.id);
+              if (game.owner && game.owner.id === user.id) {
+                client.emit('gameAction', {
+                  action: 'controlPointUpdated',
+                  data: updatedControlPoint, // Full data with codes
+                  from: client.id,
+                });
+              }
+            }
+
+            // Also broadcast the complete game update so frontend has all control points
+            this.server.to(`game_${gameId}`).emit('gameUpdate', {
+              type: 'gameUpdated',
+              game: updatedGame,
+            });
+          }
           break;
         }
 
         case 'updateControlPointPosition': {
-          const updatedControlPoint = await this.gamesService.updateControlPoint(
-            data.controlPointId,
-            {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            const updatedControlPoint = await this.gamesService.updateControlPoint(
+              data.controlPointId,
+              {
+                latitude: data.latitude,
+                longitude: data.longitude,
+              },
+            );
+
+            // Get the complete updated game with all control points AFTER the update
+            const updatedGame = await this.gamesService.findOne(gameId, user.id);
+
+            console.log('[UPDATE_CONTROL_POINT_POSITION] Updated control point position:', {
+              controlPointId: data.controlPointId,
               latitude: data.latitude,
               longitude: data.longitude,
-            },
-          );
+            });
 
-          // Get the complete updated game with all control points AFTER the update
-          const updatedGame = await this.gamesService.findOne(gameId);
+            // Remove sensitive code data before broadcasting to all clients
+            const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
 
-          console.log('[UPDATE_CONTROL_POINT_POSITION] Updated control point position:', {
-            controlPointId: data.controlPointId,
-            latitude: data.latitude,
-            longitude: data.longitude,
-          });
+            // Broadcast the updated control point to all clients (without codes)
+            this.server.to(`game_${gameId}`).emit('gameAction', {
+              action: 'controlPointUpdated',
+              data: safeControlPoint,
+              from: client.id,
+            });
 
-          // Broadcast the updated control point to all clients
-          this.server.to(`game_${gameId}`).emit('gameAction', {
-            action: 'controlPointUpdated',
-            data: updatedControlPoint,
-            from: client.id,
-          });
+            // Send the full control point data (with codes) only to the owner
+            if (user) {
+              const game = await this.gamesService.findOne(gameId, user.id);
+              if (game.owner && game.owner.id === user.id) {
+                client.emit('gameAction', {
+                  action: 'controlPointUpdated',
+                  data: updatedControlPoint, // Full data with codes
+                  from: client.id,
+                });
+              }
+            }
 
-          // Also broadcast the complete game update so frontend has all control points
-          this.server.to(`game_${gameId}`).emit('gameUpdate', {
-            type: 'gameUpdated',
-            game: updatedGame,
-          });
+            // Also broadcast the complete game update so frontend has all control points
+            this.server.to(`game_${gameId}`).emit('gameUpdate', {
+              type: 'gameUpdated',
+              game: updatedGame,
+            });
+          }
           break;
         }
 
@@ -408,7 +469,13 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 data.code,
               );
 
-              // Broadcast the updated control point to all clients
+              // Remove sensitive code data before broadcasting to all clients
+              const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
+
+              // Get the complete updated game with all control points AFTER the update
+              const updatedGame = await this.gamesService.findOne(gameId, user.id);
+
+              // Broadcast the updated control point to all clients (without codes)
               this.server.to(`game_${gameId}`).emit('gameAction', {
                 action: 'controlPointTaken',
                 data: {
@@ -416,13 +483,28 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                   userId: user.id,
                   userName: user.name,
                   team: updatedControlPoint.ownedByTeam,
-                  controlPoint: updatedControlPoint,
+                  controlPoint: safeControlPoint,
                 },
                 from: client.id,
               });
 
+              // Send the full control point data (with codes) only to the owner
+              const game = await this.gamesService.findOne(gameId, user.id);
+              if (game.owner && game.owner.id === user.id) {
+                client.emit('gameAction', {
+                  action: 'controlPointTaken',
+                  data: {
+                    controlPointId: data.controlPointId,
+                    userId: user.id,
+                    userName: user.name,
+                    team: updatedControlPoint.ownedByTeam,
+                    controlPoint: updatedControlPoint, // Full data with codes
+                  },
+                  from: client.id,
+                });
+              }
+
               // Also broadcast the complete game update so frontend has all control points
-              const updatedGame = await this.gamesService.findOne(gameId);
               this.server.to(`game_${gameId}`).emit('gameUpdate', {
                 type: 'gameUpdated',
                 game: updatedGame,
@@ -445,7 +527,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
               // If playerId is not provided but userId is, find the player by userId
               if (!playerId && data.userId) {
-                const game = await this.gamesService.findOne(gameId);
+                const game = await this.gamesService.findOne(gameId, user.id);
                 const player = game.players?.find(p => p.user.id === data.userId);
                 if (player) {
                   playerId = player.id;
@@ -605,7 +687,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           const user = this.connectedUsers.get(client.id);
           if (user) {
             try {
-              const game = await this.gamesService.findOne(gameId);
+              const game = await this.gamesService.findOne(gameId, user.id);
               if (game.owner && game.owner.id === user.id) {
                 const updatedGame = await this.gamesService.addTime(gameId, data.seconds);
                 this.server.to(`game_${gameId}`).emit('gameAction', {
@@ -628,7 +710,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           const user = this.connectedUsers.get(client.id);
           if (user) {
             try {
-              const game = await this.gamesService.findOne(gameId);
+              const game = await this.gamesService.findOne(gameId, user.id);
               if (game.owner && game.owner.id === user.id) {
                 const updatedGame = await this.gamesService.updateGameTime(
                   gameId,
@@ -655,7 +737,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           const user = this.connectedUsers.get(client.id);
           if (user) {
             // Check if user is the game owner
-            const game = await this.gamesService.findOne(gameId);
+            const game = await this.gamesService.findOne(gameId, user.id);
             if (game.owner && game.owner.id === user.id) {
               // Collect current positions of all connected players
               const positions: Array<{
@@ -717,9 +799,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('getGameState')
   async handleGetGameState(client: Socket, payload: { gameId: number }) {
     const { gameId } = payload;
+    const user = this.connectedUsers.get(client.id);
 
     try {
-      const game = await this.gamesService.findOne(gameId);
+      const game = await this.gamesService.findOne(gameId, user?.id);
       client.emit('gameState', game);
     } catch (error: any) {
       client.emit('gameStateError', { message: 'Failed to get game state' });

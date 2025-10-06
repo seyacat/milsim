@@ -57,7 +57,7 @@ export class GamesService {
     });
   }
 
-  async findOne(id: number): Promise<Game> {
+  async findOne(id: number, userId?: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
       where: { id },
       relations: ['owner', 'players', 'players.user', 'controlPoints'],
@@ -65,6 +65,15 @@ export class GamesService {
     if (!game) {
       throw new NotFoundException('Game not found');
     }
+
+    // Remove sensitive code data from control points only for non-owner users
+    if (game.controlPoints && (!userId || game.owner.id !== userId)) {
+      game.controlPoints = game.controlPoints.map(cp => {
+        const { code, armedCode, disarmedCode, ...safeControlPoint } = cp;
+        return safeControlPoint as ControlPoint;
+      });
+    }
+
     return game;
   }
 
@@ -128,6 +137,24 @@ export class GamesService {
     console.log(`[JOIN_GAME] Player ${savedPlayer.id} created successfully`);
 
     return savedPlayer;
+  }
+
+  async leaveGame(gameId: number, userId: number): Promise<void> {
+    console.log(`[LEAVE_GAME] Attempting to leave game ${gameId} with user ${userId}`);
+
+    // Find the player entry
+    const player = await this.playersRepository.findOne({
+      where: { game: { id: gameId }, user: { id: userId } },
+    });
+
+    if (!player) {
+      console.log(`[LEAVE_GAME] User ${userId} is not in game ${gameId}`);
+      return; // User is not in the game, nothing to do
+    }
+
+    console.log(`[LEAVE_GAME] Removing player ${player.id} from game ${gameId}`);
+    await this.playersRepository.remove(player);
+    console.log(`[LEAVE_GAME] Player ${player.id} removed successfully`);
   }
 
   async getPlayerGames(userId: number): Promise<Game[]> {

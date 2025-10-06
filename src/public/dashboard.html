@@ -132,7 +132,19 @@
         // Load games from API
         async function loadGames() {
             try {
-                const response = await fetch('/api/games');
+                const token = localStorage.getItem('token');
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                
+                // Include authorization header if token exists
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+                
+                const response = await fetch('/api/games', {
+                    headers: headers
+                });
                 if (!response.ok) {
                     throw new Error('Error al cargar los juegos');
                 }
@@ -238,11 +250,19 @@
         // Join a game
         async function joinGame(gameId) {
             try {
+                const token = localStorage.getItem('token');
+                const headers = {
+                    'Content-Type': 'application/json'
+                };
+                
+                // Include authorization header if token exists
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+                
                 const response = await fetch(`/api/games/${gameId}/join`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    headers: headers,
                     body: JSON.stringify({ userId: currentUser.id })
                 });
 

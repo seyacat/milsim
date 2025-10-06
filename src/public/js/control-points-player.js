@@ -31,23 +31,55 @@ function createControlPointPlayerMenu(controlPoint, marker) {
         ownershipStatus = `<div class="ownership-status" style="color: ${controlPoint.ownedByTeam}; font-weight: bold;">Controlado por: ${teamColors[controlPoint.ownedByTeam] || controlPoint.ownedByTeam}</div>`;
     }
     
-    // Only show "Take" button when game is running and point is not owned by player's team
+    // Only show challenge buttons when game is running and point is not owned by player's team
     const isGameRunning = currentGame && currentGame.status === 'running';
     const playerTeam = currentUser && currentUser.team;
     const isOwnedByPlayerTeam = controlPoint.ownedByTeam === playerTeam;
     const canTakePoint = isGameRunning && !isOwnedByPlayerTeam;
     
-    const takeButton = canTakePoint ? `
-        <div class="action-buttons">
-            <button class="take-button" onclick="takeControlPoint(${controlPoint.id})">Tomar</button>
-        </div>
-    ` : '';
+    // Show code challenge input and submit button if code challenge is active
+    let codeChallengeSection = '';
+    if (canTakePoint && controlPoint.hasCodeChallenge) {
+        codeChallengeSection = `
+            <div class="code-challenge-section" style="margin-top: 10px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Código:</label>
+                <input type="text" id="codeInput_${controlPoint.id}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="Ingresa el código">
+                <button class="submit-code-button" onclick="submitCodeChallenge(${controlPoint.id})" style="width: 100%; margin-top: 8px; padding: 8px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Enviar Código</button>
+            </div>
+        `;
+    }
+    
+    // Show position challenge button if position challenge is active
+    let positionChallengeSection = '';
+    if (canTakePoint && controlPoint.hasPositionChallenge) {
+        positionChallengeSection = `
+            <div class="position-challenge-section" style="margin-top: 10px;">
+                <button class="submit-position-button" onclick="submitPositionChallenge(${controlPoint.id})" style="width: 100%; padding: 8px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">Verificar Posición</button>
+            </div>
+        `;
+    }
+    
+    // Show bomb challenge inputs and submit button if bomb challenge is active
+    let bombChallengeSection = '';
+    if (canTakePoint && controlPoint.hasBombChallenge) {
+        bombChallengeSection = `
+            <div class="bomb-challenge-section" style="margin-top: 10px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Código Armado:</label>
+                <input type="text" id="armedCodeInput_${controlPoint.id}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="Ingresa el código armado">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold; margin-top: 10px;">Código Desarmado:</label>
+                <input type="text" id="disarmedCodeInput_${controlPoint.id}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="Ingresa el código desarmado">
+                <button class="submit-bomb-button" onclick="submitBombChallenge(${controlPoint.id})" style="width: 100%; margin-top: 8px; padding: 8px; background: #FF5722; color: white; border: none; border-radius: 4px; cursor: pointer;">Enviar Códigos Bomba</button>
+            </div>
+        `;
+    }
     
     menu.innerHTML = `
         <h4>${pointType}</h4>
         <div class="point-name">${controlPoint.name}</div>
         ${ownershipStatus}
-        ${takeButton}
+        ${codeChallengeSection}
+        ${positionChallengeSection}
+        ${bombChallengeSection}
     `;
     
     return menu;
@@ -56,6 +88,12 @@ function createControlPointPlayerMenu(controlPoint, marker) {
 // Add control point marker to map for players
 function addControlPointMarkerPlayer(controlPoint) {
     console.log('Adding control point marker for player:', controlPoint);
+    console.log('Control point challenge data:', {
+        hasCodeChallenge: controlPoint.hasCodeChallenge,
+        hasBombChallenge: controlPoint.hasBombChallenge,
+        hasPositionChallenge: controlPoint.hasPositionChallenge,
+        // Don't log code values for security
+    });
     console.log('Current game state when adding marker:', {
         hasCurrentGame: !!currentGame,
         gameStatus: currentGame ? currentGame.status : 'undefined',
@@ -176,6 +214,16 @@ function takeControlPoint(controlPointId) {
     map.eachLayer((layer) => {
         if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === controlPointId) {
             controlPoint = layer.controlPointData;
+            console.log('Found control point data for action:', {
+                id: controlPoint.id,
+                name: controlPoint.name,
+                hasCodeChallenge: controlPoint.hasCodeChallenge,
+                hasBombChallenge: controlPoint.hasBombChallenge,
+                hasPositionChallenge: controlPoint.hasPositionChallenge,
+                minDistance: controlPoint.minDistance,
+                minAccuracy: controlPoint.minAccuracy
+                // Don't log code values for security
+            });
         }
     });
     
@@ -184,11 +232,57 @@ function takeControlPoint(controlPointId) {
         return;
     }
     
+    // Also try to get the latest control point data from currentGame
+    if (currentGame && currentGame.controlPoints) {
+        const latestControlPoint = currentGame.controlPoints.find(cp => cp.id === controlPointId);
+        if (latestControlPoint) {
+            console.log('Found updated control point data from currentGame:', {
+                id: latestControlPoint.id,
+                name: latestControlPoint.name,
+                hasCodeChallenge: latestControlPoint.hasCodeChallenge,
+                hasBombChallenge: latestControlPoint.hasBombChallenge,
+                hasPositionChallenge: latestControlPoint.hasPositionChallenge,
+                minDistance: latestControlPoint.minDistance,
+                minAccuracy: latestControlPoint.minAccuracy
+                // Don't log code values for security
+            });
+            controlPoint = latestControlPoint;
+        }
+    }
+    
+    // Debug: Check what data we're working with
+    console.log('Final control point data for action:', {
+        id: controlPoint.id,
+        name: controlPoint.name,
+        hasCodeChallenge: controlPoint.hasCodeChallenge,
+        hasBombChallenge: controlPoint.hasBombChallenge,
+        hasPositionChallenge: controlPoint.hasPositionChallenge,
+        minDistance: controlPoint.minDistance,
+        minAccuracy: controlPoint.minAccuracy
+        // Don't log code values for security
+    });
+    
     // Check if point is already owned by player's team
     const playerTeam = currentUser && currentUser.team;
     if (controlPoint.ownedByTeam === playerTeam) {
         showError('Este punto ya está controlado por tu equipo');
         return;
+    }
+    
+    // Get code from input if code challenge is active
+    let code = '';
+    if (controlPoint.hasCodeChallenge) {
+        const codeInput = document.getElementById(`codeInput_${controlPointId}`);
+        if (codeInput) {
+            code = codeInput.value.trim();
+            console.log('Code entered by user:', code);
+        }
+        
+        // Validate that code was entered
+        if (!code) {
+            showError('Debes ingresar el código para tomar este punto');
+            return;
+        }
     }
     
     // Check position challenge if enabled
@@ -223,13 +317,9 @@ function takeControlPoint(controlPointId) {
                     return;
                 }
                 
-                // If code challenge is also enabled, show code input
-                if (controlPoint.hasCodeChallenge || controlPoint.hasBombChallenge) {
-                    showCodeInputDialog(controlPoint);
-                } else {
-                    // Only position challenge, send take action
-                    sendTakeControlPointAction(controlPointId);
-                }
+                // Position challenge passed, send take action with code
+                console.log('Position challenge passed, sending take action with code:', code);
+                sendTakeControlPointAction(controlPointId, code);
             },
             (error) => {
                 showError('No se pudo obtener tu ubicación: ' + error.message);
@@ -240,12 +330,10 @@ function takeControlPoint(controlPointId) {
                 maximumAge: 0
             }
         );
-    } else if (controlPoint.hasCodeChallenge || controlPoint.hasBombChallenge) {
-        // Only code challenge, show code input
-        showCodeInputDialog(controlPoint);
     } else {
-        // No challenges, send take action directly
-        sendTakeControlPointAction(controlPointId);
+        // No position challenge, send take action directly with code
+        console.log('No position challenge, sending take action with code:', code);
+        sendTakeControlPointAction(controlPointId, code);
     }
 }
 
@@ -268,139 +356,147 @@ function sendTakeControlPointAction(controlPointId, code) {
             data: actionData
         });
         
-        showSuccess('¡Punto tomado!');
+        // Success toast will be shown by the backend response
+        // Don't show immediate success toast here to avoid double toasts
     }
 }
 
-// Show code input dialog
-function showCodeInputDialog(controlPoint) {
-    const dialog = document.createElement('div');
-    dialog.className = 'code-input-dialog';
-    dialog.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: white;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        z-index: 1000;
-        min-width: 300px;
-    `;
+// Submit code challenge
+function submitCodeChallenge(controlPointId) {
+    console.log('Submitting code challenge for control point:', controlPointId);
     
-    // Determine which codes to show
-    const hasRegularCode = !!controlPoint.code;
-    const hasArmedCode = !!controlPoint.armedCode;
-    const hasDisarmedCode = !!controlPoint.disarmedCode;
-    
-    let codeInputs = '';
-    
-    if (hasRegularCode) {
-        codeInputs = `
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Código:</label>
-                <input type="text" id="codeInput" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="Ingresa el código">
-            </div>
-        `;
-    } else if (hasArmedCode && hasDisarmedCode) {
-        codeInputs = `
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Código Armado:</label>
-                <input type="text" id="armedCodeInput" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="Ingresa el código armado">
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Código Desarmado:</label>
-                <input type="text" id="disarmedCodeInput" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="Ingresa el código desarmado">
-            </div>
-        `;
-    }
-    
-    dialog.innerHTML = `
-        <h4 style="margin: 0 0 15px 0; color: #333;">Ingresa el código</h4>
-        ${codeInputs}
-        <div style="display: flex; gap: 10px; justify-content: flex-end;">
-            <button onclick="submitCode(${controlPoint.id})" style="padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Enviar</button>
-            <button onclick="closeCodeDialog()" style="padding: 8px 16px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">Cancelar</button>
-        </div>
-    `;
-    
-    document.body.appendChild(dialog);
-    
-    // Add overlay
-    const overlay = document.createElement('div');
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0,0,0,0.5);
-        z-index: 999;
-    `;
-    overlay.onclick = closeCodeDialog;
-    document.body.appendChild(overlay);
-    
-    // Store references for cleanup
-    window.currentCodeDialog = dialog;
-    window.currentCodeOverlay = overlay;
-}
-
-// Submit code and take control point
-function submitCode(controlPointId) {
-    const controlPoint = getControlPointById(controlPointId);
-    if (!controlPoint) {
-        showError('No se pudo encontrar el punto de control');
-        closeCodeDialog();
+    // Check if game is running before allowing action
+    if (!currentGame || currentGame.status !== 'running') {
+        showError('No puedes tomar puntos de control cuando el juego no está en ejecución');
         return;
     }
     
-    let isValid = true;
-    
-    if (controlPoint.code) {
-        const codeInput = document.getElementById('codeInput');
-        if (!codeInput || codeInput.value.trim() !== controlPoint.code) {
-            showError('Código incorrecto');
-            isValid = false;
-        }
-    } else if (controlPoint.armedCode && controlPoint.disarmedCode) {
-        const armedCodeInput = document.getElementById('armedCodeInput');
-        const disarmedCodeInput = document.getElementById('disarmedCodeInput');
-        
-        if (!armedCodeInput || armedCodeInput.value.trim() !== controlPoint.armedCode) {
-            showError('Código armado incorrecto');
-            isValid = false;
-        } else if (!disarmedCodeInput || disarmedCodeInput.value.trim() !== controlPoint.disarmedCode) {
-            showError('Código desarmado incorrecto');
-            isValid = false;
-        }
+    // Get code from input
+    const codeInput = document.getElementById(`codeInput_${controlPointId}`);
+    if (!codeInput) {
+        showError('No se pudo encontrar el campo de código');
+        return;
     }
     
-    if (isValid) {
-        let code = '';
-        if (controlPoint.code) {
-            const codeInput = document.getElementById('codeInput');
-            code = codeInput ? codeInput.value.trim() : '';
-        } else if (controlPoint.armedCode && controlPoint.disarmedCode) {
-            const armedCodeInput = document.getElementById('armedCodeInput');
-            code = armedCodeInput ? armedCodeInput.value.trim() : '';
-        }
-        sendTakeControlPointAction(controlPointId, code);
-        closeCodeDialog();
+    const code = codeInput.value.trim();
+    if (!code) {
+        showError('Debes ingresar el código');
+        return;
     }
+    
+    console.log('Submitting code:', code);
+    sendTakeControlPointAction(controlPointId, code);
 }
 
-// Close code input dialog
-function closeCodeDialog() {
-    if (window.currentCodeDialog) {
-        window.currentCodeDialog.remove();
-        window.currentCodeDialog = null;
+// Submit position challenge
+function submitPositionChallenge(controlPointId) {
+    console.log('Submitting position challenge for control point:', controlPointId);
+    
+    // Check if game is running before allowing action
+    if (!currentGame || currentGame.status !== 'running') {
+        showError('No puedes tomar puntos de control cuando el juego no está en ejecución');
+        return;
     }
-    if (window.currentCodeOverlay) {
-        window.currentCodeOverlay.remove();
-        window.currentCodeOverlay = null;
+    
+    // Find the control point data
+    let controlPoint = null;
+    map.eachLayer((layer) => {
+        if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === controlPointId) {
+            controlPoint = layer.controlPointData;
+        }
+    });
+    
+    if (!controlPoint) {
+        showError('No se pudo encontrar el punto de control');
+        return;
     }
+    
+    // Check if position challenge is enabled
+    if (!controlPoint.minDistance && !controlPoint.minAccuracy) {
+        showError('Este punto no tiene desafío de posición activo');
+        return;
+    }
+    
+    if (!navigator.geolocation) {
+        showError('Tu navegador no soporta geolocalización');
+        return;
+    }
+    
+    // Get current position
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const userLat = position.coords.latitude;
+            const userLng = position.coords.longitude;
+            const userAccuracy = position.coords.accuracy;
+            
+            // Calculate distance to control point
+            const distance = calculateDistance(
+                userLat, userLng,
+                controlPoint.latitude, controlPoint.longitude
+            );
+            
+            // Check distance requirement
+            if (controlPoint.minDistance && distance > controlPoint.minDistance) {
+                showError(`Debes estar a menos de ${controlPoint.minDistance}m del punto. Estás a ${Math.round(distance)}m`);
+                return;
+            }
+            
+            // Check accuracy requirement
+            if (controlPoint.minAccuracy && userAccuracy > controlPoint.minAccuracy) {
+                showError(`Tu precisión GPS debe ser mejor que ${controlPoint.minAccuracy}m. Actual: ${Math.round(userAccuracy)}m`);
+                return;
+            }
+            
+            // Position challenge passed, send take action
+            console.log('Position challenge passed, sending take action');
+            sendTakeControlPointAction(controlPointId);
+        },
+        (error) => {
+            showError('No se pudo obtener tu ubicación: ' + error.message);
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        }
+    );
 }
+
+// Submit bomb challenge
+function submitBombChallenge(controlPointId) {
+    console.log('Submitting bomb challenge for control point:', controlPointId);
+    
+    // Check if game is running before allowing action
+    if (!currentGame || currentGame.status !== 'running') {
+        showError('No puedes tomar puntos de control cuando el juego no está en ejecución');
+        return;
+    }
+    
+    // Get codes from inputs
+    const armedCodeInput = document.getElementById(`armedCodeInput_${controlPointId}`);
+    const disarmedCodeInput = document.getElementById(`disarmedCodeInput_${controlPointId}`);
+    
+    if (!armedCodeInput || !disarmedCodeInput) {
+        showError('No se pudieron encontrar los campos de código');
+        return;
+    }
+    
+    const armedCode = armedCodeInput.value.trim();
+    const disarmedCode = disarmedCodeInput.value.trim();
+    
+    if (!armedCode || !disarmedCode) {
+        showError('Debes ingresar ambos códigos');
+        return;
+    }
+    
+    // For bomb challenges, we need to send one of the codes
+    // The backend will validate both codes
+    console.log('Submitting bomb codes - armed:', armedCode, 'disarmed:', disarmedCode);
+    
+    // Send the armed code (the backend will validate both)
+    sendTakeControlPointAction(controlPointId, armedCode);
+}
+
 
 // Get control point by ID
 function getControlPointById(controlPointId) {
@@ -408,8 +504,33 @@ function getControlPointById(controlPointId) {
     map.eachLayer((layer) => {
         if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === controlPointId) {
             controlPoint = layer.controlPointData;
+            console.log('Found control point in map layers:', {
+                id: controlPoint.id,
+                name: controlPoint.name,
+                hasCodeChallenge: controlPoint.hasCodeChallenge,
+                hasBombChallenge: controlPoint.hasBombChallenge
+            });
         }
     });
+    
+    // If not found in map layers, try to get from currentGame
+    if (!controlPoint && currentGame && currentGame.controlPoints) {
+        const latestControlPoint = currentGame.controlPoints.find(cp => cp.id === controlPointId);
+        if (latestControlPoint) {
+            console.log('Found control point in currentGame:', {
+                id: latestControlPoint.id,
+                name: latestControlPoint.name,
+                hasCodeChallenge: latestControlPoint.hasCodeChallenge,
+                hasBombChallenge: latestControlPoint.hasBombChallenge
+            });
+            controlPoint = latestControlPoint;
+        }
+    }
+    
+    if (!controlPoint) {
+        console.log('Control point not found in map layers or currentGame:', controlPointId);
+    }
+    
     return controlPoint;
 }
 
@@ -487,6 +608,7 @@ function refreshControlPointMarkers(controlPoints) {
                 hasPositionChallenge: controlPoint.hasPositionChallenge,
                 minDistance: controlPoint.minDistance,
                 hasBombChallenge: controlPoint.hasBombChallenge,
+                hasCodeChallenge: controlPoint.hasCodeChallenge,
                 type: controlPoint.type
             });
             addControlPointMarkerPlayer(controlPoint);
@@ -504,9 +626,9 @@ window.takeControlPoint = takeControlPoint;
 window.createPlayerControlPointMenu = createControlPointPlayerMenu;
 window.updatePlayerControlPointPopups = updateControlPointPopups;
 window.refreshPlayerControlPointMarkers = refreshControlPointMarkers;
-window.submitCode = submitCode;
-window.closeCodeDialog = closeCodeDialog;
 window.calculateDistance = calculateDistance;
 window.getControlPointById = getControlPointById;
 window.sendTakeControlPointAction = sendTakeControlPointAction;
-window.showCodeInputDialog = showCodeInputDialog;
+window.submitCodeChallenge = submitCodeChallenge;
+window.submitPositionChallenge = submitPositionChallenge;
+window.submitBombChallenge = submitBombChallenge;

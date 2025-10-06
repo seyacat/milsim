@@ -218,7 +218,19 @@ function initializeWebSocket(gameId) {
 // Load game data
 async function loadGame(gameId) {
     try {
-        const response = await fetch(`/api/games/${gameId}`);
+        const token = localStorage.getItem('token');
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        // Include authorization header if token exists
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await fetch(`/api/games/${gameId}`, {
+            headers: headers
+        });
         if (!response.ok) {
             // Check if it's a 404 (game not found) error
             if (response.status === 404) {
@@ -247,6 +259,7 @@ async function loadControlPoints(gameId) {
         const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
         if (isOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
             console.log('Loading owner control points with refresh function');
+            console.log('Control points data for owner:', currentGame.controlPoints);
             window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
         } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
             console.log('Loading player control points with refresh function');
@@ -612,11 +625,12 @@ async function leaveGame() {
             }
 
             // Also call the REST API to leave
+            const token = localStorage.getItem('token');
             const response = await fetch(`/api/games/${currentGame.id}/leave`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${token}`
                 }
             });
 
@@ -790,7 +804,19 @@ function setTeamCount(count) {
 // Load players data
 async function loadPlayersData() {
     try {
-        const response = await fetch(`/api/games/${currentGame.id}/players`);
+        const token = localStorage.getItem('token');
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        // Include authorization header if token exists
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await fetch(`/api/games/${currentGame.id}/players`, {
+            headers: headers
+        });
         if (!response.ok) {
             throw new Error('Error al cargar jugadores');
         }
@@ -989,11 +1015,14 @@ function handleGameAction(data) {
             break;
         case 'controlPointUpdated':
             console.log('Control point updated - Full data:', data.data);
-            console.log('Control point updated - Bomb challenge fields:', {
+            console.log('Control point updated - Challenge fields:', {
+                hasCodeChallenge: data.data.hasCodeChallenge,
                 hasBombChallenge: data.data.hasBombChallenge,
-                bombTime: data.data.bombTime,
+                hasPositionChallenge: data.data.hasPositionChallenge,
+                code: data.data.code,
                 armedCode: data.data.armedCode,
-                disarmedCode: data.data.disarmedCode
+                disarmedCode: data.data.disarmedCode,
+                bombTime: data.data.bombTime
             });
             
             // Update the local control point data in currentGame
@@ -1047,9 +1076,14 @@ function handleGameAction(data) {
             break;
         case 'controlPointDeleted':
             console.log('Control point deleted:', data.data);
-            // Remove marker
+            // Remove marker and position circle
             map.eachLayer((layer) => {
                 if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.controlPointId) {
+                    // Remove position circle if exists
+                    if (layer.positionCircle) {
+                        map.removeLayer(layer.positionCircle);
+                        console.log('Removed position circle for deleted control point:', layer.controlPointData.id);
+                    }
                     map.removeLayer(layer);
                 }
             });
