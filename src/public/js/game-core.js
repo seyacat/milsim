@@ -353,7 +353,13 @@ function updateGameInfo() {
     
     if (isOwner) {
         document.getElementById('ownerControls').style.display = 'block';
-        document.getElementById('playersBtn').style.display = 'block';
+        
+        // Hide players button in finished state to prevent conflicts with summary dialog
+        if (currentGame.status === 'finished') {
+            document.getElementById('playersBtn').style.display = 'none';
+        } else {
+            document.getElementById('playersBtn').style.display = 'block';
+        }
         
         // Update game state controls
         updateGameStateControls();
@@ -364,6 +370,13 @@ function updateGameInfo() {
         // Initialize owner-specific functionality
         if (window.initializeOwnerFeatures) {
             window.initializeOwnerFeatures();
+        }
+        
+        // Initialize team count buttons with current game data
+        if (currentGame.teamCount) {
+            setTeamCount(currentGame.teamCount, true);
+        } else {
+            setTeamCount(2, true);
         }
     } else if (isPlayer) {
         document.getElementById('ownerControls').style.display = 'none';
@@ -801,7 +814,7 @@ function closeTeamsDialog() {
 }
 
 // Set team count
-function setTeamCount(count) {
+function setTeamCount(count, skipServerUpdate = false) {
     selectedTeamCount = count;
     
     // Update active state of buttons
@@ -813,8 +826,8 @@ function setTeamCount(count) {
         }
     });
     
-    // Send team count update to server
-    if (socket && currentGame) {
+    // Send team count update to server only when not skipping (for initialization)
+    if (!skipServerUpdate && socket && currentGame) {
         socket.emit('gameAction', {
             gameId: currentGame.id,
             action: 'updateTeamCount',
@@ -998,18 +1011,9 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.team-count-btn').forEach(btn => {
         btn.addEventListener('click', function(event) {
             event.stopPropagation(); // Prevent event from bubbling up to modal
-            setTeamCount(parseInt(this.dataset.count));
+            setTeamCount(parseInt(this.dataset.count), false); // User clicks should trigger server updates
         });
     });
-    
-    // Set initial team count from game data (only after currentGame is loaded)
-    if (currentGame) {
-        if (currentGame.teamCount) {
-            setTeamCount(currentGame.teamCount);
-        } else {
-            setTeamCount(2);
-        }
-    }
     
     // Add event listener for time selector
     const timeSelector = document.getElementById('timeSelector');
