@@ -889,7 +889,7 @@ function createTeamButtons(player) {
         const isActive = player.team === team;
         buttons += `
             <button class="team-btn ${team} ${isActive ? 'active' : ''}"
-                    onclick="updatePlayerTeam(${player.id}, '${team}')">
+                    onclick="event.stopPropagation(); updatePlayerTeam(${player.id}, '${team}')">
                 ${team.toUpperCase()}
             </button>
         `;
@@ -899,7 +899,7 @@ function createTeamButtons(player) {
     const isNoneActive = player.team === 'none';
     buttons += `
         <button class="team-btn none ${isNoneActive ? 'active' : ''}"
-                onclick="updatePlayerTeam(${player.id}, 'none')">
+                onclick="event.stopPropagation(); updatePlayerTeam(${player.id}, 'none')">
             NONE
         </button>
     `;
@@ -996,7 +996,8 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize team count buttons
     document.querySelectorAll('.team-count-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function(event) {
+            event.stopPropagation(); // Prevent event from bubbling up to modal
             setTeamCount(parseInt(this.dataset.count));
         });
     });
@@ -1192,17 +1193,17 @@ function handleGameAction(data) {
             // Update game data and refresh team selection
             if (data.data && data.data.game) {
                 currentGame = data.data.game;
-                updateGameInfo();
                 
-                // Reload the complete game data to ensure we have the latest player information
-                loadGame(currentGame.id);
+                // Update only the team count and refresh team selection without full game reload
+                // This prevents the teams dialog from closing
+                updateGameInfo();
                 
                 // Update player team selection interface
                 if (window.updatePlayerTeamSelection) {
                     window.updatePlayerTeamSelection();
                 }
                 
-                // Reload players data for owner's dialog
+                // Reload players data for owner's dialog (this doesn't close the dialog)
                 if (currentGame.owner && currentGame.owner.id === currentUser.id) {
                     loadPlayersData();
                 }
@@ -1328,8 +1329,15 @@ function updateGameStateControls() {
             if (pauseBtn) pauseBtn.style.display = 'block';
             // End button should NOT be visible in running state
             if (endBtn) endBtn.style.display = 'none';
-            // Close Teams Management dialog when game starts
-            closeTeamsDialog();
+            // Only close Teams Management dialog when game starts, not when team count is updated
+            const teamsDialog = document.getElementById('teamsDialog');
+            if (teamsDialog && teamsDialog.style.display === 'flex') {
+                // Teams dialog is open, don't close it when updating team count
+                console.log('Teams dialog is open, keeping it open for team management');
+            } else {
+                // Teams dialog is not open, close it normally when game starts
+                closeTeamsDialog();
+            }
             break;
         case 'paused':
             console.log('Showing paused state controls');

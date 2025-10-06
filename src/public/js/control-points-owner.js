@@ -70,6 +70,13 @@ function showControlPointMenu(latlng) {
 // Close control point menu when clicking outside
 function closeControlPointMenuOutside(e) {
     const menu = document.getElementById('controlPointMenu');
+    const teamsDialog = document.getElementById('teamsDialog');
+    
+    // Don't close if teams dialog is open and click is inside teams dialog
+    if (teamsDialog && teamsDialog.style.display === 'flex' && teamsDialog.contains(e.target)) {
+        return;
+    }
+    
     if (menu && !menu.contains(e.target) && !e.target.closest('#controlPointMenu')) {
         closeControlPointMenu();
     }
