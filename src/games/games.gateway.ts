@@ -401,16 +401,38 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         case 'takeControlPoint': {
           const user = this.connectedUsers.get(client.id);
           if (user) {
-            // Broadcast the take action to all clients
-            this.server.to(`game_${gameId}`).emit('gameAction', {
-              action: 'controlPointTaken',
-              data: {
-                controlPointId: data.controlPointId,
-                userId: user.id,
-                userName: user.name,
-              },
-              from: client.id,
-            });
+            try {
+              const updatedControlPoint = await this.gamesService.takeControlPoint(
+                data.controlPointId,
+                user.id,
+                data.code,
+              );
+
+              // Broadcast the updated control point to all clients
+              this.server.to(`game_${gameId}`).emit('gameAction', {
+                action: 'controlPointTaken',
+                data: {
+                  controlPointId: data.controlPointId,
+                  userId: user.id,
+                  userName: user.name,
+                  team: updatedControlPoint.ownedByTeam,
+                  controlPoint: updatedControlPoint,
+                },
+                from: client.id,
+              });
+
+              // Also broadcast the complete game update so frontend has all control points
+              const updatedGame = await this.gamesService.findOne(gameId);
+              this.server.to(`game_${gameId}`).emit('gameUpdate', {
+                type: 'gameUpdated',
+                game: updatedGame,
+              });
+            } catch (error: any) {
+              client.emit('gameActionError', {
+                action: 'takeControlPoint',
+                error: error.message,
+              });
+            }
           }
           break;
         }

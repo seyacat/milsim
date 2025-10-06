@@ -22,6 +22,10 @@ interface GameTimer {
   startTime: Date; // When the game started
   intervalId?: NodeJS.Timeout;
   isRunning: boolean;
+  timeEvents: Array<{
+    type: 'game_started' | 'game_paused' | 'game_resumed';
+    timestamp: Date;
+  }>; // Track time events for accurate calculation
 }
 
 @Injectable()
@@ -41,7 +45,10 @@ export class GamesService {
     private gameHistoryRepository: Repository<GameHistory>,
     @Inject(forwardRef(() => GamesGateway))
     private gamesGateway: GamesGateway,
-  ) {}
+  ) {
+    // Recover running games on server restart
+    void this.recoverRunningGames();
+  }
 
   async findAll(): Promise<Game[]> {
     return this.gamesRepository.find({
@@ -351,6 +358,10 @@ export class GamesService {
     // Create game instance when game starts
     const gameInstance = await this.createGameInstance(gameId);
 
+    // Update game instance with start time
+    gameInstance.gameStartTime = new Date();
+    await this.gameInstancesRepository.save(gameInstance);
+
     // Update game status and set instanceId
     game.status = 'running';
     game.instanceId = gameInstance.id;
@@ -363,19 +374,9 @@ export class GamesService {
       timestamp: new Date(),
     });
 
-    // Start timer for running games (both limited and indefinite)
-    console.log(`Game ${gameId} totalTime: ${game.totalTime}, type: ${typeof game.totalTime}`);
-    console.log(`Game ${gameId} status: ${game.status}`);
-
     // ALWAYS start timer for running games, even if totalTime is null (indefinite games)
     if (game.status === 'running') {
-      console.log(
-        `Starting timer for game ${gameId} with total time: ${game.totalTime}s (indefinite: ${game.totalTime === null})`,
-      );
-      console.log(`GamesGateway available: ${!!this.gamesGateway}`);
-      this.startGameTimer(gameId, game.totalTime);
-    } else {
-      console.log(`Game ${gameId} is not running, not starting timer`);
+      void this.startGameTimer(gameId, game.totalTime, gameInstance.id);
     }
 
     return updatedGame;
@@ -407,6 +408,15 @@ export class GamesService {
         pausedBy: userId,
         timestamp: new Date(),
       });
+
+      // Update timer time events
+      const timer = this.gameTimers.get(gameId);
+      if (timer) {
+        timer.timeEvents.push({
+          type: 'game_paused',
+          timestamp: new Date(),
+        });
+      }
     }
 
     // Pause timer if exists
@@ -444,6 +454,15 @@ export class GamesService {
         resumedBy: userId,
         timestamp: new Date(),
       });
+
+      // Update timer time events
+      const timer = this.gameTimers.get(gameId);
+      if (timer) {
+        timer.timeEvents.push({
+          type: 'game_resumed',
+          timestamp: new Date(),
+        });
+      }
     }
 
     // Resume timer if exists
@@ -596,70 +615,81 @@ export class GamesService {
   }
 
   // Timer management methods
-  private startGameTimer(gameId: number, totalTime: number | null): void {
+  private async startGameTimer(
+    gameId: number,
+    totalTime: number | null,
+    gameInstanceId: number,
+  ): Promise<void> {
     // Stop existing timer if any
     this.stopGameTimer(gameId);
+
+    // Calculate elapsed time from game history events
+    const elapsedTime = await this.calculateElapsedTimeFromEvents(gameInstanceId);
 
     const timer: GameTimer = {
       gameId,
       totalTime: totalTime === 0 ? null : totalTime, // Treat 0 as indefinite (null)
-      remainingTime: totalTime === 0 ? null : totalTime, // Treat 0 as indefinite (null)
-      elapsedTime: 0,
+      remainingTime:
+        totalTime === 0 ? null : totalTime !== null ? Math.max(0, totalTime - elapsedTime) : null,
+      elapsedTime: elapsedTime,
       startTime: new Date(),
       isRunning: true,
+      timeEvents: await this.getTimeEventsFromHistory(gameInstanceId),
     };
 
     // Start countdown interval (update every second internally, broadcast every 20 seconds)
     timer.intervalId = setInterval(() => {
       if (timer.isRunning) {
-        timer.elapsedTime++;
+        // Calculate elapsed time from events for accuracy (without async/await in interval)
+        this.calculateElapsedTimeFromEvents(gameInstanceId)
+          .then(currentElapsedTime => {
+            timer.elapsedTime = currentElapsedTime;
 
-        // Update remaining time if there's a total time limit
-        if (timer.totalTime !== null && timer.remainingTime !== null) {
-          timer.remainingTime = Math.max(0, timer.totalTime - timer.elapsedTime);
-        }
+            // Update remaining time if there's a total time limit
+            if (timer.totalTime !== null && timer.remainingTime !== null) {
+              timer.remainingTime = Math.max(0, timer.totalTime - timer.elapsedTime);
+            }
 
-        // Broadcast time update ONLY every 20 seconds
-        if (timer.elapsedTime % 20 === 0 && this.gamesGateway) {
-          this.gamesGateway.broadcastTimeUpdate(gameId, {
-            remainingTime: timer.remainingTime,
-            playedTime: timer.elapsedTime,
-            totalTime: timer.totalTime,
-          });
-        }
+            // Broadcast time update ONLY every 20 seconds
+            if (timer.elapsedTime % 20 === 0 && this.gamesGateway) {
+              this.gamesGateway.broadcastTimeUpdate(gameId, {
+                remainingTime: timer.remainingTime,
+                playedTime: timer.elapsedTime,
+                totalTime: timer.totalTime,
+              });
+            }
 
-        // Check if time's up for limited games (only if totalTime is not null)
-        if (timer.totalTime !== null && timer.remainingTime !== null && timer.remainingTime <= 0) {
-          // Time's up - end the game automatically (system action)
-          console.log(`[TIMER] Time expired for game ${gameId}, ending automatically`);
-          this.endGameAutomatically(gameId).catch(console.error);
+            // Check if time's up for limited games (only if totalTime is not null)
+            if (
+              timer.totalTime !== null &&
+              timer.remainingTime !== null &&
+              timer.remainingTime <= 0
+            ) {
+              // Time's up - end the game automatically (system action)
+              void this.endGameAutomatically(gameId).catch(console.error);
 
-          // Add time expired event to history
-          this.gamesRepository
-            .findOne({ where: { id: gameId } })
-            .then(game => {
-              if (game && game.instanceId) {
-                return this.addGameHistory(game.instanceId, 'time_expired', {
-                  gameId,
-                  timestamp: new Date(),
-                });
-              }
-            })
-            .catch(console.error);
-        } else if (timer.totalTime === null) {
-          // For indefinite games, just log the elapsed time without ending the game
-          console.log(`[TIMER] Indefinite game ${gameId} - elapsed time: ${timer.elapsedTime}s`);
-        }
+              // Add time expired event to history
+              this.gamesRepository
+                .findOne({ where: { id: gameId } })
+                .then(game => {
+                  if (game && game.instanceId) {
+                    return this.addGameHistory(game.instanceId, 'time_expired', {
+                      gameId,
+                      timestamp: new Date(),
+                    });
+                  }
+                })
+                .catch(console.error);
+            }
+          })
+          .catch(console.error);
       }
     }, 1000); // 1 second interval
 
-    console.log(`[TIMER] Interval set, storing timer for game ${gameId}`);
     this.gameTimers.set(gameId, timer);
-    console.log(`[TIMER] Started timer for game ${gameId}, total time: ${totalTime}s`);
 
     // Send initial time update
     if (this.gamesGateway) {
-      console.log(`[TIMER] Sending initial time update for game ${gameId}`);
       this.gamesGateway.broadcastTimeUpdate(gameId, {
         remainingTime: timer.remainingTime,
         playedTime: timer.elapsedTime,
@@ -668,11 +698,99 @@ export class GamesService {
     }
   }
 
+  // Calculate elapsed time from game history events
+  private async calculateElapsedTimeFromEvents(gameInstanceId: number): Promise<number> {
+    const timeEvents = await this.getTimeEventsFromHistory(gameInstanceId);
+    let totalElapsedTime = 0;
+    let lastStartTime: Date | null = null;
+
+    // Get current game status to determine if we should add current time
+    const game = await this.gamesRepository.findOne({
+      where: { instanceId: gameInstanceId },
+    });
+    const isCurrentlyRunning = game && game.status === 'running';
+
+    for (let i = 0; i < timeEvents.length; i++) {
+      const event = timeEvents[i];
+
+      if (event.type === 'game_started' || event.type === 'game_resumed') {
+        if (!lastStartTime) {
+          lastStartTime = event.timestamp;
+        }
+      } else if (event.type === 'game_paused') {
+        if (lastStartTime) {
+          const segmentTime = (event.timestamp.getTime() - lastStartTime.getTime()) / 1000;
+          totalElapsedTime += segmentTime;
+          lastStartTime = null;
+        }
+      }
+    }
+
+    // If game is currently running and we have a start time, add time from last start to now
+    if (isCurrentlyRunning && lastStartTime) {
+      const currentSegmentTime = (Date.now() - lastStartTime.getTime()) / 1000;
+      totalElapsedTime += currentSegmentTime;
+    }
+    return Math.floor(totalElapsedTime);
+  }
+
+  // Get time events from game history
+  private async getTimeEventsFromHistory(gameInstanceId: number): Promise<
+    Array<{
+      type: 'game_started' | 'game_paused' | 'game_resumed';
+      timestamp: Date;
+    }>
+  > {
+    // Get all history records for this game instance
+    const history = await this.gameHistoryRepository.find({
+      where: {
+        gameInstance: { id: gameInstanceId },
+      },
+      order: { timestamp: 'ASC' },
+    });
+
+    // Filter for the specific time events we need
+    const filteredHistory = history.filter(record =>
+      ['game_started', 'game_paused', 'game_resumed'].includes(record.eventType),
+    );
+
+    return filteredHistory.map(record => ({
+      type: record.eventType as 'game_started' | 'game_paused' | 'game_resumed',
+      timestamp: record.timestamp,
+    }));
+  }
+
+  // Recover running games on server restart
+  private async recoverRunningGames(): Promise<void> {
+    try {
+      // Find all games that are currently running
+      const runningGames = await this.gamesRepository.find({
+        where: { status: 'running' },
+        relations: ['instances'],
+      });
+
+      for (const game of runningGames) {
+        if (game.instanceId) {
+          // Get the game instance
+          const gameInstance = await this.gameInstancesRepository.findOne({
+            where: { id: game.instanceId },
+          });
+
+          if (gameInstance && gameInstance.gameStartTime) {
+            // Restart the timer with the existing game instance
+            void this.startGameTimer(game.id, game.totalTime, game.instanceId);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[SERVER_RESTART] Error recovering running games:', error);
+    }
+  }
+
   private pauseGameTimer(gameId: number): void {
     const timer = this.gameTimers.get(gameId);
     if (timer) {
       timer.isRunning = false;
-      console.log(`Paused timer for game ${gameId}`);
     }
   }
 
@@ -680,7 +798,6 @@ export class GamesService {
     const timer = this.gameTimers.get(gameId);
     if (timer) {
       timer.isRunning = true;
-      console.log(`Resumed timer for game ${gameId}`);
     }
   }
 
@@ -689,7 +806,6 @@ export class GamesService {
     if (timer && timer.intervalId) {
       clearInterval(timer.intervalId);
       this.gameTimers.delete(gameId);
-      console.log(`Stopped timer for game ${gameId}`);
     }
   }
 
@@ -697,9 +813,6 @@ export class GamesService {
   private forceTimeBroadcast(gameId: number): void {
     const timer = this.gameTimers.get(gameId);
     if (timer && this.gamesGateway) {
-      console.log(
-        `[TIMER] Force broadcasting time update for game ${gameId}: elapsed=${timer.elapsedTime}, remaining=${timer.remainingTime}`,
-      );
       this.gamesGateway.broadcastTimeUpdate(gameId, {
         remainingTime: timer.remainingTime,
         playedTime: timer.elapsedTime,
@@ -724,19 +837,10 @@ export class GamesService {
   }
 
   async addTime(gameId: number, seconds: number): Promise<Game> {
-    console.log(`[ADD_TIME] Adding ${seconds} seconds to game ${gameId}`);
-
     const timer = this.gameTimers.get(gameId);
     if (!timer) {
-      console.error(`[ADD_TIME] No timer found for game ${gameId}`);
       throw new Error('No hay un temporizador activo para este juego');
     }
-
-    console.log(`[ADD_TIME] Current timer state:`, {
-      totalTime: timer.totalTime,
-      remainingTime: timer.remainingTime,
-      elapsedTime: timer.elapsedTime,
-    });
 
     // Handle negative time (removing time)
     if (seconds < 0) {
@@ -747,12 +851,8 @@ export class GamesService {
 
         timer.totalTime = newTotalTime;
         timer.remainingTime = newRemainingTime;
-        console.log(
-          `[ADD_TIME] Removed time: totalTime=${timer.totalTime}, remainingTime=${timer.remainingTime}`,
-        );
       } else {
         // For indefinite games, cannot remove time
-        console.log(`[ADD_TIME] Cannot remove time from indefinite game`);
         throw new Error('No se puede quitar tiempo de un juego indefinido');
       }
     } else {
@@ -760,21 +860,14 @@ export class GamesService {
       if (timer.totalTime !== null && timer.remainingTime !== null) {
         timer.totalTime += seconds;
         timer.remainingTime += seconds;
-        console.log(
-          `[ADD_TIME] Added time: totalTime=${timer.totalTime}, remainingTime=${timer.remainingTime}`,
-        );
       } else {
         // If game was indefinite (null or 0), now it becomes limited
         timer.totalTime = timer.elapsedTime + seconds;
         timer.remainingTime = seconds;
-        console.log(
-          `[ADD_TIME] Converted to limited: totalTime=${timer.totalTime}, remainingTime=${timer.remainingTime}`,
-        );
       }
     }
 
     const game = await this.findOne(gameId);
-    console.log(`[ADD_TIME] Current game totalTime: ${game.totalTime}`);
 
     // Update the appropriate entity based on game status
     if (game.status === 'running' && game.instanceId) {
@@ -787,40 +880,18 @@ export class GamesService {
         // Ensure we're not setting NaN values
         if (timer.totalTime !== null && !isNaN(timer.totalTime)) {
           gameInstance.totalTime = timer.totalTime;
-          console.log(`[ADD_TIME] Setting game instance totalTime to: ${gameInstance.totalTime}`);
-        } else {
-          console.warn(
-            `[ADD_TIME] Invalid totalTime value: ${timer.totalTime}, keeping original value: ${gameInstance.totalTime}`,
-          );
         }
 
-        try {
-          await this.gameInstancesRepository.save(gameInstance);
-          console.log(`[ADD_TIME] Game instance saved successfully`);
-        } catch (error) {
-          console.error(`[ADD_TIME] Error saving game instance:`, error);
-          throw error;
-        }
+        await this.gameInstancesRepository.save(gameInstance);
       }
     } else {
       // Update game entity when game is stopped
       // Ensure we're not setting NaN values
       if (timer.totalTime !== null && !isNaN(timer.totalTime)) {
         game.totalTime = timer.totalTime;
-        console.log(`[ADD_TIME] Setting game totalTime to: ${game.totalTime}`);
-      } else {
-        console.warn(
-          `[ADD_TIME] Invalid totalTime value: ${timer.totalTime}, keeping original value: ${game.totalTime}`,
-        );
       }
 
-      try {
-        await this.gamesRepository.save(game);
-        console.log(`[ADD_TIME] Game saved successfully`);
-      } catch (error) {
-        console.error(`[ADD_TIME] Error saving game:`, error);
-        throw error;
-      }
+      await this.gamesRepository.save(game);
     }
 
     // Force broadcast the updated time
@@ -995,5 +1066,76 @@ export class GamesService {
     }
 
     return updatedGame;
+  }
+
+  // Take control point with code validation
+  async takeControlPoint(
+    controlPointId: number,
+    userId: number,
+    code?: string,
+  ): Promise<ControlPoint> {
+    const controlPoint = await this.controlPointsRepository.findOne({
+      where: { id: controlPointId },
+      relations: ['game'],
+    });
+
+    if (!controlPoint) {
+      throw new NotFoundException('Control point not found');
+    }
+
+    // Get the player to determine their team
+    const player = await this.playersRepository.findOne({
+      where: {
+        game: { id: controlPoint.game.id },
+        user: { id: userId },
+      },
+    });
+
+    if (!player) {
+      throw new NotFoundException('Player not found in this game');
+    }
+
+    if (player.team === 'none' || !player.team) {
+      throw new ConflictException('Debes estar asignado a un equipo para tomar puntos de control');
+    }
+
+    // Check if code challenge is active and validate code
+    if (controlPoint.hasCodeChallenge && controlPoint.code) {
+      if (!code || code.trim() !== controlPoint.code) {
+        throw new ConflictException('Código incorrecto');
+      }
+    }
+
+    // Check if bomb challenge is active and validate codes
+    if (controlPoint.hasBombChallenge) {
+      if (!code) {
+        throw new ConflictException('Se requiere código para este punto de control');
+      }
+
+      // For bomb challenges, the code should match either armed or disarmed code
+      const isArmedCode = controlPoint.armedCode && code.trim() === controlPoint.armedCode;
+      const isDisarmedCode = controlPoint.disarmedCode && code.trim() === controlPoint.disarmedCode;
+
+      if (!isArmedCode && !isDisarmedCode) {
+        throw new ConflictException('Código incorrecto para el desafío de bomba');
+      }
+    }
+
+    // Update control point ownership
+    controlPoint.ownedByTeam = player.team;
+    const updatedControlPoint = await this.controlPointsRepository.save(controlPoint);
+
+    // Add to game history
+    if (controlPoint.game.instanceId) {
+      await this.addGameHistory(controlPoint.game.instanceId, 'control_point_taken', {
+        controlPointId: controlPoint.id,
+        controlPointName: controlPoint.name,
+        team: player.team,
+        userId: userId,
+        timestamp: new Date(),
+      });
+    }
+
+    return updatedControlPoint;
   }
 }

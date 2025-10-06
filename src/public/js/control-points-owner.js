@@ -150,23 +150,43 @@ function addControlPointMarkerOwner(controlPoint) {
     console.log('Current game available for marker:', !!currentGame);
     console.log('Current user available for marker:', !!currentUser);
     
-    // Create icon based on type and bomb challenge
+    // Create icon based on type, bomb challenge, and ownership
     let iconColor = '#2196F3'; // Default for control_point
     let iconEmoji = '🚩'; // Default for control_point
+    
+    // Check ownership first - override color based on team
+    if (controlPoint.ownedByTeam) {
+        const teamColors = {
+            'blue': '#2196F3',
+            'red': '#F44336',
+            'green': '#4CAF50',
+            'yellow': '#FFEB3B'
+        };
+        iconColor = teamColors[controlPoint.ownedByTeam] || '#2196F3';
+    }
     
     // If bomb challenge is active, use bomb emoji regardless of type
     if (controlPoint.hasBombChallenge) {
         iconEmoji = '💣';
-        iconColor = '#FF0000'; // Red for bomb
+        // Only use red color for bomb if not owned by a team
+        if (!controlPoint.ownedByTeam) {
+            iconColor = '#FF0000'; // Red for bomb
+        }
     } else {
         switch (controlPoint.type) {
             case 'site':
-                iconColor = '#FF9800';
+                // Only use orange color for site if not owned by a team
+                if (!controlPoint.ownedByTeam) {
+                    iconColor = '#FF9800';
+                }
                 iconEmoji = '🏠';
                 break;
             case 'control_point':
             default:
-                iconColor = '#2196F3';
+                // Only use blue color for control point if not owned by a team
+                if (!controlPoint.ownedByTeam) {
+                    iconColor = '#2196F3';
+                }
                 iconEmoji = '🚩';
                 break;
         }
@@ -370,6 +390,11 @@ function createControlPointEditMenu(controlPoint, marker) {
     menu.innerHTML = `
         <div class="control-point-edit-content">
             <h4 class="edit-title">Editar Punto</h4>
+            ${controlPoint.ownedByTeam ? `
+                <div class="ownership-status" style="background: ${controlPoint.ownedByTeam}; color: white; padding: 5px; border-radius: 4px; margin-bottom: 10px; text-align: center; font-weight: bold;">
+                    Controlado por: ${controlPoint.ownedByTeam.toUpperCase()}
+                </div>
+            ` : ''}
             <div class="form-group">
                 <label class="form-label">Tipo:</label>
                 <select id="controlPointType_${controlPoint.id}" class="form-input">

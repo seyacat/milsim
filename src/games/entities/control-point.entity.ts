@@ -61,6 +61,9 @@ export class ControlPoint {
   @Column({ nullable: true })
   bombTime: number;
 
+  @Column({ nullable: true })
+  ownedByTeam: string; // 'blue', 'red', 'green', 'yellow', or null if not owned
+
   @ManyToOne(() => Game, game => game.controlPoints, {
     onDelete: 'CASCADE',
   })

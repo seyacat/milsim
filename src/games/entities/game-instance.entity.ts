@@ -34,6 +34,9 @@ export class GameInstance {
   @Column({ type: 'int', nullable: true })
   totalTime: number | null; // Total game time in seconds (null for unlimited)
 
+  @Column({ type: 'timestamp', nullable: true })
+  gameStartTime: Date | null; // When the game actually started
+
   @CreateDateColumn()
   createdAt: Date;
 

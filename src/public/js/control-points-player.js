@@ -19,9 +19,25 @@ function createControlPointPlayerMenu(controlPoint, marker) {
         isGameRunning: currentGame && currentGame.status === 'running'
     });
     
-    // Only show "Take" button when game is running
+    // Show ownership status
+    let ownershipStatus = '';
+    if (controlPoint.ownedByTeam) {
+        const teamColors = {
+            'blue': 'Azul',
+            'red': 'Rojo',
+            'green': 'Verde',
+            'yellow': 'Amarillo'
+        };
+        ownershipStatus = `<div class="ownership-status" style="color: ${controlPoint.ownedByTeam}; font-weight: bold;">Controlado por: ${teamColors[controlPoint.ownedByTeam] || controlPoint.ownedByTeam}</div>`;
+    }
+    
+    // Only show "Take" button when game is running and point is not owned by player's team
     const isGameRunning = currentGame && currentGame.status === 'running';
-    const takeButton = isGameRunning ? `
+    const playerTeam = currentUser && currentUser.team;
+    const isOwnedByPlayerTeam = controlPoint.ownedByTeam === playerTeam;
+    const canTakePoint = isGameRunning && !isOwnedByPlayerTeam;
+    
+    const takeButton = canTakePoint ? `
         <div class="action-buttons">
             <button class="take-button" onclick="takeControlPoint(${controlPoint.id})">Tomar</button>
         </div>
@@ -30,6 +46,7 @@ function createControlPointPlayerMenu(controlPoint, marker) {
     menu.innerHTML = `
         <h4>${pointType}</h4>
         <div class="point-name">${controlPoint.name}</div>
+        ${ownershipStatus}
         ${takeButton}
     `;
     
@@ -45,23 +62,43 @@ function addControlPointMarkerPlayer(controlPoint) {
         gameId: currentGame ? currentGame.id : 'undefined'
     });
     
-    // Create icon based on type and challenges
+    // Create icon based on type, challenges, and ownership
     let iconColor = '#2196F3'; // Default for control_point
     let iconEmoji = '🚩'; // Default for control_point
+    
+    // Check ownership first - override color based on team
+    if (controlPoint.ownedByTeam) {
+        const teamColors = {
+            'blue': '#2196F3',
+            'red': '#F44336',
+            'green': '#4CAF50',
+            'yellow': '#FFEB3B'
+        };
+        iconColor = teamColors[controlPoint.ownedByTeam] || '#2196F3';
+    }
     
     // Check for bomb challenge - use bomb emoji if active
     if (controlPoint.hasBombChallenge) {
         iconEmoji = '💣';
-        iconColor = '#FF0000'; // Red for bomb
+        // Only use red color for bomb if not owned by a team
+        if (!controlPoint.ownedByTeam) {
+            iconColor = '#FF0000'; // Red for bomb
+        }
     } else {
         switch (controlPoint.type) {
             case 'site':
-                iconColor = '#FF9800';
+                // Only use orange color for site if not owned by a team
+                if (!controlPoint.ownedByTeam) {
+                    iconColor = '#FF9800';
+                }
                 iconEmoji = '🏠';
                 break;
             case 'control_point':
             default:
-                iconColor = '#2196F3';
+                // Only use blue color for control point if not owned by a team
+                if (!controlPoint.ownedByTeam) {
+                    iconColor = '#2196F3';
+                }
                 iconEmoji = '🚩';
                 break;
         }
@@ -147,6 +184,13 @@ function takeControlPoint(controlPointId) {
         return;
     }
     
+    // Check if point is already owned by player's team
+    const playerTeam = currentUser && currentUser.team;
+    if (controlPoint.ownedByTeam === playerTeam) {
+        showError('Este punto ya está controlado por tu equipo');
+        return;
+    }
+    
     // Check position challenge if enabled
     if (controlPoint.minDistance || controlPoint.minAccuracy) {
         if (!navigator.geolocation) {
@@ -180,7 +224,7 @@ function takeControlPoint(controlPointId) {
                 }
                 
                 // If code challenge is also enabled, show code input
-                if (controlPoint.code || controlPoint.armedCode || controlPoint.disarmedCode) {
+                if (controlPoint.hasCodeChallenge || controlPoint.hasBombChallenge) {
                     showCodeInputDialog(controlPoint);
                 } else {
                     // Only position challenge, send take action
@@ -196,7 +240,7 @@ function takeControlPoint(controlPointId) {
                 maximumAge: 0
             }
         );
-    } else if (controlPoint.code || controlPoint.armedCode || controlPoint.disarmedCode) {
+    } else if (controlPoint.hasCodeChallenge || controlPoint.hasBombChallenge) {
         // Only code challenge, show code input
         showCodeInputDialog(controlPoint);
     } else {
@@ -206,15 +250,22 @@ function takeControlPoint(controlPointId) {
 }
 
 // Send take control point action via WebSocket
-function sendTakeControlPointAction(controlPointId) {
+function sendTakeControlPointAction(controlPointId, code) {
     if (socket && currentGame) {
+        const actionData = {
+            controlPointId,
+            userId: currentUser.id
+        };
+        
+        // Include code if provided
+        if (code) {
+            actionData.code = code;
+        }
+        
         socket.emit('gameAction', {
             gameId: currentGame.id,
             action: 'takeControlPoint',
-            data: {
-                controlPointId,
-                userId: currentUser.id
-            }
+            data: actionData
         });
         
         showSuccess('¡Punto tomado!');
@@ -326,7 +377,15 @@ function submitCode(controlPointId) {
     }
     
     if (isValid) {
-        sendTakeControlPointAction(controlPointId);
+        let code = '';
+        if (controlPoint.code) {
+            const codeInput = document.getElementById('codeInput');
+            code = codeInput ? codeInput.value.trim() : '';
+        } else if (controlPoint.armedCode && controlPoint.disarmedCode) {
+            const armedCodeInput = document.getElementById('armedCodeInput');
+            code = armedCodeInput ? armedCodeInput.value.trim() : '';
+        }
+        sendTakeControlPointAction(controlPointId, code);
         closeCodeDialog();
     }
 }
