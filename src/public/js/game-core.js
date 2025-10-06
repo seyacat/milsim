@@ -865,6 +865,14 @@ async function loadPlayersData() {
             throw new Error('Error al cargar jugadores');
         }
         playersData = await response.json();
+        
+        // Sort players by name (connection status will be implemented when backend supports it)
+        playersData.sort((a, b) => {
+            const nameA = a.user?.name || '';
+            const nameB = b.user?.name || '';
+            return nameA.localeCompare(nameB);
+        });
+        
         renderPlayersList();
     } catch (error) {
         showError('Error al cargar jugadores: ' + error.message);
