@@ -5,12 +5,7 @@ function createControlPointPlayerMenu(controlPoint, marker) {
     const menu = document.createElement('div');
     menu.className = 'control-point-popup';
     
-    const isSite = controlPoint.type === 'site';
-    let pointType = 'Control Point';
-    
-    if (isSite) {
-        pointType = 'Site';
-    }
+    // No point type title - only show the control point name
     
     // Debug: Log current game state for troubleshooting
     console.log('Creating control point menu:', {
@@ -31,11 +26,9 @@ function createControlPointPlayerMenu(controlPoint, marker) {
         ownershipStatus = `<div class="ownership-status" style="color: ${controlPoint.ownedByTeam}; font-weight: bold;">Controlado por: ${teamColors[controlPoint.ownedByTeam] || controlPoint.ownedByTeam}</div>`;
     }
     
-    // Only show challenge buttons when game is running and point is not owned by player's team
+    // Only show challenge buttons when game is running (don't check ownership)
     const isGameRunning = currentGame && currentGame.status === 'running';
-    const playerTeam = currentUser && currentUser.team;
-    const isOwnedByPlayerTeam = controlPoint.ownedByTeam === playerTeam;
-    const canTakePoint = isGameRunning && !isOwnedByPlayerTeam;
+    const canTakePoint = isGameRunning;
     
     // Show code challenge input and submit button if code challenge is active
     let codeChallengeSection = '';
@@ -73,9 +66,11 @@ function createControlPointPlayerMenu(controlPoint, marker) {
         `;
     }
     
+    // Clean up control point name - remove "Code Chalenge" text
+    const cleanName = controlPoint.name.replace('Code Chalenge', '').trim();
+    
     menu.innerHTML = `
-        <h4>${pointType}</h4>
-        <div class="point-name">${controlPoint.name}</div>
+        <div class="point-name">${cleanName}</div>
         ${ownershipStatus}
         ${codeChallengeSection}
         ${positionChallengeSection}
@@ -262,12 +257,8 @@ function takeControlPoint(controlPointId) {
         // Don't log code values for security
     });
     
-    // Check if point is already owned by player's team
-    const playerTeam = currentUser && currentUser.team;
-    if (controlPoint.ownedByTeam === playerTeam) {
-        showError('Este punto ya está controlado por tu equipo');
-        return;
-    }
+    // Allow taking control points even if already owned by player's team
+    // This allows players to submit codes regardless of ownership
     
     // Get code from input if code challenge is active
     let code = '';

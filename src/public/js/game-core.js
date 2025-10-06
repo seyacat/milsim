@@ -455,6 +455,7 @@ function updatePlayerMarkers() {
         // Create initial marker at default position (will be updated when position data arrives)
         const targetIsOwner = currentGame.owner && player.user.id === currentGame.owner.id;
         const teamClass = player.team && player.team !== 'none' ? player.team : 'none';
+        console.log('Creating player marker with team class:', teamClass, 'for player:', player.user.name);
         const marker = L.marker([0, 0], {
             icon: L.divIcon({
                 className: `player-marker ${teamClass}`,
@@ -516,6 +517,7 @@ function updatePlayerMarker(positionData) {
     if (!marker) {
         // Create new marker if it doesn't exist
         const targetIsOwner = currentGame.owner && userId === currentGame.owner.id;
+        console.log('Creating new player marker with team class:', teamClass, 'for user:', userName);
         marker = L.marker([lat, lng], {
             icon: L.divIcon({
                 className: `player-marker ${teamClass}`,
@@ -570,6 +572,7 @@ function startGPS() {
             if (!userMarker) {
                 const currentPlayer = currentGame?.players?.find(p => p.user.id === currentUser.id);
                 const teamClass = currentPlayer?.team && currentPlayer.team !== 'none' ? currentPlayer.team : 'none';
+                console.log('Creating user marker with team class:', teamClass);
                 userMarker = L.marker([lat, lng], {
                     icon: L.divIcon({
                         className: `user-marker ${teamClass}`,
