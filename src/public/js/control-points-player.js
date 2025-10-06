@@ -66,11 +66,8 @@ function createControlPointPlayerMenu(controlPoint, marker) {
         `;
     }
     
-    // Clean up control point name - remove "Code Chalenge" text
-    const cleanName = controlPoint.name.replace('Code Chalenge', '').trim();
-    
     menu.innerHTML = `
-        <div class="point-name">${cleanName}</div>
+        <div class="point-name">${controlPoint.name}</div>
         ${ownershipStatus}
         ${codeChallengeSection}
         ${positionChallengeSection}
