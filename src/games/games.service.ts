@@ -248,6 +248,7 @@ export class GamesService {
       bombTime?: number;
       latitude?: number;
       longitude?: number;
+      ownedByTeam?: string | null;
     },
   ): Promise<ControlPoint> {
     const controlPoint = await this.controlPointsRepository.findOne({
@@ -286,7 +287,15 @@ export class GamesService {
     }
 
     // Update the control point
-    await this.controlPointsRepository.update(id, updateData);
+    // Use save method to handle null values properly
+    const controlPointToUpdate = await this.controlPointsRepository.findOne({ where: { id } });
+    if (!controlPointToUpdate) {
+      throw new NotFoundException('Control point not found');
+    }
+    
+    // Update the entity with new values
+    Object.assign(controlPointToUpdate, updateData);
+    await this.controlPointsRepository.save(controlPointToUpdate);
 
     // Return the updated control point
     const updatedControlPoint = await this.controlPointsRepository.findOne({

@@ -5,7 +5,7 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
-import { Inject, forwardRef } from '@nestjs/common';
+import { Inject, forwardRef, ConflictException } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { GamesService } from './games.service';
 import { WebsocketAuthService } from '../auth/websocket-auth.service';
@@ -512,6 +512,67 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
             } catch (error: any) {
               client.emit('gameActionError', {
                 action: 'takeControlPoint',
+                error: error.message,
+              });
+            }
+          }
+          break;
+        }
+
+        case 'assignControlPointTeam': {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            try {
+              // Check if user is the game owner
+              const game = await this.gamesService.findOne(gameId, user.id);
+              if (!game.owner || game.owner.id !== user.id) {
+                throw new ConflictException('Solo el propietario del juego puede asignar equipos a puntos de control');
+              }
+
+              // Update control point team
+              const updatedControlPoint = await this.gamesService.updateControlPoint(
+                data.controlPointId,
+                {
+                  ownedByTeam: data.team === 'none' ? null : data.team,
+                },
+              );
+
+              // Get the complete updated game with all control points AFTER the update
+              const updatedGame = await this.gamesService.findOne(gameId, user.id);
+
+              // Remove sensitive code data before broadcasting to all clients
+              const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
+
+              // Broadcast the updated control point to all clients (without codes)
+              this.server.to(`game_${gameId}`).emit('gameAction', {
+                action: 'controlPointTeamAssigned',
+                data: {
+                  controlPointId: data.controlPointId,
+                  team: data.team,
+                  controlPoint: safeControlPoint,
+                },
+                from: client.id,
+              });
+
+              // Send the full control point data (with codes) only to the owner
+              client.emit('gameAction', {
+                action: 'controlPointTeamAssigned',
+                data: {
+                  controlPointId: data.controlPointId,
+                  team: data.team,
+                  controlPoint: updatedControlPoint, // Full data with codes
+                },
+                from: client.id,
+              });
+
+              // Also broadcast the complete game update so frontend has all control points
+              this.server.to(`game_${gameId}`).emit('gameUpdate', {
+                type: 'gameUpdated',
+                game: updatedGame,
+              });
+            } catch (error: any) {
+              client.emit('gameActionError', {
+                action: 'assignControlPointTeam',
                 error: error.message,
               });
             }

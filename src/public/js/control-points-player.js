@@ -108,6 +108,9 @@ function addControlPointMarkerPlayer(controlPoint) {
             'yellow': '#FFEB3B'
         };
         iconColor = teamColors[controlPoint.ownedByTeam] || '#2196F3';
+    } else {
+        // When not owned by any team, use gray color to distinguish from blue team
+        iconColor = '#9E9E9E'; // Gray for unowned points
     }
     
     // Check for bomb challenge - use bomb emoji if active
@@ -128,10 +131,8 @@ function addControlPointMarkerPlayer(controlPoint) {
                 break;
             case 'control_point':
             default:
-                // Only use blue color for control point if not owned by a team
-                if (!controlPoint.ownedByTeam) {
-                    iconColor = '#2196F3';
-                }
+                // Don't override the color for unowned control points - keep the gray color
+                // Only use blue color for control point if owned by blue team (handled above)
                 iconEmoji = '🚩';
                 break;
         }

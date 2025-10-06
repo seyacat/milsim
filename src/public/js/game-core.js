@@ -1265,6 +1265,28 @@ function handleGameAction(data) {
                 }
             }
             break;
+        case 'controlPointTeamAssigned':
+            console.log('Control point team assigned:', data.data);
+            // Update the local control point data with the new team assignment
+            if (currentGame && currentGame.controlPoints) {
+                const controlPointIndex = currentGame.controlPoints.findIndex(cp => cp.id === data.data.controlPointId);
+                if (controlPointIndex !== -1) {
+                    currentGame.controlPoints[controlPointIndex].ownedByTeam = data.data.team;
+                    console.log('Updated local control point with team assignment:', data.data.team);
+                }
+            }
+            
+            // Refresh control point markers to show the new team assignment visually
+            const isUserOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+            if (isUserOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
+                console.log('Refreshing owner control point markers with team assignment');
+                window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
+            } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
+                console.log('Refreshing player control point markers with team assignment');
+                window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
+            }
+            break;
+            
         default:
             console.log('Unhandled game action:', data.action);
     }

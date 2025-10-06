@@ -163,6 +163,9 @@ function addControlPointMarkerOwner(controlPoint) {
             'yellow': '#FFEB3B'
         };
         iconColor = teamColors[controlPoint.ownedByTeam] || '#2196F3';
+    } else {
+        // When not owned by any team, use gray color to distinguish from blue team
+        iconColor = '#9E9E9E'; // Gray for unowned points
     }
     
     // If bomb challenge is active, use bomb emoji regardless of type
@@ -183,10 +186,8 @@ function addControlPointMarkerOwner(controlPoint) {
                 break;
             case 'control_point':
             default:
-                // Only use blue color for control point if not owned by a team
-                if (!controlPoint.ownedByTeam) {
-                    iconColor = '#2196F3';
-                }
+                // Don't override the color for unowned control points - keep the gray color
+                // Only use blue color for control point if owned by blue team (handled above)
                 iconEmoji = '🚩';
                 break;
         }
@@ -387,6 +388,43 @@ function createControlPointEditMenu(controlPoint, marker) {
         </div>
     `;
     
+    // Get team count from current game
+    const teamCount = currentGame ? currentGame.teamCount : 4; // Default to 4 if not available
+    
+    // Define teams based on team count
+    const teams = [];
+    if (teamCount >= 2) {
+        teams.push({ id: 'blue', name: 'Azul', color: '#2196F3', textColor: 'white' });
+        teams.push({ id: 'red', name: 'Rojo', color: '#F44336', textColor: 'white' });
+    }
+    if (teamCount >= 3) {
+        teams.push({ id: 'green', name: 'Verde', color: '#4CAF50', textColor: 'white' });
+    }
+    if (teamCount >= 4) {
+        teams.push({ id: 'yellow', name: 'Amarillo', color: '#FFEB3B', textColor: '#333' });
+    }
+    
+    // Generate team buttons HTML
+    let teamButtonsHTML = '';
+    teams.forEach(team => {
+        teamButtonsHTML += `
+            <button onclick="assignControlPointTeam(${controlPoint.id}, '${team.id}')"
+                    class="team-btn ${controlPoint.ownedByTeam === team.id ? 'team-btn-active' : ''}"
+                    style="background: ${team.color}; color: ${team.textColor}; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; flex: 1; min-width: 60px;">
+                ${team.name}
+            </button>
+        `;
+    });
+    
+    // Add "None" button
+    teamButtonsHTML += `
+        <button onclick="assignControlPointTeam(${controlPoint.id}, 'none')"
+                class="team-btn ${!controlPoint.ownedByTeam ? 'team-btn-active' : ''}"
+                style="background: #9E9E9E; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; flex: 1; min-width: 60px;">
+            Ninguno
+        </button>
+    `;
+
     menu.innerHTML = `
         <div class="control-point-edit-content">
             <h4 class="edit-title">Editar Punto</h4>
@@ -395,6 +433,14 @@ function createControlPointEditMenu(controlPoint, marker) {
                     Controlado por: ${controlPoint.ownedByTeam.toUpperCase()}
                 </div>
             ` : ''}
+            
+            <!-- Team Assignment Section -->
+            <div class="team-assignment-section" style="margin-bottom: 15px;">
+                <h5 class="team-title" style="margin-bottom: 8px; font-size: 14px; color: #333;">Asignar Equipo</h5>
+                <div class="team-buttons" style="display: flex; gap: 5px; flex-wrap: wrap;">
+                    ${teamButtonsHTML}
+                </div>
+            </div>
             <div class="form-group">
                 <label class="form-label">Tipo:</label>
                 <select id="controlPointType_${controlPoint.id}" class="form-input">
@@ -796,6 +842,55 @@ function enableDragMode(controlPointId, markerId) {
     showSuccess('Arrastra el punto a la nueva ubicación y haz clic para colocarlo');
 }
 
+// Assign team to control point
+function assignControlPointTeam(controlPointId, team) {
+    console.log('Assigning team to control point:', { controlPointId, team });
+    
+    if (socket && currentGame) {
+        // Send team assignment via WebSocket
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'assignControlPointTeam',
+            data: {
+                controlPointId: controlPointId,
+                team: team
+            }
+        });
+        
+        showSuccess(`Equipo asignado: ${team}`);
+    }
+}
+
+// Handle control point team assigned event
+function handleControlPointTeamAssigned(data) {
+    console.log('Control point team assigned:', data);
+    
+    // Find the marker and update its data
+    map.eachLayer((layer) => {
+        if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.controlPointId) {
+            // Update the control point data
+            layer.controlPointData.ownedByTeam = data.team === 'none' ? null : data.team;
+            
+            // Update the popup content
+            const popupContent = createControlPointEditMenu(layer.controlPointData, layer);
+            layer.bindPopup(popupContent, {
+                closeOnClick: false,
+                autoClose: false,
+                closeButton: true
+            });
+            
+            // If popup is open, update it
+            if (layer.isPopupOpen()) {
+                layer.closePopup();
+                layer.openPopup();
+            }
+            
+            // Update the marker icon to reflect the new team color
+            refreshOwnerControlPointMarkers(currentGame.controlPoints);
+        }
+    });
+}
+
 // Make functions available globally
 window.initializeOwnerControlPoints = initializeOwnerControlPoints;
 window.showControlPointMenu = showControlPointMenu;
@@ -812,3 +907,5 @@ window.togglePositionInputs = togglePositionInputs;
 window.toggleCodeInputs = toggleCodeInputs;
 window.toggleBombInputs = toggleBombInputs;
 window.enableDragMode = enableDragMode;
+window.assignControlPointTeam = assignControlPointTeam;
+window.handleControlPointTeamAssigned = handleControlPointTeamAssigned;
