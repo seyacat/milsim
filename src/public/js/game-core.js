@@ -329,7 +329,7 @@ function updateGameInfo() {
         editPencil.style.display = isOwner ? 'block' : 'none';
     }
     document.getElementById('gameStatus').textContent = currentGame.status;
-    document.getElementById('playerCount').textContent = `${currentGame.players ? currentGame.players.length : 0}/${currentGame.maxPlayers}`;
+    document.getElementById('playerCount').textContent = `${currentGame.activeConnections || 0}`;
     document.getElementById('gameOwner').textContent = currentGame.owner ? currentGame.owner.name : 'Desconocido';
     document.getElementById('currentUser').textContent = currentUser ? currentUser.name : 'Desconocido';
     

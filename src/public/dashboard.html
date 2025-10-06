@@ -177,7 +177,7 @@
                         <span style="font-weight: 600; font-size: 14px;">${game.name}</span>
                         <span>Owner:${game.owner?.name || 'Desconocido'}</span>
                         <span class="status-${game.status}">Status:${game.status}</span>
-                        <span>Players:${game.activeConnections || 0}</span>
+                        <span>Jugadores:${game.activeConnections || 0}</span>
                         ${isGameOwner(game) ? `
                             <button class="btn btn-danger btn-sm"
                                     onclick="event.stopPropagation(); deleteGame(${game.id})"
