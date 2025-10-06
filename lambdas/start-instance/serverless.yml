@@ -14,12 +14,11 @@ plugins:
 custom:
   customDomain:
     domainName: milsim.seyacat.com
-    basePath: '(none)'
+    basePath: ''
     stage: ${self:provider.stage}
     createRoute53Record: true
     endpointType: 'regional'
     securityPolicy: tls_1_2
-    autoDomain: true
 
 functions:
   startInstance:
