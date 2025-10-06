@@ -146,7 +146,7 @@ function addControlPointMarkerPlayer(controlPoint) {
         className: 'control-point-marker',
         html: `
             <div style="
-                background: ${iconColor}33;
+                background: ${iconColor}80;
                 border-radius: 50%;
                 width: 20px;
                 height: 20px;
