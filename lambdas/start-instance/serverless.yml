@@ -1,18 +1,32 @@
-service: start-ec2-instance
+service: milsim
 
 provider:
   name: aws
   runtime: nodejs18.x
   region: us-east-1
+  stage: dev
   environment:
     EC2_INSTANCE_ID: ${env:EC2_INSTANCE_ID}
+
+plugins:
+  - serverless-domain-manager
+
+custom:
+  customDomain:
+    domainName: milsim.seyacat.com
+    basePath: '(none)'
+    stage: ${self:provider.stage}
+    createRoute53Record: true
+    endpointType: 'regional'
+    securityPolicy: tls_1_2
+    autoDomain: true
 
 functions:
   startInstance:
     handler: index.handler
     events:
       - http:
-          path: /start-instance
+          path: /start
           method: get
           cors: true
     iamRoleStatements:
@@ -21,6 +35,3 @@ functions:
           - ec2:DescribeInstances
           - ec2:StartInstances
         Resource: "*"
-
-plugins:
-  - serverless-dotenv-plugin

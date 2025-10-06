@@ -4,16 +4,448 @@
     "servicePath": "D:\\milsim\\lambdas\\start-instance\\serverless.yml",
     "serviceConfigFileName": "serverless.yml",
     "service": {
-      "service": "start-ec2-instance",
+      "service": "milsim",
       "provider": {
         "name": "aws",
         "runtime": "nodejs18.x",
         "region": "us-east-1",
-        "environment": {
-          "EC2_INSTANCE_ID": "i-xxxxxxxxxxxxxxxxx"
-        },
         "stage": "dev",
-        "versionFunctions": true
+        "environment": {
+          "EC2_INSTANCE_ID": "i-0eab9dae38364518d"
+        },
+        "versionFunctions": true,
+        "compiledCloudFormationTemplate": {
+          "AWSTemplateFormatVersion": "2010-09-09",
+          "Description": "The AWS CloudFormation template for this Serverless application",
+          "Resources": {
+            "StartInstanceLogGroup": {
+              "Type": "AWS::Logs::LogGroup",
+              "Properties": {
+                "LogGroupName": "/aws/lambda/milsim-dev-startInstance"
+              }
+            },
+            "IamRoleLambdaExecution": {
+              "Type": "AWS::IAM::Role",
+              "Properties": {
+                "AssumeRolePolicyDocument": {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Principal": {
+                        "Service": [
+                          "lambda.amazonaws.com"
+                        ]
+                      },
+                      "Action": [
+                        "sts:AssumeRole"
+                      ]
+                    }
+                  ]
+                },
+                "Policies": [
+                  {
+                    "PolicyName": {
+                      "Fn::Join": [
+                        "-",
+                        [
+                          "milsim",
+                          "dev",
+                          "lambda"
+                        ]
+                      ]
+                    },
+                    "PolicyDocument": {
+                      "Version": "2012-10-17",
+                      "Statement": [
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "logs:CreateLogStream",
+                            "logs:CreateLogGroup",
+                            "logs:TagResource"
+                          ],
+                          "Resource": [
+                            {
+                              "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/milsim-dev*:*"
+                            }
+                          ]
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "logs:PutLogEvents"
+                          ],
+                          "Resource": [
+                            {
+                              "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/milsim-dev*:*:*"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "Path": "/",
+                "RoleName": {
+                  "Fn::Join": [
+                    "-",
+                    [
+                      "milsim",
+                      "dev",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "lambdaRole"
+                    ]
+                  ]
+                }
+              }
+            },
+            "StartInstanceLambdaFunction": {
+              "Type": "AWS::Lambda::Function",
+              "Properties": {
+                "Code": {
+                  "S3Bucket": "serverless-framework-deployments-us-east-1-13eb2331-055c",
+                  "S3Key": "serverless/milsim/dev/1759758079798-2025-10-06T13:41:19.798Z/milsim.zip"
+                },
+                "Handler": "index.handler",
+                "Runtime": "nodejs18.x",
+                "FunctionName": "milsim-dev-startInstance",
+                "MemorySize": 1024,
+                "Timeout": 6,
+                "Environment": {
+                  "Variables": {
+                    "EC2_INSTANCE_ID": "i-0eab9dae38364518d"
+                  }
+                },
+                "Role": {
+                  "Fn::GetAtt": [
+                    "StartInstanceIamRoleLambdaExecution",
+                    "Arn"
+                  ]
+                }
+              },
+              "DependsOn": [
+                "StartInstanceIamRoleLambdaExecution",
+                "StartInstanceLogGroup"
+              ]
+            },
+            "StartInstanceLambdaVersionXSG2zyZeEyFl1uioDURaOsoVhggYuXagAkvEhs": {
+              "Type": "AWS::Lambda::Version",
+              "DeletionPolicy": "Retain",
+              "Properties": {
+                "FunctionName": {
+                  "Ref": "StartInstanceLambdaFunction"
+                },
+                "CodeSha256": "v0KaAHuhoKIdIYo7gFUJ166as8MmLY5cfiMk0hw/SbE="
+              }
+            },
+            "ApiGatewayRestApi": {
+              "Type": "AWS::ApiGateway::RestApi",
+              "Properties": {
+                "Name": "dev-milsim",
+                "EndpointConfiguration": {
+                  "Types": [
+                    "EDGE"
+                  ]
+                },
+                "Policy": ""
+              }
+            },
+            "ApiGatewayResourceStart": {
+              "Type": "AWS::ApiGateway::Resource",
+              "Properties": {
+                "ParentId": {
+                  "Fn::GetAtt": [
+                    "ApiGatewayRestApi",
+                    "RootResourceId"
+                  ]
+                },
+                "PathPart": "start",
+                "RestApiId": {
+                  "Ref": "ApiGatewayRestApi"
+                }
+              }
+            },
+            "ApiGatewayMethodStartOptions": {
+              "Type": "AWS::ApiGateway::Method",
+              "Properties": {
+                "AuthorizationType": "NONE",
+                "HttpMethod": "OPTIONS",
+                "MethodResponses": [
+                  {
+                    "StatusCode": "200",
+                    "ResponseParameters": {
+                      "method.response.header.Access-Control-Allow-Origin": true,
+                      "method.response.header.Access-Control-Allow-Headers": true,
+                      "method.response.header.Access-Control-Allow-Methods": true
+                    },
+                    "ResponseModels": {}
+                  }
+                ],
+                "RequestParameters": {},
+                "Integration": {
+                  "Type": "MOCK",
+                  "RequestTemplates": {
+                    "application/json": "{statusCode:200}"
+                  },
+                  "ContentHandling": "CONVERT_TO_TEXT",
+                  "IntegrationResponses": [
+                    {
+                      "StatusCode": "200",
+                      "ResponseParameters": {
+                        "method.response.header.Access-Control-Allow-Origin": "'*'",
+                        "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent,X-Amzn-Trace-Id'",
+                        "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET'"
+                      },
+                      "ResponseTemplates": {
+                        "application/json": ""
+                      }
+                    }
+                  ]
+                },
+                "ResourceId": {
+                  "Ref": "ApiGatewayResourceStart"
+                },
+                "RestApiId": {
+                  "Ref": "ApiGatewayRestApi"
+                }
+              }
+            },
+            "ApiGatewayMethodStartGet": {
+              "Type": "AWS::ApiGateway::Method",
+              "Properties": {
+                "HttpMethod": "GET",
+                "RequestParameters": {},
+                "ResourceId": {
+                  "Ref": "ApiGatewayResourceStart"
+                },
+                "RestApiId": {
+                  "Ref": "ApiGatewayRestApi"
+                },
+                "ApiKeyRequired": "<REDACTED>",
+                "AuthorizationType": "NONE",
+                "Integration": {
+                  "IntegrationHttpMethod": "POST",
+                  "Type": "AWS_PROXY",
+                  "Uri": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:",
+                        {
+                          "Ref": "AWS::Partition"
+                        },
+                        ":apigateway:",
+                        {
+                          "Ref": "AWS::Region"
+                        },
+                        ":lambda:path/2015-03-31/functions/",
+                        {
+                          "Fn::GetAtt": [
+                            "StartInstanceLambdaFunction",
+                            "Arn"
+                          ]
+                        },
+                        "/invocations"
+                      ]
+                    ]
+                  }
+                },
+                "MethodResponses": []
+              },
+              "DependsOn": [
+                "StartInstanceLambdaPermissionApiGateway"
+              ]
+            },
+            "ApiGatewayDeployment1759758071075": {
+              "Type": "AWS::ApiGateway::Deployment",
+              "Properties": {
+                "RestApiId": {
+                  "Ref": "ApiGatewayRestApi"
+                },
+                "StageName": "dev"
+              },
+              "DependsOn": [
+                "ApiGatewayMethodStartOptions",
+                "ApiGatewayMethodStartGet"
+              ]
+            },
+            "StartInstanceLambdaPermissionApiGateway": {
+              "Type": "AWS::Lambda::Permission",
+              "Properties": {
+                "FunctionName": {
+                  "Fn::GetAtt": [
+                    "StartInstanceLambdaFunction",
+                    "Arn"
+                  ]
+                },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "apigateway.amazonaws.com",
+                "SourceArn": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":execute-api:",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      ":",
+                      {
+                        "Ref": "AWS::AccountId"
+                      },
+                      ":",
+                      {
+                        "Ref": "ApiGatewayRestApi"
+                      },
+                      "/*/*"
+                    ]
+                  ]
+                }
+              }
+            },
+            "StartInstanceIamRoleLambdaExecution": {
+              "Type": "AWS::IAM::Role",
+              "Properties": {
+                "AssumeRolePolicyDocument": {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Principal": {
+                        "Service": [
+                          "lambda.amazonaws.com"
+                        ]
+                      },
+                      "Action": [
+                        "sts:AssumeRole"
+                      ]
+                    }
+                  ]
+                },
+                "Policies": [
+                  {
+                    "PolicyName": {
+                      "Fn::Join": [
+                        "-",
+                        [
+                          "milsim",
+                          "dev",
+                          "lambda"
+                        ]
+                      ]
+                    },
+                    "PolicyDocument": {
+                      "Version": "2012-10-17",
+                      "Statement": [
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "logs:CreateLogStream",
+                            "logs:CreateLogGroup",
+                            "logs:PutLogEvents"
+                          ],
+                          "Resource": [
+                            {
+                              "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/milsim-dev-startInstance:*:*"
+                            }
+                          ]
+                        },
+                        {
+                          "Effect": "Allow",
+                          "Action": [
+                            "ec2:DescribeInstances",
+                            "ec2:StartInstances"
+                          ],
+                          "Resource": "*"
+                        }
+                      ]
+                    }
+                  }
+                ],
+                "Path": "/",
+                "RoleName": {
+                  "Fn::Join": [
+                    "-",
+                    [
+                      "milsim",
+                      "dev",
+                      "startInstance",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      "lambdaRole"
+                    ]
+                  ]
+                },
+                "ManagedPolicyArns": []
+              }
+            }
+          },
+          "Outputs": {
+            "ServerlessDeploymentBucketName": {
+              "Value": "serverless-framework-deployments-us-east-1-13eb2331-055c",
+              "Export": {
+                "Name": "sls-milsim-dev-ServerlessDeploymentBucketName"
+              }
+            },
+            "StartInstanceLambdaFunctionQualifiedArn": {
+              "Description": "Current Lambda function version",
+              "Value": {
+                "Ref": "StartInstanceLambdaVersionXSG2zyZeEyFl1uioDURaOsoVhggYuXagAkvEhs"
+              },
+              "Export": {
+                "Name": "sls-milsim-dev-StartInstanceLambdaFunctionQualifiedArn"
+              }
+            },
+            "ServiceEndpoint": {
+              "Description": "URL of the service endpoint",
+              "Value": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "https://",
+                    {
+                      "Ref": "ApiGatewayRestApi"
+                    },
+                    ".execute-api.",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ".",
+                    {
+                      "Ref": "AWS::URLSuffix"
+                    },
+                    "/dev"
+                  ]
+                ]
+              },
+              "Export": {
+                "Name": "sls-milsim-dev-ServiceEndpoint"
+              }
+            }
+          }
+        },
+        "vpc": {}
+      },
+      "plugins": [
+        "serverless-domain-manager"
+      ],
+      "custom": {
+        "customDomain": {
+          "domainName": "milsim.seyacat.com",
+          "basePath": "(none)",
+          "stage": "dev",
+          "createRoute53Record": true,
+          "endpointType": "regional",
+          "securityPolicy": "tls_1_2",
+          "autoDomain": true
+        }
       },
       "functions": {
         "startInstance": {
@@ -21,9 +453,26 @@
           "events": [
             {
               "http": {
-                "path": "/start-instance",
+                "path": "start",
                 "method": "get",
-                "cors": true
+                "cors": {
+                  "origin": "*",
+                  "methods": [
+                    "OPTIONS",
+                    "GET"
+                  ],
+                  "headers": [
+                    "Content-Type",
+                    "X-Amz-Date",
+                    "Authorization",
+                    "X-Api-Key",
+                    "X-Amz-Security-Token",
+                    "X-Amz-User-Agent",
+                    "X-Amzn-Trace-Id"
+                  ],
+                  "allowCredentials": "<REDACTED>"
+                },
+                "integration": "AWS_PROXY"
               }
             }
           ],
@@ -36,22 +485,444 @@
               ],
               "Resource": "*"
             }
-          ]
+          ],
+          "name": "milsim-dev-startInstance",
+          "package": {},
+          "memory": 1024,
+          "timeout": 6,
+          "runtime": "nodejs18.x",
+          "vpc": {},
+          "versionLogicalId": "StartInstanceLambdaVersionXSG2zyZeEyFl1uioDURaOsoVhggYuXagAkvEhs"
         }
-      },
-      "plugins": [
-        "serverless-dotenv-plugin"
-      ]
+      }
     },
     "provider": {
       "name": "aws",
       "runtime": "nodejs18.x",
       "region": "us-east-1",
-      "environment": {
-        "EC2_INSTANCE_ID": "i-xxxxxxxxxxxxxxxxx"
-      },
       "stage": "dev",
-      "versionFunctions": true
+      "environment": {
+        "EC2_INSTANCE_ID": "i-0eab9dae38364518d"
+      },
+      "versionFunctions": true,
+      "compiledCloudFormationTemplate": {
+        "AWSTemplateFormatVersion": "2010-09-09",
+        "Description": "The AWS CloudFormation template for this Serverless application",
+        "Resources": {
+          "StartInstanceLogGroup": {
+            "Type": "AWS::Logs::LogGroup",
+            "Properties": {
+              "LogGroupName": "/aws/lambda/milsim-dev-startInstance"
+            }
+          },
+          "IamRoleLambdaExecution": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+              "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Principal": {
+                      "Service": [
+                        "lambda.amazonaws.com"
+                      ]
+                    },
+                    "Action": [
+                      "sts:AssumeRole"
+                    ]
+                  }
+                ]
+              },
+              "Policies": [
+                {
+                  "PolicyName": {
+                    "Fn::Join": [
+                      "-",
+                      [
+                        "milsim",
+                        "dev",
+                        "lambda"
+                      ]
+                    ]
+                  },
+                  "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:CreateLogStream",
+                          "logs:CreateLogGroup",
+                          "logs:TagResource"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/milsim-dev*:*"
+                          }
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:PutLogEvents"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/milsim-dev*:*:*"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ],
+              "Path": "/",
+              "RoleName": {
+                "Fn::Join": [
+                  "-",
+                  [
+                    "milsim",
+                    "dev",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    "lambdaRole"
+                  ]
+                ]
+              }
+            }
+          },
+          "StartInstanceLambdaFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+              "Code": {
+                "S3Bucket": "serverless-framework-deployments-us-east-1-13eb2331-055c",
+                "S3Key": "serverless/milsim/dev/1759758079798-2025-10-06T13:41:19.798Z/milsim.zip"
+              },
+              "Handler": "index.handler",
+              "Runtime": "nodejs18.x",
+              "FunctionName": "milsim-dev-startInstance",
+              "MemorySize": 1024,
+              "Timeout": 6,
+              "Environment": {
+                "Variables": {
+                  "EC2_INSTANCE_ID": "i-0eab9dae38364518d"
+                }
+              },
+              "Role": {
+                "Fn::GetAtt": [
+                  "StartInstanceIamRoleLambdaExecution",
+                  "Arn"
+                ]
+              }
+            },
+            "DependsOn": [
+              "StartInstanceIamRoleLambdaExecution",
+              "StartInstanceLogGroup"
+            ]
+          },
+          "StartInstanceLambdaVersionXSG2zyZeEyFl1uioDURaOsoVhggYuXagAkvEhs": {
+            "Type": "AWS::Lambda::Version",
+            "DeletionPolicy": "Retain",
+            "Properties": {
+              "FunctionName": {
+                "Ref": "StartInstanceLambdaFunction"
+              },
+              "CodeSha256": "v0KaAHuhoKIdIYo7gFUJ166as8MmLY5cfiMk0hw/SbE="
+            }
+          },
+          "ApiGatewayRestApi": {
+            "Type": "AWS::ApiGateway::RestApi",
+            "Properties": {
+              "Name": "dev-milsim",
+              "EndpointConfiguration": {
+                "Types": [
+                  "EDGE"
+                ]
+              },
+              "Policy": ""
+            }
+          },
+          "ApiGatewayResourceStart": {
+            "Type": "AWS::ApiGateway::Resource",
+            "Properties": {
+              "ParentId": {
+                "Fn::GetAtt": [
+                  "ApiGatewayRestApi",
+                  "RootResourceId"
+                ]
+              },
+              "PathPart": "start",
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              }
+            }
+          },
+          "ApiGatewayMethodStartOptions": {
+            "Type": "AWS::ApiGateway::Method",
+            "Properties": {
+              "AuthorizationType": "NONE",
+              "HttpMethod": "OPTIONS",
+              "MethodResponses": [
+                {
+                  "StatusCode": "200",
+                  "ResponseParameters": {
+                    "method.response.header.Access-Control-Allow-Origin": true,
+                    "method.response.header.Access-Control-Allow-Headers": true,
+                    "method.response.header.Access-Control-Allow-Methods": true
+                  },
+                  "ResponseModels": {}
+                }
+              ],
+              "RequestParameters": {},
+              "Integration": {
+                "Type": "MOCK",
+                "RequestTemplates": {
+                  "application/json": "{statusCode:200}"
+                },
+                "ContentHandling": "CONVERT_TO_TEXT",
+                "IntegrationResponses": [
+                  {
+                    "StatusCode": "200",
+                    "ResponseParameters": {
+                      "method.response.header.Access-Control-Allow-Origin": "'*'",
+                      "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent,X-Amzn-Trace-Id'",
+                      "method.response.header.Access-Control-Allow-Methods": "'OPTIONS,GET'"
+                    },
+                    "ResponseTemplates": {
+                      "application/json": ""
+                    }
+                  }
+                ]
+              },
+              "ResourceId": {
+                "Ref": "ApiGatewayResourceStart"
+              },
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              }
+            }
+          },
+          "ApiGatewayMethodStartGet": {
+            "Type": "AWS::ApiGateway::Method",
+            "Properties": {
+              "HttpMethod": "GET",
+              "RequestParameters": {},
+              "ResourceId": {
+                "Ref": "ApiGatewayResourceStart"
+              },
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              },
+              "ApiKeyRequired": "<REDACTED>",
+              "AuthorizationType": "NONE",
+              "Integration": {
+                "IntegrationHttpMethod": "POST",
+                "Type": "AWS_PROXY",
+                "Uri": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":apigateway:",
+                      {
+                        "Ref": "AWS::Region"
+                      },
+                      ":lambda:path/2015-03-31/functions/",
+                      {
+                        "Fn::GetAtt": [
+                          "StartInstanceLambdaFunction",
+                          "Arn"
+                        ]
+                      },
+                      "/invocations"
+                    ]
+                  ]
+                }
+              },
+              "MethodResponses": []
+            },
+            "DependsOn": [
+              "StartInstanceLambdaPermissionApiGateway"
+            ]
+          },
+          "ApiGatewayDeployment1759758071075": {
+            "Type": "AWS::ApiGateway::Deployment",
+            "Properties": {
+              "RestApiId": {
+                "Ref": "ApiGatewayRestApi"
+              },
+              "StageName": "dev"
+            },
+            "DependsOn": [
+              "ApiGatewayMethodStartOptions",
+              "ApiGatewayMethodStartGet"
+            ]
+          },
+          "StartInstanceLambdaPermissionApiGateway": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+              "FunctionName": {
+                "Fn::GetAtt": [
+                  "StartInstanceLambdaFunction",
+                  "Arn"
+                ]
+              },
+              "Action": "lambda:InvokeFunction",
+              "Principal": "apigateway.amazonaws.com",
+              "SourceArn": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":execute-api:",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    ":",
+                    {
+                      "Ref": "AWS::AccountId"
+                    },
+                    ":",
+                    {
+                      "Ref": "ApiGatewayRestApi"
+                    },
+                    "/*/*"
+                  ]
+                ]
+              }
+            }
+          },
+          "StartInstanceIamRoleLambdaExecution": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+              "AssumeRolePolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Principal": {
+                      "Service": [
+                        "lambda.amazonaws.com"
+                      ]
+                    },
+                    "Action": [
+                      "sts:AssumeRole"
+                    ]
+                  }
+                ]
+              },
+              "Policies": [
+                {
+                  "PolicyName": {
+                    "Fn::Join": [
+                      "-",
+                      [
+                        "milsim",
+                        "dev",
+                        "lambda"
+                      ]
+                    ]
+                  },
+                  "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "logs:CreateLogStream",
+                          "logs:CreateLogGroup",
+                          "logs:PutLogEvents"
+                        ],
+                        "Resource": [
+                          {
+                            "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/milsim-dev-startInstance:*:*"
+                          }
+                        ]
+                      },
+                      {
+                        "Effect": "Allow",
+                        "Action": [
+                          "ec2:DescribeInstances",
+                          "ec2:StartInstances"
+                        ],
+                        "Resource": "*"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "Path": "/",
+              "RoleName": {
+                "Fn::Join": [
+                  "-",
+                  [
+                    "milsim",
+                    "dev",
+                    "startInstance",
+                    {
+                      "Ref": "AWS::Region"
+                    },
+                    "lambdaRole"
+                  ]
+                ]
+              },
+              "ManagedPolicyArns": []
+            }
+          }
+        },
+        "Outputs": {
+          "ServerlessDeploymentBucketName": {
+            "Value": "serverless-framework-deployments-us-east-1-13eb2331-055c",
+            "Export": {
+              "Name": "sls-milsim-dev-ServerlessDeploymentBucketName"
+            }
+          },
+          "StartInstanceLambdaFunctionQualifiedArn": {
+            "Description": "Current Lambda function version",
+            "Value": {
+              "Ref": "StartInstanceLambdaVersionXSG2zyZeEyFl1uioDURaOsoVhggYuXagAkvEhs"
+            },
+            "Export": {
+              "Name": "sls-milsim-dev-StartInstanceLambdaFunctionQualifiedArn"
+            }
+          },
+          "ServiceEndpoint": {
+            "Description": "URL of the service endpoint",
+            "Value": {
+              "Fn::Join": [
+                "",
+                [
+                  "https://",
+                  {
+                    "Ref": "ApiGatewayRestApi"
+                  },
+                  ".execute-api.",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  ".",
+                  {
+                    "Ref": "AWS::URLSuffix"
+                  },
+                  "/dev"
+                ]
+              ]
+            },
+            "Export": {
+              "Name": "sls-milsim-dev-ServiceEndpoint"
+            }
+          }
+        }
+      },
+      "vpc": {}
     },
     "dashboard": {
       "isEnabledForService": false,
@@ -63,11 +934,10 @@
       "instanceParameters": null
     },
     "error": {
-      "message": "Serverless plugin \"serverless-dotenv-plugin\" not found. Make sure it's installed and listed in the \"plugins\" section of your serverless config file. Use the --debug flag to learn more.",
-      "stack": "ServerlessError2: Serverless plugin \"serverless-dotenv-plugin\" not found. Make sure it's installed and listed in the \"plugins\" section of your serverless config file. Use the --debug flag to learn more.\n    at PluginManager.resolveServicePlugins (file:///C:/Users/seyac/.serverless/releases/4.20.2/package/dist/sf-core.js:1303:3214)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at async PluginManager.loadAllPlugins (file:///C:/Users/seyac/.serverless/releases/4.20.2/package/dist/sf-core.js:1303:1592)\n    at async Serverless.init (file:///C:/Users/seyac/.serverless/releases/4.20.2/package/dist/sf-core.js:1310:9843)\n    at async runFramework (file:///C:/Users/seyac/.serverless/releases/4.20.2/package/dist/sf-core.js:1337:839)\n    at async TraditionalRunner.run (file:///C:/Users/seyac/.serverless/releases/4.20.2/package/dist/sf-core.js:1333:28331)\n    at async route (file:///C:/Users/seyac/.serverless/releases/4.20.2/package/dist/sf-core.js:1508:2878)\n    at async Object.run (file:///C:/Users/seyac/.serverless/releases/4.20.2/package/dist/sf-core.js:1509:3661)\n    at async run2 (file:///C:/Users/seyac/.serverless/releases/4.20.2/package/dist/sf-core.js:1509:4815)",
-      "code": "PLUGIN_NOT_FOUND"
+      "message": "Unable to create domain 'milsim.seyacat.com':\nFailed to UPSERT A,AAAA Alias for 'milsim.seyacat.com':\n\n                    [RRSet of type A with DNS name milsim.seyacat.com. is not permitted because a conflicting RRSet of type CNAME with the same DNS name already exists in zone seyacat.com., RRSet of type AAAA with DNS name milsim.seyacat.com. is not permitted because a conflicting RRSet of type CNAME with the same DNS name already exists in zone seyacat.com.]",
+      "stack": "Error: Unable to create domain 'milsim.seyacat.com':\nFailed to UPSERT A,AAAA Alias for 'milsim.seyacat.com':\n\n                    [RRSet of type A with DNS name milsim.seyacat.com. is not permitted because a conflicting RRSet of type CNAME with the same DNS name already exists in zone seyacat.com., RRSet of type AAAA with DNS name milsim.seyacat.com. is not permitted because a conflicting RRSet of type CNAME with the same DNS name already exists in zone seyacat.com.]\n    at ServerlessCustomDomain.<anonymous> (D:\\milsim\\lambdas\\start-instance\\node_modules\\serverless-domain-manager\\dist\\src\\index.js:220:23)\n    at Generator.throw (<anonymous>)\n    at rejected (D:\\milsim\\lambdas\\start-instance\\node_modules\\serverless-domain-manager\\dist\\src\\index.js:6:65)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)"
     },
-    "serviceRawFile": "service: start-ec2-instance\r\n\r\nprovider:\r\n  name: aws\r\n  runtime: nodejs18.x\r\n  region: us-east-1\r\n  environment:\r\n    EC2_INSTANCE_ID: ${env:EC2_INSTANCE_ID}\r\n\r\nfunctions:\r\n  startInstance:\r\n    handler: index.handler\r\n    events:\r\n      - http:\r\n          path: /start-instance\r\n          method: get\r\n          cors: true\r\n    iamRoleStatements:\r\n      - Effect: Allow\r\n        Action:\r\n          - ec2:DescribeInstances\r\n          - ec2:StartInstances\r\n        Resource: \"*\"\r\n\r\nplugins:\r\n  - serverless-dotenv-plugin",
+    "serviceRawFile": "service: milsim\r\n\r\nprovider:\r\n  name: aws\r\n  runtime: nodejs18.x\r\n  region: us-east-1\r\n  stage: dev\r\n  environment:\r\n    EC2_INSTANCE_ID: ${env:EC2_INSTANCE_ID}\r\n\r\nplugins:\r\n  - serverless-domain-manager\r\n\r\ncustom:\r\n  customDomain:\r\n    domainName: milsim.seyacat.com\r\n    basePath: '(none)'\r\n    stage: ${self:provider.stage}\r\n    createRoute53Record: true\r\n    endpointType: 'regional'\r\n    securityPolicy: tls_1_2\r\n    autoDomain: true\r\n\r\nfunctions:\r\n  startInstance:\r\n    handler: index.handler\r\n    events:\r\n      - http:\r\n          path: /start\r\n          method: get\r\n          cors: true\r\n    iamRoleStatements:\r\n      - Effect: Allow\r\n        Action:\r\n          - ec2:DescribeInstances\r\n          - ec2:StartInstances\r\n        Resource: \"*\"\r\n",
     "command": [
       "deploy"
     ],
@@ -77,10 +947,44 @@
     "userId": "77qsyfh3GzHcjw8RND",
     "userName": "seyacat",
     "serviceProviderAwsAccountId": "147464502454",
-    "serviceProviderAwsCfStackId": null,
-    "serviceProviderAwsCfStackCreated": null,
-    "serviceProviderAwsCfStackUpdated": null,
-    "serviceProviderAwsCfStackStatus": null,
-    "serviceProviderAwsCfStackOutputs": null
+    "serviceProviderAwsCfStackName": "milsim-dev",
+    "serviceProviderAwsCfStackId": "arn:aws:cloudformation:us-east-1:147464502454:stack/milsim-dev/8efbe050-a2b4-11f0-9d16-126f2316607f",
+    "serviceProviderAwsCfStackCreated": "2025-10-06T13:01:22.654Z",
+    "serviceProviderAwsCfStackUpdated": "2025-10-06T13:37:19.575Z",
+    "serviceProviderAwsCfStackStatus": "UPDATE_COMPLETE",
+    "serviceProviderAwsCfStackOutputs": [
+      {
+        "OutputKey": "StartInstanceLambdaFunctionQualifiedArn",
+        "OutputValue": "arn:aws:lambda:us-east-1:147464502454:function:milsim-dev-startInstance:6",
+        "Description": "Current Lambda function version",
+        "ExportName": "sls-milsim-dev-StartInstanceLambdaFunctionQualifiedArn"
+      },
+      {
+        "OutputKey": "DomainName",
+        "OutputValue": "milsim.seyacat.com",
+        "ExportName": "sls-milsim-dev-DomainName"
+      },
+      {
+        "OutputKey": "HostedZoneId",
+        "OutputValue": "Z1UJRXOUMOOFQ8",
+        "ExportName": "sls-milsim-dev-HostedZoneId"
+      },
+      {
+        "OutputKey": "DistributionDomainName",
+        "OutputValue": "d-dcq8ika4fl.execute-api.us-east-1.amazonaws.com",
+        "ExportName": "sls-milsim-dev-DistributionDomainName"
+      },
+      {
+        "OutputKey": "ServiceEndpoint",
+        "OutputValue": "https://fpbo03wwf0.execute-api.us-east-1.amazonaws.com/dev",
+        "Description": "URL of the service endpoint",
+        "ExportName": "sls-milsim-dev-ServiceEndpoint"
+      },
+      {
+        "OutputKey": "ServerlessDeploymentBucketName",
+        "OutputValue": "serverless-framework-deployments-us-east-1-13eb2331-055c",
+        "ExportName": "sls-milsim-dev-ServerlessDeploymentBucketName"
+      }
+    ]
   }
 }
