@@ -66,6 +66,9 @@ function checkAuth() {
         currentUser = { id: 1, name: 'Usuario' };
     }
     
+    // Load current user's team from game data after game is loaded
+    // This will be updated when the game data is loaded
+    
     // Initialize WebSocket connection
     initializeWebSocket(gameId);
     loadGame(gameId);
@@ -147,6 +150,8 @@ function initializeWebSocket(gameId) {
     socket.on('gameState', (game) => {
         console.log('Game state received:', game);
         currentGame = game;
+        // Update current user's team information from game data
+        updateCurrentUserTeam();
         updateGameInfo();
         updatePlayerMarkers();
     });
@@ -156,6 +161,8 @@ function initializeWebSocket(gameId) {
         // Update current user with authenticated data from server
         if (data.user) {
             currentUser = data.user;
+            // Update current user's team information from game data
+            updateCurrentUserTeam();
             updateGameInfo();
         }
         
@@ -240,6 +247,8 @@ async function loadGame(gameId) {
         }
         currentGame = await response.json();
         console.log('Game loaded:', currentGame);
+        // Update current user's team information from game data
+        updateCurrentUserTeam();
         updateGameInfo();
         updatePlayerMarkers();
         loadControlPoints(gameId);
@@ -287,6 +296,25 @@ async function loadControlPoints(gameId) {
         }
     } catch (error) {
         console.error('Error loading control points:', error);
+    }
+}
+
+// Update current user's team information from game data
+function updateCurrentUserTeam() {
+    if (!currentGame || !currentUser || !currentGame.players) return;
+    
+    // Find the current player in the game's players list
+    const currentPlayer = currentGame.players.find(p => p.user && p.user.id === currentUser.id);
+    if (currentPlayer) {
+        // Update current user with team information
+        currentUser.team = currentPlayer.team || 'none';
+        console.log('Updated current user team:', currentUser.team);
+        
+        // Refresh player markers to update colors based on new team
+        updatePlayerMarkers();
+        updateUserMarkerTeam();
+    } else {
+        console.log('Current user not found in game players list');
     }
 }
 
@@ -1117,6 +1145,8 @@ function handleGameAction(data) {
             if (data.data && data.data.game) {
                 const previousStatus = currentGame ? currentGame.status : null;
                 currentGame = data.data.game;
+                // Update current user's team information from game data
+                updateCurrentUserTeam();
                 updateGameInfo();
                 
                 // Show game summary dialog when game enters finished state
@@ -1184,6 +1214,8 @@ function handleGameAction(data) {
                 
                 const previousGame = currentGame;
                 currentGame = data.game;
+                // Update current user's team information from game data
+                updateCurrentUserTeam();
                 updateGameInfo();
 
                 // Always refresh control point markers with the latest data from server
@@ -1762,6 +1794,9 @@ document.addEventListener('DOMContentLoaded', function() {
 // Make functions available globally
 window.enableGameNameEdit = enableGameNameEdit;
 window.updateGameName = updateGameName;
+
+// Make functions available globally
+window.updateCurrentUserTeam = updateCurrentUserTeam;
 
 // Initialize when page loads
 window.onload = initialize;
