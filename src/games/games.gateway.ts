@@ -882,6 +882,19 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @SubscribeMessage('getControlPointTimes')
+  async handleGetControlPointTimes(client: Socket, payload: { gameId: number }) {
+    const { gameId } = payload;
+    const user = this.connectedUsers.get(client.id);
+
+    try {
+      const controlPointTimes = await this.gamesService.getControlPointTimes(gameId);
+      client.emit('controlPointTimes', controlPointTimes);
+    } catch (error: any) {
+      client.emit('controlPointTimesError', { message: 'Failed to get control point times' });
+    }
+  }
+
   // Method to broadcast game updates to all connected clients in a game
   broadcastGameUpdate(gameId: number, game: any) {
     this.server.to(`game_${gameId}`).emit('gameUpdate', {
@@ -900,5 +913,42 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
   ) {
     this.server.to(`game_${gameId}`).emit('timeUpdate', timeData);
+  }
+
+  // Method to broadcast control point time updates to all connected clients in a game
+  async broadcastControlPointTimeUpdate(
+    controlPointId: number,
+    timeData: {
+      currentHoldTime: number;
+      currentTeam: string | null;
+      displayTime: string;
+    },
+  ) {
+    try {
+      // Find the game that contains this control point by using the takeControlPoint method structure
+      // We'll get the control point with game relation through the service
+      const controlPoint = await this.gamesService.getControlPointWithGame(controlPointId);
+
+      if (controlPoint && controlPoint.game) {
+        // Broadcast to the specific game room
+        this.server.to(`game_${controlPoint.game.id}`).emit('controlPointTimeUpdate', {
+          controlPointId,
+          ...timeData,
+        });
+      } else {
+        // Fallback: broadcast to all connected clients
+        this.server.emit('controlPointTimeUpdate', {
+          controlPointId,
+          ...timeData,
+        });
+      }
+    } catch (error) {
+      console.error('Error broadcasting control point time update:', error);
+      // Fallback: broadcast to all connected clients
+      this.server.emit('controlPointTimeUpdate', {
+        controlPointId,
+        ...timeData,
+      });
+    }
   }
 }

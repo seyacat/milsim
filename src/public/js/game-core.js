@@ -8,6 +8,10 @@ let playerMarkers = {};
 let watchId = null;
 let localTimer = null;
 let lastTimeUpdate = null;
+let controlPointTimer = null;
+
+// Global storage for control point timer data to persist across updates
+let controlPointTimerData = {};
 
 // Initialize map and game
 function initialize() {
@@ -110,8 +114,7 @@ function initializeWebSocket(gameId) {
     });
 
     socket.on('gameUpdate', (data) => {
-        console.log('Game update received:', data);
-        console.log('Game update type:', data.type);
+        console.log('Game update received:', data.type);
         // Update the game state when changes occur
         if (data.game) {
             currentGame = data.game;
@@ -120,16 +123,15 @@ function initializeWebSocket(gameId) {
             
             // Debug: Check if this is a gameUpdated event with control points
             if (data.type === 'gameUpdated' && data.game.controlPoints) {
-                console.log('GameUpdated event received with control points:', data.game.controlPoints.length);
-                console.log('First control point data:', data.game.controlPoints[0]);
+                console.log('GameUpdated event with control points:', data.game.controlPoints.length);
                 
                 // Also refresh control point markers when gameUpdate event contains control points
                 const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
                 if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
-                    console.log('Refreshing owner control point markers from gameUpdate event');
+                    // Refreshing owner control point markers from gameUpdate event
                     window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
                 } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
-                    console.log('Refreshing player control point markers from gameUpdate event');
+                    // Refreshing player control point markers from gameUpdate event
                     window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
                 }
             }
@@ -148,7 +150,7 @@ function initializeWebSocket(gameId) {
     });
 
     socket.on('gameState', (game) => {
-        console.log('Game state received:', game);
+        console.log('Game state received');
         currentGame = game;
         // Update current user's team information from game data
         updateCurrentUserTeam();
@@ -157,7 +159,7 @@ function initializeWebSocket(gameId) {
     });
 
     socket.on('joinSuccess', (data) => {
-        console.log('Successfully joined game room');
+        console.log('Joined game room');
         // Update current user with authenticated data from server
         if (data.user) {
             currentUser = data.user;
@@ -193,25 +195,21 @@ function initializeWebSocket(gameId) {
     });
 
     socket.on('timeUpdate', (data) => {
-        console.log('Time update received:', data);
         if (data) {
-            console.log(`[FRONTEND] Time update - Played: ${data.playedTime}s, Remaining: ${data.remainingTime}, Total: ${data.totalTime}`);
+            console.log(`Time update - Played: ${data.playedTime}s`);
             handleTimeUpdate(data);
         } else {
             // Handle case when there's no timer (unlimited game)
-            console.log('[FRONTEND] No time data received, using defaults');
             handleTimeUpdate({ remainingTime: null, playedTime: 0, totalTime: null });
         }
     });
 
     socket.on('gameTime', (data) => {
-        console.log('Game time received:', data);
         if (data) {
-            console.log(`[FRONTEND] Game time - Played: ${data.playedTime}s, Remaining: ${data.remainingTime}, Total: ${data.totalTime}`);
+            console.log(`Game time - Played: ${data.playedTime}s`);
             handleTimeUpdate(data);
         } else {
             // Handle case when there's no timer (unlimited game)
-            console.log('[FRONTEND] No game time data received, using defaults');
             handleTimeUpdate({ remainingTime: null, playedTime: 0, totalTime: null });
         }
     });
@@ -219,6 +217,20 @@ function initializeWebSocket(gameId) {
     socket.on('gameTimeError', (data) => {
         console.error('Game time error:', data);
         showError('Error al obtener el tiempo del juego: ' + data.message);
+    });
+
+    socket.on('controlPointTimeUpdate', (data) => {
+        // Control point time update received
+        handleControlPointTimeUpdate(data);
+    });
+
+    socket.on('controlPointTimes', (data) => {
+        console.log('Control point times received for', data.length, 'points');
+        handleControlPointTimes(data);
+    });
+
+    socket.on('controlPointTimesError', (error) => {
+        console.error('Error getting control point times:', error);
     });
 }
 
@@ -252,6 +264,14 @@ async function loadGame(gameId) {
         updateGameInfo();
         updatePlayerMarkers();
         loadControlPoints(gameId);
+        
+        // Request initial control point time data if game is running
+        if (currentGame.status === 'running' && socket) {
+            // Game is running, requesting control point time data
+            socket.emit('getControlPointTimes', { gameId: currentGame.id });
+            // Start control point timer interval
+            startControlPointTimerInterval();
+        }
     } catch (error) {
         showError('Error al cargar el juego: ' + error.message);
         // Always redirect to dashboard on load error after showing the error
@@ -264,14 +284,22 @@ async function loadGame(gameId) {
 // Load control points for the game
 async function loadControlPoints(gameId) {
     try {
+        // Restore timer data from global storage before loading control points
+        if (currentGame && currentGame.controlPoints && Object.keys(controlPointTimerData).length > 0) {
+            currentGame.controlPoints.forEach(cp => {
+                if (controlPointTimerData[cp.id]) {
+                    cp.currentTeam = controlPointTimerData[cp.id].currentTeam;
+                    cp.displayTime = controlPointTimerData[cp.id].displayTime;
+                    cp.lastTimeUpdate = controlPointTimerData[cp.id].lastTimeUpdate;
+                }
+            });
+        }
+        
         // Use refresh functions to load all control points with proper visualizations
         const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
         if (isOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
-            console.log('Loading owner control points with refresh function');
-            console.log('Control points data for owner:', currentGame.controlPoints);
             window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
         } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
-            console.log('Loading player control points with refresh function');
             window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
         } else {
             // Fallback: Clear existing control point markers and add them individually
@@ -786,6 +814,10 @@ window.addEventListener('beforeunload', () => {
         clearInterval(localTimer);
         localTimer = null;
     }
+    if (controlPointTimer) {
+        clearInterval(controlPointTimer);
+        controlPointTimer = null;
+    }
 });
 
 // Make functions available globally
@@ -1159,8 +1191,36 @@ function handleGameAction(data) {
         case 'gameStateChanged':
             // Update game state and controls
             if (data.data && data.data.game) {
+                // Preserve timer data from current game before updating
+                const preservedTimerData = {};
+                if (currentGame && currentGame.controlPoints) {
+                    currentGame.controlPoints.forEach(cp => {
+                        if (cp.currentTeam || cp.displayTime || cp.lastTimeUpdate) {
+                            preservedTimerData[cp.id] = {
+                                currentTeam: cp.currentTeam,
+                                displayTime: cp.displayTime,
+                                lastTimeUpdate: cp.lastTimeUpdate
+                            };
+                        }
+                    });
+                }
+                
                 const previousStatus = currentGame ? currentGame.status : null;
                 currentGame = data.data.game;
+                
+                // Restore timer data to new control points
+                if (currentGame.controlPoints && Object.keys(preservedTimerData).length > 0) {
+                    let restoredCount = 0;
+                    currentGame.controlPoints.forEach(cp => {
+                        if (preservedTimerData[cp.id]) {
+                            cp.currentTeam = preservedTimerData[cp.id].currentTeam;
+                            cp.displayTime = preservedTimerData[cp.id].displayTime;
+                            cp.lastTimeUpdate = preservedTimerData[cp.id].lastTimeUpdate;
+                            restoredCount++;
+                        }
+                    });
+                }
+                
                 // Update current user's team information from game data
                 updateCurrentUserTeam();
                 updateGameInfo();
@@ -1168,6 +1228,8 @@ function handleGameAction(data) {
                 // Show game summary dialog when game enters finished state
                 if (currentGame.status === 'finished' && previousStatus !== 'finished') {
                     openGameSummaryDialog();
+                    // Clear all timer data when game ends
+                    clearAllControlPointTimerData();
                 }
                 
                 // Handle local timer based on game state
@@ -1177,12 +1239,33 @@ function handleGameAction(data) {
                         localTimer = null;
                         console.log('[FRONTEND] Local timer stopped - game not running');
                     }
-                } else if (!localTimer && lastTimeUpdate) {
-                    // Game is running, start local timer if not already running
-                    console.log('[FRONTEND] Starting local timer - game resumed');
-                    localTimer = setInterval(() => {
-                        updateTimeDisplay();
-                    }, 1000);
+                    if (controlPointTimer) {
+                        clearInterval(controlPointTimer);
+                        controlPointTimer = null;
+                        console.log('[FRONTEND] Control point timer stopped - game not running');
+                    }
+                } else {
+                    if (!localTimer && lastTimeUpdate) {
+                        // Game is running, start local timer if not already running
+                        console.log('[FRONTEND] Starting local timer - game resumed');
+                        localTimer = setInterval(() => {
+                            updateTimeDisplay();
+                        }, 1000);
+                    }
+                    if (!controlPointTimer) {
+                        // Start control point timer
+                        console.log('[FRONTEND] Starting control point timer - game resumed');
+                        controlPointTimer = setInterval(() => {
+                            updateAllTimerDisplays();
+                        }, 1000);
+                    }
+                    
+                    // Request control point time updates when game starts/resumes
+                    if (socket) {
+                        console.log('Requesting control point time updates for running game');
+                        // The server should automatically send control point time updates
+                        // when the game is running and control points are owned
+                    }
                 }
                 
                 // Update player team selection when game state changes
@@ -1228,8 +1311,36 @@ function handleGameAction(data) {
                 console.log('GameUpdated event received with full game data');
                 console.log('Game control points count:', data.game.controlPoints ? data.game.controlPoints.length : 0);
                 
+                // Preserve timer data from current game before updating
+                const preservedTimerData = {};
+                if (currentGame && currentGame.controlPoints) {
+                    currentGame.controlPoints.forEach(cp => {
+                        if (cp.currentTeam || cp.displayTime || cp.lastTimeUpdate) {
+                            preservedTimerData[cp.id] = {
+                                currentTeam: cp.currentTeam,
+                                displayTime: cp.displayTime,
+                                lastTimeUpdate: cp.lastTimeUpdate
+                            };
+                        }
+                    });
+                }
+                
                 const previousGame = currentGame;
                 currentGame = data.game;
+                
+                // Restore timer data to new control points
+                if (currentGame.controlPoints && Object.keys(preservedTimerData).length > 0) {
+                    let restoredCount = 0;
+                    currentGame.controlPoints.forEach(cp => {
+                        if (preservedTimerData[cp.id]) {
+                            cp.currentTeam = preservedTimerData[cp.id].currentTeam;
+                            cp.displayTime = preservedTimerData[cp.id].displayTime;
+                            cp.lastTimeUpdate = preservedTimerData[cp.id].lastTimeUpdate;
+                            restoredCount++;
+                        }
+                    });
+                }
+                
                 // Update current user's team information from game data
                 updateCurrentUserTeam();
                 updateGameInfo();
@@ -1543,12 +1654,18 @@ function handleTimeUpdate(timeData) {
         localTimer = null;
     }
     
+    // Stop control point timer interval
+    stopControlPointTimerInterval();
+    
     // Start local timer for smooth updates
     if (currentGame && currentGame.status === 'running') {
         console.log('[FRONTEND] Starting local timer');
         localTimer = setInterval(() => {
             updateTimeDisplay();
         }, 1000);
+        
+        // Start control point timer interval
+        startControlPointTimerInterval();
     }
     
     // Update display immediately with server data
@@ -1842,6 +1959,223 @@ window.updateGameName = updateGameName;
 
 // Make functions available globally
 window.updateCurrentUserTeam = updateCurrentUserTeam;
+
+// Handle control point time updates
+function handleControlPointTimeUpdate(data) {
+    const { controlPointId, currentHoldTime, currentTeam, displayTime } = data;
+    
+    // Update the control point data in currentGame if it exists
+    if (currentGame && currentGame.controlPoints) {
+        const controlPointIndex = currentGame.controlPoints.findIndex(cp => cp.id === controlPointId);
+        if (controlPointIndex !== -1) {
+            // Update the control point with current hold time data
+            currentGame.controlPoints[controlPointIndex].currentHoldTime = currentHoldTime;
+            currentGame.controlPoints[controlPointIndex].currentTeam = currentTeam;
+            currentGame.controlPoints[controlPointIndex].displayTime = displayTime;
+            currentGame.controlPoints[controlPointIndex].lastTimeUpdate = {
+                currentHoldTime,
+                receivedAt: Date.now()
+            };
+            
+            // Also update the ownedByTeam field which is used by the marker display logic
+            currentGame.controlPoints[controlPointIndex].ownedByTeam = currentTeam;
+            
+            // Store timer data in global storage
+            controlPointTimerData[controlPointId] = {
+                currentTeam,
+                displayTime,
+                lastTimeUpdate: {
+                    currentHoldTime,
+                    receivedAt: Date.now()
+                }
+            };
+            
+            // Update timer display immediately for this control point
+            const timerElement = document.getElementById(`timer_${controlPointId}`);
+            if (timerElement) {
+                const isGameRunning = currentGame.status === 'running';
+                if (isGameRunning && currentTeam) {
+                    timerElement.style.display = 'block';
+                    timerElement.textContent = displayTime || '00:00';
+                } else {
+                    timerElement.style.display = 'none';
+                }
+            }
+        }
+    }
+    
+    // Update all timer displays based on game state
+    updateAllTimerDisplays();
+    
+    // Also update the control point popups to reflect the new ownership
+    if (window.updatePlayerControlPointPopups) {
+        window.updatePlayerControlPointPopups();
+    }
+    
+    // Force update all timer displays after a short delay to ensure DOM is ready
+    setTimeout(() => {
+        updateAllTimerDisplays();
+    }, 500);
+}
+
+// Handle initial control point times data
+function handleControlPointTimes(data) {
+    console.log('Handling control point times data for', data.length, 'control points');
+    
+    if (!currentGame || !currentGame.controlPoints) return;
+    
+    // Update all control points with their current hold times
+    data.forEach(controlPointTime => {
+        const { controlPointId, currentHoldTime, currentTeam, displayTime } = controlPointTime;
+        
+        const controlPointIndex = currentGame.controlPoints.findIndex(cp => cp.id === controlPointId);
+        if (controlPointIndex !== -1) {
+            // Update the control point with current hold time data
+            currentGame.controlPoints[controlPointIndex].currentHoldTime = currentHoldTime;
+            currentGame.controlPoints[controlPointIndex].currentTeam = currentTeam;
+            currentGame.controlPoints[controlPointIndex].displayTime = displayTime;
+            currentGame.controlPoints[controlPointIndex].lastTimeUpdate = {
+                currentHoldTime,
+                receivedAt: Date.now()
+            };
+            
+            // Also update the ownedByTeam field which is used by the marker display logic
+            currentGame.controlPoints[controlPointIndex].ownedByTeam = currentTeam;
+            
+            // Store timer data in global storage
+            controlPointTimerData[controlPointId] = {
+                currentTeam,
+                displayTime,
+                lastTimeUpdate: {
+                    currentHoldTime,
+                    receivedAt: Date.now()
+                }
+            };
+            
+            // Update timer display immediately for this control point
+            const timerElement = document.getElementById(`timer_${controlPointId}`);
+            if (timerElement) {
+                const isGameRunning = currentGame.status === 'running';
+                if (isGameRunning && currentTeam) {
+                    timerElement.style.display = 'block';
+                    timerElement.textContent = displayTime || '00:00';
+                    console.log(`Timer shown for CP ${controlPointId}: ${displayTime}`);
+                } else {
+                    timerElement.style.display = 'none';
+                }
+            }
+        }
+    });
+    
+    // Update all timer displays based on game state
+    updateAllTimerDisplays();
+    
+    // Also update the control point popups to reflect the new ownership
+    if (window.updatePlayerControlPointPopups) {
+        window.updatePlayerControlPointPopups();
+    }
+    
+    // Start the control point timer interval if game is running
+    if (currentGame.status === 'running') {
+        startControlPointTimerInterval();
+    }
+    
+    // Force update all timer displays after a short delay to ensure DOM is ready
+    setTimeout(() => {
+        updateAllTimerDisplays();
+    }, 500);
+}
+
+// Function to update all timer displays based on game state
+function updateAllTimerDisplays() {
+    if (!currentGame || !currentGame.controlPoints) {
+        return;
+    }
+    
+    const isGameRunning = currentGame.status === 'running';
+    
+    currentGame.controlPoints.forEach(controlPoint => {
+        const timerElement = document.getElementById(`timer_${controlPoint.id}`);
+        if (timerElement) {
+            // Show timer only if game is running and control point is owned
+            if (isGameRunning && (controlPoint.currentTeam || controlPointTimerData[controlPoint.id]?.currentTeam)) {
+                timerElement.style.display = 'block';
+                
+                // Calculate current time based on last update and elapsed time
+                let currentDisplayTime = '00:00';
+                
+                // Use global storage as fallback if control point data is missing
+                if (controlPoint.lastTimeUpdate && controlPoint.currentTeam) {
+                    const elapsedSinceUpdate = Math.floor((Date.now() - controlPoint.lastTimeUpdate.receivedAt) / 1000);
+                    const currentHoldTime = controlPoint.lastTimeUpdate.currentHoldTime + elapsedSinceUpdate;
+                    currentDisplayTime = formatTime(currentHoldTime);
+                } else if (controlPointTimerData[controlPoint.id] && controlPointTimerData[controlPoint.id].lastTimeUpdate) {
+                    // Use global storage data
+                    const timerData = controlPointTimerData[controlPoint.id];
+                    const elapsedSinceUpdate = Math.floor((Date.now() - timerData.lastTimeUpdate.receivedAt) / 1000);
+                    const currentHoldTime = timerData.lastTimeUpdate.currentHoldTime + elapsedSinceUpdate;
+                    currentDisplayTime = formatTime(currentHoldTime);
+                } else if (controlPoint.displayTime) {
+                    currentDisplayTime = controlPoint.displayTime;
+                }
+                
+                timerElement.textContent = currentDisplayTime;
+            } else {
+                timerElement.style.display = 'none';
+            }
+        }
+    });
+}
+
+// Start local timer interval for control point timers
+function startControlPointTimerInterval() {
+    // Clear any existing interval
+    if (window.controlPointTimerInterval) {
+        clearInterval(window.controlPointTimerInterval);
+    }
+    
+    // Start new interval to update control point timers every second
+    window.controlPointTimerInterval = setInterval(() => {
+        if (currentGame && currentGame.status === 'running') {
+            updateAllTimerDisplays();
+        }
+    }, 1000);
+}
+
+// Stop local timer interval for control point timers
+function stopControlPointTimerInterval() {
+    if (window.controlPointTimerInterval) {
+        clearInterval(window.controlPointTimerInterval);
+        window.controlPointTimerInterval = null;
+    }
+}
+
+  // Format time in mm:ss
+  function formatTime(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  }
+  
+  // Clear timer data for a specific control point when it's no longer owned
+  function clearControlPointTimerData(controlPointId) {
+    if (controlPointTimerData[controlPointId]) {
+      delete controlPointTimerData[controlPointId];
+    }
+  }
+  
+  // Clear all timer data when game ends
+  function clearAllControlPointTimerData() {
+    controlPointTimerData = {};
+  }
+
+// Make functions available globally
+window.updateAllTimerDisplays = updateAllTimerDisplays;
+window.startControlPointTimerInterval = startControlPointTimerInterval;
+window.stopControlPointTimerInterval = stopControlPointTimerInterval;
+window.formatTime = formatTime;
+window.clearControlPointTimerData = clearControlPointTimerData;
+window.clearAllControlPointTimerData = clearAllControlPointTimerData;
 
 // Initialize when page loads
 window.onload = initialize;

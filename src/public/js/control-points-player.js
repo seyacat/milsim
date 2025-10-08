@@ -14,7 +14,7 @@ function createControlPointPlayerMenu(controlPoint, marker) {
         isGameRunning: currentGame && currentGame.status === 'running'
     });
     
-    // Show ownership status
+    // Show ownership status and hold time
     let ownershipStatus = '';
     if (controlPoint.ownedByTeam) {
         const teamColors = {
@@ -23,7 +23,15 @@ function createControlPointPlayerMenu(controlPoint, marker) {
             'green': 'Verde',
             'yellow': 'Amarillo'
         };
-        ownershipStatus = `<div class="ownership-status" style="color: ${controlPoint.ownedByTeam}; font-weight: bold;">Controlado por: ${teamColors[controlPoint.ownedByTeam] || controlPoint.ownedByTeam}</div>`;
+        const holdTime = controlPoint.displayTime || '00:00';
+        ownershipStatus = `
+            <div class="ownership-status" style="color: ${controlPoint.ownedByTeam}; font-weight: bold;">
+                Controlado por: ${teamColors[controlPoint.ownedByTeam] || controlPoint.ownedByTeam}
+            </div>
+            <div class="hold-time" style="font-size: 12px; color: #666; margin-top: 5px;">
+                Tiempo: ${holdTime}
+            </div>
+        `;
     }
     
     // Only show challenge buttons when game is running (don't check ownership)
@@ -139,21 +147,43 @@ function addControlPointMarkerPlayer(controlPoint) {
         className: 'control-point-marker',
         html: `
             <div style="
-                background: ${iconColor}80;
-                border-radius: 50%;
-                width: 20px;
-                height: 20px;
+                position: relative;
                 display: flex;
+                flex-direction: column;
                 align-items: center;
-                justify-content: center;
-                font-size: 12px;
-                color: white;
-                font-weight: bold;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-            ">${iconEmoji}</div>
+            ">
+                <!-- Timer display above marker (dynamically shown/hidden based on ownership) -->
+                <div class="control-point-timer"
+                     id="timer_${controlPoint.id}"
+                     style="
+                         background: rgba(0, 0, 0, 0.7);
+                         color: white;
+                         padding: 2px 4px;
+                         border-radius: 3px;
+                         font-size: 10px;
+                         font-weight: bold;
+                         margin-bottom: 2px;
+                         white-space: nowrap;
+                         display: none;
+                     ">00:00</div>
+                <!-- Control point marker -->
+                <div style="
+                    background: ${iconColor}80;
+                    border-radius: 50%;
+                    width: 20px;
+                    height: 20px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 12px;
+                    color: white;
+                    font-weight: bold;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+                ">${iconEmoji}</div>
+            </div>
         `,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10]
+        iconSize: [20, 24],
+        iconAnchor: [10, 12]
     });
 
     const marker = L.marker([controlPoint.latitude, controlPoint.longitude], {
@@ -607,6 +637,28 @@ function refreshControlPointMarkers(controlPoints) {
     }
     
     console.log('REFRESH PLAYER: Player control point markers refreshed successfully');
+    
+    // Force timer display update after markers are refreshed
+    if (window.updateAllTimerDisplays) {
+        setTimeout(() => {
+            console.log('Forcing timer display update after marker refresh');
+            window.updateAllTimerDisplays();
+        }, 1000);
+    }
+}
+
+// Update timer display visibility based on ownership and game state
+function updateTimerDisplay(controlPointId, ownedByTeam, displayTime) {
+    const timerElement = document.getElementById(`timer_${controlPointId}`);
+    if (timerElement) {
+        // Show timer only when game is running and control point is owned
+        const shouldShow = currentGame && currentGame.status === 'running' && ownedByTeam;
+        timerElement.style.display = shouldShow ? 'block' : 'none';
+        
+        if (shouldShow && displayTime) {
+            timerElement.textContent = displayTime;
+        }
+    }
 }
 
 // Make functions available globally
@@ -621,3 +673,4 @@ window.sendTakeControlPointAction = sendTakeControlPointAction;
 window.submitCodeChallenge = submitCodeChallenge;
 window.submitPositionChallenge = submitPositionChallenge;
 window.submitBombChallenge = submitBombChallenge;
+window.updateTimerDisplay = updateTimerDisplay;

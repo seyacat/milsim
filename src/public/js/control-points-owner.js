@@ -204,21 +204,43 @@ function addControlPointMarkerOwner(controlPoint) {
         className: 'control-point-marker',
         html: `
             <div style="
-                background: ${iconColor}80;
-                border-radius: 50%;
-                width: 20px;
-                height: 20px;
+                position: relative;
                 display: flex;
+                flex-direction: column;
                 align-items: center;
-                justify-content: center;
-                font-size: 12px;
-                color: white;
-                font-weight: bold;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-            ">${iconEmoji}</div>
+            ">
+                <!-- Timer display above marker (only shown when game is running and control point is owned) -->
+                <div class="control-point-timer"
+                     id="timer_${controlPoint.id}"
+                     style="
+                         background: rgba(0, 0, 0, 0.7);
+                         color: white;
+                         padding: 2px 4px;
+                         border-radius: 3px;
+                         font-size: 10px;
+                         font-weight: bold;
+                         margin-bottom: 2px;
+                         white-space: nowrap;
+                         display: ${(currentGame && currentGame.status === 'running' && controlPoint.ownedByTeam) ? 'block' : 'none'};
+                     ">00:00</div>
+                <!-- Control point marker -->
+                <div style="
+                    background: ${iconColor}80;
+                    border-radius: 50%;
+                    width: 20px;
+                    height: 20px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 12px;
+                    color: white;
+                    font-weight: bold;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+                ">${iconEmoji}</div>
+            </div>
         `,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10]
+        iconSize: [20, 24],
+        iconAnchor: [10, 12]
     });
 
     const marker = L.marker([controlPoint.latitude, controlPoint.longitude], {
@@ -438,6 +460,9 @@ function createControlPointEditMenu(controlPoint, marker) {
             ${controlPoint.ownedByTeam ? `
                 <div class="ownership-status" style="background: ${controlPoint.ownedByTeam}; color: white; padding: 5px; border-radius: 4px; margin-bottom: 10px; text-align: center; font-weight: bold;">
                     Controlado por: ${controlPoint.ownedByTeam.toUpperCase()}
+                </div>
+                <div class="hold-time" style="font-size: 12px; color: #666; text-align: center; margin-bottom: 10px;">
+                    Tiempo: ${controlPoint.displayTime || '00:00'}
                 </div>
             ` : ''}
             

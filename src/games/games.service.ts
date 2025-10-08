@@ -28,9 +28,20 @@ interface GameTimer {
   }>; // Track time events for accurate calculation
 }
 
+interface ControlPointTimer {
+  controlPointId: number;
+  gameInstanceId: number;
+  currentHoldTime: number;
+  currentTeam: string | null;
+  intervalId?: NodeJS.Timeout;
+  isRunning: boolean;
+  lastBroadcastTime: number;
+}
+
 @Injectable()
 export class GamesService {
   private gameTimers = new Map<number, GameTimer>();
+  private controlPointTimers = new Map<number, ControlPointTimer>(); // controlPointId -> timer
 
   constructor(
     @InjectRepository(Game)
@@ -292,7 +303,7 @@ export class GamesService {
     if (!controlPointToUpdate) {
       throw new NotFoundException('Control point not found');
     }
-    
+
     // Update the entity with new values
     Object.assign(controlPointToUpdate, updateData);
     await this.controlPointsRepository.save(controlPointToUpdate);
@@ -413,6 +424,8 @@ export class GamesService {
     // ALWAYS start timer for running games, even if totalTime is null (indefinite games)
     if (game.status === 'running') {
       void this.startGameTimer(gameId, game.totalTime, gameInstance.id);
+      // Start all control point timers
+      void this.startAllControlPointTimers(gameId);
     }
 
     return updatedGame;
@@ -457,6 +470,8 @@ export class GamesService {
 
     // Pause timer if exists
     this.pauseGameTimer(gameId);
+    // Pause all control point timers
+    this.pauseAllControlPointTimers(gameId);
 
     // Force broadcast time update on pause
     this.forceTimeBroadcast(gameId);
@@ -503,6 +518,8 @@ export class GamesService {
 
     // Resume timer if exists
     this.resumeGameTimer(gameId);
+    // Resume all control point timers
+    this.resumeAllControlPointTimers(gameId);
 
     // Force broadcast time update on resume
     this.forceTimeBroadcast(gameId);
@@ -540,6 +557,8 @@ export class GamesService {
 
     // Stop timer if exists
     this.stopGameTimer(gameId);
+    // Stop all control point timers
+    this.stopAllControlPointTimers(gameId);
 
     // Force broadcast final time update on game end
     this.forceTimeBroadcast(gameId);
@@ -857,6 +876,173 @@ export class GamesService {
     }
   }
 
+  // Control Point Timer management methods
+  private async startControlPointTimer(
+    controlPointId: number,
+    gameInstanceId: number,
+  ): Promise<void> {
+    // Stop existing timer if any
+    this.stopControlPointTimer(controlPointId);
+
+    // Check if game is running before starting timer
+    const game = await this.gamesRepository.findOne({
+      where: { instanceId: gameInstanceId },
+    });
+    
+    if (!game || game.status !== 'running') {
+      console.log(
+        `[CONTROL_POINT_TIMER] Not starting timer for control point ${controlPointId} - game is not running`,
+      );
+      return;
+    }
+
+    // Get initial hold time data
+    const holdTimeData = await this.calculateControlPointHoldTime(controlPointId, gameInstanceId);
+
+    const timer: ControlPointTimer = {
+      controlPointId,
+      gameInstanceId,
+      currentHoldTime: holdTimeData.currentHoldTime,
+      currentTeam: holdTimeData.currentTeam,
+      isRunning: true,
+      lastBroadcastTime: 0,
+    };
+
+    // Start countdown interval (update every second internally, broadcast every 20 seconds)
+    timer.intervalId = setInterval(() => {
+      if (timer.isRunning) {
+        // Increment current hold time
+        timer.currentHoldTime++;
+
+        // Broadcast time update ONLY every 20 seconds
+        if (timer.currentHoldTime % 20 === 0 && this.gamesGateway) {
+          this.gamesGateway.broadcastControlPointTimeUpdate(controlPointId, {
+            currentHoldTime: timer.currentHoldTime,
+            currentTeam: timer.currentTeam,
+            displayTime: this.formatTime(timer.currentHoldTime),
+          });
+          timer.lastBroadcastTime = timer.currentHoldTime;
+        }
+      }
+    }, 1000); // 1 second interval
+
+    this.controlPointTimers.set(controlPointId, timer);
+
+    // Send initial time update
+    if (this.gamesGateway) {
+      this.gamesGateway.broadcastControlPointTimeUpdate(controlPointId, {
+        currentHoldTime: timer.currentHoldTime,
+        currentTeam: timer.currentTeam,
+        displayTime: this.formatTime(timer.currentHoldTime),
+      });
+    }
+  }
+
+  private pauseControlPointTimer(controlPointId: number): void {
+    const timer = this.controlPointTimers.get(controlPointId);
+    if (timer) {
+      timer.isRunning = false;
+    }
+  }
+
+  private resumeControlPointTimer(controlPointId: number): void {
+    const timer = this.controlPointTimers.get(controlPointId);
+    if (timer) {
+      timer.isRunning = true;
+    }
+  }
+
+  private stopControlPointTimer(controlPointId: number): void {
+    const timer = this.controlPointTimers.get(controlPointId);
+    if (timer && timer.intervalId) {
+      clearInterval(timer.intervalId);
+      this.controlPointTimers.delete(controlPointId);
+    }
+  }
+
+  // Format time in mm:ss
+  private formatTime(seconds: number): string {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  }
+
+  // Start all control point timers for a game
+  async startAllControlPointTimers(gameId: number): Promise<void> {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+      relations: ['controlPoints'],
+    });
+
+    if (!game || !game.instanceId) {
+      return;
+    }
+
+    // Start timers for all control points
+    if (game.controlPoints) {
+      for (const controlPoint of game.controlPoints) {
+        await this.startControlPointTimer(controlPoint.id, game.instanceId);
+      }
+    }
+  }
+
+  // Pause all control point timers for a game
+  pauseAllControlPointTimers(gameId: number): void {
+    const game = this.gamesRepository
+      .findOne({
+        where: { id: gameId },
+        relations: ['controlPoints'],
+      })
+      .then(game => {
+        if (game && game.controlPoints) {
+          for (const controlPoint of game.controlPoints) {
+            this.pauseControlPointTimer(controlPoint.id);
+          }
+        }
+      });
+  }
+
+  // Resume all control point timers for a game
+  resumeAllControlPointTimers(gameId: number): void {
+    const game = this.gamesRepository
+      .findOne({
+        where: { id: gameId },
+        relations: ['controlPoints'],
+      })
+      .then(game => {
+        if (game && game.controlPoints) {
+          for (const controlPoint of game.controlPoints) {
+            this.resumeControlPointTimer(controlPoint.id);
+          }
+        }
+      });
+  }
+
+  // Stop all control point timers for a game
+  stopAllControlPointTimers(gameId: number): void {
+    const game = this.gamesRepository
+      .findOne({
+        where: { id: gameId },
+        relations: ['controlPoints'],
+      })
+      .then(game => {
+        if (game && game.controlPoints) {
+          for (const controlPoint of game.controlPoints) {
+            this.stopControlPointTimer(controlPoint.id);
+          }
+        }
+      });
+  }
+
+  // Update control point timer when ownership changes
+  async updateControlPointTimer(controlPointId: number, gameInstanceId: number): Promise<void> {
+    // Stop existing timer
+    this.stopControlPointTimer(controlPointId);
+
+    // Start new timer with updated data
+    await this.startControlPointTimer(controlPointId, gameInstanceId);
+  }
+
   // Get current time for a game
   getGameTime(
     gameId: number,
@@ -1170,8 +1356,165 @@ export class GamesService {
         userId: userId,
         timestamp: new Date(),
       });
+
+      // Update control point timer with new ownership
+      await this.updateControlPointTimer(controlPoint.id, controlPoint.game.instanceId);
     }
 
     return updatedControlPoint;
+  }
+
+  // Calculate control point hold time from game history
+  async calculateControlPointHoldTime(
+    controlPointId: number,
+    gameInstanceId: number,
+  ): Promise<{ totalHoldTime: number; currentHoldTime: number; currentTeam: string | null }> {
+    // Get all control point capture events for this control point
+    const history = await this.gameHistoryRepository.find({
+      where: {
+        gameInstance: { id: gameInstanceId },
+        eventType: 'control_point_taken',
+      },
+      order: { timestamp: 'ASC' },
+    });
+
+    // Filter events for this specific control point
+    const controlPointEvents = history.filter(
+      event => event.data && event.data.controlPointId === controlPointId,
+    );
+
+    if (controlPointEvents.length === 0) {
+      return { totalHoldTime: 0, currentHoldTime: 0, currentTeam: null };
+    }
+
+    let totalHoldTime = 0;
+    let currentHoldStart: Date | null = null;
+    let currentTeam: string | null = null;
+
+    // Get current game status to determine if we should add current time
+    const game = await this.gamesRepository.findOne({
+      where: { instanceId: gameInstanceId },
+    });
+    const isCurrentlyRunning = game && game.status === 'running';
+
+    // Process events chronologically
+    for (let i = 0; i < controlPointEvents.length; i++) {
+      const event = controlPointEvents[i];
+      const eventTeam = event.data.team;
+      const eventTimestamp = event.timestamp;
+
+      if (i === controlPointEvents.length - 1) {
+        // Last event - this is the current owner
+        currentTeam = eventTeam;
+        currentHoldStart = eventTimestamp;
+
+        // If game is running, add time from last capture to now
+        if (isCurrentlyRunning) {
+          const currentTime = new Date();
+          const currentHoldTime = Math.floor(
+            (currentTime.getTime() - eventTimestamp.getTime()) / 1000,
+          );
+          totalHoldTime += currentHoldTime;
+        }
+      } else {
+        // Calculate time between this capture and the next one
+        const nextEvent = controlPointEvents[i + 1];
+        const holdDuration = Math.floor(
+          (nextEvent.timestamp.getTime() - eventTimestamp.getTime()) / 1000,
+        );
+        totalHoldTime += holdDuration;
+      }
+    }
+
+    // Calculate current hold time separately
+    const currentHoldTime =
+      currentHoldStart && isCurrentlyRunning
+        ? Math.floor((Date.now() - currentHoldStart.getTime()) / 1000)
+        : 0;
+
+    return {
+      totalHoldTime,
+      currentHoldTime,
+      currentTeam,
+    };
+  }
+
+  // Get control point hold time for display
+  async getControlPointHoldTime(
+    controlPointId: number,
+    gameInstanceId: number,
+  ): Promise<{
+    displayTime: string;
+    totalHoldTime: number;
+    currentHoldTime: number;
+    currentTeam: string | null;
+  }> {
+    const holdTimeData = await this.calculateControlPointHoldTime(controlPointId, gameInstanceId);
+
+    // Format time in mm:ss
+    const formatTime = (seconds: number): string => {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    };
+
+    return {
+      displayTime: formatTime(holdTimeData.currentHoldTime),
+      totalHoldTime: holdTimeData.totalHoldTime,
+      currentHoldTime: holdTimeData.currentHoldTime,
+      currentTeam: holdTimeData.currentTeam,
+    };
+  }
+
+  // Get control point with game relation for broadcasting
+  async getControlPointWithGame(controlPointId: number): Promise<ControlPoint | null> {
+    return this.controlPointsRepository.findOne({
+      where: { id: controlPointId },
+      relations: ['game'],
+    });
+  }
+
+  // Get all control point times for a game
+  async getControlPointTimes(gameId: number): Promise<
+    Array<{
+      controlPointId: number;
+      currentHoldTime: number;
+      currentTeam: string | null;
+      displayTime: string;
+    }>
+  > {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+      relations: ['controlPoints'],
+    });
+
+    if (!game || !game.instanceId) {
+      return [];
+    }
+
+    const controlPointTimes: Array<{
+      controlPointId: number;
+      currentHoldTime: number;
+      currentTeam: string | null;
+      displayTime: string;
+    }> = [];
+
+    if (game.controlPoints) {
+      for (const controlPoint of game.controlPoints) {
+        const holdTimeData = await this.calculateControlPointHoldTime(
+          controlPoint.id,
+          game.instanceId,
+        );
+
+        controlPointTimes.push({
+          controlPointId: controlPoint.id,
+          currentHoldTime: holdTimeData.currentHoldTime,
+          currentTeam: holdTimeData.currentTeam,
+          displayTime: this.formatTime(holdTimeData.currentHoldTime),
+        });
+      }
+    }
+
+    return controlPointTimes;
   }
 }
