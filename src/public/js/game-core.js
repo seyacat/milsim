@@ -338,20 +338,53 @@ async function loadControlPoints(gameId) {
 
 // Update current user's team information from game data
 function updateCurrentUserTeam() {
-    if (!currentGame || !currentUser || !currentGame.players) return;
+    if (!currentGame || !currentUser) return;
+    
+    let currentPlayer = null;
+    let team = 'none';
     
     // Find the current player in the game's players list
-    const currentPlayer = currentGame.players.find(p => p.user && p.user.id === currentUser.id);
-    if (currentPlayer) {
+    if (currentGame.players && Array.isArray(currentGame.players)) {
+        currentPlayer = currentGame.players.find(p => p.user && p.user.id === currentUser.id);
+        if (currentPlayer) {
+            team = currentPlayer.team || 'none';
+        }
+    }
+    
+    // If player not found but we have a current team stored, use that
+    if (!currentPlayer && currentUser.team) {
+        team = currentUser.team;
+        console.log('Using stored current user team:', team);
+    } else if (currentPlayer) {
         // Update current user with team information
-        currentUser.team = currentPlayer.team || 'none';
+        currentUser.team = team;
         console.log('Updated current user team:', currentUser.team);
-        
-        // Refresh player markers to update colors based on new team
-        updatePlayerMarkers();
-        updateUserMarkerTeam();
     } else {
-        console.log('Current user not found in game players list');
+        console.log('Current user not found in game players list, using default team: none');
+        currentUser.team = 'none';
+    }
+    
+    // Refresh player markers to update colors based on new team
+    updatePlayerMarkers();
+    updateUserMarkerTeam();
+    
+    // If user marker doesn't exist but we have GPS position, create it
+    if (!userMarker && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                createUserMarker(lat, lng);
+            },
+            (error) => {
+                console.log('GPS not available for initial user marker creation:', error);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 60000
+            }
+        );
     }
 }
 
@@ -649,24 +682,7 @@ function startGPS() {
 
             // Update user marker on map
             if (!userMarker) {
-                const currentPlayer = currentGame?.players?.find(p => p.user.id === currentUser.id);
-                const teamClass = currentPlayer?.team && currentPlayer.team !== 'none' ? currentPlayer.team : 'none';
-                console.log('Creating user marker with team class:', teamClass);
-                userMarker = L.marker([lat, lng], {
-                    icon: L.divIcon({
-                        className: `user-marker ${teamClass}`,
-                        iconSize: [24, 24],
-                    })
-                }).addTo(map);
-                
-                // Create popup with custom class for positioning
-                const popup = L.popup({
-                    className: 'user-marker-popup'
-                }).setContent('<strong>Tú.</strong>');
-                
-                userMarker.bindPopup(popup).openPopup();
-                
-                // No accuracy circles for user
+                createUserMarker(lat, lng);
                 
                 // Set view to user's location when GPS is first available
                 map.setView([lat, lng], 16);
@@ -710,6 +726,35 @@ function startGPS() {
             maximumAge: 60000
         }
     );
+}
+
+// Create or recreate user marker with current team
+function createUserMarker(lat, lng) {
+    // Remove existing marker if it exists
+    if (userMarker) {
+        map.removeLayer(userMarker);
+        userMarker = null;
+    }
+    
+    const currentPlayer = currentGame?.players?.find(p => p.user.id === currentUser.id);
+    const teamClass = currentPlayer?.team && currentPlayer.team !== 'none' ? currentPlayer.team : 'none';
+    console.log('Creating user marker with team class:', teamClass);
+    
+    userMarker = L.marker([lat, lng], {
+        icon: L.divIcon({
+            className: `user-marker ${teamClass}`,
+            iconSize: [24, 24],
+        })
+    }).addTo(map);
+    
+    // Create popup with custom class for positioning
+    const popup = L.popup({
+        className: 'user-marker-popup'
+    }).setContent('<strong>Tú.</strong>');
+    
+    userMarker.bindPopup(popup).openPopup();
+    
+    // No accuracy circles for user
 }
 
 
@@ -1251,6 +1296,8 @@ function handleGameAction(data) {
                 updateUserMarkerTeam();
                 // Update current user's team information immediately
                 updateCurrentUserTeam();
+                // Force refresh of all player markers to update visibility rules
+                updatePlayerMarkers();
             }
             break;
         case 'gameStateChanged':
@@ -1259,6 +1306,10 @@ function handleGameAction(data) {
                 // Preserve timer data from current game before updating
                 const preservedTimerData = {};
                 const preservedControlPoints = currentGame ? currentGame.controlPoints : null;
+                // Preserve current user's team data
+                const preservedCurrentUserTeam = currentUser ? currentUser.team : null;
+                const preservedCurrentPlayer = currentGame && currentGame.players ?
+                    currentGame.players.find(p => p.user && p.user.id === currentUser.id) : null;
                 
                 if (currentGame && currentGame.controlPoints) {
                     currentGame.controlPoints.forEach(cp => {
@@ -1293,9 +1344,32 @@ function handleGameAction(data) {
                     console.log(`[FRONTEND] Restored timer data for ${restoredCount} control points`);
                 }
                 
+                // Preserve current user's team in the new game data if not found
+                if (preservedCurrentUserTeam && currentGame.players) {
+                    const currentPlayerInNewGame = currentGame.players.find(p => p.user && p.user.id === currentUser.id);
+                    if (!currentPlayerInNewGame && preservedCurrentPlayer) {
+                        // Add the current player to the new game data if missing
+                        currentGame.players.push(preservedCurrentPlayer);
+                        console.log('[FRONTEND] Preserved current player data in new game state');
+                    } else if (currentPlayerInNewGame && preservedCurrentUserTeam) {
+                        // Always restore team from preserved data to ensure consistency
+                        currentPlayerInNewGame.team = preservedCurrentUserTeam;
+                        console.log('[FRONTEND] Restored current user team in new game state:', preservedCurrentUserTeam);
+                    }
+                } else if (preservedCurrentUserTeam && (!currentGame.players || !Array.isArray(currentGame.players))) {
+                    // If players array doesn't exist or is invalid, create it and add current player
+                    currentGame.players = [preservedCurrentPlayer];
+                    console.log('[FRONTEND] Created players array with current player data');
+                }
+                
                 // Update current user's team information from game data
                 updateCurrentUserTeam();
                 updateGameInfo();
+                
+                // Force refresh user marker when game state changes to ensure correct team color
+                if (userMarker) {
+                    updateUserMarkerTeam();
+                }
                 
                 // Show game summary dialog when game enters finished state
                 if (currentGame.status === 'finished' && previousStatus !== 'finished') {
@@ -1338,6 +1412,16 @@ function handleGameAction(data) {
                     
                     // Force update all timer displays immediately when game resumes
                     updateAllTimerDisplays();
+                    
+                    // Refresh user marker when game starts to ensure correct team color
+                    if (userMarker) {
+                        updateUserMarkerTeam();
+                    }
+                    
+                    // Force refresh of current user team data when game starts
+                    // This ensures the user marker shows the correct team color
+                    console.log('[FRONTEND] Game started - forcing current user team refresh');
+                    updateCurrentUserTeam();
                     
                     // Request control point time updates when game starts/resumes
                     if (socket) {
@@ -1658,27 +1742,8 @@ function addTime(seconds) {
 // Update user marker with current team
 function updateUserMarkerTeam() {
     if (userMarker) {
-        const currentPlayer = currentGame.players?.find(p => p.user.id === currentUser.id);
-        const teamClass = currentPlayer?.team && currentPlayer.team !== 'none' ? currentPlayer.team : 'none';
         const currentPosition = userMarker.getLatLng();
-        
-        // Remove existing marker
-        map.removeLayer(userMarker);
-        
-        // Create new marker with updated team class
-        userMarker = L.marker(currentPosition, {
-            icon: L.divIcon({
-                className: `user-marker ${teamClass}`,
-                iconSize: [24, 24],
-            })
-        }).addTo(map);
-        
-        // Create popup with custom class for positioning
-        const popup = L.popup({
-            className: 'user-marker-popup'
-        }).setContent('<strong>Tú.</strong>');
-        
-        userMarker.bindPopup(popup);
+        createUserMarker(currentPosition.lat, currentPosition.lng);
     }
 }
 
@@ -2584,6 +2649,7 @@ window.incrementControlPointTimers = incrementControlPointTimers;
 window.formatTime = formatTime;
 window.clearControlPointTimerData = clearControlPointTimerData;
 window.clearAllControlPointTimerData = clearAllControlPointTimerData;
+window.createUserMarker = createUserMarker;
 
 // Initialize when page loads
 window.onload = initialize;
