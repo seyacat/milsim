@@ -1663,6 +1663,7 @@ export class GamesService {
     }>;
     teamTotals: { [team: string]: number };
     teams: string[];
+    gameDuration: number; // Total game duration in seconds
   }> {
     console.log(`[GAME_RESULTS] Generating results report for game ${gameId}`);
 
@@ -1673,7 +1674,7 @@ export class GamesService {
 
     if (!game || !game.instanceId) {
       console.log(`[GAME_RESULTS] Game ${gameId} not found or no instance ID`);
-      return { controlPoints: [], teamTotals: {}, teams: [] };
+      return { controlPoints: [], teamTotals: {}, teams: [], gameDuration: 0 };
     }
 
     // Get all teams in the game
@@ -1754,10 +1755,15 @@ export class GamesService {
       `[GAME_RESULTS] Final report generated with ${controlPointsReport.length} control points`,
     );
 
+    // Calculate total game duration from game history
+    const gameDuration = await this.calculateElapsedTimeFromEvents(game.instanceId);
+    console.log(`[GAME_RESULTS] Game duration: ${gameDuration}s`);
+
     return {
       controlPoints: controlPointsReport,
       teamTotals,
       teams,
+      gameDuration,
     };
   }
 

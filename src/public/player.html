@@ -275,6 +275,48 @@
         <button class="btn btn-secondary" onclick="centerOnSite()" title="Centrar en Site">🏠</button>
     </div>
 
+    <!-- Game Summary Dialog -->
+    <div id="gameSummaryDialog" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Resumen del Juego</h3>
+                <button class="modal-close" onclick="closeGameSummaryDialog()">×</button>
+            </div>
+            
+            <div class="modal-body">
+                <div id="gameSummaryContent">
+                    <!-- Game summary content will be dynamically added here -->
+                    <div class="game-summary-section">
+                        <h3>¡Juego Finalizado!</h3>
+                        <p>El juego ha terminado. Aquí puedes ver el resumen de la partida.</p>
+                        <div class="game-summary-grid">
+                            <div class="game-summary-item">
+                                <span class="game-summary-label">Duración:</span>
+                                <span id="summaryDuration" class="game-summary-value game-duration">-</span>
+                            </div>
+                            <div class="game-summary-item">
+                                <span class="game-summary-label">Jugadores:</span>
+                                <span id="summaryPlayers" class="game-summary-value">-</span>
+                            </div>
+                            <div class="game-summary-item">
+                                <span class="game-summary-label">Equipos:</span>
+                                <span id="summaryTeams" class="game-summary-value">-</span>
+                            </div>
+                            <div class="game-summary-item">
+                                <span class="game-summary-label">Puntos de control:</span>
+                                <span id="summaryControlPoints" class="game-summary-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeGameSummaryDialog()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Load JavaScript files - ONLY PLAYER FILES -->
     <script src="js/control-points-player.js"></script>
     <script src="js/game-player.js"></script>

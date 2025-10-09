@@ -463,7 +463,14 @@ function updateGameInfo() {
     // Show game summary dialog if game is in finished state
     if (currentGame.status === 'finished') {
         console.log('Game is in finished state, opening summary dialog');
-        openGameSummaryDialog();
+        console.log('User role:', currentGame.owner && currentGame.owner.id === currentUser.id ? 'owner' : 'player');
+        console.log('Current user ID:', currentUser.id);
+        console.log('Game owner ID:', currentGame.owner ? currentGame.owner.id : 'none');
+        
+        // Open summary dialog for both owners and players
+        setTimeout(() => {
+            openGameSummaryDialog();
+        }, 1000); // Small delay to ensure DOM is ready
     } else if (currentGame.status === 'stopped') {
         // Close game summary dialog when returning to stopped state (for all users)
         closeGameSummaryDialog();
@@ -1792,13 +1799,24 @@ function updateTimeDisplay() {
 // Open game summary dialog
 function openGameSummaryDialog() {
     console.log('Attempting to open game summary dialog');
+    console.log('Current game status:', currentGame ? currentGame.status : 'no game');
+    console.log('Current user:', currentUser ? currentUser.name : 'no user');
+    console.log('Current user role:', currentGame && currentGame.owner && currentGame.owner.id === currentUser.id ? 'owner' : 'player');
+    
     const dialog = document.getElementById('gameSummaryDialog');
     if (dialog) {
         console.log('Game summary dialog found, setting display to flex');
+        console.log('Dialog current display style:', dialog.style.display);
         dialog.style.display = 'flex';
+        console.log('Dialog new display style:', dialog.style.display);
         updateGameSummaryContent();
+        
+        // Force a reflow to ensure the display change is applied
+        dialog.offsetHeight;
     } else {
         console.log('Game summary dialog element not found!');
+        console.log('Available elements with id gameSummaryDialog:', document.querySelectorAll('#gameSummaryDialog').length);
+        console.log('Document body HTML:', document.body.innerHTML.substring(0, 500));
     }
 }
 
@@ -1816,14 +1834,41 @@ async function updateGameSummaryContent() {
     
     if (!currentGame) return;
     
-    // Calculate duration (you can enhance this with actual game history data)
+    // Calculate duration using the game's played time
     const durationElement = document.getElementById('summaryDuration');
     const playersElement = document.getElementById('summaryPlayers');
     const teamsElement = document.getElementById('summaryTeams');
     const controlPointsElement = document.getElementById('summaryControlPoints');
     
+    // Load game results first to get the accurate game duration from backend
+    console.log(`[FRONTEND] About to load game results...`);
+    const results = await loadGameResults();
+    console.log(`[FRONTEND] Game results loaded`);
+    
     if (durationElement) {
-        durationElement.textContent = 'Por implementar';
+        let playedTime = 0;
+        
+        // Use the game duration from backend results if available
+        if (results && results.gameDuration !== undefined) {
+            playedTime = results.gameDuration;
+            console.log(`[FRONTEND] Using backend game duration: ${playedTime}s`);
+        } else {
+            // Fallback to local time data if backend duration is not available
+            playedTime = currentGame.playedTime || 0;
+            
+            // If we have a last time update, use that as it's more accurate
+            if (lastTimeUpdate && lastTimeUpdate.playedTime !== undefined) {
+                playedTime = lastTimeUpdate.playedTime;
+            }
+            console.log(`[FRONTEND] Using local time data: ${playedTime}s`);
+        }
+        
+        // Format the time in minutes and seconds
+        const minutes = Math.floor(playedTime / 60);
+        const seconds = playedTime % 60;
+        const durationText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        
+        durationElement.textContent = durationText;
     }
     
     if (playersElement) {
@@ -1837,11 +1882,6 @@ async function updateGameSummaryContent() {
     if (controlPointsElement) {
         controlPointsElement.textContent = currentGame.controlPoints ? currentGame.controlPoints.length : 0;
     }
-    
-    // Load and display game results
-    console.log(`[FRONTEND] About to load game results...`);
-    await loadGameResults();
-    console.log(`[FRONTEND] Game results loaded`);
 }
 
 // Load game results and display them in the summary
@@ -1873,7 +1913,9 @@ async function loadGameResults() {
         console.log(`[FRONTEND] Teams count: ${results.teams?.length}, Teams: ${results.teams?.join(', ')}`);
         console.log(`[FRONTEND] Control points count: ${results.controlPoints?.length}`);
         console.log(`[FRONTEND] Team totals:`, results.teamTotals);
+        console.log(`[FRONTEND] Game duration: ${results.gameDuration}s`);
         displayGameResults(results);
+        return results; // Return results for use in updateGameSummaryContent
     } catch (error) {
         console.error('Error loading game results:', error);
         // Show error message in results section
@@ -1884,6 +1926,7 @@ async function loadGameResults() {
             errorElement.textContent = 'Error al cargar resultados del juego: ' + error.message;
             gameSummaryContent.appendChild(errorElement);
         }
+        return null; // Return null on error
     }
 }
 
