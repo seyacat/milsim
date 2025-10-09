@@ -546,6 +546,12 @@ function updatePlayerMarkers() {
         
         playerMarkers[player.user.id] = marker;
     });
+    
+    // Debug: Log current player markers state
+    console.log('Player markers after update:', Object.keys(playerMarkers).length, 'markers');
+    Object.entries(playerMarkers).forEach(([playerId, marker]) => {
+        console.log(`Marker for player ${playerId}:`, marker ? 'exists' : 'null');
+    });
 }
 
 // Update individual player marker with real position data
@@ -1243,6 +1249,8 @@ function handleGameAction(data) {
                 window.updatePlayerTeamSelection();
                 // Also update user marker with new team color
                 updateUserMarkerTeam();
+                // Update current user's team information immediately
+                updateCurrentUserTeam();
             }
             break;
         case 'gameStateChanged':

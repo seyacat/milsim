@@ -83,7 +83,18 @@ async function showPlayerTeamSelection() {
         // If player not found, try to get the latest game data
         console.warn('Current player not found in game data, trying to reload...');
         try {
+            const token = localStorage.getItem('token');
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            
+            // Include authorization header if token exists
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+            
             const response = await fetch(`/api/games/${currentGame.id}`, {
+                headers: headers,
                 credentials: 'include'
             });
             if (response.ok) {
