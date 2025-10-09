@@ -1840,10 +1840,17 @@ async function updateGameSummaryContent() {
     const teamsElement = document.getElementById('summaryTeams');
     const controlPointsElement = document.getElementById('summaryControlPoints');
     
+    console.log(`[FRONTEND] Summary elements found:`, {
+        durationElement: !!durationElement,
+        playersElement: !!playersElement,
+        teamsElement: !!teamsElement,
+        controlPointsElement: !!controlPointsElement
+    });
+    
     // Load game results first to get the accurate game duration from backend
     console.log(`[FRONTEND] About to load game results...`);
     const results = await loadGameResults();
-    console.log(`[FRONTEND] Game results loaded`);
+    console.log(`[FRONTEND] Game results loaded:`, results);
     
     if (durationElement) {
         let playedTime = 0;
@@ -1868,19 +1875,27 @@ async function updateGameSummaryContent() {
         const seconds = playedTime % 60;
         const durationText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         
+        console.log(`[FRONTEND] Setting summary duration to: ${durationText} (from ${playedTime}s)`);
         durationElement.textContent = durationText;
+        console.log(`[FRONTEND] Summary duration element content: "${durationElement.textContent}"`);
     }
     
     if (playersElement) {
-        playersElement.textContent = currentGame.players ? currentGame.players.length : 0;
+        const playerCount = currentGame.players ? currentGame.players.length : 0;
+        playersElement.textContent = playerCount;
+        console.log(`[FRONTEND] Set players count to: ${playerCount}`);
     }
     
     if (teamsElement) {
-        teamsElement.textContent = currentGame.teamCount || 2;
+        const teamCount = currentGame.teamCount || 2;
+        teamsElement.textContent = teamCount;
+        console.log(`[FRONTEND] Set teams count to: ${teamCount}`);
     }
     
     if (controlPointsElement) {
-        controlPointsElement.textContent = currentGame.controlPoints ? currentGame.controlPoints.length : 0;
+        const cpCount = currentGame.controlPoints ? currentGame.controlPoints.length : 0;
+        controlPointsElement.textContent = cpCount;
+        console.log(`[FRONTEND] Set control points count to: ${cpCount}`);
     }
 }
 
@@ -1898,6 +1913,7 @@ async function loadGameResults() {
             headers['Authorization'] = `Bearer ${token}`;
         }
         
+        console.log(`[FRONTEND] Making request to /api/games/${currentGame.id}/results`);
         const response = await fetch(`/api/games/${currentGame.id}/results`, {
             headers: headers
         });
@@ -1905,6 +1921,8 @@ async function loadGameResults() {
         console.log(`[FRONTEND] Results response status: ${response.status}`);
         
         if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`[FRONTEND] Results error response:`, errorText);
             throw new Error('Error al cargar resultados del juego: ' + response.status);
         }
         
@@ -1935,16 +1953,19 @@ function displayGameResults(results) {
     const gameSummaryContent = document.getElementById('gameSummaryContent');
     if (!gameSummaryContent) return;
     
-    // Clear existing content except the basic info
-    const basicInfo = gameSummaryContent.querySelector('div[style*="text-align: center"]');
-    gameSummaryContent.innerHTML = '';
-    if (basicInfo) {
-        gameSummaryContent.appendChild(basicInfo);
-    }
+    // Find the existing results container or create a new one
+    let resultsContainer = document.getElementById('gameResultsContainer');
     
-    // Create results table container
-    const resultsContainer = document.createElement('div');
-    resultsContainer.style.cssText = 'margin-top: 20px;';
+    if (resultsContainer) {
+        // Update existing results container
+        resultsContainer.innerHTML = '';
+    } else {
+        // Create new results container
+        resultsContainer = document.createElement('div');
+        resultsContainer.id = 'gameResultsContainer';
+        resultsContainer.style.cssText = 'margin-top: 20px;';
+        gameSummaryContent.appendChild(resultsContainer);
+    }
     
     // Add results title
     const resultsTitle = document.createElement('h4');
@@ -2029,7 +2050,17 @@ function displayGameResults(results) {
     table.appendChild(tbody);
     
     resultsContainer.appendChild(table);
-    gameSummaryContent.appendChild(resultsContainer);
+    
+    // Update the game duration with the accurate value from backend results
+    const durationElement = document.getElementById('summaryDuration');
+    if (durationElement && results.gameDuration !== undefined) {
+        const playedTime = results.gameDuration;
+        const minutes = Math.floor(playedTime / 60);
+        const seconds = playedTime % 60;
+        const durationText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        console.log(`[FRONTEND] Updated summary duration from results: ${durationText} (from ${playedTime}s)`);
+        durationElement.textContent = durationText;
+    }
 }
 
 window.endGame = endGame;
