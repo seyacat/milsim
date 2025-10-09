@@ -1097,6 +1097,16 @@ function handlePlayerTeamUpdate(data) {
     // Update player marker with new team color
     updatePlayerMarkerTeam(data.playerId, data.team);
     
+    // If the current user is the one being updated, update their own marker and team data
+    if (data.userId === currentUser.id) {
+        // Update current user's team information
+        updateCurrentUserTeam();
+        // Update user marker with new team color
+        updateUserMarkerTeam();
+        // Force refresh of all player markers to update visibility rules
+        updatePlayerMarkers();
+    }
+    
     // Show notification
     if (data.userId !== currentUser.id) {
         showInfo(`${data.userName} ha sido asignado al equipo ${data.team || 'none'}`);
@@ -1292,12 +1302,6 @@ function handleGameAction(data) {
             // Update player team selection interface for the affected user
             if (data.data.userId === currentUser.id && window.updatePlayerTeamSelection) {
                 window.updatePlayerTeamSelection();
-                // Also update user marker with new team color
-                updateUserMarkerTeam();
-                // Update current user's team information immediately
-                updateCurrentUserTeam();
-                // Force refresh of all player markers to update visibility rules
-                updatePlayerMarkers();
             }
             break;
         case 'gameStateChanged':
