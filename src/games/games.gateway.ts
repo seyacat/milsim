@@ -975,4 +975,43 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     }
   }
+  // Method to broadcast bomb time updates to all connected clients in a game
+  async broadcastBombTimeUpdate(
+    controlPointId: number,
+    bombTimeData: {
+      remainingTime: number;
+      totalTime: number;
+      isActive: boolean;
+      activatedByUserId?: number;
+      activatedByUserName?: string;
+      activatedByTeam?: string;
+      exploded?: boolean;
+    },
+  ) {
+    try {
+      // Find the game that contains this control point
+      const controlPoint = await this.gamesService.getControlPointWithGame(controlPointId);
+
+      if (controlPoint && controlPoint.game) {
+        // Broadcast to the specific game room
+        this.server.to(`game_${controlPoint.game.id}`).emit('bombTimeUpdate', {
+          controlPointId,
+          ...bombTimeData,
+        });
+      } else {
+        // Fallback: broadcast to all connected clients
+        this.server.emit('bombTimeUpdate', {
+          controlPointId,
+          ...bombTimeData,
+        });
+      }
+    } catch (error) {
+      console.error('Error broadcasting bomb time update:', error);
+      // Fallback: broadcast to all connected clients
+      this.server.emit('bombTimeUpdate', {
+        controlPointId,
+        ...bombTimeData,
+      });
+    }
+  }
 }

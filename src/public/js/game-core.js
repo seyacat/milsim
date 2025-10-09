@@ -235,6 +235,11 @@ function initializeWebSocket(gameId) {
     socket.on('controlPointTimesError', (error) => {
         console.error('Error getting control point times:', error);
     });
+
+    socket.on('bombTimeUpdate', (data) => {
+        console.log('Bomb time update received:', data);
+        handleBombTimeUpdate(data);
+    });
 }
 
 // Load game data
@@ -2763,6 +2768,18 @@ function startMarkerCleanupInterval() {
             console.log(`Periodic cleanup destroyed ${destroyedCount} invalid markers`);
         }
     }, 30000);
+}
+
+// Handle bomb time updates
+function handleBombTimeUpdate(data) {
+    console.log('Handling bomb time update:', data);
+    
+    // Call the bomb time update function from control-points-player.js
+    if (window.handleBombTimeUpdate) {
+        window.handleBombTimeUpdate(data);
+    } else {
+        console.warn('handleBombTimeUpdate function not found in control-points-player.js');
+    }
 }
 
 // Initialize when page loads

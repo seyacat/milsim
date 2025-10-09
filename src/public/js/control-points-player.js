@@ -67,9 +67,7 @@ function createControlPointPlayerMenu(controlPoint, marker) {
             <div class="bomb-challenge-section" style="margin-top: 10px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: bold;">Código Armado:</label>
                 <input type="text" id="armedCodeInput_${controlPoint.id}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="Ingresa el código armado">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold; margin-top: 10px;">Código Desarmado:</label>
-                <input type="text" id="disarmedCodeInput_${controlPoint.id}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="Ingresa el código desarmado">
-                <button class="submit-bomb-button" onclick="submitBombChallenge(${controlPoint.id})" style="width: 100%; margin-top: 8px; padding: 8px; background: #FF5722; color: white; border: none; border-radius: 4px; cursor: pointer;">Enviar Códigos Bomba</button>
+                <button class="submit-bomb-button" onclick="submitBombChallenge(${controlPoint.id})" style="width: 100%; margin-top: 8px; padding: 8px; background: #FF5722; color: white; border: none; border-radius: 4px; cursor: pointer;">Activar Bomba</button>
             </div>
         `;
     }
@@ -493,28 +491,26 @@ function submitBombChallenge(controlPointId) {
         return;
     }
     
-    // Get codes from inputs
+    // Get armed code from input
     const armedCodeInput = document.getElementById(`armedCodeInput_${controlPointId}`);
-    const disarmedCodeInput = document.getElementById(`disarmedCodeInput_${controlPointId}`);
     
-    if (!armedCodeInput || !disarmedCodeInput) {
-        showError('No se pudieron encontrar los campos de código');
+    if (!armedCodeInput) {
+        showError('No se pudo encontrar el campo de código armado');
         return;
     }
     
     const armedCode = armedCodeInput.value.trim();
-    const disarmedCode = disarmedCodeInput.value.trim();
     
-    if (!armedCode || !disarmedCode) {
-        showError('Debes ingresar ambos códigos');
+    if (!armedCode) {
+        showError('Debes ingresar el código armado para activar la bomba');
         return;
     }
     
-    // For bomb challenges, we need to send one of the codes
-    // The backend will validate both codes
-    console.log('Submitting bomb codes - armed:', armedCode, 'disarmed:', disarmedCode);
+    // For bomb challenges, players only need to enter the armed code to activate the bomb
+    // The disarmed code is only used by the owner to configure the bomb
+    console.log('Submitting bomb armed code:', armedCode);
     
-    // Send the armed code (the backend will validate both)
+    // Send the armed code to activate the bomb
     sendTakeControlPointAction(controlPointId, armedCode);
 }
 
@@ -676,3 +672,97 @@ window.submitCodeChallenge = submitCodeChallenge;
 window.submitPositionChallenge = submitPositionChallenge;
 window.submitBombChallenge = submitBombChallenge;
 window.updateTimerDisplay = updateTimerDisplay;
+
+// Bomb timer functionality
+let activeBombTimers = new Map();
+
+// Handle bomb time updates from server
+function handleBombTimeUpdate(data) {
+    console.log('Received bomb time update:', data);
+    
+    const { controlPointId, remainingTime, totalTime, isActive, activatedByUserId, activatedByUserName, activatedByTeam, exploded } = data;
+    
+    if (exploded) {
+        // Bomb exploded - remove timer and show explosion notification
+        activeBombTimers.delete(controlPointId);
+        updateBombTimerDisplay();
+        showToast(`💥 ¡Bomba explotó en el punto de control!`, 'error');
+        return;
+    }
+    
+    if (!isActive) {
+        // Bomb timer is no longer active
+        activeBombTimers.delete(controlPointId);
+        updateBombTimerDisplay();
+        return;
+    }
+    
+    // Update or add bomb timer
+    activeBombTimers.set(controlPointId, {
+        controlPointId,
+        remainingTime,
+        totalTime,
+        activatedByUserId,
+        activatedByUserName,
+        activatedByTeam
+    });
+    
+    updateBombTimerDisplay();
+}
+
+// Update bomb timer display in the UI
+function updateBombTimerDisplay() {
+    const bombTimerContainer = document.getElementById('bombTimerContainer');
+    const bombTimeRemaining = document.getElementById('bombTimeRemaining');
+    const bombActivatedBy = document.getElementById('bombActivatedBy');
+    
+    if (!bombTimerContainer || !bombTimeRemaining || !bombActivatedBy) {
+        return;
+    }
+    
+    if (activeBombTimers.size === 0) {
+        // No active bomb timers
+        bombTimerContainer.style.display = 'none';
+        return;
+    }
+    
+    // For now, show the first active bomb timer
+    // In the future, we could show multiple timers or the most critical one
+    const firstBombTimer = Array.from(activeBombTimers.values())[0];
+    
+    // Format time as MM:SS
+    const minutes = Math.floor(firstBombTimer.remainingTime / 60);
+    const seconds = firstBombTimer.remainingTime % 60;
+    const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    
+    bombTimeRemaining.textContent = formattedTime;
+    
+    // Show who activated the bomb with team information
+    const teamColors = {
+        'blue': 'Azul',
+        'red': 'Rojo',
+        'green': 'Verde',
+        'yellow': 'Amarillo'
+    };
+    const teamName = firstBombTimer.activatedByTeam ? teamColors[firstBombTimer.activatedByTeam] || firstBombTimer.activatedByTeam : '';
+    const activatedByText = firstBombTimer.activatedByUserName || 'Desconocido';
+    bombActivatedBy.textContent = teamName ? `${activatedByText} (${teamName})` : activatedByText;
+    
+    // Show warning colors when time is running low
+    if (firstBombTimer.remainingTime <= 60) {
+        // Less than 1 minute - red background
+        bombTimerContainer.style.background = 'rgba(244, 67, 54, 0.9)';
+    } else if (firstBombTimer.remainingTime <= 180) {
+        // Less than 3 minutes - orange background
+        bombTimerContainer.style.background = 'rgba(255, 152, 0, 0.9)';
+    } else {
+        // Normal - red-orange background
+        bombTimerContainer.style.background = 'rgba(255, 87, 34, 0.9)';
+    }
+    
+    bombTimerContainer.style.display = 'block';
+}
+
+// Make functions available globally
+window.handleBombTimeUpdate = handleBombTimeUpdate;
+window.updateBombTimerDisplay = updateBombTimerDisplay;

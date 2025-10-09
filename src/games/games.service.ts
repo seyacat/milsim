@@ -38,10 +38,24 @@ interface ControlPointTimer {
   lastBroadcastTime: number;
 }
 
+interface BombTimer {
+  controlPointId: number;
+  gameInstanceId: number;
+  totalTime: number; // Total bomb time in seconds
+  remainingTime: number; // Remaining time in seconds
+  isActive: boolean;
+  activatedByUserId: number;
+  activatedByUserName: string;
+  activatedByTeam: string; // Team that activated the bomb
+  intervalId?: NodeJS.Timeout;
+  lastBroadcastTime: number;
+}
+
 @Injectable()
 export class GamesService {
   private gameTimers = new Map<number, GameTimer>();
   private controlPointTimers = new Map<number, ControlPointTimer>(); // controlPointId -> timer
+  private bombTimers = new Map<number, BombTimer>(); // controlPointId -> bomb timer
 
   constructor(
     @InjectRepository(Game)
@@ -1390,13 +1404,6 @@ export class GamesService {
       throw new ConflictException('Debes estar asignado a un equipo para tomar puntos de control');
     }
 
-    // Check if code challenge is active and validate code
-    if (controlPoint.hasCodeChallenge && controlPoint.code) {
-      if (!code || code.trim() !== controlPoint.code) {
-        throw new ConflictException('Código incorrecto');
-      }
-    }
-
     // Check if bomb challenge is active and validate codes
     if (controlPoint.hasBombChallenge) {
       if (!code) {
@@ -1409,6 +1416,31 @@ export class GamesService {
 
       if (!isArmedCode && !isDisarmedCode) {
         throw new ConflictException('Código incorrecto para el desafío de bomba');
+      }
+
+      // If armed code is used, activate the bomb and return without changing ownership
+      if (isArmedCode && controlPoint.bombTime && controlPoint.game?.instanceId) {
+        await this.activateBomb(
+          controlPoint.id,
+          controlPoint.game.instanceId,
+          controlPoint.bombTime,
+          userId,
+          player.user?.name || 'Unknown Player',
+          player.team, // Pass the team that activated the bomb
+        );
+        
+        // Return the control point without changing ownership
+        return controlPoint;
+      }
+      
+      // If disarmed code is used, continue with normal control point capture
+      // (this allows disarming bombs by taking control of the point)
+    }
+
+    // Check if code challenge is active and validate code
+    if (controlPoint.hasCodeChallenge && controlPoint.code) {
+      if (!code || code.trim() !== controlPoint.code) {
+        throw new ConflictException('Código incorrecto');
       }
     }
 
@@ -1970,6 +2002,7 @@ export class GamesService {
           });
         }
       }
+    
     }
 
     console.log(`[PLAYER_CAPTURE_STATS] Initialized ${playerStats.size} player stats`);
@@ -2002,5 +2035,201 @@ export class GamesService {
     console.log(`[PLAYER_CAPTURE_STATS] Final player stats:`, players);
 
     return { players };
+  }
+
+  // Bomb timer management methods
+  private async activateBomb(
+    controlPointId: number,
+    gameInstanceId: number,
+    bombTime: number,
+    userId: number,
+    userName: string,
+    team: string,
+  ): Promise<void> {
+    // Stop existing bomb timer if any
+    this.stopBombTimer(controlPointId);
+
+    // Check if game is running before starting bomb timer
+    const game = await this.gamesRepository.findOne({
+      where: { instanceId: gameInstanceId },
+    });
+
+    if (!game || game.status !== 'running') {
+      console.log(
+        `[BOMB_TIMER] Not starting bomb timer for control point ${controlPointId} - game is not running`,
+      );
+      return;
+    }
+
+    const bombTimer: BombTimer = {
+      controlPointId,
+      gameInstanceId,
+      totalTime: bombTime,
+      remainingTime: bombTime,
+      isActive: true,
+      activatedByUserId: userId,
+      activatedByUserName: userName,
+      activatedByTeam: team,
+      lastBroadcastTime: 0,
+    };
+
+    // Start countdown interval (update every second internally, broadcast every 20 seconds)
+    bombTimer.intervalId = setInterval(() => {
+      if (bombTimer.isActive) {
+        // Decrement remaining time
+        bombTimer.remainingTime--;
+
+        // Broadcast time update ONLY every 20 seconds
+        if (bombTimer.remainingTime % 20 === 0 && this.gamesGateway) {
+          this.gamesGateway.broadcastBombTimeUpdate(controlPointId, {
+            remainingTime: bombTimer.remainingTime,
+            totalTime: bombTimer.totalTime,
+            isActive: bombTimer.isActive,
+            activatedByUserId: bombTimer.activatedByUserId,
+            activatedByUserName: bombTimer.activatedByUserName,
+            activatedByTeam: bombTimer.activatedByTeam,
+          });
+          bombTimer.lastBroadcastTime = bombTimer.remainingTime;
+        }
+
+        // Check if bomb time's up
+        if (bombTimer.remainingTime <= 0) {
+          // Bomb exploded - handle explosion logic
+          void this.handleBombExplosion(controlPointId, gameInstanceId);
+        }
+      }
+    }, 1000); // 1 second interval
+
+    this.bombTimers.set(controlPointId, bombTimer);
+
+    // Add bomb activated event to history
+    await this.addGameHistory(gameInstanceId, 'bomb_activated', {
+      controlPointId,
+      bombTime,
+      activatedByUserId: userId,
+      activatedByUserName: userName,
+      timestamp: new Date(),
+    });
+
+    // Send initial bomb time update
+    if (this.gamesGateway) {
+      this.gamesGateway.broadcastBombTimeUpdate(controlPointId, {
+        remainingTime: bombTimer.remainingTime,
+        totalTime: bombTimer.totalTime,
+        isActive: bombTimer.isActive,
+        activatedByUserId: bombTimer.activatedByUserId,
+        activatedByUserName: bombTimer.activatedByUserName,
+        activatedByTeam: bombTimer.activatedByTeam,
+      });
+    }
+  }
+
+  private stopBombTimer(controlPointId: number): void {
+    const bombTimer = this.bombTimers.get(controlPointId);
+    if (bombTimer && bombTimer.intervalId) {
+      clearInterval(bombTimer.intervalId);
+      this.bombTimers.delete(controlPointId);
+    }
+  }
+
+  private async handleBombExplosion(controlPointId: number, gameInstanceId: number): Promise<void> {
+    // Stop the bomb timer
+    this.stopBombTimer(controlPointId);
+
+    // Add bomb exploded event to history
+    await this.addGameHistory(gameInstanceId, 'bomb_exploded', {
+      controlPointId,
+      timestamp: new Date(),
+    });
+
+    // Broadcast bomb explosion
+    if (this.gamesGateway) {
+      this.gamesGateway.broadcastBombTimeUpdate(controlPointId, {
+        remainingTime: 0,
+        totalTime: 0,
+        isActive: false,
+        exploded: true,
+      });
+    }
+
+    // TODO: Add any additional explosion logic here
+    console.log(`[BOMB] Bomb exploded at control point ${controlPointId}`);
+  }
+
+  // Pause all bomb timers when game is paused
+  pauseAllBombTimers(gameId: number): void {
+    const game = this.gamesRepository
+      .findOne({
+        where: { id: gameId },
+        relations: ['controlPoints'],
+      })
+      .then(game => {
+        if (game && game.controlPoints) {
+          for (const controlPoint of game.controlPoints) {
+            const bombTimer = this.bombTimers.get(controlPoint.id);
+            if (bombTimer) {
+              bombTimer.isActive = false;
+            }
+          }
+        }
+      });
+  }
+
+  // Resume all bomb timers when game is resumed
+  resumeAllBombTimers(gameId: number): void {
+    const game = this.gamesRepository
+      .findOne({
+        where: { id: gameId },
+        relations: ['controlPoints'],
+      })
+      .then(game => {
+        if (game && game.controlPoints) {
+          for (const controlPoint of game.controlPoints) {
+            const bombTimer = this.bombTimers.get(controlPoint.id);
+            if (bombTimer) {
+              bombTimer.isActive = true;
+            }
+          }
+        }
+      });
+  }
+
+  // Stop all bomb timers when game ends
+  stopAllBombTimers(gameId: number): void {
+    const game = this.gamesRepository
+      .findOne({
+        where: { id: gameId },
+        relations: ['controlPoints'],
+      })
+      .then(game => {
+        if (game && game.controlPoints) {
+          for (const controlPoint of game.controlPoints) {
+            this.stopBombTimer(controlPoint.id);
+          }
+        }
+      });
+  }
+
+  // Get current bomb time for a control point
+  getBombTime(controlPointId: number): {
+    remainingTime: number;
+    totalTime: number;
+    isActive: boolean;
+    activatedByUserId?: number;
+    activatedByUserName?: string;
+    activatedByTeam?: string;
+  } | null {
+    const bombTimer = this.bombTimers.get(controlPointId);
+    if (bombTimer) {
+      return {
+        remainingTime: bombTimer.remainingTime,
+        totalTime: bombTimer.totalTime,
+        isActive: bombTimer.isActive,
+        activatedByUserId: bombTimer.activatedByUserId,
+        activatedByUserName: bombTimer.activatedByUserName,
+        activatedByTeam: bombTimer.activatedByTeam,
+      };
+    }
+    return null;
   }
 }
