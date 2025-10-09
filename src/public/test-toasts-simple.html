@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba Simple de Toasts</title>
+    <style>
+        /* Toast notification system */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 300px;
+        }
+
+        .toast {
+            background: #152015;
+            color: #e8f5e8;
+            padding: 12px 16px;
+            border-radius: 8px;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            animation: slideIn 0.3s ease-out;
+            min-width: 250px;
+            border: 1px solid #2d3a2d;
+        }
+
+        .toast.success {
+            background: #27ae60;
+            color: white;
+            border-color: #27ae60;
+        }
+
+        .toast.error {
+            background: #e74c3c;
+            color: white;
+            border-color: #e74c3c;
+        }
+
+        .toast.warning {
+            background: #f39c12;
+            color: white;
+            border-color: #f39c12;
+        }
+
+        .toast.info {
+            background: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+
+        .toast-content {
+            flex: 1;
+            margin-right: 10px;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.8;
+        }
+
+        .toast-close:hover {
+            opacity: 1;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+        }
+
+        /* Botones de prueba */
+        .test-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 300px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+
+        .test-btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            color: white;
+        }
+
+        .success-btn { background: #27ae60; }
+        .error-btn { background: #e74c3c; }
+        .warning-btn { background: #f39c12; }
+        .info-btn { background: #3498db; }
+        .multiple-btn { background: #9b59b6; }
+    </style>
+</head>
+<body>
+    <div class="test-buttons">
+        <h2>Prueba de Toasts</h2>
+        <button class="test-btn success-btn" onclick="testSuccess()">Probar Toast de Éxito</button>
+        <button class="test-btn error-btn" onclick="testError()">Probar Toast de Error</button>
+        <button class="test-btn warning-btn" onclick="testWarning()">Probar Toast de Advertencia</button>
+        <button class="test-btn info-btn" onclick="testInfo()">Probar Toast de Información</button>
+        <button class="test-btn multiple-btn" onclick="testMultiple()">Probar Múltiples Toasts</button>
+    </div>
+
+    <script>
+        // Toast notification system
+        function showToast(message, type = 'info', duration = 5000) {
+            console.log(`[TOAST] Showing ${type} toast: "${message}"`);
+            
+            // Create toast container if it doesn't exist
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'toast-container';
+                document.body.appendChild(container);
+                console.log('[TOAST] Created toast container');
+            }
+
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            // Create toast content
+            const toastContent = document.createElement('div');
+            toastContent.className = 'toast-content';
+            toastContent.textContent = message;
+            
+            // Create close button with proper event listener
+            const closeButton = document.createElement('button');
+            closeButton.className = 'toast-close';
+            closeButton.textContent = '×';
+            closeButton.addEventListener('click', () => {
+                toast.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => {
+                    if (toast.parentElement) {
+                        toast.remove();
+                    }
+                }, 300);
+            });
+            
+            // Append elements to toast
+            toast.appendChild(toastContent);
+            toast.appendChild(closeButton);
+
+            // Add to container
+            container.appendChild(toast);
+
+            // Auto remove after duration
+            if (duration > 0) {
+                setTimeout(() => {
+                    if (toast.parentElement) {
+                        toast.style.animation = 'slideOut 0.3s ease-out';
+                        setTimeout(() => {
+                            if (toast.parentElement) {
+                                toast.remove();
+                            }
+                        }, 300);
+                    }
+                }, duration);
+            }
+
+            return toast;
+        }
+
+        // Toast utility functions
+        function showSuccess(message, duration = 5000) {
+            return showToast(message, 'success', duration);
+        }
+
+        function showError(message, duration = 5000) {
+            return showToast(message, 'error', duration);
+        }
+
+        function showWarning(message, duration = 5000) {
+            return showToast(message, 'warning', duration);
+        }
+
+        function showInfo(message, duration = 5000) {
+            return showToast(message, 'info', duration);
+        }
+
+        // Test functions
+        function testSuccess() {
+            showSuccess('¡Operación completada con éxito!');
+        }
+
+        function testError() {
+            showError('Ha ocurrido un error en la operación');
+        }
+
+        function testWarning() {
+            showWarning('Advertencia: El tiempo está por terminar');
+        }
+
+        function testInfo() {
+            showInfo('Información: El juego ha comenzado');
+        }
+
+        function testMultiple() {
+            showSuccess('Primer toast de éxito');
+            setTimeout(() => showError('Segundo toast de error'), 1000);
+            setTimeout(() => showWarning('Tercer toast de advertencia'), 2000);
+            setTimeout(() => showInfo('Cuarto toast de información'), 3000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prueba de Toasts</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Prueba de Sistema de Toasts</h1>
+        
+        <div style="display: flex; flex-direction: column; gap: 10px; max-width: 300px;">
+            <button onclick="testSuccess()" class="btn btn-success">Probar Toast de Éxito</button>
+            <button onclick="testError()" class="btn btn-danger">Probar Toast de Error</button>
+            <button onclick="testWarning()" class="btn btn-warning">Probar Toast de Advertencia</button>
+            <button onclick="testInfo()" class="btn btn-primary">Probar Toast de Información</button>
+            <button onclick="testMultiple()" class="btn btn-secondary">Probar Múltiples Toasts</button>
+        </div>
+    </div>
+
+    <script>
+        // Toast notification system
+        function showToast(message, type = 'info', duration = 5000) {
+            // Create toast container if it doesn't exist
+            let container = document.getElementById('toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = 'toast-container';
+                container.className = 'toast-container';
+                document.body.appendChild(container);
+            }
+
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            // Create toast content
+            const toastContent = document.createElement('div');
+            toastContent.className = 'toast-content';
+            toastContent.textContent = message;
+            
+            // Create close button with proper event listener
+            const closeButton = document.createElement('button');
+            closeButton.className = 'toast-close';
+            closeButton.textContent = '×';
+            closeButton.addEventListener('click', () => {
+                toast.style.animation = 'slideOut 0.3s ease-out';
+                setTimeout(() => {
+                    if (toast.parentElement) {
+                        toast.remove();
+                    }
+                }, 300);
+            });
+            
+            // Append elements to toast
+            toast.appendChild(toastContent);
+            toast.appendChild(closeButton);
+
+            // Add to container
+            container.appendChild(toast);
+
+            // Auto remove after duration
+            if (duration > 0) {
+                setTimeout(() => {
+                    if (toast.parentElement) {
+                        toast.style.animation = 'slideOut 0.3s ease-out';
+                        setTimeout(() => {
+                            if (toast.parentElement) {
+                                toast.remove();
+                            }
+                        }, 300);
+                    }
+                }, duration);
+            }
+
+            return toast;
+        }
+
+        // Toast utility functions
+        function showSuccess(message, duration = 5000) {
+            return showToast(message, 'success', duration);
+        }
+
+        function showError(message, duration = 5000) {
+            return showToast(message, 'error', duration);
+        }
+
+        function showWarning(message, duration = 5000) {
+            return showToast(message, 'warning', duration);
+        }
+
+        function showInfo(message, duration = 5000) {
+            return showToast(message, 'info', duration);
+        }
+
+        // Test functions
+        function testSuccess() {
+            showSuccess('¡Operación completada con éxito!');
+        }
+
+        function testError() {
+            showError('Ha ocurrido un error en la operación');
+        }
+
+        function testWarning() {
+            showWarning('Advertencia: El tiempo está por terminar');
+        }
+
+        function testInfo() {
+            showInfo('Información: El juego ha comenzado');
+        }
+
+        function testMultiple() {
+            showSuccess('Primer toast de éxito');
+            setTimeout(() => showError('Segundo toast de error'), 1000);
+            setTimeout(() => showWarning('Tercer toast de advertencia'), 2000);
+            setTimeout(() => showInfo('Cuarto toast de información'), 3000);
+        }
+    </script>
+</body>
+</html>

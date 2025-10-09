@@ -753,6 +753,8 @@ async function leaveGame() {
 
 // Toast notification system
 function showToast(message, type = 'info', duration = 5000) {
+    console.log(`[TOAST] Showing ${type} toast: "${message}"`);
+    
     // Create toast container if it doesn't exist
     let container = document.getElementById('toast-container');
     if (!container) {
@@ -760,16 +762,34 @@ function showToast(message, type = 'info', duration = 5000) {
         container.id = 'toast-container';
         container.className = 'toast-container';
         document.body.appendChild(container);
+        console.log('[TOAST] Created toast container');
     }
 
     // Create toast element
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     
-    toast.innerHTML = `
-        <div class="toast-content">${message}</div>
-        <button class="toast-close" onclick="this.parentElement.remove()">×</button>
-    `;
+    // Create toast content
+    const toastContent = document.createElement('div');
+    toastContent.className = 'toast-content';
+    toastContent.textContent = message;
+    
+    // Create close button with proper event listener
+    const closeButton = document.createElement('button');
+    closeButton.className = 'toast-close';
+    closeButton.textContent = '×';
+    closeButton.addEventListener('click', () => {
+        toast.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.remove();
+            }
+        }, 300);
+    });
+    
+    // Append elements to toast
+    toast.appendChild(toastContent);
+    toast.appendChild(closeButton);
 
     // Add to container
     container.appendChild(toast);
@@ -1029,6 +1049,8 @@ function handlePlayerTeamUpdate(data) {
     // Show notification
     if (data.userId !== currentUser.id) {
         showInfo(`${data.userName} ha sido asignado al equipo ${data.team || 'none'}`);
+    } else {
+        showSuccess(`Has sido asignado al equipo ${data.team || 'none'}`);
     }
 }
 
@@ -1201,6 +1223,8 @@ function handleGameAction(data) {
             // Show notification when a control point is taken
             if (data.data.userId !== currentUser.id) {
                 showInfo(`${data.data.userName} ha tomado un punto de control`);
+            } else {
+                showSuccess(`¡Has tomado el punto de control!`);
             }
             break;
         case 'playerTeamUpdated':
