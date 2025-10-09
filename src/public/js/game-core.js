@@ -2180,7 +2180,8 @@ function handleControlPointTimeUpdate(data) {
     if (currentGame && currentGame.controlPoints) {
         const controlPointIndex = currentGame.controlPoints.findIndex(cp => cp.id === controlPointId);
         if (controlPointIndex !== -1) {
-            // Update the control point with current hold time data from backend
+            // Replace the local timer value with the authoritative value from backend
+            // This prevents duplicate counting when server sends updates
             currentGame.controlPoints[controlPointIndex].currentHoldTime = currentHoldTime;
             currentGame.controlPoints[controlPointIndex].currentTeam = currentTeam;
             currentGame.controlPoints[controlPointIndex].displayTime = displayTime;
@@ -2188,7 +2189,7 @@ function handleControlPointTimeUpdate(data) {
             // Also update the ownedByTeam field which is used by the marker display logic
             currentGame.controlPoints[controlPointIndex].ownedByTeam = currentTeam;
             
-            // Store timer data in global storage
+            // Store timer data in global storage - this replaces any local incrementing
             controlPointTimerData[controlPointId] = {
                 currentTeam,
                 displayTime,
@@ -2326,8 +2327,9 @@ function startControlPointTimerInterval() {
     // Start new interval to update control point timer displays every second
     window.controlPointTimerInterval = setInterval(() => {
         if (currentGame && currentGame.status === 'running') {
-            // Update displays only - don't increment timers locally
-            // The server is the authoritative source for control point times
+            // Increment control point timers locally by 1 second each second
+            // This provides smooth updates between server syncs
+            incrementControlPointTimers();
             updateAllTimerDisplays();
         }
     }, 1000);
@@ -2340,6 +2342,46 @@ function stopControlPointTimerInterval() {
         window.controlPointTimerInterval = null;
     }
 }
+
+  // Increment control point timers locally by 1 second
+  function incrementControlPointTimers() {
+    if (!currentGame || !currentGame.controlPoints) return;
+    
+    const isGameRunning = currentGame.status === 'running';
+    
+    currentGame.controlPoints.forEach(controlPoint => {
+      const hasCurrentTeam = controlPoint.currentTeam || controlPointTimerData[controlPoint.id]?.currentTeam;
+      
+      // Only increment timers for control points that are owned and game is running
+      if (isGameRunning && hasCurrentTeam) {
+        // Get current hold time from control point data or global storage
+        let currentHoldTime = controlPoint.currentHoldTime || 0;
+        
+        // If we have timer data from global storage, use that
+        if (controlPointTimerData[controlPoint.id] && controlPointTimerData[controlPoint.id].currentHoldTime) {
+          currentHoldTime = controlPointTimerData[controlPoint.id].currentHoldTime;
+        }
+        
+        // Increment by 1 second
+        currentHoldTime++;
+        
+        // Update both the control point data and global storage
+        controlPoint.currentHoldTime = currentHoldTime;
+        controlPoint.displayTime = formatTime(currentHoldTime);
+        
+        if (controlPointTimerData[controlPoint.id]) {
+          controlPointTimerData[controlPoint.id].currentHoldTime = currentHoldTime;
+          controlPointTimerData[controlPoint.id].displayTime = formatTime(currentHoldTime);
+        } else {
+          controlPointTimerData[controlPoint.id] = {
+            currentTeam: controlPoint.currentTeam,
+            currentHoldTime: currentHoldTime,
+            displayTime: formatTime(currentHoldTime)
+          };
+        }
+      }
+    });
+  }
 
   // Format time in mm:ss
   function formatTime(seconds) {
@@ -2364,6 +2406,7 @@ function stopControlPointTimerInterval() {
 window.updateAllTimerDisplays = updateAllTimerDisplays;
 window.startControlPointTimerInterval = startControlPointTimerInterval;
 window.stopControlPointTimerInterval = stopControlPointTimerInterval;
+window.incrementControlPointTimers = incrementControlPointTimers;
 window.formatTime = formatTime;
 window.clearControlPointTimerData = clearControlPointTimerData;
 window.clearAllControlPointTimerData = clearAllControlPointTimerData;
