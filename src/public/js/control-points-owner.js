@@ -178,10 +178,8 @@ function addControlPointMarkerOwner(controlPoint) {
     // If bomb challenge is active, use bomb emoji regardless of type
     if (controlPoint.hasBombChallenge) {
         iconEmoji = '💣';
-        // Only use red color for bomb if not owned by a team
-        if (!controlPoint.ownedByTeam) {
-            iconColor = '#FF0000'; // Red for bomb
-        }
+        // Keep the current background color (team color or gray for unowned)
+        // Don't change the background color for bomb challenge
     } else {
         switch (controlPoint.type) {
             case 'site':
