@@ -1512,44 +1512,35 @@ export class GamesService {
     let totalHoldTime = 0;
     let currentTeam: string | null = null;
     let gameState: 'running' | 'paused' | 'ended' = 'paused';
-    let lastEventTime: Date | null = null;
     let currentHoldStart: Date | null = null;
 
     // Process timeline chronologically
     for (let i = 0; i < timeline.length; i++) {
       const event = timeline[i];
 
-      // Calculate time from last event to current event (if any)
-      // Only add time if the current team is the same as the current owner team
-      if (
-        lastEventTime &&
-        gameState === 'running' &&
-        currentTeam &&
-        currentHoldStart &&
-        currentTeam === currentOwnerTeam
-      ) {
-        const intervalTime = Math.floor(
-          (event.timestamp.getTime() - lastEventTime.getTime()) / 1000,
-        );
-        totalHoldTime += intervalTime;
-      }
-
       if (event.type === 'game_state') {
         // Handle game state changes
         if (event.state === 'game_started' || event.state === 'game_resumed') {
           gameState = 'running';
-          if (currentTeam && !currentHoldStart) {
+          // If we have a current team and game is running, start counting time
+          if (currentTeam && currentTeam === currentOwnerTeam) {
             currentHoldStart = event.timestamp;
           }
         } else if (event.state === 'game_paused' || event.state === 'game_ended') {
+          // Add time from current hold start to pause/end event
+          if (currentHoldStart && currentTeam === currentOwnerTeam) {
+            const intervalTime = Math.floor(
+              (event.timestamp.getTime() - currentHoldStart.getTime()) / 1000,
+            );
+            totalHoldTime += intervalTime;
+          }
           gameState = event.state === 'game_paused' ? 'paused' : 'ended';
           currentHoldStart = null;
         }
       } else if (event.type === 'capture' && event.controlPointId === controlPointId) {
         // This is a capture event for our control point
-        // Only add time if the previous team was the same as the current owner team
-        if (currentTeam && currentHoldStart && currentTeam === currentOwnerTeam) {
-          // Add time from previous capture to this capture
+        // Add time from previous hold start to this capture event
+        if (currentHoldStart && currentTeam === currentOwnerTeam) {
           const intervalTime = Math.floor(
             (event.timestamp.getTime() - currentHoldStart.getTime()) / 1000,
           );
@@ -1557,21 +1548,14 @@ export class GamesService {
         }
 
         currentTeam = event.team;
-        currentHoldStart = gameState === 'running' ? event.timestamp : null;
+        // Start new hold period if game is running and team matches current owner
+        currentHoldStart =
+          gameState === 'running' && currentTeam === currentOwnerTeam ? event.timestamp : null;
       }
-
-      lastEventTime = event.timestamp;
     }
 
     // Handle current running interval if game is still running and control point is owned
-    // Only add time if the current team is the same as the current owner team
-    if (
-      isCurrentlyRunning &&
-      gameState === 'running' &&
-      currentTeam &&
-      currentHoldStart &&
-      currentTeam === currentOwnerTeam
-    ) {
+    if (isCurrentlyRunning && currentHoldStart && currentTeam === currentOwnerTeam) {
       const currentIntervalTime = Math.floor((Date.now() - currentHoldStart.getTime()) / 1000);
       totalHoldTime += currentIntervalTime;
     }
@@ -1834,47 +1818,38 @@ export class GamesService {
     let totalHoldTime = 0;
     let currentTeam: string | null = null;
     let gameState: 'running' | 'paused' | 'ended' = 'paused';
-    let lastEventTime: Date | null = null;
     let currentHoldStart: Date | null = null;
 
     // Process timeline chronologically
     for (let i = 0; i < timeline.length; i++) {
       const event = timeline[i];
 
-      // Calculate time from last event to current event (if any)
-      // Only add time if the current team is the same as the specified team
-      if (
-        lastEventTime &&
-        gameState === 'running' &&
-        currentTeam &&
-        currentHoldStart &&
-        currentTeam === team
-      ) {
-        const intervalTime = Math.floor(
-          (event.timestamp.getTime() - lastEventTime.getTime()) / 1000,
-        );
-        totalHoldTime += intervalTime;
-        console.log(
-          `[TEAM_HOLD_TIME] Added ${intervalTime}s for team ${team}, total: ${totalHoldTime}s`,
-        );
-      }
-
       if (event.type === 'game_state') {
         // Handle game state changes
         if (event.state === 'game_started' || event.state === 'game_resumed') {
           gameState = 'running';
-          if (currentTeam && !currentHoldStart) {
+          // If we have a current team and it matches the specified team, start counting time
+          if (currentTeam && currentTeam === team) {
             currentHoldStart = event.timestamp;
           }
         } else if (event.state === 'game_paused' || event.state === 'game_ended') {
+          // Add time from current hold start to pause/end event
+          if (currentHoldStart && currentTeam === team) {
+            const intervalTime = Math.floor(
+              (event.timestamp.getTime() - currentHoldStart.getTime()) / 1000,
+            );
+            totalHoldTime += intervalTime;
+            console.log(
+              `[TEAM_HOLD_TIME] Added ${intervalTime}s for team ${team}, total: ${totalHoldTime}s`,
+            );
+          }
           gameState = event.state === 'game_paused' ? 'paused' : 'ended';
           currentHoldStart = null;
         }
       } else if (event.type === 'capture' && event.controlPointId === controlPointId) {
         // This is a capture event for our control point
-        // Only add time if the previous team was the same as the specified team
-        if (currentTeam && currentHoldStart && currentTeam === team) {
-          // Add time from previous capture to this capture
+        // Add time from previous hold start to this capture event
+        if (currentHoldStart && currentTeam === team) {
           const intervalTime = Math.floor(
             (event.timestamp.getTime() - currentHoldStart.getTime()) / 1000,
           );
@@ -1885,24 +1860,17 @@ export class GamesService {
         }
 
         currentTeam = event.team;
-        currentHoldStart = gameState === 'running' ? event.timestamp : null;
+        // Start new hold period if game is running and team matches the specified team
+        currentHoldStart =
+          gameState === 'running' && currentTeam === team ? event.timestamp : null;
         console.log(
           `[TEAM_HOLD_TIME] Control point ${controlPointId} captured by team ${currentTeam}`,
         );
       }
-
-      lastEventTime = event.timestamp;
     }
 
     // Handle current running interval if game is still running and control point is owned
-    // Only add time if the current team is the same as the specified team
-    if (
-      isCurrentlyRunning &&
-      gameState === 'running' &&
-      currentTeam &&
-      currentHoldStart &&
-      currentTeam === team
-    ) {
+    if (isCurrentlyRunning && currentHoldStart && currentTeam === team) {
       const currentIntervalTime = Math.floor((Date.now() - currentHoldStart.getTime()) / 1000);
       totalHoldTime += currentIntervalTime;
       console.log(

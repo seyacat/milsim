@@ -2323,46 +2323,11 @@ function startControlPointTimerInterval() {
         clearInterval(window.controlPointTimerInterval);
     }
     
-    // Start new interval to increment control point timers every second
+    // Start new interval to update control point timer displays every second
     window.controlPointTimerInterval = setInterval(() => {
         if (currentGame && currentGame.status === 'running') {
-            // Increment all control point timers by 1 second
-            if (currentGame.controlPoints) {
-                currentGame.controlPoints.forEach(controlPoint => {
-                    const hasCurrentTeam = controlPoint.currentTeam || controlPointTimerData[controlPoint.id]?.currentTeam;
-                    if (hasCurrentTeam) {
-                        // Get current time in seconds from displayTime
-                        let currentSeconds = 0;
-                        if (controlPoint.displayTime) {
-                            const [minutes, seconds] = controlPoint.displayTime.split(':').map(Number);
-                            currentSeconds = minutes * 60 + seconds;
-                        } else {
-                            // If no displayTime, check global storage
-                            const storedData = controlPointTimerData[controlPoint.id];
-                            if (storedData && storedData.displayTime) {
-                                const [minutes, seconds] = storedData.displayTime.split(':').map(Number);
-                                currentSeconds = minutes * 60 + seconds;
-                                controlPoint.displayTime = storedData.displayTime;
-                            }
-                        }
-                        
-                        // Increment by 1 second
-                        currentSeconds += 1;
-                        
-                        // Update displayTime
-                        const newMinutes = Math.floor(currentSeconds / 60);
-                        const newSeconds = currentSeconds % 60;
-                        controlPoint.displayTime = `${newMinutes.toString().padStart(2, '0')}:${newSeconds.toString().padStart(2, '0')}`;
-                        
-                        // Also update global storage
-                        if (controlPointTimerData[controlPoint.id]) {
-                            controlPointTimerData[controlPoint.id].displayTime = controlPoint.displayTime;
-                        }
-                    }
-                });
-            }
-            
-            // Update displays
+            // Update displays only - don't increment timers locally
+            // The server is the authoritative source for control point times
             updateAllTimerDisplays();
         }
     }, 1000);
