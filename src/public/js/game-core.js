@@ -345,7 +345,7 @@ function updateCurrentUserTeam() {
     
     // Find the current player in the game's players list
     if (currentGame.players && Array.isArray(currentGame.players)) {
-        currentPlayer = currentGame.players.find(p => p.user && p.user.id === currentUser.id);
+        currentPlayer = currentGame.players.find(p => p && p.user && p.user.id === currentUser.id);
         if (currentPlayer) {
             team = currentPlayer.team || 'none';
         }
@@ -429,7 +429,7 @@ function updateGameInfo() {
     
     // Update controls visibility
     const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-    const isPlayer = currentGame.players && currentGame.players.some(p => p.user.id === currentUser.id);
+    const isPlayer = currentGame.players && currentGame.players.some(p => p && p.user && p.user.id === currentUser.id);
     
     const ownerControls = document.getElementById('ownerControls');
     const playersBtn = document.getElementById('playersBtn');
@@ -512,10 +512,19 @@ function updateGameInfo() {
 
 // Update player markers on map
 function updatePlayerMarkers() {
-    // Clear existing markers (except user's own marker)
+    // Clear existing markers (except user's own marker) and destroy markers with null user IDs
     Object.entries(playerMarkers).forEach(([playerId, marker]) => {
         if (playerId !== currentUser.id.toString() && marker) {
             map.removeLayer(marker);
+        }
+        // Destroy markers with null or invalid user IDs
+        if (!validateMarker(playerId, 'cleanup')) {
+            if (marker) {
+                map.removeLayer(marker);
+                console.log('Destroyed marker with invalid user ID:', playerId);
+                notifyMarkerDestruction(playerId, 'invalid_user_id');
+            }
+            delete playerMarkers[playerId];
         }
     });
     
@@ -544,7 +553,7 @@ function updatePlayerMarkers() {
         // Check visibility rules
         const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
         const isStopped = currentGame.status === 'stopped';
-        const currentPlayer = currentGame.players?.find(p => p.user.id === currentUser.id);
+        const currentPlayer = currentGame.players?.find(p => p && p.user && p.user.id === currentUser.id);
         
         // Owner can always see all players
         if (!isOwner) {
@@ -559,9 +568,9 @@ function updatePlayerMarkers() {
         }
 
         // Create initial marker at default position (will be updated when position data arrives)
-        const targetIsOwner = currentGame.owner && player.user.id === currentGame.owner.id;
+        const targetIsOwner = currentGame.owner && player.user && player.user.id === currentGame.owner.id;
         const teamClass = player.team && player.team !== 'none' ? player.team : 'none';
-        console.log('Creating player marker with team class:', teamClass, 'for player:', player.user.name);
+        console.log('Creating player marker with team class:', teamClass, 'for player:', player.user?.name || 'Jugador');
         const marker = L.marker([0, 0], {
             icon: L.divIcon({
                 className: `player-marker ${teamClass}`,
@@ -572,12 +581,30 @@ function updatePlayerMarkers() {
         const teamInfo = player.team && player.team !== 'none' ? `<br>Equipo: ${player.team.toUpperCase()}` : '';
         
         marker.bindPopup(`
-            <strong>${player.user.name || 'Jugador'}</strong><br>
+            <strong>${player.user?.name || 'Jugador'}</strong><br>
             ${targetIsOwner ? 'Propietario' : 'Jugador'}${teamInfo}<br>
             <em>Esperando posición GPS...</em>
         `);
         
-        playerMarkers[player.user.id] = marker;
+        if (player.user && player.user.id) {
+            if (validateMarker(player.user.id, 'marker_creation')) {
+                playerMarkers[player.user.id] = marker;
+            } else {
+                // Destroy marker if user ID is invalid
+                if (marker) {
+                    map.removeLayer(marker);
+                    console.log('Destroyed marker with invalid user ID for player:', player.user?.name || 'unknown');
+                    notifyMarkerDestruction(player.user.id, 'invalid_user_id');
+                }
+            }
+        } else {
+            // Destroy marker if user ID is null
+            if (marker) {
+                map.removeLayer(marker);
+                console.log('Destroyed marker with null user ID for player:', player.user?.name || 'unknown');
+                notifyMarkerDestruction('unknown', 'null_user_object');
+            }
+        }
     });
     
     // Debug: Log current player markers state
@@ -605,8 +632,8 @@ function updatePlayerMarker(positionData) {
         // Owner can see everyone
     } else {
         // For non-owners, check team visibility rules
-        const currentPlayer = currentGame.players?.find(p => p.user.id === currentUser.id);
-        const targetPlayer = currentGame.players?.find(p => p.user.id === userId);
+        const currentPlayer = currentGame.players?.find(p => p && p.user && p.user.id === currentUser.id);
+        const targetPlayer = currentGame.players?.find(p => p && p.user && p.user.id === userId);
         
         if (!isStopped) {
             // In running/paused state, only show same team players
@@ -622,8 +649,13 @@ function updatePlayerMarker(positionData) {
         // In stopped state, all players can see each other
     }
 
+    // Validate user ID before proceeding
+    if (!validateMarker(userId, 'marker_update')) {
+        return;
+    }
+
     let marker = playerMarkers[userId];
-    const targetPlayer = currentGame.players?.find(p => p.user.id === userId);
+    const targetPlayer = currentGame.players?.find(p => p && p.user && p.user.id === userId);
     const teamClass = targetPlayer?.team && targetPlayer.team !== 'none' ? targetPlayer.team : 'none';
     
     if (!marker) {
@@ -736,7 +768,7 @@ function createUserMarker(lat, lng) {
         userMarker = null;
     }
     
-    const currentPlayer = currentGame?.players?.find(p => p.user.id === currentUser.id);
+    const currentPlayer = currentGame?.players?.find(p => p && p.user && p.user.id === currentUser.id);
     const teamClass = currentPlayer?.team && currentPlayer.team !== 'none' ? currentPlayer.team : 'none';
     console.log('Creating user marker with team class:', teamClass);
     
@@ -1026,7 +1058,7 @@ function renderPlayersList() {
         const teamButtons = createTeamButtons(player);
         
         playerRow.innerHTML = `
-            <div class="player-name">${player.user.name}</div>
+            <div class="player-name">${player?.user?.name || 'Jugador'}</div>
             <div class="player-teams">${teamButtons}</div>
         `;
         
@@ -1080,7 +1112,7 @@ function updatePlayerTeam(playerId, team) {
 // Handle player team updates
 function handlePlayerTeamUpdate(data) {
     // Update local players data for owner dialog
-    const playerIndex = playersData.findIndex(p => p.id === data.playerId);
+    const playerIndex = playersData.findIndex(p => p && p.id === data.playerId);
     if (playerIndex !== -1) {
         playersData[playerIndex].team = data.team;
         renderPlayersList();
@@ -1088,7 +1120,7 @@ function handlePlayerTeamUpdate(data) {
     
     // Update currentGame players data for team selection interface
     if (currentGame && currentGame.players) {
-        const gamePlayerIndex = currentGame.players.findIndex(p => p.id === data.playerId);
+        const gamePlayerIndex = currentGame.players.findIndex(p => p && p.id === data.playerId);
         if (gamePlayerIndex !== -1) {
             currentGame.players[gamePlayerIndex].team = data.team;
         }
@@ -1118,12 +1150,21 @@ function handlePlayerTeamUpdate(data) {
 // Update player marker with new team
 function updatePlayerMarkerTeam(playerId, team) {
     // Find the player by playerId to get the userId
-    const targetPlayer = currentGame.players?.find(p => p.id === playerId);
+    const targetPlayer = currentGame.players?.find(p => p && p.id === playerId);
     if (!targetPlayer) {
         return;
     }
     
-    const userId = targetPlayer.user.id;
+    const userId = targetPlayer?.user?.id;
+    if (!userId) {
+        return;
+    }
+    
+    // Validate user ID before proceeding
+    if (!validateMarker(userId, 'marker_team_update')) {
+        return;
+    }
+
     const marker = playerMarkers[userId];
     if (marker) {
         const teamClass = team && team !== 'none' ? team : 'none';
@@ -1293,7 +1334,7 @@ function handleGameAction(data) {
             
             // Update the affected player's data in currentGame
             if (currentGame && currentGame.players) {
-                const playerIndex = currentGame.players.findIndex(p => p.id === data.data.playerId);
+                const playerIndex = currentGame.players.findIndex(p => p && p.id === data.data.playerId);
                 if (playerIndex !== -1) {
                     currentGame.players[playerIndex].team = data.data.team;
                 }
@@ -1313,7 +1354,7 @@ function handleGameAction(data) {
                 // Preserve current user's team data
                 const preservedCurrentUserTeam = currentUser ? currentUser.team : null;
                 const preservedCurrentPlayer = currentGame && currentGame.players ?
-                    currentGame.players.find(p => p.user && p.user.id === currentUser.id) : null;
+                    currentGame.players.find(p => p && p.user && p.user.id === currentUser.id) : null;
                 
                 if (currentGame && currentGame.controlPoints) {
                     currentGame.controlPoints.forEach(cp => {
@@ -1350,7 +1391,7 @@ function handleGameAction(data) {
                 
                 // Preserve current user's team in the new game data if not found
                 if (preservedCurrentUserTeam && currentGame.players) {
-                    const currentPlayerInNewGame = currentGame.players.find(p => p.user && p.user.id === currentUser.id);
+                    const currentPlayerInNewGame = currentGame.players.find(p => p && p.user && p.user.id === currentUser.id);
                     if (!currentPlayerInNewGame && preservedCurrentPlayer) {
                         // Add the current player to the new game data if missing
                         currentGame.players.push(preservedCurrentPlayer);
@@ -2652,8 +2693,81 @@ window.stopControlPointTimerInterval = stopControlPointTimerInterval;
 window.incrementControlPointTimers = incrementControlPointTimers;
 window.formatTime = formatTime;
 window.clearControlPointTimerData = clearControlPointTimerData;
+// Notify backend when markers are destroyed due to invalid user IDs
+function notifyMarkerDestruction(userId, reason) {
+    if (socket && currentGame) {
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'markerDestroyed',
+            data: {
+                userId: userId,
+                reason: reason,
+                timestamp: Date.now()
+            }
+        });
+        console.log('Notified backend about destroyed marker for user:', userId, 'Reason:', reason);
+    }
+}
+
+// Clean up markers with invalid user IDs and notify backend
+function cleanupInvalidMarkers() {
+    let destroyedCount = 0;
+    
+    Object.entries(playerMarkers).forEach(([playerId, marker]) => {
+        // Check for invalid user IDs
+        if (!playerId || playerId === 'null' || playerId === 'undefined' || playerId === '0') {
+            if (marker) {
+                map.removeLayer(marker);
+                console.log('Destroyed marker with invalid user ID:', playerId);
+                notifyMarkerDestruction(playerId, 'invalid_user_id');
+                destroyedCount++;
+            }
+            delete playerMarkers[playerId];
+        }
+    });
+    
+    if (destroyedCount > 0) {
+        console.log(`Cleaned up ${destroyedCount} markers with invalid user IDs`);
+        // Request backend to refresh markers list
+        if (socket && currentGame) {
+            socket.emit('gameAction', {
+                gameId: currentGame.id,
+                action: 'refreshMarkers'
+            });
+        }
+    }
+    
+    return destroyedCount;
+}
+
+// Validate marker before any operation that requires user ID
+function validateMarker(userId, operation) {
+    if (!userId || userId === 'null' || userId === 'undefined' || userId === '0') {
+        console.log(`Skipping ${operation} for invalid user ID:`, userId);
+        return false;
+    }
+    return true;
+}
+
 window.clearAllControlPointTimerData = clearAllControlPointTimerData;
 window.createUserMarker = createUserMarker;
+window.cleanupInvalidMarkers = cleanupInvalidMarkers;
+window.validateMarker = validateMarker;
+
+// Add periodic cleanup of invalid markers
+function startMarkerCleanupInterval() {
+    // Clean up every 30 seconds
+    setInterval(() => {
+        const destroyedCount = cleanupInvalidMarkers();
+        if (destroyedCount > 0) {
+            console.log(`Periodic cleanup destroyed ${destroyedCount} invalid markers`);
+        }
+    }, 30000);
+}
 
 // Initialize when page loads
-window.onload = initialize;
+window.onload = function() {
+    initialize();
+    // Start periodic marker cleanup after initialization
+    setTimeout(startMarkerCleanupInterval, 10000); // Start after 10 seconds
+};

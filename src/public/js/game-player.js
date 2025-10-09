@@ -36,7 +36,7 @@ function updatePlayerTeamSelection() {
         gameStatus: currentGame.status,
         teamCount: currentGame.teamCount,
         players: currentGame.players?.length,
-        currentPlayer: currentGame.players?.find(p => p.user.id === currentUser.id)
+        currentPlayer: currentGame.players?.find(p => p && p.user && p.user.id === currentUser.id)
     });
 }
 
@@ -74,7 +74,7 @@ async function showPlayerTeamSelection() {
     `;
     
     // Get current player's team - ensure we have the latest data
-    let currentPlayer = currentGame.players?.find(p => p.user.id === currentUser.id);
+    let currentPlayer = currentGame.players?.find(p => p && p.user && p.user.id === currentUser.id);
     let currentTeam = 'none';
     
     if (currentPlayer) {
@@ -100,7 +100,7 @@ async function showPlayerTeamSelection() {
             if (response.ok) {
                 const updatedGame = await response.json();
                 currentGame = updatedGame;
-                currentPlayer = currentGame.players?.find(p => p.user.id === currentUser.id);
+                currentPlayer = currentGame.players?.find(p => p && p.user && p.user.id === currentUser.id);
                 currentTeam = currentPlayer?.team || 'none';
             } else {
                 console.warn('Failed to reload game data:', response.status, response.statusText);
@@ -168,7 +168,7 @@ function selectPlayerTeam(team) {
     if (!socket || !currentGame || !currentUser) return;
     
     // Find current player - try multiple approaches
-    let currentPlayer = currentGame.players?.find(p => p.user.id === currentUser.id);
+    let currentPlayer = currentGame.players?.find(p => p && p.user && p.user.id === currentUser.id);
     
     // If player not found in currentGame.players, try to get player ID from the DOM or use a fallback
     if (!currentPlayer) {
