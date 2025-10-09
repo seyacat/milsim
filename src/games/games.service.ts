@@ -271,6 +271,11 @@ export class GamesService {
       throw new NotFoundException('Control point not found');
     }
 
+    // Track if ownership changed for history logging
+    const previousTeam = controlPoint.ownedByTeam;
+    const newTeam = updateData.ownedByTeam;
+    const ownershipChanged = previousTeam !== newTeam;
+
     // Validate control point type
     const validTypes = ['control_point', 'site', 'bomb'];
     if (updateData.type && !validTypes.includes(updateData.type)) {
@@ -311,10 +316,27 @@ export class GamesService {
     // Return the updated control point
     const updatedControlPoint = await this.controlPointsRepository.findOne({
       where: { id },
+      relations: ['game'],
     });
     if (!updatedControlPoint) {
       throw new NotFoundException('Control point not found after update');
     }
+
+    // Log ownership changes to game history
+    if (ownershipChanged && updatedControlPoint.game?.instanceId) {
+      await this.addGameHistory(updatedControlPoint.game.instanceId, 'control_point_taken', {
+        controlPointId: id,
+        controlPointName: updatedControlPoint.name,
+        team: newTeam,
+        userId: null, // System/owner action
+        assignedByOwner: true,
+        timestamp: new Date(),
+      });
+
+      // Update control point timer with new ownership
+      await this.updateControlPointTimer(id, updatedControlPoint.game.instanceId);
+    }
+
     return updatedControlPoint;
   }
 
@@ -390,7 +412,7 @@ export class GamesService {
   async startGame(gameId: number, userId: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
-      relations: ['owner'],
+      relations: ['owner', 'controlPoints'],
     });
 
     if (!game) {
@@ -420,6 +442,23 @@ export class GamesService {
       startedBy: userId,
       timestamp: new Date(),
     });
+
+    // Register initial control point states for control points with assigned teams
+    if (game.controlPoints && game.controlPoints.length > 0) {
+      for (const controlPoint of game.controlPoints) {
+        if (controlPoint.ownedByTeam) {
+          await this.addGameHistory(gameInstance.id, 'control_point_taken', {
+            controlPointId: controlPoint.id,
+            controlPointName: controlPoint.name,
+            team: controlPoint.ownedByTeam,
+            userId: null, // System/owner action
+            assignedByOwner: true,
+            initialState: true,
+            timestamp: new Date(),
+          });
+        }
+      }
+    }
 
     // ALWAYS start timer for running games, even if totalTime is null (indefinite games)
     if (game.status === 'running') {
@@ -755,38 +794,67 @@ export class GamesService {
 
   // Calculate elapsed time from game history events
   private async calculateElapsedTimeFromEvents(gameInstanceId: number): Promise<number> {
-    const timeEvents = await this.getTimeEventsFromHistory(gameInstanceId);
-    let totalElapsedTime = 0;
-    let lastStartTime: Date | null = null;
+    // Get all game history events
+    const history = await this.gameHistoryRepository.find({
+      where: {
+        gameInstance: { id: gameInstanceId },
+      },
+      order: { timestamp: 'ASC' },
+    });
 
-    // Get current game status to determine if we should add current time
+    // Filter for time events (game_started, game_paused, game_resumed)
+    const timeEvents = history.filter(record =>
+      ['game_started', 'game_paused', 'game_resumed'].includes(record.eventType),
+    );
+
+    if (timeEvents.length === 0) {
+      return 0;
+    }
+
+    // Get current game status
     const game = await this.gamesRepository.findOne({
       where: { instanceId: gameInstanceId },
     });
     const isCurrentlyRunning = game && game.status === 'running';
 
+    let totalElapsedTime = 0;
+    let currentGameState: 'running' | 'paused' = 'paused'; // Start paused until game starts
+    let lastEventTime: Date | null = null;
+
+    // Process time events chronologically
     for (let i = 0; i < timeEvents.length; i++) {
       const event = timeEvents[i];
+      const nextEvent = i < timeEvents.length - 1 ? timeEvents[i + 1] : null;
 
-      if (event.type === 'game_started' || event.type === 'game_resumed') {
-        if (!lastStartTime) {
-          lastStartTime = event.timestamp;
-        }
-      } else if (event.type === 'game_paused') {
-        if (lastStartTime) {
-          const segmentTime = (event.timestamp.getTime() - lastStartTime.getTime()) / 1000;
+      if (event.eventType === 'game_started' || event.eventType === 'game_resumed') {
+        // Game started or resumed - start counting time
+        currentGameState = 'running';
+        lastEventTime = event.timestamp;
+      } else if (event.eventType === 'game_paused') {
+        // Game paused - add time from last start/resume to pause
+        if (currentGameState === 'running' && lastEventTime) {
+          const segmentTime = Math.floor(
+            (event.timestamp.getTime() - lastEventTime.getTime()) / 1000,
+          );
           totalElapsedTime += segmentTime;
-          lastStartTime = null;
         }
+        currentGameState = 'paused';
+        lastEventTime = event.timestamp;
+      }
+
+      // If this is the last event and game is currently running, add time to now
+      if (
+        i === timeEvents.length - 1 &&
+        isCurrentlyRunning &&
+        currentGameState === 'running' &&
+        lastEventTime
+      ) {
+        const currentSegmentTime = Math.floor((Date.now() - lastEventTime.getTime()) / 1000);
+        totalElapsedTime += currentSegmentTime;
       }
     }
 
-    // If game is currently running and we have a start time, add time from last start to now
-    if (isCurrentlyRunning && lastStartTime) {
-      const currentSegmentTime = (Date.now() - lastStartTime.getTime()) / 1000;
-      totalElapsedTime += currentSegmentTime;
-    }
-    return Math.floor(totalElapsedTime);
+    return totalElapsedTime;
   }
 
   // Get time events from game history
@@ -888,7 +956,7 @@ export class GamesService {
     const game = await this.gamesRepository.findOne({
       where: { instanceId: gameInstanceId },
     });
-    
+
     if (!game || game.status !== 'running') {
       console.log(
         `[CONTROL_POINT_TIMER] Not starting timer for control point ${controlPointId} - game is not running`,
@@ -896,14 +964,14 @@ export class GamesService {
       return;
     }
 
-    // Get initial hold time data
-    const holdTimeData = await this.calculateControlPointHoldTime(controlPointId, gameInstanceId);
+    // Get initial control point state
+    const initialState = await this.getInitialControlPointState(controlPointId, gameInstanceId);
 
     const timer: ControlPointTimer = {
       controlPointId,
       gameInstanceId,
-      currentHoldTime: holdTimeData.currentHoldTime,
-      currentTeam: holdTimeData.currentTeam,
+      currentHoldTime: initialState.currentHoldTime,
+      currentTeam: initialState.currentTeam,
       isRunning: true,
       lastBroadcastTime: 0,
     };
@@ -1364,81 +1432,152 @@ export class GamesService {
     return updatedControlPoint;
   }
 
-  // Calculate control point hold time from game history
-  async calculateControlPointHoldTime(
+  // Get initial control point state from database
+  async getInitialControlPointState(
     controlPointId: number,
     gameInstanceId: number,
-  ): Promise<{ totalHoldTime: number; currentHoldTime: number; currentTeam: string | null }> {
-    // Get all control point capture events for this control point
+  ): Promise<{ currentHoldTime: number; currentTeam: string | null }> {
+    // Get the control point from database to check current ownership
+    const controlPoint = await this.controlPointsRepository.findOne({
+      where: { id: controlPointId },
+    });
+
+    if (!controlPoint) {
+      return { currentHoldTime: 0, currentTeam: null };
+    }
+
+    // If control point is not owned by a team, return 0 time
+    if (!controlPoint.ownedByTeam) {
+      return { currentHoldTime: 0, currentTeam: null };
+    }
+
+    // Calculate accumulated time from game history for this control point
+    const accumulatedTime = await this.calculateAccumulatedHoldTime(controlPointId, gameInstanceId);
+
+    return {
+      currentHoldTime: accumulatedTime,
+      currentTeam: controlPoint.ownedByTeam,
+    };
+  }
+
+  // Calculate accumulated hold time from game history for a specific control point
+  private async calculateAccumulatedHoldTime(
+    controlPointId: number,
+    gameInstanceId: number,
+  ): Promise<number> {
+    // Get all game history events
     const history = await this.gameHistoryRepository.find({
       where: {
         gameInstance: { id: gameInstanceId },
-        eventType: 'control_point_taken',
       },
       order: { timestamp: 'ASC' },
     });
 
-    // Filter events for this specific control point
-    const controlPointEvents = history.filter(
-      event => event.data && event.data.controlPointId === controlPointId,
-    );
-
-    if (controlPointEvents.length === 0) {
-      return { totalHoldTime: 0, currentHoldTime: 0, currentTeam: null };
-    }
-
-    let totalHoldTime = 0;
-    let currentHoldStart: Date | null = null;
-    let currentTeam: string | null = null;
-
-    // Get current game status to determine if we should add current time
+    // Get current game status
     const game = await this.gamesRepository.findOne({
       where: { instanceId: gameInstanceId },
     });
     const isCurrentlyRunning = game && game.status === 'running';
 
-    // Process events chronologically
-    for (let i = 0; i < controlPointEvents.length; i++) {
-      const event = controlPointEvents[i];
-      const eventTeam = event.data.team;
-      const eventTimestamp = event.timestamp;
+    // Get current control point ownership
+    const controlPoint = await this.controlPointsRepository.findOne({
+      where: { id: controlPointId },
+    });
+    const currentOwnerTeam = controlPoint?.ownedByTeam || null;
 
-      if (i === controlPointEvents.length - 1) {
-        // Last event - this is the current owner
-        currentTeam = eventTeam;
-        currentHoldStart = eventTimestamp;
+    // Filter for relevant events: control point captures and game state changes
+    const timeline = [
+      ...history
+        .filter(event => event.eventType === 'control_point_taken' && event.data)
+        .map(event => ({
+          type: 'capture' as const,
+          timestamp: event.timestamp,
+          controlPointId: event.data.controlPointId,
+          team: event.data.team,
+        })),
+      ...history
+        .filter(event =>
+          ['game_started', 'game_paused', 'game_resumed', 'game_ended'].includes(event.eventType),
+        )
+        .map(event => ({
+          type: 'game_state' as const,
+          timestamp: event.timestamp,
+          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended',
+        })),
+    ];
 
-        // If game is running, add time from last capture to now
-        if (isCurrentlyRunning) {
-          const currentTime = new Date();
-          const currentHoldTime = Math.floor(
-            (currentTime.getTime() - eventTimestamp.getTime()) / 1000,
-          );
-          totalHoldTime += currentHoldTime;
-        }
-      } else {
-        // Calculate time between this capture and the next one
-        const nextEvent = controlPointEvents[i + 1];
-        const holdDuration = Math.floor(
-          (nextEvent.timestamp.getTime() - eventTimestamp.getTime()) / 1000,
+    // Sort timeline by timestamp
+    timeline.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+    let totalHoldTime = 0;
+    let currentTeam: string | null = null;
+    let gameState: 'running' | 'paused' | 'ended' = 'paused';
+    let lastEventTime: Date | null = null;
+    let currentHoldStart: Date | null = null;
+
+    // Process timeline chronologically
+    for (let i = 0; i < timeline.length; i++) {
+      const event = timeline[i];
+
+      // Calculate time from last event to current event (if any)
+      // Only add time if the current team is the same as the current owner team
+      if (
+        lastEventTime &&
+        gameState === 'running' &&
+        currentTeam &&
+        currentHoldStart &&
+        currentTeam === currentOwnerTeam
+      ) {
+        const intervalTime = Math.floor(
+          (event.timestamp.getTime() - lastEventTime.getTime()) / 1000,
         );
-        totalHoldTime += holdDuration;
+        totalHoldTime += intervalTime;
       }
+
+      if (event.type === 'game_state') {
+        // Handle game state changes
+        if (event.state === 'game_started' || event.state === 'game_resumed') {
+          gameState = 'running';
+          if (currentTeam && !currentHoldStart) {
+            currentHoldStart = event.timestamp;
+          }
+        } else if (event.state === 'game_paused' || event.state === 'game_ended') {
+          gameState = event.state === 'game_paused' ? 'paused' : 'ended';
+          currentHoldStart = null;
+        }
+      } else if (event.type === 'capture' && event.controlPointId === controlPointId) {
+        // This is a capture event for our control point
+        // Only add time if the previous team was the same as the current owner team
+        if (currentTeam && currentHoldStart && currentTeam === currentOwnerTeam) {
+          // Add time from previous capture to this capture
+          const intervalTime = Math.floor(
+            (event.timestamp.getTime() - currentHoldStart.getTime()) / 1000,
+          );
+          totalHoldTime += intervalTime;
+        }
+
+        currentTeam = event.team;
+        currentHoldStart = gameState === 'running' ? event.timestamp : null;
+      }
+
+      lastEventTime = event.timestamp;
     }
 
-    // Calculate current hold time separately
-    const currentHoldTime =
-      currentHoldStart && isCurrentlyRunning
-        ? Math.floor((Date.now() - currentHoldStart.getTime()) / 1000)
-        : 0;
+    // Handle current running interval if game is still running and control point is owned
+    // Only add time if the current team is the same as the current owner team
+    if (
+      isCurrentlyRunning &&
+      gameState === 'running' &&
+      currentTeam &&
+      currentHoldStart &&
+      currentTeam === currentOwnerTeam
+    ) {
+      const currentIntervalTime = Math.floor((Date.now() - currentHoldStart.getTime()) / 1000);
+      totalHoldTime += currentIntervalTime;
+    }
 
-    return {
-      totalHoldTime,
-      currentHoldTime,
-      currentTeam,
-    };
+    return totalHoldTime;
   }
-
   // Get control point hold time for display
   async getControlPointHoldTime(
     controlPointId: number,
@@ -1449,21 +1588,24 @@ export class GamesService {
     currentHoldTime: number;
     currentTeam: string | null;
   }> {
-    const holdTimeData = await this.calculateControlPointHoldTime(controlPointId, gameInstanceId);
-
-    // Format time in mm:ss
-    const formatTime = (seconds: number): string => {
-      const minutes = Math.floor(seconds / 60);
-      const remainingSeconds = seconds % 60;
-      return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-    };
-
-    return {
-      displayTime: formatTime(holdTimeData.currentHoldTime),
-      totalHoldTime: holdTimeData.totalHoldTime,
-      currentHoldTime: holdTimeData.currentHoldTime,
-      currentTeam: holdTimeData.currentTeam,
-    };
+    // Get current timer state if exists, otherwise get initial state
+    const timer = this.controlPointTimers.get(controlPointId);
+    if (timer) {
+      return {
+        displayTime: this.formatTime(timer.currentHoldTime),
+        totalHoldTime: timer.currentHoldTime,
+        currentHoldTime: timer.currentHoldTime,
+        currentTeam: timer.currentTeam,
+      };
+    } else {
+      const initialState = await this.getInitialControlPointState(controlPointId, gameInstanceId);
+      return {
+        displayTime: this.formatTime(initialState.currentHoldTime),
+        totalHoldTime: initialState.currentHoldTime,
+        currentHoldTime: initialState.currentHoldTime,
+        currentTeam: initialState.currentTeam,
+      };
+    }
   }
 
   // Get control point with game relation for broadcasting
@@ -1501,20 +1643,274 @@ export class GamesService {
 
     if (game.controlPoints) {
       for (const controlPoint of game.controlPoints) {
-        const holdTimeData = await this.calculateControlPointHoldTime(
-          controlPoint.id,
-          game.instanceId,
-        );
-
-        controlPointTimes.push({
-          controlPointId: controlPoint.id,
-          currentHoldTime: holdTimeData.currentHoldTime,
-          currentTeam: holdTimeData.currentTeam,
-          displayTime: this.formatTime(holdTimeData.currentHoldTime),
-        });
+        // Get current timer state if exists, otherwise get initial state
+        const timer = this.controlPointTimers.get(controlPoint.id);
+        if (timer) {
+          controlPointTimes.push({
+            controlPointId: controlPoint.id,
+            currentHoldTime: timer.currentHoldTime,
+            currentTeam: timer.currentTeam,
+            displayTime: this.formatTime(timer.currentHoldTime),
+          });
+        } else {
+          const initialState = await this.getInitialControlPointState(
+            controlPoint.id,
+            game.instanceId,
+          );
+          controlPointTimes.push({
+            controlPointId: controlPoint.id,
+            currentHoldTime: initialState.currentHoldTime,
+            currentTeam: initialState.currentTeam,
+            displayTime: this.formatTime(initialState.currentHoldTime),
+          });
+        }
       }
     }
 
     return controlPointTimes;
+  }
+
+  // Get game results report with team times per control point
+  async getGameResultsReport(gameId: number): Promise<{
+    controlPoints: Array<{
+      id: number;
+      name: string;
+      teamTimes: { [team: string]: number };
+    }>;
+    teamTotals: { [team: string]: number };
+    teams: string[];
+  }> {
+    console.log(`[GAME_RESULTS] Generating results report for game ${gameId}`);
+
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+      relations: ['controlPoints'],
+    });
+
+    if (!game || !game.instanceId) {
+      console.log(`[GAME_RESULTS] Game ${gameId} not found or no instance ID`);
+      return { controlPoints: [], teamTotals: {}, teams: [] };
+    }
+
+    // Get all teams in the game
+    const players = await this.playersRepository.find({
+      where: { game: { id: gameId } },
+      relations: ['user'],
+    });
+
+    console.log(
+      `[GAME_RESULTS] All players:`,
+      players.map(p => ({
+        id: p.id,
+        userId: p.user?.id,
+        team: p.team,
+        name: p.user?.name,
+      })),
+    );
+
+    // Get teams from players that have been assigned to teams
+    const teamsFromPlayers = [
+      ...new Set(players.map(p => p.team).filter(team => team && team !== 'none')),
+    ];
+
+    console.log(`[GAME_RESULTS] Teams from players: ${teamsFromPlayers.join(', ')}`);
+    console.log(`[GAME_RESULTS] Game team count: ${game.teamCount}`);
+
+    // Always use the configured team count to generate teams, even if some teams have no players
+    const defaultTeams = ['blue', 'red', 'green', 'yellow'].slice(0, game.teamCount || 2);
+    const teams = defaultTeams;
+
+    console.log(`[GAME_RESULTS] Using teams: ${teams.join(', ')}`);
+    console.log(`[GAME_RESULTS] Found ${game.controlPoints?.length || 0} control points`);
+
+    const controlPointsReport: Array<{
+      id: number;
+      name: string;
+      teamTimes: { [team: string]: number };
+    }> = [];
+
+    // Calculate team times for each control point
+    if (game.controlPoints) {
+      for (const controlPoint of game.controlPoints) {
+        console.log(`[GAME_RESULTS] Calculating times for control point: ${controlPoint.name}`);
+
+        const teamTimes: { [team: string]: number } = {};
+        // Initialize all teams with 0 time
+        for (const team of teams) {
+          teamTimes[team] = 0;
+        }
+
+        // Calculate time for each team from game history
+        for (const team of teams) {
+          const teamTime = await this.calculateTeamHoldTime(controlPoint.id, game.instanceId, team);
+          teamTimes[team] = teamTime;
+        }
+
+        controlPointsReport.push({
+          id: controlPoint.id,
+          name: controlPoint.name,
+          teamTimes,
+        });
+
+        console.log(`[GAME_RESULTS] Control point ${controlPoint.name} times:`, teamTimes);
+      }
+    }
+
+    // Calculate team totals
+    const teamTotals: { [team: string]: number } = {};
+    for (const team of teams) {
+      teamTotals[team] = controlPointsReport.reduce(
+        (total, cp) => total + (cp.teamTimes[team] || 0),
+        0,
+      );
+    }
+
+    console.log(`[GAME_RESULTS] Team totals:`, teamTotals);
+    console.log(
+      `[GAME_RESULTS] Final report generated with ${controlPointsReport.length} control points`,
+    );
+
+    return {
+      controlPoints: controlPointsReport,
+      teamTotals,
+      teams,
+    };
+  }
+
+  // Calculate hold time for a specific team on a control point
+  private async calculateTeamHoldTime(
+    controlPointId: number,
+    gameInstanceId: number,
+    team: string,
+  ): Promise<number> {
+    console.log(
+      `[TEAM_HOLD_TIME] Calculating time for team ${team} on control point ${controlPointId}`,
+    );
+
+    // Get all game history events
+    const history = await this.gameHistoryRepository.find({
+      where: {
+        gameInstance: { id: gameInstanceId },
+      },
+      order: { timestamp: 'ASC' },
+    });
+
+    console.log(`[TEAM_HOLD_TIME] Found ${history.length} history events`);
+
+    // Get current game status
+    const game = await this.gamesRepository.findOne({
+      where: { instanceId: gameInstanceId },
+    });
+    const isCurrentlyRunning = game && game.status === 'running';
+
+    // Filter for relevant events: control point captures and game state changes
+    const timeline = [
+      ...history
+        .filter(event => event.eventType === 'control_point_taken' && event.data)
+        .map(event => ({
+          type: 'capture' as const,
+          timestamp: event.timestamp,
+          controlPointId: event.data.controlPointId,
+          team: event.data.team,
+        })),
+      ...history
+        .filter(event =>
+          ['game_started', 'game_paused', 'game_resumed', 'game_ended'].includes(event.eventType),
+        )
+        .map(event => ({
+          type: 'game_state' as const,
+          timestamp: event.timestamp,
+          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended',
+        })),
+    ];
+
+    console.log(
+      `[TEAM_HOLD_TIME] Timeline has ${timeline.length} events for control point ${controlPointId}`,
+    );
+
+    // Sort timeline by timestamp
+    timeline.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+    let totalHoldTime = 0;
+    let currentTeam: string | null = null;
+    let gameState: 'running' | 'paused' | 'ended' = 'paused';
+    let lastEventTime: Date | null = null;
+    let currentHoldStart: Date | null = null;
+
+    // Process timeline chronologically
+    for (let i = 0; i < timeline.length; i++) {
+      const event = timeline[i];
+
+      // Calculate time from last event to current event (if any)
+      // Only add time if the current team is the same as the specified team
+      if (
+        lastEventTime &&
+        gameState === 'running' &&
+        currentTeam &&
+        currentHoldStart &&
+        currentTeam === team
+      ) {
+        const intervalTime = Math.floor(
+          (event.timestamp.getTime() - lastEventTime.getTime()) / 1000,
+        );
+        totalHoldTime += intervalTime;
+        console.log(
+          `[TEAM_HOLD_TIME] Added ${intervalTime}s for team ${team}, total: ${totalHoldTime}s`,
+        );
+      }
+
+      if (event.type === 'game_state') {
+        // Handle game state changes
+        if (event.state === 'game_started' || event.state === 'game_resumed') {
+          gameState = 'running';
+          if (currentTeam && !currentHoldStart) {
+            currentHoldStart = event.timestamp;
+          }
+        } else if (event.state === 'game_paused' || event.state === 'game_ended') {
+          gameState = event.state === 'game_paused' ? 'paused' : 'ended';
+          currentHoldStart = null;
+        }
+      } else if (event.type === 'capture' && event.controlPointId === controlPointId) {
+        // This is a capture event for our control point
+        // Only add time if the previous team was the same as the specified team
+        if (currentTeam && currentHoldStart && currentTeam === team) {
+          // Add time from previous capture to this capture
+          const intervalTime = Math.floor(
+            (event.timestamp.getTime() - currentHoldStart.getTime()) / 1000,
+          );
+          totalHoldTime += intervalTime;
+          console.log(
+            `[TEAM_HOLD_TIME] Added capture interval ${intervalTime}s for team ${team}, total: ${totalHoldTime}s`,
+          );
+        }
+
+        currentTeam = event.team;
+        currentHoldStart = gameState === 'running' ? event.timestamp : null;
+        console.log(
+          `[TEAM_HOLD_TIME] Control point ${controlPointId} captured by team ${currentTeam}`,
+        );
+      }
+
+      lastEventTime = event.timestamp;
+    }
+
+    // Handle current running interval if game is still running and control point is owned
+    // Only add time if the current team is the same as the specified team
+    if (
+      isCurrentlyRunning &&
+      gameState === 'running' &&
+      currentTeam &&
+      currentHoldStart &&
+      currentTeam === team
+    ) {
+      const currentIntervalTime = Math.floor((Date.now() - currentHoldStart.getTime()) / 1000);
+      totalHoldTime += currentIntervalTime;
+      console.log(
+        `[TEAM_HOLD_TIME] Added current interval ${currentIntervalTime}s for team ${team}, total: ${totalHoldTime}s`,
+      );
+    }
+
+    console.log(`[TEAM_HOLD_TIME] Final time for team ${team}: ${totalHoldTime}s`);
+    return totalHoldTime;
   }
 }

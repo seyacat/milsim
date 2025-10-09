@@ -1191,17 +1191,16 @@ function handleGameAction(data) {
         case 'gameStateChanged':
             // Update game state and controls
             if (data.data && data.data.game) {
-                // Preserve timer data and control points from current game before updating
+                // Preserve timer data from current game before updating
                 const preservedTimerData = {};
                 const preservedControlPoints = currentGame ? currentGame.controlPoints : null;
                 
                 if (currentGame && currentGame.controlPoints) {
                     currentGame.controlPoints.forEach(cp => {
-                        if (cp.currentTeam || cp.displayTime || cp.lastTimeUpdate) {
+                        if (cp.currentTeam || cp.displayTime) {
                             preservedTimerData[cp.id] = {
                                 currentTeam: cp.currentTeam,
-                                displayTime: cp.displayTime,
-                                lastTimeUpdate: cp.lastTimeUpdate
+                                displayTime: cp.displayTime
                             };
                         }
                     });
@@ -1223,7 +1222,6 @@ function handleGameAction(data) {
                         if (preservedTimerData[cp.id]) {
                             cp.currentTeam = preservedTimerData[cp.id].currentTeam;
                             cp.displayTime = preservedTimerData[cp.id].displayTime;
-                            cp.lastTimeUpdate = preservedTimerData[cp.id].lastTimeUpdate;
                             restoredCount++;
                         }
                     });
@@ -1772,7 +1770,9 @@ function closeGameSummaryDialog() {
 }
 
 // Update game summary content
-function updateGameSummaryContent() {
+async function updateGameSummaryContent() {
+    console.log(`[FRONTEND] updateGameSummaryContent called for game ${currentGame?.id}`);
+    
     if (!currentGame) return;
     
     // Calculate duration (you can enhance this with actual game history data)
@@ -1796,6 +1796,156 @@ function updateGameSummaryContent() {
     if (controlPointsElement) {
         controlPointsElement.textContent = currentGame.controlPoints ? currentGame.controlPoints.length : 0;
     }
+    
+    // Load and display game results
+    console.log(`[FRONTEND] About to load game results...`);
+    await loadGameResults();
+    console.log(`[FRONTEND] Game results loaded`);
+}
+
+// Load game results and display them in the summary
+async function loadGameResults() {
+    try {
+        console.log(`[FRONTEND] Loading game results for game ${currentGame.id}`);
+        
+        const token = localStorage.getItem('token');
+        const headers = {
+            'Content-Type': 'application/json'
+        };
+        
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const response = await fetch(`/api/games/${currentGame.id}/results`, {
+            headers: headers
+        });
+        
+        console.log(`[FRONTEND] Results response status: ${response.status}`);
+        
+        if (!response.ok) {
+            throw new Error('Error al cargar resultados del juego: ' + response.status);
+        }
+        
+        const results = await response.json();
+        console.log(`[FRONTEND] Results received:`, results);
+        console.log(`[FRONTEND] Teams count: ${results.teams?.length}, Teams: ${results.teams?.join(', ')}`);
+        console.log(`[FRONTEND] Control points count: ${results.controlPoints?.length}`);
+        console.log(`[FRONTEND] Team totals:`, results.teamTotals);
+        displayGameResults(results);
+    } catch (error) {
+        console.error('Error loading game results:', error);
+        // Show error message in results section
+        const gameSummaryContent = document.getElementById('gameSummaryContent');
+        if (gameSummaryContent) {
+            const errorElement = document.createElement('div');
+            errorElement.style.cssText = 'text-align: center; padding: 20px; color: #ff6b6b;';
+            errorElement.textContent = 'Error al cargar resultados del juego: ' + error.message;
+            gameSummaryContent.appendChild(errorElement);
+        }
+    }
+}
+
+// Display game results in the summary dialog
+function displayGameResults(results) {
+    const gameSummaryContent = document.getElementById('gameSummaryContent');
+    if (!gameSummaryContent) return;
+    
+    // Clear existing content except the basic info
+    const basicInfo = gameSummaryContent.querySelector('div[style*="text-align: center"]');
+    gameSummaryContent.innerHTML = '';
+    if (basicInfo) {
+        gameSummaryContent.appendChild(basicInfo);
+    }
+    
+    // Create results table container
+    const resultsContainer = document.createElement('div');
+    resultsContainer.style.cssText = 'margin-top: 20px;';
+    
+    // Add results title
+    const resultsTitle = document.createElement('h4');
+    resultsTitle.textContent = 'Resultados por Equipos';
+    resultsTitle.style.cssText = 'text-align: center; margin-bottom: 15px; color: white;';
+    resultsContainer.appendChild(resultsTitle);
+    
+    // Create table
+    const table = document.createElement('table');
+    table.style.cssText = 'width: 100%; border-collapse: collapse; background: rgba(255, 255, 255, 0.1); border-radius: 8px; overflow: hidden;';
+    
+    // Create table header
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    headerRow.style.cssText = 'background: rgba(255, 255, 255, 0.2);';
+    
+    // Add control point name header
+    const cpHeader = document.createElement('th');
+    cpHeader.textContent = 'Punto de Control';
+    cpHeader.style.cssText = 'padding: 10px; text-align: left; color: white; font-weight: bold; border-bottom: 1px solid rgba(255, 255, 255, 0.3);';
+    headerRow.appendChild(cpHeader);
+    
+    // Add team headers
+    const teams = results.teams || [];
+    teams.forEach(team => {
+        const teamHeader = document.createElement('th');
+        teamHeader.textContent = team.toUpperCase();
+        teamHeader.style.cssText = 'padding: 10px; text-align: center; color: white; font-weight: bold; border-bottom: 1px solid rgba(255, 255, 255, 0.3);';
+        headerRow.appendChild(teamHeader);
+    });
+    
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+    
+    // Create table body
+    const tbody = document.createElement('tbody');
+    
+    // Add control point rows
+    const controlPoints = results.controlPoints || [];
+    controlPoints.forEach(cp => {
+        const row = document.createElement('tr');
+        row.style.cssText = 'border-bottom: 1px solid rgba(255, 255, 255, 0.1);';
+        
+        // Control point name
+        const cpCell = document.createElement('td');
+        cpCell.textContent = cp.name;
+        cpCell.style.cssText = 'padding: 10px; color: white;';
+        row.appendChild(cpCell);
+        
+        // Team times
+        teams.forEach(team => {
+            const timeCell = document.createElement('td');
+            const teamTimeSeconds = cp.teamTimes && cp.teamTimes[team] ? cp.teamTimes[team] : 0;
+            const teamTimeFormatted = formatTime(teamTimeSeconds);
+            timeCell.textContent = teamTimeFormatted;
+            timeCell.style.cssText = 'padding: 10px; text-align: center; color: white;';
+            row.appendChild(timeCell);
+        });
+        
+        tbody.appendChild(row);
+    });
+    
+    // Add totals row
+    const totalsRow = document.createElement('tr');
+    totalsRow.style.cssText = 'background: rgba(255, 255, 255, 0.2); font-weight: bold;';
+    
+    const totalsLabel = document.createElement('td');
+    totalsLabel.textContent = 'TOTAL';
+    totalsLabel.style.cssText = 'padding: 10px; color: white;';
+    totalsRow.appendChild(totalsLabel);
+    
+    teams.forEach(team => {
+        const totalCell = document.createElement('td');
+        const teamTotalSeconds = results.teamTotals && results.teamTotals[team] ? results.teamTotals[team] : 0;
+        const teamTotalFormatted = formatTime(teamTotalSeconds);
+        totalCell.textContent = teamTotalFormatted;
+        totalCell.style.cssText = 'padding: 10px; text-align: center; color: white;';
+        totalsRow.appendChild(totalCell);
+    });
+    
+    tbody.appendChild(totalsRow);
+    table.appendChild(tbody);
+    
+    resultsContainer.appendChild(table);
+    gameSummaryContent.appendChild(resultsContainer);
 }
 
 window.endGame = endGame;
@@ -1987,14 +2137,10 @@ function handleControlPointTimeUpdate(data) {
     if (currentGame && currentGame.controlPoints) {
         const controlPointIndex = currentGame.controlPoints.findIndex(cp => cp.id === controlPointId);
         if (controlPointIndex !== -1) {
-            // Update the control point with current hold time data
+            // Update the control point with current hold time data from backend
             currentGame.controlPoints[controlPointIndex].currentHoldTime = currentHoldTime;
             currentGame.controlPoints[controlPointIndex].currentTeam = currentTeam;
             currentGame.controlPoints[controlPointIndex].displayTime = displayTime;
-            currentGame.controlPoints[controlPointIndex].lastTimeUpdate = {
-                currentHoldTime,
-                receivedAt: Date.now()
-            };
             
             // Also update the ownedByTeam field which is used by the marker display logic
             currentGame.controlPoints[controlPointIndex].ownedByTeam = currentTeam;
@@ -2002,11 +2148,7 @@ function handleControlPointTimeUpdate(data) {
             // Store timer data in global storage
             controlPointTimerData[controlPointId] = {
                 currentTeam,
-                displayTime,
-                lastTimeUpdate: {
-                    currentHoldTime,
-                    receivedAt: Date.now()
-                }
+                displayTime
             };
             
             // Update timer display immediately for this control point
@@ -2039,8 +2181,6 @@ function handleControlPointTimeUpdate(data) {
 
 // Handle initial control point times data
 function handleControlPointTimes(data) {
-    console.log('Handling control point times data for', data.length, 'control points');
-    
     if (!currentGame || !currentGame.controlPoints) return;
     
     // Update all control points with their current hold times
@@ -2049,14 +2189,10 @@ function handleControlPointTimes(data) {
         
         const controlPointIndex = currentGame.controlPoints.findIndex(cp => cp.id === controlPointId);
         if (controlPointIndex !== -1) {
-            // Update the control point with current hold time data
+            // Update the control point with current hold time data from backend
             currentGame.controlPoints[controlPointIndex].currentHoldTime = currentHoldTime;
             currentGame.controlPoints[controlPointIndex].currentTeam = currentTeam;
             currentGame.controlPoints[controlPointIndex].displayTime = displayTime;
-            currentGame.controlPoints[controlPointIndex].lastTimeUpdate = {
-                currentHoldTime,
-                receivedAt: Date.now()
-            };
             
             // Also update the ownedByTeam field which is used by the marker display logic
             currentGame.controlPoints[controlPointIndex].ownedByTeam = currentTeam;
@@ -2064,11 +2200,7 @@ function handleControlPointTimes(data) {
             // Store timer data in global storage
             controlPointTimerData[controlPointId] = {
                 currentTeam,
-                displayTime,
-                lastTimeUpdate: {
-                    currentHoldTime,
-                    receivedAt: Date.now()
-                }
+                displayTime
             };
             
             // Update timer display immediately for this control point
@@ -2078,7 +2210,6 @@ function handleControlPointTimes(data) {
                 if (isGameRunning && currentTeam) {
                     timerElement.style.display = 'block';
                     timerElement.textContent = displayTime || '00:00';
-                    console.log(`Timer shown for CP ${controlPointId}: ${displayTime}`);
                 } else {
                     timerElement.style.display = 'none';
                 }
@@ -2111,14 +2242,11 @@ function handleControlPointTimes(data) {
 // Function to update all timer displays based on game state
 function updateAllTimerDisplays() {
     if (!currentGame || !currentGame.controlPoints) {
-        console.log('[FRONTEND] updateAllTimerDisplays - No current game or control points');
         return;
     }
     
     const isGameRunning = currentGame.status === 'running';
-    console.log(`[FRONTEND] updateAllTimerDisplays - Game running: ${isGameRunning}, Control points: ${currentGame.controlPoints.length}`);
     
-    let updatedCount = 0;
     currentGame.controlPoints.forEach(controlPoint => {
         const timerElement = document.getElementById(`timer_${controlPoint.id}`);
         if (timerElement) {
@@ -2127,41 +2255,20 @@ function updateAllTimerDisplays() {
             if (isGameRunning && hasCurrentTeam) {
                 timerElement.style.display = 'block';
                 
-                // Calculate current time based on last update and elapsed time
-                let currentDisplayTime = '00:00';
+                // Get current display time from control point data
+                let currentDisplayTime = controlPoint.displayTime || '00:00';
                 
-                // Use global storage as fallback if control point data is missing
-                if (controlPoint.lastTimeUpdate && controlPoint.currentTeam) {
-                    // Only calculate elapsed time if game is running
-                    const elapsedSinceUpdate = isGameRunning ? Math.floor((Date.now() - controlPoint.lastTimeUpdate.receivedAt) / 1000) : 0;
-                    const currentHoldTime = controlPoint.lastTimeUpdate.currentHoldTime + elapsedSinceUpdate;
-                    currentDisplayTime = formatTime(currentHoldTime);
-                    console.log(`[FRONTEND] CP ${controlPoint.id}: ${currentDisplayTime} (elapsed: ${elapsedSinceUpdate}s)`);
-                } else if (controlPointTimerData[controlPoint.id] && controlPointTimerData[controlPoint.id].lastTimeUpdate) {
-                    // Use global storage data
-                    const timerData = controlPointTimerData[controlPoint.id];
-                    // Only calculate elapsed time if game is running
-                    const elapsedSinceUpdate = isGameRunning ? Math.floor((Date.now() - timerData.lastTimeUpdate.receivedAt) / 1000) : 0;
-                    const currentHoldTime = timerData.lastTimeUpdate.currentHoldTime + elapsedSinceUpdate;
-                    currentDisplayTime = formatTime(currentHoldTime);
-                    console.log(`[FRONTEND] CP ${controlPoint.id}: ${currentDisplayTime} (elapsed: ${elapsedSinceUpdate}s from global storage)`);
-                } else if (controlPoint.displayTime) {
-                    currentDisplayTime = controlPoint.displayTime;
-                    console.log(`[FRONTEND] CP ${controlPoint.id}: ${currentDisplayTime} (from displayTime)`);
+                // If we have timer data from global storage, use that
+                if (controlPointTimerData[controlPoint.id] && controlPointTimerData[controlPoint.id].displayTime) {
+                    currentDisplayTime = controlPointTimerData[controlPoint.id].displayTime;
                 }
                 
                 timerElement.textContent = currentDisplayTime;
-                updatedCount++;
             } else {
                 timerElement.style.display = 'none';
-                console.log(`[FRONTEND] CP ${controlPoint.id}: Timer hidden (game not running or no team)`);
             }
-        } else {
-            console.log(`[FRONTEND] CP ${controlPoint.id}: Timer element not found`);
         }
     });
-    
-    console.log(`[FRONTEND] updateAllTimerDisplays - Updated ${updatedCount} timers`);
 }
 
 // Start local timer interval for control point timers
@@ -2169,18 +2276,51 @@ function startControlPointTimerInterval() {
     // Clear any existing interval
     if (window.controlPointTimerInterval) {
         clearInterval(window.controlPointTimerInterval);
-        console.log('[FRONTEND] Cleared existing control point timer interval');
     }
     
-    // Start new interval to update control point timers every second
+    // Start new interval to increment control point timers every second
     window.controlPointTimerInterval = setInterval(() => {
         if (currentGame && currentGame.status === 'running') {
-            console.log('[FRONTEND] Control point timer interval - updating displays');
+            // Increment all control point timers by 1 second
+            if (currentGame.controlPoints) {
+                currentGame.controlPoints.forEach(controlPoint => {
+                    const hasCurrentTeam = controlPoint.currentTeam || controlPointTimerData[controlPoint.id]?.currentTeam;
+                    if (hasCurrentTeam) {
+                        // Get current time in seconds from displayTime
+                        let currentSeconds = 0;
+                        if (controlPoint.displayTime) {
+                            const [minutes, seconds] = controlPoint.displayTime.split(':').map(Number);
+                            currentSeconds = minutes * 60 + seconds;
+                        } else {
+                            // If no displayTime, check global storage
+                            const storedData = controlPointTimerData[controlPoint.id];
+                            if (storedData && storedData.displayTime) {
+                                const [minutes, seconds] = storedData.displayTime.split(':').map(Number);
+                                currentSeconds = minutes * 60 + seconds;
+                                controlPoint.displayTime = storedData.displayTime;
+                            }
+                        }
+                        
+                        // Increment by 1 second
+                        currentSeconds += 1;
+                        
+                        // Update displayTime
+                        const newMinutes = Math.floor(currentSeconds / 60);
+                        const newSeconds = currentSeconds % 60;
+                        controlPoint.displayTime = `${newMinutes.toString().padStart(2, '0')}:${newSeconds.toString().padStart(2, '0')}`;
+                        
+                        // Also update global storage
+                        if (controlPointTimerData[controlPoint.id]) {
+                            controlPointTimerData[controlPoint.id].displayTime = controlPoint.displayTime;
+                        }
+                    }
+                });
+            }
+            
+            // Update displays
             updateAllTimerDisplays();
         }
     }, 1000);
-    
-    console.log('[FRONTEND] Started control point timer interval');
 }
 
 // Stop local timer interval for control point timers
@@ -2188,7 +2328,6 @@ function stopControlPointTimerInterval() {
     if (window.controlPointTimerInterval) {
         clearInterval(window.controlPointTimerInterval);
         window.controlPointTimerInterval = null;
-        console.log('[FRONTEND] Stopped control point timer interval');
     }
 }
 

@@ -197,4 +197,19 @@ export class GamesController {
 
     return this.gamesService.updateGame(+id, updateData, user.id);
   }
+
+  @Get(':id/results')
+  async getGameResults(
+    @Param('id') id: string,
+    @Headers('authorization') authHeader: string,
+  ): Promise<any> {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Token de autorización requerido');
+    }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    await this.authService.validateToken(token);
+
+    return this.gamesService.getGameResultsReport(+id);
+  }
 }

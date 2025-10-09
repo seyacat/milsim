@@ -526,7 +526,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               // Check if user is the game owner
               const game = await this.gamesService.findOne(gameId, user.id);
               if (!game.owner || game.owner.id !== user.id) {
-                throw new ConflictException('Solo el propietario del juego puede asignar equipos a puntos de control');
+                throw new ConflictException(
+                  'Solo el propietario del juego puede asignar equipos a puntos de control',
+                );
               }
 
               // Update control point team
@@ -536,6 +538,28 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                   ownedByTeam: data.team === 'none' ? null : data.team,
                 },
               );
+
+              // Add game history event for team assignment by owner
+              if (updatedControlPoint.game?.instanceId) {
+                await this.gamesService.addGameHistory(
+                  updatedControlPoint.game.instanceId,
+                  'control_point_taken',
+                  {
+                    controlPointId: data.controlPointId,
+                    controlPointName: updatedControlPoint.name,
+                    team: data.team === 'none' ? null : data.team,
+                    userId: user.id,
+                    assignedByOwner: true,
+                    timestamp: new Date(),
+                  },
+                );
+
+                // Update control point timer with new ownership
+                await this.gamesService.updateControlPointTimer(
+                  data.controlPointId,
+                  updatedControlPoint.game.instanceId,
+                );
+              }
 
               // Get the complete updated game with all control points AFTER the update
               const updatedGame = await this.gamesService.findOne(gameId, user.id);

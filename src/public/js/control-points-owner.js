@@ -213,15 +213,19 @@ function addControlPointMarkerOwner(controlPoint) {
                 <div class="control-point-timer"
                      id="timer_${controlPoint.id}"
                      style="
+                         position: absolute;
+                         top: -20px;
+                         left: 50%;
+                         transform: translateX(-50%);
                          background: rgba(0, 0, 0, 0.7);
                          color: white;
                          padding: 2px 4px;
                          border-radius: 3px;
                          font-size: 10px;
                          font-weight: bold;
-                         margin-bottom: 2px;
                          white-space: nowrap;
                          display: ${(currentGame && currentGame.status === 'running' && controlPoint.ownedByTeam) ? 'block' : 'none'};
+                         z-index: 1000;
                      ">00:00</div>
                 <!-- Control point marker -->
                 <div style="
@@ -239,8 +243,8 @@ function addControlPointMarkerOwner(controlPoint) {
                 ">${iconEmoji}</div>
             </div>
         `,
-        iconSize: [20, 24],
-        iconAnchor: [10, 12]
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
     });
 
     const marker = L.marker([controlPoint.latitude, controlPoint.longitude], {
