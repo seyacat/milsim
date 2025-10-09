@@ -1379,6 +1379,7 @@ export class GamesService {
         game: { id: controlPoint.game.id },
         user: { id: userId },
       },
+      relations: ['user'], // Ensure user relation is loaded
     });
 
     if (!player) {
@@ -1422,6 +1423,7 @@ export class GamesService {
         controlPointName: controlPoint.name,
         team: player.team,
         userId: userId,
+        userName: player.user?.name || 'Unknown Player',
         timestamp: new Date(),
       });
 
@@ -1654,7 +1656,7 @@ export class GamesService {
     return controlPointTimes;
   }
 
-  // Get game results report with team times per control point
+  // Get game results report with team times per control point and player capture stats
   async getGameResultsReport(gameId: number): Promise<{
     controlPoints: Array<{
       id: number;
@@ -1664,6 +1666,12 @@ export class GamesService {
     teamTotals: { [team: string]: number };
     teams: string[];
     gameDuration: number; // Total game duration in seconds
+    playerCaptureStats: Array<{
+      userId: number;
+      userName: string;
+      team: string;
+      captureCount: number;
+    }>;
   }> {
     console.log(`[GAME_RESULTS] Generating results report for game ${gameId}`);
 
@@ -1674,7 +1682,13 @@ export class GamesService {
 
     if (!game || !game.instanceId) {
       console.log(`[GAME_RESULTS] Game ${gameId} not found or no instance ID`);
-      return { controlPoints: [], teamTotals: {}, teams: [], gameDuration: 0 };
+      return {
+        controlPoints: [],
+        teamTotals: {},
+        teams: [],
+        gameDuration: 0,
+        playerCaptureStats: [],
+      };
     }
 
     // Get all teams in the game
@@ -1759,11 +1773,16 @@ export class GamesService {
     const gameDuration = await this.calculateElapsedTimeFromEvents(game.instanceId);
     console.log(`[GAME_RESULTS] Game duration: ${gameDuration}s`);
 
+    // Get player capture statistics
+    const playerCaptureStats = await this.getPlayerCaptureStats(game.instanceId);
+    console.log(`[GAME_RESULTS] Player capture stats:`, playerCaptureStats.players);
+
     return {
       controlPoints: controlPointsReport,
       teamTotals,
       teams,
       gameDuration,
+      playerCaptureStats: playerCaptureStats.players,
     };
   }
 
@@ -1886,5 +1905,102 @@ export class GamesService {
 
     console.log(`[TEAM_HOLD_TIME] Final time for team ${team}: ${totalHoldTime}s`);
     return totalHoldTime;
+  }
+
+  // Get player capture statistics for game results
+  async getPlayerCaptureStats(gameInstanceId: number): Promise<{
+    players: Array<{
+      userId: number;
+      userName: string;
+      team: string;
+      captureCount: number;
+    }>;
+  }> {
+    console.log(`[PLAYER_CAPTURE_STATS] Getting capture stats for game instance ${gameInstanceId}`);
+
+    // Get all game history events
+    const history = await this.gameHistoryRepository.find({
+      where: {
+        gameInstance: { id: gameInstanceId },
+      },
+      order: { timestamp: 'ASC' },
+    });
+
+    console.log(`[PLAYER_CAPTURE_STATS] Found ${history.length} history events`);
+
+    // Filter for control point capture events by players (not owners)
+    const captureEvents = history.filter(
+      event =>
+        event.eventType === 'control_point_taken' &&
+        event.data &&
+        event.data.userId && // Has a userId (player action)
+        !event.data.assignedByOwner, // Not assigned by owner
+    );
+
+    console.log(`[PLAYER_CAPTURE_STATS] Found ${captureEvents.length} player capture events`);
+
+    // Get all players in the game
+    const game = await this.gamesRepository.findOne({
+      where: { instanceId: gameInstanceId },
+      relations: ['players', 'players.user'],
+    });
+
+    if (!game) {
+      console.log(`[PLAYER_CAPTURE_STATS] Game not found for instance ${gameInstanceId}`);
+      return { players: [] };
+    }
+
+    console.log(`[PLAYER_CAPTURE_STATS] Found ${game.players?.length || 0} players in game`);
+
+    // Initialize player stats
+    const playerStats = new Map<
+      number,
+      { userId: number; userName: string; team: string; captureCount: number }
+    >();
+
+    // Initialize all players with 0 captures
+    if (game.players) {
+      for (const player of game.players) {
+        if (player.user && player.team && player.team !== 'none') {
+          playerStats.set(player.user.id, {
+            userId: player.user.id,
+            userName: player.user.name,
+            team: player.team,
+            captureCount: 0,
+          });
+        }
+      }
+    }
+
+    console.log(`[PLAYER_CAPTURE_STATS] Initialized ${playerStats.size} player stats`);
+
+    // Count captures per player - count ALL captures regardless of team change
+    for (const event of captureEvents) {
+      const { userId, team, controlPointId } = event.data;
+      
+      if (!userId || !team) {
+        console.log(
+          `[PLAYER_CAPTURE_STATS] Skipping event with missing userId or team:`,
+          event.data,
+        );
+        continue;
+      }
+
+      // Count ALL captures by players, regardless of team change
+      const player = playerStats.get(userId);
+      if (player) {
+        player.captureCount++;
+        console.log(
+          `[PLAYER_CAPTURE_STATS] Player ${player.userName} captured control point ${controlPointId}, count: ${player.captureCount}`,
+        );
+      } else {
+        console.log(`[PLAYER_CAPTURE_STATS] Player ${userId} not found in player stats`);
+      }
+    }
+
+    const players = Array.from(playerStats.values());
+    console.log(`[PLAYER_CAPTURE_STATS] Final player stats:`, players);
+
+    return { players };
   }
 }

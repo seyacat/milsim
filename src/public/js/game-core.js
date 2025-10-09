@@ -2051,6 +2051,74 @@ function displayGameResults(results) {
     
     resultsContainer.appendChild(table);
     
+    // Add player capture statistics table
+    if (results.playerCaptureStats && results.playerCaptureStats.length > 0) {
+        const playerStatsTitle = document.createElement('h4');
+        playerStatsTitle.textContent = 'Puntos Tomados por Jugador';
+        playerStatsTitle.style.cssText = 'text-align: center; margin: 30px 0 15px 0; color: white;';
+        resultsContainer.appendChild(playerStatsTitle);
+        
+        const playerTable = document.createElement('table');
+        playerTable.style.cssText = 'width: 100%; border-collapse: collapse; background: rgba(255, 255, 255, 0.1); border-radius: 8px; overflow: hidden;';
+        
+        // Create player table header
+        const playerThead = document.createElement('thead');
+        const playerHeaderRow = document.createElement('tr');
+        playerHeaderRow.style.cssText = 'background: rgba(255, 255, 255, 0.2);';
+        
+        const playerNameHeader = document.createElement('th');
+        playerNameHeader.textContent = 'Jugador';
+        playerNameHeader.style.cssText = 'padding: 10px; text-align: left; color: white; font-weight: bold; border-bottom: 1px solid rgba(255, 255, 255, 0.3);';
+        playerHeaderRow.appendChild(playerNameHeader);
+        
+        const teamHeader = document.createElement('th');
+        teamHeader.textContent = 'Equipo';
+        teamHeader.style.cssText = 'padding: 10px; text-align: center; color: white; font-weight: bold; border-bottom: 1px solid rgba(255, 255, 255, 0.3);';
+        playerHeaderRow.appendChild(teamHeader);
+        
+        const capturesHeader = document.createElement('th');
+        capturesHeader.textContent = 'Puntos Tomados';
+        capturesHeader.style.cssText = 'padding: 10px; text-align: center; color: white; font-weight: bold; border-bottom: 1px solid rgba(255, 255, 255, 0.3);';
+        playerHeaderRow.appendChild(capturesHeader);
+        
+        playerThead.appendChild(playerHeaderRow);
+        playerTable.appendChild(playerThead);
+        
+        // Create player table body
+        const playerTbody = document.createElement('tbody');
+        
+        // Sort players by capture count (descending)
+        const sortedPlayers = [...results.playerCaptureStats].sort((a, b) => b.captureCount - a.captureCount);
+        
+        sortedPlayers.forEach(player => {
+            const row = document.createElement('tr');
+            row.style.cssText = 'border-bottom: 1px solid rgba(255, 255, 255, 0.1);';
+            
+            // Player name
+            const nameCell = document.createElement('td');
+            nameCell.textContent = player.userName;
+            nameCell.style.cssText = 'padding: 10px; color: white;';
+            row.appendChild(nameCell);
+            
+            // Team
+            const teamCell = document.createElement('td');
+            teamCell.textContent = player.team.toUpperCase();
+            teamCell.style.cssText = 'padding: 10px; text-align: center; color: white;';
+            row.appendChild(teamCell);
+            
+            // Capture count
+            const capturesCell = document.createElement('td');
+            capturesCell.textContent = player.captureCount;
+            capturesCell.style.cssText = 'padding: 10px; text-align: center; color: white; font-weight: bold;';
+            row.appendChild(capturesCell);
+            
+            playerTbody.appendChild(row);
+        });
+        
+        playerTable.appendChild(playerTbody);
+        resultsContainer.appendChild(playerTable);
+    }
+    
     // Update the game duration with the accurate value from backend results
     const durationElement = document.getElementById('summaryDuration');
     if (durationElement && results.gameDuration !== undefined) {
