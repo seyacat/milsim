@@ -320,7 +320,15 @@
 
         // Enter game function
         function enterGame(gameId) {
-            window.location.href = `game.html?id=${gameId}`;
+            // Find the game to check if user is owner
+            const game = allGames.find(g => g.id === gameId);
+            if (game && isGameOwner(game)) {
+                // Owner goes to owner.html
+                window.location.href = `owner.html?id=${gameId}`;
+            } else {
+                // Player goes to player.html
+                window.location.href = `player.html?id=${gameId}`;
+            }
         }
 
         // Create game function

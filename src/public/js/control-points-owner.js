@@ -922,9 +922,40 @@ function handleControlPointTeamAssigned(data) {
             }
             
             // Update the marker icon to reflect the new team color
-            refreshOwnerControlPointMarkers(currentGame.controlPoints);
+            // Only refresh the specific marker instead of all markers to preserve owner functionality
+            updateSingleOwnerMarker(layer.controlPointData);
         }
     });
+}
+
+// Update a single owner marker without refreshing all markers
+function updateSingleOwnerMarker(controlPoint) {
+    console.log('Updating single owner marker:', controlPoint.id);
+    
+    // Find the existing marker
+    let existingMarker = null;
+    map.eachLayer((layer) => {
+        if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === controlPoint.id) {
+            existingMarker = layer;
+        }
+    });
+    
+    if (!existingMarker) {
+        console.log('Marker not found, creating new one');
+        addControlPointMarkerOwner(controlPoint);
+        return;
+    }
+    
+    // Remove the existing marker and its position circle
+    if (existingMarker.positionCircle) {
+        map.removeLayer(existingMarker.positionCircle);
+    }
+    map.removeLayer(existingMarker);
+    
+    // Create a new marker with updated data
+    addControlPointMarkerOwner(controlPoint);
+    
+    console.log('Single owner marker updated successfully');
 }
 
 // Make functions available globally
@@ -945,3 +976,4 @@ window.toggleBombInputs = toggleBombInputs;
 window.enableDragMode = enableDragMode;
 window.assignControlPointTeam = assignControlPointTeam;
 window.handleControlPointTeamAssigned = handleControlPointTeamAssigned;
+window.updateSingleOwnerMarker = updateSingleOwnerMarker;
