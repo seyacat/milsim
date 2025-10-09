@@ -83,12 +83,16 @@ async function showPlayerTeamSelection() {
         // If player not found, try to get the latest game data
         console.warn('Current player not found in game data, trying to reload...');
         try {
-            const response = await fetch(`/api/games/${currentGame.id}`);
+            const response = await fetch(`/api/games/${currentGame.id}`, {
+                credentials: 'include'
+            });
             if (response.ok) {
                 const updatedGame = await response.json();
                 currentGame = updatedGame;
                 currentPlayer = currentGame.players?.find(p => p.user.id === currentUser.id);
                 currentTeam = currentPlayer?.team || 'none';
+            } else {
+                console.warn('Failed to reload game data:', response.status, response.statusText);
             }
         } catch (error) {
             console.error('Failed to reload game data:', error);
@@ -105,8 +109,7 @@ async function showPlayerTeamSelection() {
         const isActive = currentTeam === team;
         teamButtons += `
             <button class="team-btn ${team} ${isActive ? 'active' : ''}"
-                    onclick="selectPlayerTeam('${team}')"
-                    style="margin: 2px; padding: 8px 12px; border: 1px solid #666; border-radius: 3px; cursor: pointer; font-size: 12px;">
+                    onclick="selectPlayerTeam('${team}')">
                 ${team.toUpperCase()}
             </button>
         `;
@@ -116,8 +119,7 @@ async function showPlayerTeamSelection() {
     const isNoneActive = currentTeam === 'none';
     teamButtons += `
         <button class="team-btn none ${isNoneActive ? 'active' : ''}"
-                onclick="selectPlayerTeam('none')"
-                style="margin: 2px; padding: 8px 12px; border: 1px solid #666; border-radius: 3px; cursor: pointer; font-size: 12px; background: #666; color: white;">
+                onclick="selectPlayerTeam('none')">
             NONE
         </button>
     `;

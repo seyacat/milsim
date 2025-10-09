@@ -913,3 +913,48 @@ body {
     font-size: var(--font-size-sm);
     font-weight: bold;
 }
+
+/* Team selection buttons */
+.team-btn {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 2px solid transparent;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: white;
+    text-transform: uppercase;
+    min-width: 60px;
+}
+
+.team-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.team-btn.active {
+    border-color: white;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+}
+
+.team-btn.blue {
+    background: #3498db;
+}
+
+.team-btn.red {
+    background: #e74c3c;
+}
+
+.team-btn.green {
+    background: #27ae60;
+}
+
+.team-btn.yellow {
+    background: #f1c40f;
+    color: #333;
+}
+
+.team-btn.none {
+    background: #95a5a6;
+}
