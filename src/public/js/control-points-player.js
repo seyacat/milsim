@@ -8,11 +8,6 @@ function createControlPointPlayerMenu(controlPoint, marker) {
     // No point type title - only show the control point name
     
     // Debug: Log current game state for troubleshooting
-    console.log('Creating control point menu:', {
-        controlPointId: controlPoint.id,
-        gameStatus: currentGame ? currentGame.status : 'no currentGame',
-        isGameRunning: currentGame && currentGame.status === 'running'
-    });
     
     // Show ownership status and hold time
     let ownershipStatus = '';
@@ -85,18 +80,6 @@ function createControlPointPlayerMenu(controlPoint, marker) {
 
 // Add control point marker to map for players
 function addControlPointMarkerPlayer(controlPoint) {
-    console.log('Adding control point marker for player:', controlPoint);
-    console.log('Control point challenge data:', {
-        hasCodeChallenge: controlPoint.hasCodeChallenge,
-        hasBombChallenge: controlPoint.hasBombChallenge,
-        hasPositionChallenge: controlPoint.hasPositionChallenge,
-        // Don't log code values for security
-    });
-    console.log('Current game state when adding marker:', {
-        hasCurrentGame: !!currentGame,
-        gameStatus: currentGame ? currentGame.status : 'undefined',
-        gameId: currentGame ? currentGame.id : 'undefined'
-    });
     
     // Create icon based on type, challenges, and ownership
     let iconColor = '#2196F3'; // Default for control_point
@@ -180,6 +163,24 @@ function addControlPointMarkerPlayer(controlPoint) {
                     font-weight: bold;
                     box-shadow: 0 2px 5px rgba(0,0,0,0.3);
                 ">${iconEmoji}</div>
+                <!-- Bomb timer display below marker (dynamically shown/hidden based on bomb status) -->
+                <div class="bomb-timer"
+                     id="bomb_timer_${controlPoint.id}"
+                     style="
+                         position: absolute;
+                         bottom: -20px;
+                         left: 50%;
+                         transform: translateX(-50%);
+                         background: rgba(255, 87, 34, 0.9);
+                         color: white;
+                         padding: 2px 4px;
+                         border-radius: 3px;
+                         font-size: 10px;
+                         font-weight: bold;
+                         white-space: nowrap;
+                         display: none;
+                         z-index: 1000;
+                     ">00:00</div>
             </div>
         `,
         iconSize: [20, 20],
@@ -203,7 +204,6 @@ function addControlPointMarkerPlayer(controlPoint) {
         
         // Store circle reference on marker for later removal
         marker.positionCircle = circle;
-        console.log('Added position challenge circle with radius:', controlPoint.minDistance, 'meters');
     }
 
     // Create popup with "Tomar" option for players
@@ -218,13 +218,11 @@ function addControlPointMarkerPlayer(controlPoint) {
     // Store control point data on marker for reference
     marker.controlPointData = controlPoint;
 
-    console.log('Player marker created successfully:', marker);
     return marker;
 }
 
 // Take control point action
 function takeControlPoint(controlPointId) {
-    console.log('Taking control point:', controlPointId);
     
     // Check if game is running before allowing action
     if (!currentGame || currentGame.status !== 'running') {
@@ -237,16 +235,6 @@ function takeControlPoint(controlPointId) {
     map.eachLayer((layer) => {
         if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === controlPointId) {
             controlPoint = layer.controlPointData;
-            console.log('Found control point data for action:', {
-                id: controlPoint.id,
-                name: controlPoint.name,
-                hasCodeChallenge: controlPoint.hasCodeChallenge,
-                hasBombChallenge: controlPoint.hasBombChallenge,
-                hasPositionChallenge: controlPoint.hasPositionChallenge,
-                minDistance: controlPoint.minDistance,
-                minAccuracy: controlPoint.minAccuracy
-                // Don't log code values for security
-            });
         }
     });
     
@@ -259,31 +247,11 @@ function takeControlPoint(controlPointId) {
     if (currentGame && currentGame.controlPoints) {
         const latestControlPoint = currentGame.controlPoints.find(cp => cp.id === controlPointId);
         if (latestControlPoint) {
-            console.log('Found updated control point data from currentGame:', {
-                id: latestControlPoint.id,
-                name: latestControlPoint.name,
-                hasCodeChallenge: latestControlPoint.hasCodeChallenge,
-                hasBombChallenge: latestControlPoint.hasBombChallenge,
-                hasPositionChallenge: latestControlPoint.hasPositionChallenge,
-                minDistance: latestControlPoint.minDistance,
-                minAccuracy: latestControlPoint.minAccuracy
-                // Don't log code values for security
-            });
             controlPoint = latestControlPoint;
         }
     }
     
     // Debug: Check what data we're working with
-    console.log('Final control point data for action:', {
-        id: controlPoint.id,
-        name: controlPoint.name,
-        hasCodeChallenge: controlPoint.hasCodeChallenge,
-        hasBombChallenge: controlPoint.hasBombChallenge,
-        hasPositionChallenge: controlPoint.hasPositionChallenge,
-        minDistance: controlPoint.minDistance,
-        minAccuracy: controlPoint.minAccuracy
-        // Don't log code values for security
-    });
     
     // Allow taking control points even if already owned by player's team
     // This allows players to submit codes regardless of ownership
@@ -294,7 +262,6 @@ function takeControlPoint(controlPointId) {
         const codeInput = document.getElementById(`codeInput_${controlPointId}`);
         if (codeInput) {
             code = codeInput.value.trim();
-            console.log('Code entered by user:', code);
         }
         
         // Validate that code was entered
@@ -337,7 +304,6 @@ function takeControlPoint(controlPointId) {
                 }
                 
                 // Position challenge passed, send take action with code
-                console.log('Position challenge passed, sending take action with code:', code);
                 sendTakeControlPointAction(controlPointId, code);
             },
             (error) => {
@@ -351,7 +317,6 @@ function takeControlPoint(controlPointId) {
         );
     } else {
         // No position challenge, send take action directly with code
-        console.log('No position challenge, sending take action with code:', code);
         sendTakeControlPointAction(controlPointId, code);
     }
 }
@@ -382,7 +347,6 @@ function sendTakeControlPointAction(controlPointId, code) {
 
 // Submit code challenge
 function submitCodeChallenge(controlPointId) {
-    console.log('Submitting code challenge for control point:', controlPointId);
     
     // Check if game is running before allowing action
     if (!currentGame || currentGame.status !== 'running') {
@@ -403,13 +367,11 @@ function submitCodeChallenge(controlPointId) {
         return;
     }
     
-    console.log('Submitting code:', code);
     sendTakeControlPointAction(controlPointId, code);
 }
 
 // Submit position challenge
 function submitPositionChallenge(controlPointId) {
-    console.log('Submitting position challenge for control point:', controlPointId);
     
     // Check if game is running before allowing action
     if (!currentGame || currentGame.status !== 'running') {
@@ -467,7 +429,6 @@ function submitPositionChallenge(controlPointId) {
             }
             
             // Position challenge passed, send take action
-            console.log('Position challenge passed, sending take action');
             sendTakeControlPointAction(controlPointId);
         },
         (error) => {
@@ -483,11 +444,10 @@ function submitPositionChallenge(controlPointId) {
 
 // Submit bomb challenge
 function submitBombChallenge(controlPointId) {
-    console.log('Submitting bomb challenge for control point:', controlPointId);
     
     // Check if game is running before allowing action
     if (!currentGame || currentGame.status !== 'running') {
-        showError('No puedes tomar puntos de control cuando el juego no está en ejecución');
+        showError('No puedes activar bombas cuando el juego no está en ejecución');
         return;
     }
     
@@ -506,12 +466,13 @@ function submitBombChallenge(controlPointId) {
         return;
     }
     
-    // For bomb challenges, players only need to enter the armed code to activate the bomb
-    // The disarmed code is only used by the owner to configure the bomb
-    console.log('Submitting bomb armed code:', armedCode);
-    
-    // Send the armed code to activate the bomb
+    // Send the armed code via takeControlPoint action - the backend will handle bomb activation
     sendTakeControlPointAction(controlPointId, armedCode);
+    
+    // Clear the input field after submission
+    armedCodeInput.value = '';
+    
+    // Don't show immediate feedback - wait for backend response to avoid double toast
 }
 
 
@@ -521,12 +482,6 @@ function getControlPointById(controlPointId) {
     map.eachLayer((layer) => {
         if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === controlPointId) {
             controlPoint = layer.controlPointData;
-            console.log('Found control point in map layers:', {
-                id: controlPoint.id,
-                name: controlPoint.name,
-                hasCodeChallenge: controlPoint.hasCodeChallenge,
-                hasBombChallenge: controlPoint.hasBombChallenge
-            });
         }
     });
     
@@ -534,12 +489,6 @@ function getControlPointById(controlPointId) {
     if (!controlPoint && currentGame && currentGame.controlPoints) {
         const latestControlPoint = currentGame.controlPoints.find(cp => cp.id === controlPointId);
         if (latestControlPoint) {
-            console.log('Found control point in currentGame:', {
-                id: latestControlPoint.id,
-                name: latestControlPoint.name,
-                hasCodeChallenge: latestControlPoint.hasCodeChallenge,
-                hasBombChallenge: latestControlPoint.hasBombChallenge
-            });
             controlPoint = latestControlPoint;
         }
     }
@@ -568,10 +517,6 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
 function updateControlPointPopups() {
     if (!map) return;
     
-    console.log('Updating control point popups, current game state:', {
-        hasCurrentGame: !!currentGame,
-        gameStatus: currentGame ? currentGame.status : 'undefined'
-    });
     
     map.eachLayer((layer) => {
         if (layer instanceof L.Marker && layer.controlPointData) {
@@ -590,15 +535,12 @@ function updateControlPointPopups() {
         }
     });
     
-    console.log('Control point popups updated');
 }
 
 // Refresh control point markers - remove and recreate with updated settings
 function refreshControlPointMarkers(controlPoints) {
     if (!map) return;
     
-    console.log('REFRESH PLAYER: Starting refresh with control points:', controlPoints);
-    console.log('REFRESH PLAYER: Number of control points:', controlPoints ? controlPoints.length : 0);
     
     // Remove all existing control point markers and circles
     let removedCount = 0;
@@ -607,41 +549,36 @@ function refreshControlPointMarkers(controlPoints) {
             // Remove position circle if exists
             if (layer.positionCircle) {
                 map.removeLayer(layer.positionCircle);
-                console.log('REFRESH PLAYER: Removed position circle for control point:', layer.controlPointData.id);
             }
             map.removeLayer(layer);
             removedCount++;
         }
     });
     
-    console.log('REFRESH PLAYER: Removed', removedCount, 'existing markers');
     
     // Recreate all control point markers with updated settings
     if (controlPoints && Array.isArray(controlPoints)) {
-        console.log('REFRESH PLAYER: Creating', controlPoints.length, 'new markers');
         controlPoints.forEach((controlPoint, index) => {
-            console.log('REFRESH PLAYER: Creating marker', index + 1, 'for control point:', controlPoint.id, controlPoint.name);
-            console.log('REFRESH PLAYER: Control point data:', {
-                hasPositionChallenge: controlPoint.hasPositionChallenge,
-                minDistance: controlPoint.minDistance,
-                hasBombChallenge: controlPoint.hasBombChallenge,
-                hasCodeChallenge: controlPoint.hasCodeChallenge,
-                type: controlPoint.type
-            });
             addControlPointMarkerPlayer(controlPoint);
         });
     } else {
         console.log('REFRESH PLAYER: No control points to create');
     }
     
-    console.log('REFRESH PLAYER: Player control point markers refreshed successfully');
     
     // Force timer display update after markers are refreshed
     if (window.updateAllTimerDisplays) {
         setTimeout(() => {
-            console.log('Forcing timer display update after marker refresh');
             window.updateAllTimerDisplays();
         }, 1000);
+    }
+    
+    // Force bomb timer display update after markers are refreshed
+    // This ensures bomb timers are shown immediately when markers are recreated
+    if (window.updateBombTimerDisplay) {
+        setTimeout(() => {
+            window.updateBombTimerDisplay();
+        }, 500);
     }
 }
 
@@ -678,7 +615,7 @@ let activeBombTimers = new Map();
 
 // Handle bomb time updates from server
 function handleBombTimeUpdate(data) {
-    console.log('Received bomb time update:', data);
+    console.log('Bomb time update received:', data);
     
     const { controlPointId, remainingTime, totalTime, isActive, activatedByUserId, activatedByUserName, activatedByTeam, exploded } = data;
     
@@ -686,7 +623,7 @@ function handleBombTimeUpdate(data) {
         // Bomb exploded - remove timer and show explosion notification
         activeBombTimers.delete(controlPointId);
         updateBombTimerDisplay();
-        showToast(`💥 ¡Bomba explotó en el punto de control!`, 'error');
+        showToast(`Bomba explotó en el punto de control!`, 'error');
         return;
     }
     
@@ -707,62 +644,99 @@ function handleBombTimeUpdate(data) {
         activatedByTeam
     });
     
+    console.log('Active bomb timers:', Array.from(activeBombTimers.entries()));
     updateBombTimerDisplay();
+    
+    // Debug: Check if bomb timer element exists
+    const bombTimerElement = document.getElementById(`bomb_timer_${controlPointId}`);
+    console.log(`Bomb timer element for ${controlPointId}:`, bombTimerElement);
+    if (!bombTimerElement) {
+        console.log(`WARNING: Bomb timer element not found for control point ${controlPointId}`);
+        console.log('Available bomb timer elements:', document.querySelectorAll('[id^="bomb_timer_"]'));
+        
+        // If bomb timer element doesn't exist, try to update again after a short delay
+        // This handles cases where control point markers are still being created
+        setTimeout(() => {
+            updateBombTimerDisplay();
+        }, 1000);
+    }
 }
 
 // Update bomb timer display in the UI
 function updateBombTimerDisplay() {
-    const bombTimerContainer = document.getElementById('bombTimerContainer');
-    const bombTimeRemaining = document.getElementById('bombTimeRemaining');
-    const bombActivatedBy = document.getElementById('bombActivatedBy');
+    console.log('Updating bomb timer display, active bombs:', activeBombTimers.size);
     
-    if (!bombTimerContainer || !bombTimeRemaining || !bombActivatedBy) {
-        return;
+    // Hide all bomb timers first
+    map.eachLayer((layer) => {
+        if (layer instanceof L.Marker && layer.controlPointData) {
+            const bombTimerElement = document.getElementById(`bomb_timer_${layer.controlPointData.id}`);
+            if (bombTimerElement) {
+                bombTimerElement.style.display = 'none';
+            }
+        }
+    });
+    
+    // Show bomb timers for active bombs
+    activeBombTimers.forEach((bombTimer, controlPointId) => {
+        const bombTimerElement = document.getElementById(`bomb_timer_${controlPointId}`);
+        console.log(`Looking for bomb timer element for control point ${controlPointId}:`, bombTimerElement);
+        
+        if (bombTimerElement) {
+            // Format time as MM:SS
+            const minutes = Math.floor(bombTimer.remainingTime / 60);
+            const seconds = bombTimer.remainingTime % 60;
+            const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            
+            bombTimerElement.textContent = formattedTime;
+            
+            // Show warning colors when time is running low
+            if (bombTimer.remainingTime <= 60) {
+                // Less than 1 minute - red background
+                bombTimerElement.style.background = 'rgba(244, 67, 54, 0.9)';
+            } else if (bombTimer.remainingTime <= 180) {
+                // Less than 3 minutes - orange background
+                bombTimerElement.style.background = 'rgba(255, 152, 0, 0.9)';
+            } else {
+                // Normal - red-orange background
+                bombTimerElement.style.background = 'rgba(255, 87, 34, 0.9)';
+            }
+            
+            bombTimerElement.style.display = 'block';
+            console.log(`Bomb timer displayed for control point ${controlPointId}: ${formattedTime}`);
+        } else {
+            console.log(`Bomb timer element not found for control point ${controlPointId}`);
+        }
+    });
+}
+
+// Request active bomb timers when joining a game
+function requestActiveBombTimers() {
+    if (socket && currentGame) {
+        socket.emit('getActiveBombTimers', { gameId: currentGame.id });
+        console.log('Requested active bomb timers for game:', currentGame.id);
+    }
+}
+
+// Handle active bomb timers response
+function handleActiveBombTimers(serverBombTimers) {
+    console.log('Active bomb timers received:', serverBombTimers);
+    
+    // Clear existing bomb timers
+    activeBombTimers.clear();
+    
+    // Add all active bomb timers from the server
+    if (serverBombTimers && Array.isArray(serverBombTimers)) {
+        serverBombTimers.forEach(bombTimer => {
+            activeBombTimers.set(bombTimer.controlPointId, bombTimer);
+        });
     }
     
-    if (activeBombTimers.size === 0) {
-        // No active bomb timers
-        bombTimerContainer.style.display = 'none';
-        return;
-    }
-    
-    // For now, show the first active bomb timer
-    // In the future, we could show multiple timers or the most critical one
-    const firstBombTimer = Array.from(activeBombTimers.values())[0];
-    
-    // Format time as MM:SS
-    const minutes = Math.floor(firstBombTimer.remainingTime / 60);
-    const seconds = firstBombTimer.remainingTime % 60;
-    const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-    
-    bombTimeRemaining.textContent = formattedTime;
-    
-    // Show who activated the bomb with team information
-    const teamColors = {
-        'blue': 'Azul',
-        'red': 'Rojo',
-        'green': 'Verde',
-        'yellow': 'Amarillo'
-    };
-    const teamName = firstBombTimer.activatedByTeam ? teamColors[firstBombTimer.activatedByTeam] || firstBombTimer.activatedByTeam : '';
-    const activatedByText = firstBombTimer.activatedByUserName || 'Desconocido';
-    bombActivatedBy.textContent = teamName ? `${activatedByText} (${teamName})` : activatedByText;
-    
-    // Show warning colors when time is running low
-    if (firstBombTimer.remainingTime <= 60) {
-        // Less than 1 minute - red background
-        bombTimerContainer.style.background = 'rgba(244, 67, 54, 0.9)';
-    } else if (firstBombTimer.remainingTime <= 180) {
-        // Less than 3 minutes - orange background
-        bombTimerContainer.style.background = 'rgba(255, 152, 0, 0.9)';
-    } else {
-        // Normal - red-orange background
-        bombTimerContainer.style.background = 'rgba(255, 87, 34, 0.9)';
-    }
-    
-    bombTimerContainer.style.display = 'block';
+    // Update the display
+    updateBombTimerDisplay();
 }
 
 // Make functions available globally
 window.handleBombTimeUpdate = handleBombTimeUpdate;
 window.updateBombTimerDisplay = updateBombTimerDisplay;
+window.requestActiveBombTimers = requestActiveBombTimers;
+window.handleActiveBombTimers = handleActiveBombTimers;

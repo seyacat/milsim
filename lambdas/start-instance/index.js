@@ -35,7 +35,6 @@ exports.handler = async (event) => {
         const instance = describeResult.Reservations[0].Instances[0];
         const currentState = instance.State.Name;
         
-        console.log(`Instance ${instanceId} current state: ${currentState}`);
         
         // If instance is already running, do nothing
         if (currentState === 'running') {

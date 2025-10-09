@@ -10,7 +10,6 @@ const path = require('path');
  */
 
 function fixMigrationFile(filePath) {
-    console.log(`Procesando archivo: ${filePath}`);
     
     try {
         let content = fs.readFileSync(filePath, 'utf8');
@@ -20,7 +19,6 @@ function fixMigrationFile(filePath) {
         // Buscar el método up() específicamente
         const upMethodStart = content.indexOf('public async up(queryRunner: QueryRunner): Promise<void> {');
         if (upMethodStart === -1) {
-            console.log('No se encontró el método up() en el archivo');
             return false;
         }
         
@@ -43,7 +41,6 @@ function fixMigrationFile(filePath) {
         }
         
         if (upMethodEnd === upMethodStart) {
-            console.log('No se pudo determinar el final del método up()');
             return false;
         }
         
@@ -58,7 +55,6 @@ function fixMigrationFile(filePath) {
         let dropMatches = [...upMethodContent.matchAll(dropPattern)];
         let addMatches = [...upMethodContent.matchAll(addPattern)];
         
-        console.log(`Encontrados ${dropMatches.length} DROP COLUMN y ${addMatches.length} ADD COLUMN en up()`);
         
         let modifiedUpContent = upMethodContent;
         
@@ -78,10 +74,6 @@ function fixMigrationFile(filePath) {
                     const addFullText = addMatch[0];
                     
                     if (dropTable === addTable && dropColumn === addColumn) {
-                        console.log(`Encontrado patrón DROP+ADD para corregir:`);
-                        console.log(`  Tabla: ${dropTable}, Columna: ${dropColumn}`);
-                        console.log(`  DROP: ${dropFullText}`);
-                        console.log(`  ADD: ${addFullText}`);
                         
                         // Crear la línea MODIFY COLUMN
                         // Limpiar la definición de columna
@@ -95,7 +87,6 @@ function fixMigrationFile(filePath) {
                         
                         const modifyStatement = `await queryRunner.query("ALTER TABLE \`${dropTable}\` MODIFY COLUMN \`${dropColumn}\` ${cleanDefinition}");`;
                         
-                        console.log(`  Reemplazando por MODIFY: ${modifyStatement}`);
                         
                         // Reemplazar DROP + ADD por MODIFY (sin conservar ADD)
                         modifiedUpContent = modifiedUpContent.replace(dropFullText, modifyStatement);
@@ -123,7 +114,6 @@ function fixMigrationFile(filePath) {
             
             // Escribir el archivo corregido
             fs.writeFileSync(filePath, content);
-            console.log(`Archivo corregido: ${filePath}`);
         } else {
             console.log('No se encontraron patrones DROP+ADD para corregir en up().');
         }
@@ -137,7 +127,6 @@ function fixMigrationFile(filePath) {
 }
 
 function findMigrationFiles(directory) {
-    console.log(`Buscando archivos de migración en: ${directory}`);
     
     const migrationFiles = [];
     
@@ -170,14 +159,10 @@ function main() {
     const migrationsDir = path.join(__dirname, 'src', 'database', 'migrations');
     const distMigrationsDir = path.join(__dirname, 'dist', 'database', 'migrations');
     
-    console.log('=== Script de corrección de migraciones (v2) ===\n');
-    console.log('NOTA: Esta versión solo procesa dentro del método up()');
-    console.log('y mantiene la estructura correcta de los métodos.\n');
     
     // Procesar archivos de migración en src
     if (fs.existsSync(migrationsDir)) {
         const srcFiles = findMigrationFiles(migrationsDir);
-        console.log(`Encontrados ${srcFiles.length} archivos de migración en src`);
         
         let srcChanges = 0;
         srcFiles.forEach(file => {
@@ -187,17 +172,14 @@ function main() {
             console.log(''); // Línea en blanco entre archivos
         });
         
-        console.log(`Corregidos ${srcChanges} archivos en src/database/migrations`);
     } else {
         console.log('Directorio src/database/migrations no encontrado');
     }
     
-    console.log('\n' + '='.repeat(50) + '\n');
     
     // Procesar archivos de migración en dist
     if (fs.existsSync(distMigrationsDir)) {
         const distFiles = findMigrationFiles(distMigrationsDir);
-        console.log(`Encontrados ${distFiles.length} archivos de migración en dist`);
         
         let distChanges = 0;
         distFiles.forEach(file => {
@@ -207,12 +189,10 @@ function main() {
             console.log(''); // Línea en blanco entre archivos
         });
         
-        console.log(`Corregidos ${distChanges} archivos en dist/database/migrations`);
     } else {
         console.log('Directorio dist/database/migrations no encontrado');
     }
     
-    console.log('\n=== Proceso completado ===');
 }
 
 // Ejecutar el script

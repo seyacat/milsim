@@ -5,26 +5,36 @@ const urlsToCache = [
   '/login.html',
   '/register.html',
   '/dashboard.html',
-  '/game.html',
+  '/owner.html',
+  '/player.html',
   '/create-game.html',
   '/styles.css',
   '/manifest.json',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
-  'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-  'https://cdn.socket.io/4.7.5/socket.io.min.js'
+  '/js/game-core.js',
+  '/js/game-owner.js',
+  '/js/game-player.js',
+  '/js/control-points-owner.js',
+  '/js/control-points-player.js',
+  '/js/pwa-install.js'
 ];
 
 // Install event - cache essential files
 self.addEventListener('install', event => {
-  console.log('Service Worker installing...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('Opened cache');
-        return cache.addAll(urlsToCache);
+        // Use Promise.all to handle individual cache failures gracefully
+        return Promise.all(
+          urlsToCache.map(url => {
+            return cache.add(url).catch(error => {
+              console.warn(`Failed to cache ${url}:`, error);
+              // Continue even if individual files fail
+              return Promise.resolve();
+            });
+          })
+        );
       })
       .then(() => {
-        console.log('All resources cached successfully');
         return self.skipWaiting();
       })
       .catch(error => {
@@ -35,19 +45,16 @@ self.addEventListener('install', event => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', event => {
-  console.log('Service Worker activating...');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            console.log('Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
     }).then(() => {
-      console.log('Service Worker activated');
       return self.clients.claim();
     })
   );
@@ -90,7 +97,6 @@ self.addEventListener('fetch', event => {
             return response;
           })
           .catch(error => {
-            console.log('Fetch failed; returning offline page:', error);
             // For navigation requests, return the cached page
             if (event.request.destination === 'document') {
               return caches.match('/');
@@ -102,7 +108,6 @@ self.addEventListener('fetch', event => {
 
 // Handle background sync for offline actions
 self.addEventListener('sync', event => {
-  console.log('Background sync:', event.tag);
   if (event.tag === 'background-sync') {
     event.waitUntil(doBackgroundSync());
   }
@@ -110,13 +115,11 @@ self.addEventListener('sync', event => {
 
 async function doBackgroundSync() {
   // This would handle syncing any pending actions when back online
-  console.log('Performing background sync...');
   // Implementation would depend on specific offline actions needed
 }
 
 // Handle push notifications
 self.addEventListener('push', event => {
-  console.log('Push notification received:', event);
   
   const options = {
     body: event.data ? event.data.text() : 'Nueva notificación de Milsim',
@@ -145,7 +148,6 @@ self.addEventListener('push', event => {
 });
 
 self.addEventListener('notificationclick', event => {
-  console.log('Notification click:', event.notification.tag);
   event.notification.close();
 
   if (event.action === 'open') {

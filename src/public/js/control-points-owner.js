@@ -4,10 +4,6 @@ let mapClickHandler = null;
 
 // Initialize owner control points features
 function initializeOwnerControlPoints() {
-    console.log('Initializing owner control points features');
-    console.log('Map available:', !!map);
-    console.log('Current game available:', !!currentGame);
-    console.log('Current user available:', !!currentUser);
     
     // Remove any existing click handler first
     if (mapClickHandler) {
@@ -16,7 +12,6 @@ function initializeOwnerControlPoints() {
     
     // Add click handler for owners to create control points
     mapClickHandler = function(e) {
-        console.log('Owner clicked on map at:', e.latlng);
         // Only show menu if no menu is currently visible
         if (!controlPointMenuVisible) {
             showControlPointMenu(e.latlng);
@@ -27,7 +22,6 @@ function initializeOwnerControlPoints() {
     map.off('click', mapClickHandler);
     map.on('click', mapClickHandler);
     
-    console.log('Owner control points features initialized successfully');
 }
 
 // Show control point creation menu
@@ -41,7 +35,6 @@ function showControlPointMenu(latlng) {
     // Remove map click handler to prevent multiple menus
     if (map && mapClickHandler) {
         map.off('click', mapClickHandler);
-        console.log('Map click handler removed for menu');
     }
 
     // Create menu content
@@ -107,7 +100,6 @@ function closeControlPointMenu() {
             // Remove any existing handler first to avoid duplicates
             map.off('click', mapClickHandler);
             map.on('click', mapClickHandler);
-            console.log('Map click handler re-enabled');
         }
     }, 200); // Increased delay to ensure menu is fully closed
 }
@@ -152,10 +144,6 @@ async function createControlPoint(lat, lng) {
 
 // Add control point marker to map for owners
 function addControlPointMarkerOwner(controlPoint) {
-    console.log('Adding control point marker for owner:', controlPoint);
-    console.log('Map available for marker:', !!map);
-    console.log('Current game available for marker:', !!currentGame);
-    console.log('Current user available for marker:', !!currentUser);
     
     // Create icon based on type, bomb challenge, and ownership
     let iconColor = '#2196F3'; // Default for control_point
@@ -262,13 +250,10 @@ function addControlPointMarkerOwner(controlPoint) {
         
         // Store circle reference with marker
         marker.positionCircle = circle;
-        console.log('Position challenge circle added with radius:', controlPoint.minDistance, 'meters');
     }
 
     // Create popup with edit options
-    console.log('Creating edit menu for control point...');
     const popupContent = createControlPointEditMenu(controlPoint, marker);
-    console.log('Edit menu created successfully');
     
     marker.bindPopup(popupContent, {
         closeOnClick: false,
@@ -278,7 +263,6 @@ function addControlPointMarkerOwner(controlPoint) {
 
     // Add popup open/close handlers
     marker.on('popupopen', function() {
-        console.log('Control point popup opened');
         // Remove map click handler to prevent conflicts while editing
         if (map && mapClickHandler) {
             map.off('click', mapClickHandler);
@@ -286,7 +270,6 @@ function addControlPointMarkerOwner(controlPoint) {
     });
 
     marker.on('popupclose', function() {
-        console.log('Control point popup closed');
         
         // Re-enable map click handler after popup is closed
         setTimeout(() => {
@@ -299,7 +282,6 @@ function addControlPointMarkerOwner(controlPoint) {
     // Store control point data on marker for reference
     marker.controlPointData = controlPoint;
 
-    console.log('Owner marker created successfully:', marker);
     return marker;
 }
 
@@ -308,15 +290,6 @@ function createControlPointEditMenu(controlPoint, marker) {
     const menu = document.createElement('div');
     menu.className = 'control-point-edit-menu';
     
-    console.log('Creating edit menu with control point data:', {
-        id: controlPoint.id,
-        minDistance: controlPoint.minDistance,
-        minAccuracy: controlPoint.minAccuracy,
-        challengeType: controlPoint.challengeType,
-        code: controlPoint.code,
-        armedCode: controlPoint.armedCode,
-        disarmedCode: controlPoint.disarmedCode
-    });
     
     // Check if there's already a Site in the game (excluding current point)
     const hasOtherSite = hasSiteControlPoint() && controlPoint.type !== 'site';
@@ -533,9 +506,6 @@ function createControlPointEditMenu(controlPoint, marker) {
         </div>
     `;
     
-    console.log('Menu HTML created for control point:', controlPoint.id);
-    console.log('Position challenge checked:', positionChallengeChecked);
-    console.log('Code challenge checked:', codeChallengeChecked);
     
     // Add inline onclick handlers for checkboxes
     menu.innerHTML = menu.innerHTML.replace(
@@ -565,14 +535,6 @@ function updateControlPoint(controlPointId, markerId) {
     const codeChallenge = document.getElementById(`codeChallenge_${controlPointId}`).checked;
     const bombChallenge = document.getElementById(`bombChallenge_${controlPointId}`).checked;
     
-    console.log('Updating control point:', {
-        controlPointId,
-        type,
-        name,
-        positionChallenge,
-        codeChallenge,
-        bombChallenge
-    });
     
     if (!name) {
         showWarning('Por favor ingresa un nombre para el punto');
@@ -616,7 +578,6 @@ function updateControlPoint(controlPointId, markerId) {
     const minDistance = minDistanceSelect ? minDistanceSelect.value : '';
     const minAccuracy = minAccuracySelect ? minAccuracySelect.value : '';
     
-    console.log('Position challenge values:', { minDistance, minAccuracy });
     
     // Only validate if position challenge is checked
     if (positionChallenge) {
@@ -651,7 +612,6 @@ function updateControlPoint(controlPointId, markerId) {
     
     const bombTime = bombTimeSelect ? bombTimeSelect.value : '';
     
-    console.log('Bomb challenge values:', { bombTime, armedCode, disarmedCode });
     
     // Only validate if bomb challenge is checked
     if (bombChallenge) {
@@ -705,11 +665,6 @@ function togglePositionInputs(controlPointId) {
     const checkbox = document.getElementById(`positionChallenge_${controlPointId}`);
     const inputsDiv = document.getElementById(`positionInputs_${controlPointId}`);
     
-    console.log('Toggle position inputs:', {
-        controlPointId,
-        checked: checkbox ? checkbox.checked : 'no checkbox',
-        inputsDiv: !!inputsDiv
-    });
     
     if (checkbox && inputsDiv) {
         inputsDiv.classList.toggle('hidden', !checkbox.checked);
@@ -721,11 +676,6 @@ function toggleCodeInputs(controlPointId) {
     const checkbox = document.getElementById(`codeChallenge_${controlPointId}`);
     const inputsDiv = document.getElementById(`codeInputs_${controlPointId}`);
     
-    console.log('Toggle code inputs:', {
-        controlPointId,
-        checked: checkbox ? checkbox.checked : 'no checkbox',
-        inputsDiv: !!inputsDiv
-    });
     
     if (checkbox && inputsDiv) {
         inputsDiv.classList.toggle('hidden', !checkbox.checked);
@@ -737,11 +687,6 @@ function toggleBombInputs(controlPointId) {
     const checkbox = document.getElementById(`bombChallenge_${controlPointId}`);
     const inputsDiv = document.getElementById(`bombInputs_${controlPointId}`);
     
-    console.log('Toggle bomb inputs:', {
-        controlPointId,
-        checked: checkbox ? checkbox.checked : 'no checkbox',
-        inputsDiv: !!inputsDiv
-    });
     
     if (checkbox && inputsDiv) {
         inputsDiv.classList.toggle('hidden', !checkbox.checked);
@@ -752,10 +697,6 @@ function toggleBombInputs(controlPointId) {
 function updateOwnerControlPointPopups() {
     if (!map) return;
     
-    console.log('Updating owner control point popups, current game state:', {
-        hasCurrentGame: !!currentGame,
-        gameStatus: currentGame ? currentGame.status : 'undefined'
-    });
     
     map.eachLayer((layer) => {
         if (layer instanceof L.Marker && layer.controlPointData) {
@@ -774,15 +715,12 @@ function updateOwnerControlPointPopups() {
         }
     });
     
-    console.log('Owner control point popups updated');
 }
 
 // Refresh control point markers - remove and recreate with updated settings (for owners)
 function refreshOwnerControlPointMarkers(controlPoints) {
     if (!map) return;
     
-    console.log('REFRESH OWNER: Starting refresh with control points:', controlPoints);
-    console.log('REFRESH OWNER: Number of control points:', controlPoints ? controlPoints.length : 0);
     
     // Remove all existing control point markers and circles
     let removedCount = 0;
@@ -791,38 +729,26 @@ function refreshOwnerControlPointMarkers(controlPoints) {
             // Remove position circle if exists
             if (layer.positionCircle) {
                 map.removeLayer(layer.positionCircle);
-                console.log('REFRESH OWNER: Removed position circle for control point:', layer.controlPointData.id);
             }
             map.removeLayer(layer);
             removedCount++;
         }
     });
     
-    console.log('REFRESH OWNER: Removed', removedCount, 'existing markers');
     
     // Recreate all control point markers with updated settings
     if (controlPoints && Array.isArray(controlPoints)) {
-        console.log('REFRESH OWNER: Creating', controlPoints.length, 'new markers');
         controlPoints.forEach((controlPoint, index) => {
-            console.log('REFRESH OWNER: Creating marker', index + 1, 'for control point:', controlPoint.id, controlPoint.name);
-            console.log('REFRESH OWNER: Control point data:', {
-                hasPositionChallenge: controlPoint.hasPositionChallenge,
-                minDistance: controlPoint.minDistance,
-                hasBombChallenge: controlPoint.hasBombChallenge,
-                type: controlPoint.type
-            });
             addControlPointMarkerOwner(controlPoint);
         });
     } else {
         console.log('REFRESH OWNER: No control points to create');
     }
     
-    console.log('REFRESH OWNER: Owner control point markers refreshed successfully');
 }
 
 // Enable drag mode for moving control points
 function enableDragMode(controlPointId, markerId) {
-    console.log(`Enabling drag mode for control point ${controlPointId}, marker ${markerId}`);
     
     // Find the marker
     let targetMarker = null;
@@ -842,7 +768,6 @@ function enableDragMode(controlPointId, markerId) {
     
     // Make marker draggable
     targetMarker.dragging.enable();
-    console.log('Marker dragging enabled');
     
     // Change cursor to indicate drag mode
     targetMarker.getElement().style.cursor = 'move';
@@ -851,7 +776,6 @@ function enableDragMode(controlPointId, markerId) {
     targetMarker.on('dragend', function(event) {
         const marker = event.target;
         const newPosition = marker.getLatLng();
-        console.log(`Marker dragged to new position: ${newPosition.lat}, ${newPosition.lng}`);
         
         // Update control point position via WebSocket
         if (socket && currentGame) {
@@ -869,7 +793,6 @@ function enableDragMode(controlPointId, markerId) {
         // Disable dragging after placement
         marker.dragging.disable();
         marker.getElement().style.cursor = '';
-        console.log('Drag mode disabled after placement');
     });
     
     // Show instruction message
@@ -878,7 +801,6 @@ function enableDragMode(controlPointId, markerId) {
 
 // Assign team to control point
 function assignControlPointTeam(controlPointId, team) {
-    console.log('Assigning team to control point:', { controlPointId, team });
     
     if (socket && currentGame) {
         // Send team assignment via WebSocket
@@ -897,7 +819,6 @@ function assignControlPointTeam(controlPointId, team) {
 
 // Handle control point team assigned event
 function handleControlPointTeamAssigned(data) {
-    console.log('Control point team assigned:', data);
     
     // Find the marker and update its data
     map.eachLayer((layer) => {
@@ -928,7 +849,6 @@ function handleControlPointTeamAssigned(data) {
 
 // Update a single owner marker without refreshing all markers
 function updateSingleOwnerMarker(controlPoint) {
-    console.log('Updating single owner marker:', controlPoint.id);
     
     // Find the existing marker
     let existingMarker = null;
@@ -939,7 +859,6 @@ function updateSingleOwnerMarker(controlPoint) {
     });
     
     if (!existingMarker) {
-        console.log('Marker not found, creating new one');
         addControlPointMarkerOwner(controlPoint);
         return;
     }
@@ -953,7 +872,6 @@ function updateSingleOwnerMarker(controlPoint) {
     // Create a new marker with updated data
     addControlPointMarkerOwner(controlPoint);
     
-    console.log('Single owner marker updated successfully');
 }
 
 // Make functions available globally
@@ -975,3 +893,12 @@ window.enableDragMode = enableDragMode;
 window.assignControlPointTeam = assignControlPointTeam;
 window.handleControlPointTeamAssigned = handleControlPointTeamAssigned;
 window.updateSingleOwnerMarker = updateSingleOwnerMarker;
+
+// Handle bomb time updates for owners (no timer display needed, just prevent recursion)
+function handleBombTimeUpdate(data) {
+    // Owners don't need to display bomb timers, just log for debugging
+    console.log('Bomb time update received (owner):', data);
+}
+
+// Make bomb time update function available globally for owners
+window.handleBombTimeUpdate = handleBombTimeUpdate;

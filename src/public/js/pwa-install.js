@@ -23,18 +23,15 @@ class PWAInstaller {
                 const registrations = await navigator.serviceWorker.getRegistrations();
                 for (let registration of registrations) {
                     await registration.unregister();
-                    console.log('Service Worker unregistered:', registration);
                 }
                 
                 // Register new service worker
                 const registration = await navigator.serviceWorker.register('/sw.js', {
                     scope: '/'
                 });
-                console.log('Service Worker registered successfully:', registration);
                 
                 registration.addEventListener('updatefound', () => {
                     const newWorker = registration.installing;
-                    console.log('New Service Worker found:', newWorker);
                 });
             } catch (error) {
                 console.error('Service Worker registration failed:', error);
@@ -49,9 +46,7 @@ class PWAInstaller {
                 const cacheNames = await caches.keys();
                 for (const cacheName of cacheNames) {
                     await caches.delete(cacheName);
-                    console.log('Cache deleted:', cacheName);
                 }
-                console.log('All caches cleared successfully');
             }
         } catch (error) {
             console.error('Error clearing cache:', error);
@@ -61,14 +56,15 @@ class PWAInstaller {
     // Handle install prompt
     setupInstallPrompt() {
         window.addEventListener('beforeinstallprompt', (e) => {
-            console.log('beforeinstallprompt event fired');
-            e.preventDefault();
+            // Store the event for later use
             this.deferredPrompt = e;
             this.showInstallButton();
+            
+            // Don't prevent default - let the browser handle the prompt naturally
+            // The install button will trigger the prompt when clicked
         });
 
         window.addEventListener('appinstalled', (e) => {
-            console.log('PWA installed successfully');
             this.deferredPrompt = null;
             this.hideInstallButton();
             this.showInstallSuccess();
@@ -159,10 +155,27 @@ class PWAInstaller {
     // Install app
     async installApp() {
         if (this.deferredPrompt) {
-            this.deferredPrompt.prompt();
-            const { outcome } = await this.deferredPrompt.userChoice;
-            console.log(`User response to the install prompt: ${outcome}`);
-            this.deferredPrompt = null;
+            try {
+                // Show the install prompt
+                this.deferredPrompt.prompt();
+                
+                // Wait for the user to respond to the prompt
+                const { outcome } = await this.deferredPrompt.userChoice;
+                
+                if (outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                } else {
+                    console.log('User dismissed the install prompt');
+                }
+                
+                // Clear the deferredPrompt after use
+                this.deferredPrompt = null;
+                this.hideInstallButton();
+            } catch (error) {
+                console.error('Error showing install prompt:', error);
+            }
+        } else {
+            console.log('No install prompt available');
         }
     }
 
@@ -173,7 +186,6 @@ class PWAInstaller {
 
     // Handle standalone mode
     onStandaloneMode() {
-        console.log('Running in standalone mode');
         // Add any standalone-specific logic here
         document.body.classList.add('standalone-mode');
     }
@@ -273,7 +285,6 @@ document.addEventListener('DOMContentLoaded', () => {
 window.clearPWACache = async function() {
     if (window.pwaInstaller) {
         await window.pwaInstaller.clearServiceWorkerCache();
-        console.log('PWA cache cleared manually');
     } else {
         console.error('PWA installer not initialized');
     }

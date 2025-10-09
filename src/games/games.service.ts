@@ -2002,7 +2002,6 @@ export class GamesService {
           });
         }
       }
-    
     }
 
     console.log(`[PLAYER_CAPTURE_STATS] Initialized ${playerStats.size} player stats`);
@@ -2073,13 +2072,13 @@ export class GamesService {
       lastBroadcastTime: 0,
     };
 
-    // Start countdown interval (update every second internally, broadcast every 20 seconds)
+    // Start countdown interval (update every second internally, broadcast every 20 seconds like other timers)
     bombTimer.intervalId = setInterval(() => {
       if (bombTimer.isActive) {
         // Decrement remaining time
         bombTimer.remainingTime--;
 
-        // Broadcast time update ONLY every 20 seconds
+        // Broadcast time update every 20 seconds like other timers
         if (bombTimer.remainingTime % 20 === 0 && this.gamesGateway) {
           this.gamesGateway.broadcastBombTimeUpdate(controlPointId, {
             remainingTime: bombTimer.remainingTime,
@@ -2111,7 +2110,7 @@ export class GamesService {
       timestamp: new Date(),
     });
 
-    // Send initial bomb time update
+    // Send initial bomb time update IMMEDIATELY when bomb is activated
     if (this.gamesGateway) {
       this.gamesGateway.broadcastBombTimeUpdate(controlPointId, {
         remainingTime: bombTimer.remainingTime,
@@ -2231,5 +2230,53 @@ export class GamesService {
       };
     }
     return null;
+  }
+
+  // Get all active bomb timers for a game
+  async getActiveBombTimers(gameId: number): Promise<
+    Array<{
+      controlPointId: number;
+      remainingTime: number;
+      totalTime: number;
+      isActive: boolean;
+      activatedByUserId?: number;
+      activatedByUserName?: string;
+      activatedByTeam?: string;
+    }>
+  > {
+    const activeBombTimers: Array<{
+      controlPointId: number;
+      remainingTime: number;
+      totalTime: number;
+      isActive: boolean;
+      activatedByUserId?: number;
+      activatedByUserName?: string;
+      activatedByTeam?: string;
+    }> = [];
+
+    // Get all control points for this game
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+      relations: ['controlPoints'],
+    });
+
+    if (game && game.controlPoints) {
+      for (const controlPoint of game.controlPoints) {
+        const bombTimer = this.bombTimers.get(controlPoint.id);
+        if (bombTimer && bombTimer.isActive) {
+          activeBombTimers.push({
+            controlPointId: controlPoint.id,
+            remainingTime: bombTimer.remainingTime,
+            totalTime: bombTimer.totalTime,
+            isActive: bombTimer.isActive,
+            activatedByUserId: bombTimer.activatedByUserId,
+            activatedByUserName: bombTimer.activatedByUserName,
+            activatedByTeam: bombTimer.activatedByTeam,
+          });
+        }
+      }
+    }
+
+    return activeBombTimers;
   }
 }

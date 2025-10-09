@@ -30,7 +30,6 @@ function fixMigrations() {
     // Create migrations directory if it doesn't exist
     if (!fs.existsSync(migrationsDir)) {
         fs.mkdirSync(migrationsDir, { recursive: true });
-        console.log(`Created migrations directory: ${migrationsDir}`);
         return; // No files to process if directory was just created
     }
     
@@ -39,11 +38,9 @@ function fixMigrations() {
     
     const migrationFiles = files.filter(file => file.endsWith('.ts'));
     
-    console.log(`Found ${migrationFiles.length} migration files to process`);
     
     migrationFiles.forEach(file => {
         const filePath = path.join(migrationsDir, file);
-        console.log(`Processing: ${file}`);
         
         // Read the file content
         const content = fs.readFileSync(filePath, 'utf8');
@@ -54,10 +51,8 @@ function fixMigrations() {
         // Write the fixed content back to the file
         fs.writeFileSync(filePath, fixedContent, 'utf8');
         
-        console.log(`Fixed: ${file}`);
     });
     
-    console.log('Migration format fixing completed!');
 }
 
 // Run the script

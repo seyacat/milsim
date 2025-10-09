@@ -3,7 +3,6 @@ let isShowingTeamSelection = false;
 
 // Initialize player features
 function initializePlayerFeatures() {
-    console.log('Initializing player features');
     
     // Players don't need map click handlers for creating control points
     // They only interact with existing control points
@@ -29,15 +28,6 @@ function updatePlayerTeamSelection() {
     }
     
     // Debug: Log current state for troubleshooting
-    console.log('Team selection update:', {
-        isOwner,
-        isStopped,
-        currentUser: currentUser.id,
-        gameStatus: currentGame.status,
-        teamCount: currentGame.teamCount,
-        players: currentGame.players?.length,
-        currentPlayer: currentGame.players?.find(p => p && p.user && p.user.id === currentUser.id)
-    });
 }
 
 // Show team selection interface for players

@@ -94,7 +94,6 @@ function initializeWebSocket(gameId) {
     });
 
     socket.on('connect', () => {
-        console.log('WebSocket connected');
         // Join the game room
         socket.emit('joinGame', {
             gameId: parseInt(gameId)
@@ -102,7 +101,6 @@ function initializeWebSocket(gameId) {
     });
 
     socket.on('disconnect', () => {
-        console.log('WebSocket disconnected');
         showError('Conexión perdida con el servidor');
         // Don't redirect on disconnect - just show error
     });
@@ -114,7 +112,6 @@ function initializeWebSocket(gameId) {
     });
 
     socket.on('gameUpdate', (data) => {
-        console.log('Game update received:', data.type);
         // Update the game state when changes occur
         if (data.game) {
             currentGame = data.game;
@@ -123,18 +120,14 @@ function initializeWebSocket(gameId) {
             
             // Debug: Check if this is a gameUpdated event with control points
             if (data.type === 'gameUpdated' && data.game.controlPoints) {
-                console.log('GameUpdated event with control points:', data.game.controlPoints.length);
                 
                 // Also refresh control point markers when gameUpdate event contains control points
                 const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-                console.log('GameUpdate - User is owner:', userIsOwner, 'Current user ID:', currentUser.id, 'Owner ID:', currentGame.owner ? currentGame.owner.id : 'none');
                 if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
                     // Refreshing owner control point markers from gameUpdate event
-                    console.log('Calling refreshOwnerControlPointMarkers from gameUpdate');
                     window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
                 } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
                     // Refreshing player control point markers from gameUpdate event
-                    console.log('Calling refreshPlayerControlPointMarkers from gameUpdate');
                     window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
                 }
             }
@@ -142,18 +135,15 @@ function initializeWebSocket(gameId) {
     });
 
     socket.on('gameAction', (data) => {
-        console.log('Game action received:', data);
         // Handle game actions from other players
         handleGameAction(data);
     });
 
     socket.on('gameActionError', (data) => {
-        console.log('Game action error:', data);
         showError('Error: ' + data.error);
     });
 
     socket.on('gameState', (game) => {
-        console.log('Game state received');
         currentGame = game;
         // Update current user's team information from game data
         updateCurrentUserTeam();
@@ -162,7 +152,6 @@ function initializeWebSocket(gameId) {
     });
 
     socket.on('joinSuccess', (data) => {
-        console.log('Joined game room');
         // Update current user with authenticated data from server
         if (data.user) {
             currentUser = data.user;
@@ -179,6 +168,11 @@ function initializeWebSocket(gameId) {
         // Request current game time
         if (socket && currentGame) {
             socket.emit('getGameTime', { gameId: currentGame.id });
+        }
+        
+        // Request active bomb timers when joining the game
+        if (socket && currentGame) {
+            requestActiveBombTimers();
         }
     });
 
@@ -199,7 +193,6 @@ function initializeWebSocket(gameId) {
 
     socket.on('timeUpdate', (data) => {
         if (data) {
-            console.log(`Time update - Played: ${data.playedTime}s`);
             handleTimeUpdate(data);
         } else {
             // Handle case when there's no timer (unlimited game)
@@ -209,7 +202,6 @@ function initializeWebSocket(gameId) {
 
     socket.on('gameTime', (data) => {
         if (data) {
-            console.log(`Game time - Played: ${data.playedTime}s`);
             handleTimeUpdate(data);
         } else {
             // Handle case when there's no timer (unlimited game)
@@ -228,7 +220,6 @@ function initializeWebSocket(gameId) {
     });
 
     socket.on('controlPointTimes', (data) => {
-        console.log('Control point times received for', data.length, 'points');
         handleControlPointTimes(data);
     });
 
@@ -237,8 +228,11 @@ function initializeWebSocket(gameId) {
     });
 
     socket.on('bombTimeUpdate', (data) => {
-        console.log('Bomb time update received:', data);
-        handleBombTimeUpdate(data);
+        handleBombTimeUpdateFromSocket(data);
+    });
+
+    socket.on('activeBombTimers', (data) => {
+        handleActiveBombTimersFromSocket(data);
     });
 }
 
@@ -266,7 +260,6 @@ async function loadGame(gameId) {
             throw new Error('Error al cargar el juego');
         }
         currentGame = await response.json();
-        console.log('Game loaded:', currentGame);
         // Update current user's team information from game data
         updateCurrentUserTeam();
         updateGameInfo();
@@ -305,12 +298,9 @@ async function loadControlPoints(gameId) {
         
         // Use refresh functions to load all control points with proper visualizations
         const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-        console.log('LoadControlPoints - User is owner:', isOwner, 'Current user ID:', currentUser.id, 'Owner ID:', currentGame.owner ? currentGame.owner.id : 'none');
         if (isOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
-            console.log('Calling refreshOwnerControlPointMarkers from loadControlPoints');
             window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
         } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
-            console.log('Calling refreshPlayerControlPointMarkers from loadControlPoints');
             window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
         } else {
             // Fallback: Clear existing control point markers and add them individually
@@ -325,16 +315,20 @@ async function loadControlPoints(gameId) {
                 currentGame.controlPoints.forEach(controlPoint => {
                     // Use appropriate function based on user role
                     const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-                    console.log('Fallback load - User is owner:', isOwner, 'Current user ID:', currentUser.id, 'Owner ID:', currentGame.owner ? currentGame.owner.id : 'none');
                     if (isOwner && window.addOwnerControlPointMarker) {
-                        console.log('Calling addOwnerControlPointMarker from fallback');
                         window.addOwnerControlPointMarker(controlPoint);
                     } else if (window.addPlayerControlPointMarker) {
-                        console.log('Calling addPlayerControlPointMarker from fallback');
                         window.addPlayerControlPointMarker(controlPoint);
                     }
                 });
             }
+        }
+        
+        // Request active bomb timers after control points are loaded
+        if (window.requestActiveBombTimers) {
+            setTimeout(() => {
+                window.requestActiveBombTimers();
+            }, 1000);
         }
     } catch (error) {
         console.error('Error loading control points:', error);
@@ -359,13 +353,10 @@ function updateCurrentUserTeam() {
     // If player not found but we have a current team stored, use that
     if (!currentPlayer && currentUser.team) {
         team = currentUser.team;
-        console.log('Using stored current user team:', team);
     } else if (currentPlayer) {
         // Update current user with team information
         currentUser.team = team;
-        console.log('Updated current user team:', currentUser.team);
     } else {
-        console.log('Current user not found in game players list, using default team: none');
         currentUser.team = 'none';
     }
     
@@ -382,7 +373,6 @@ function updateCurrentUserTeam() {
                 createUserMarker(lat, lng);
             },
             (error) => {
-                console.log('GPS not available for initial user marker creation:', error);
             },
             {
                 enableHighAccuracy: true,
@@ -491,19 +481,13 @@ function updateGameInfo() {
     // Update control point popups when game info is updated
     const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
     if (userIsOwner && window.updateOwnerControlPointPopups) {
-        console.log('Updating owner control point popups due to game info update');
         window.updateOwnerControlPointPopups();
     } else if (window.updatePlayerControlPointPopups) {
-        console.log('Updating player control point popups due to game info update');
         window.updatePlayerControlPointPopups();
     }
     
     // Show game summary dialog if game is in finished state
     if (currentGame.status === 'finished') {
-        console.log('Game is in finished state, opening summary dialog');
-        console.log('User role:', currentGame.owner && currentGame.owner.id === currentUser.id ? 'owner' : 'player');
-        console.log('Current user ID:', currentUser.id);
-        console.log('Game owner ID:', currentGame.owner ? currentGame.owner.id : 'none');
         
         // Open summary dialog for both owners and players
         setTimeout(() => {
@@ -526,7 +510,6 @@ function updatePlayerMarkers() {
         if (!validateMarker(playerId, 'cleanup')) {
             if (marker) {
                 map.removeLayer(marker);
-                console.log('Destroyed marker with invalid user ID:', playerId);
                 notifyMarkerDestruction(playerId, 'invalid_user_id');
             }
             delete playerMarkers[playerId];
@@ -575,7 +558,6 @@ function updatePlayerMarkers() {
         // Create initial marker at default position (will be updated when position data arrives)
         const targetIsOwner = currentGame.owner && player.user && player.user.id === currentGame.owner.id;
         const teamClass = player.team && player.team !== 'none' ? player.team : 'none';
-        console.log('Creating player marker with team class:', teamClass, 'for player:', player.user?.name || 'Jugador');
         const marker = L.marker([0, 0], {
             icon: L.divIcon({
                 className: `player-marker ${teamClass}`,
@@ -598,7 +580,6 @@ function updatePlayerMarkers() {
                 // Destroy marker if user ID is invalid
                 if (marker) {
                     map.removeLayer(marker);
-                    console.log('Destroyed marker with invalid user ID for player:', player.user?.name || 'unknown');
                     notifyMarkerDestruction(player.user.id, 'invalid_user_id');
                 }
             }
@@ -606,16 +587,13 @@ function updatePlayerMarkers() {
             // Destroy marker if user ID is null
             if (marker) {
                 map.removeLayer(marker);
-                console.log('Destroyed marker with null user ID for player:', player.user?.name || 'unknown');
                 notifyMarkerDestruction('unknown', 'null_user_object');
             }
         }
     });
     
     // Debug: Log current player markers state
-    console.log('Player markers after update:', Object.keys(playerMarkers).length, 'markers');
     Object.entries(playerMarkers).forEach(([playerId, marker]) => {
-        console.log(`Marker for player ${playerId}:`, marker ? 'exists' : 'null');
     });
 }
 
@@ -666,7 +644,6 @@ function updatePlayerMarker(positionData) {
     if (!marker) {
         // Create new marker if it doesn't exist
         const targetIsOwner = currentGame.owner && userId === currentGame.owner.id;
-        console.log('Creating new player marker with team class:', teamClass, 'for user:', userName);
         marker = L.marker([lat, lng], {
             icon: L.divIcon({
                 className: `player-marker ${teamClass}`,
@@ -775,7 +752,6 @@ function createUserMarker(lat, lng) {
     
     const currentPlayer = currentGame?.players?.find(p => p && p.user && p.user.id === currentUser.id);
     const teamClass = currentPlayer?.team && currentPlayer.team !== 'none' ? currentPlayer.team : 'none';
-    console.log('Creating user marker with team class:', teamClass);
     
     userMarker = L.marker([lat, lng], {
         icon: L.divIcon({
@@ -841,7 +817,6 @@ async function leaveGame() {
 
 // Toast notification system
 function showToast(message, type = 'info', duration = 5000) {
-    console.log(`[TOAST] Showing ${type} toast: "${message}"`);
     
     // Create toast container if it doesn't exist
     let container = document.getElementById('toast-container');
@@ -850,7 +825,6 @@ function showToast(message, type = 'info', duration = 5000) {
         container.id = 'toast-container';
         container.className = 'toast-container';
         document.body.appendChild(container);
-        console.log('[TOAST] Created toast container');
     }
 
     // Create toast element
@@ -1241,7 +1215,6 @@ function handleGameAction(data) {
             loadGame(currentGame.id);
             break;
         case 'controlPointCreated':
-            console.log('Control point created:', data.data);
             // Use appropriate function based on user role
             const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
             if (isOwner && window.addOwnerControlPointMarker) {
@@ -1251,47 +1224,26 @@ function handleGameAction(data) {
             }
             break;
         case 'controlPointUpdated':
-            console.log('Control point updated - Full data:', data.data);
-            console.log('Control point updated - Challenge fields:', {
-                hasCodeChallenge: data.data.hasCodeChallenge,
-                hasBombChallenge: data.data.hasBombChallenge,
-                hasPositionChallenge: data.data.hasPositionChallenge,
-                code: data.data.code,
-                armedCode: data.data.armedCode,
-                disarmedCode: data.data.disarmedCode,
-                bombTime: data.data.bombTime
-            });
             
             // Update the local control point data in currentGame
             if (currentGame && currentGame.controlPoints) {
                 const controlPointIndex = currentGame.controlPoints.findIndex(cp => cp.id === data.data.id);
                 if (controlPointIndex !== -1) {
                     currentGame.controlPoints[controlPointIndex] = data.data;
-                    console.log('Updated local control point data with latest changes');
                 } else {
-                    console.log('Control point not found in currentGame.controlPoints, adding it');
                     currentGame.controlPoints.push(data.data);
                 }
             } else {
-                console.log('No currentGame.controlPoints array found, creating one');
                 currentGame.controlPoints = [data.data];
             }
             
             // Refresh all control point markers to apply visual changes (circles, bomb emoji, etc.)
             const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-            console.log('ControlPointUpdated - User is owner:', userIsOwner, 'Current user ID:', currentUser.id, 'Owner ID:', currentGame.owner ? currentGame.owner.id : 'none');
             if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
-                console.log('Calling refreshOwnerControlPointMarkers from controlPointUpdated');
-                console.log('Control points to refresh:', currentGame.controlPoints.length);
-                console.log('First control point:', currentGame.controlPoints[0]);
                 window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
             } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
-                console.log('Calling refreshPlayerControlPointMarkers from controlPointUpdated');
-                console.log('Control points to refresh:', currentGame.controlPoints.length);
-                console.log('First control point:', currentGame.controlPoints[0]);
                 window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
             } else {
-                console.log('Using fallback method to update individual control point marker');
                 // Fallback: Update existing marker individually
                 map.eachLayer((layer) => {
                     if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.id) {
@@ -1313,14 +1265,12 @@ function handleGameAction(data) {
             }
             break;
         case 'controlPointDeleted':
-            console.log('Control point deleted:', data.data);
             // Remove marker and position circle
             map.eachLayer((layer) => {
                 if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.controlPointId) {
                     // Remove position circle if exists
                     if (layer.positionCircle) {
                         map.removeLayer(layer.positionCircle);
-                        console.log('Removed position circle for deleted control point:', layer.controlPointData.id);
                     }
                     map.removeLayer(layer);
                 }
@@ -1378,7 +1328,6 @@ function handleGameAction(data) {
                 // If the new game data doesn't have control points, preserve the existing ones
                 if (!currentGame.controlPoints && preservedControlPoints) {
                     currentGame.controlPoints = preservedControlPoints;
-                    console.log('[FRONTEND] Preserved control points from previous game state');
                 }
                 
                 // Restore timer data to new control points
@@ -1391,7 +1340,6 @@ function handleGameAction(data) {
                             restoredCount++;
                         }
                     });
-                    console.log(`[FRONTEND] Restored timer data for ${restoredCount} control points`);
                 }
                 
                 // Preserve current user's team in the new game data if not found
@@ -1400,16 +1348,13 @@ function handleGameAction(data) {
                     if (!currentPlayerInNewGame && preservedCurrentPlayer) {
                         // Add the current player to the new game data if missing
                         currentGame.players.push(preservedCurrentPlayer);
-                        console.log('[FRONTEND] Preserved current player data in new game state');
                     } else if (currentPlayerInNewGame && preservedCurrentUserTeam) {
                         // Always restore team from preserved data to ensure consistency
                         currentPlayerInNewGame.team = preservedCurrentUserTeam;
-                        console.log('[FRONTEND] Restored current user team in new game state:', preservedCurrentUserTeam);
                     }
                 } else if (preservedCurrentUserTeam && (!currentGame.players || !Array.isArray(currentGame.players))) {
                     // If players array doesn't exist or is invalid, create it and add current player
                     currentGame.players = [preservedCurrentPlayer];
-                    console.log('[FRONTEND] Created players array with current player data');
                 }
                 
                 // Update current user's team information from game data
@@ -1433,26 +1378,22 @@ function handleGameAction(data) {
                     if (localTimer) {
                         clearInterval(localTimer);
                         localTimer = null;
-                        console.log('[FRONTEND] Local timer stopped - game not running');
                     }
                     if (controlPointTimer) {
                         clearInterval(controlPointTimer);
                         controlPointTimer = null;
-                        console.log('[FRONTEND] Control point timer stopped - game not running');
                     }
                     // Stop control point timer interval when game is paused/stopped
                     stopControlPointTimerInterval();
                 } else {
                     if (!localTimer && lastTimeUpdate) {
                         // Game is running, start local timer if not already running
-                        console.log('[FRONTEND] Starting local timer - game resumed');
                         localTimer = setInterval(() => {
                             updateTimeDisplay();
                         }, 1000);
                     }
                     if (!controlPointTimer) {
                         // Start control point timer
-                        console.log('[FRONTEND] Starting control point timer - game resumed');
                         controlPointTimer = setInterval(() => {
                             updateAllTimerDisplays();
                         }, 1000);
@@ -1463,6 +1404,11 @@ function handleGameAction(data) {
                     // Force update all timer displays immediately when game resumes
                     updateAllTimerDisplays();
                     
+                    // Request active bomb timers when game starts/resumes
+                    if (window.requestActiveBombTimers) {
+                        window.requestActiveBombTimers();
+                    }
+                    
                     // Refresh user marker when game starts to ensure correct team color
                     if (userMarker) {
                         updateUserMarkerTeam();
@@ -1470,12 +1416,10 @@ function handleGameAction(data) {
                     
                     // Force refresh of current user team data when game starts
                     // This ensures the user marker shows the correct team color
-                    console.log('[FRONTEND] Game started - forcing current user team refresh');
                     updateCurrentUserTeam();
                     
                     // Request control point time updates when game starts/resumes
                     if (socket) {
-                        console.log('Requesting control point time updates for running game');
                         // The server should automatically send control point time updates
                         // when the game is running and control points are owned
                     }
@@ -1489,10 +1433,8 @@ function handleGameAction(data) {
                 // Update control point popups when game state changes
                 const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
                 if (isOwner && window.updateOwnerControlPointPopups) {
-                    console.log('Updating owner control point popups due to game state change');
                     window.updateOwnerControlPointPopups();
                 } else if (window.updatePlayerControlPointPopups) {
-                    console.log('Updating player control point popups due to game state change');
                     window.updatePlayerControlPointPopups();
                 }
             }
@@ -1521,8 +1463,6 @@ function handleGameAction(data) {
         case 'gameUpdated':
             // Handle complete game updates (including control points)
             if (data && data.game) {
-                console.log('GameUpdated event received with full game data');
-                console.log('Game control points count:', data.game.controlPoints ? data.game.controlPoints.length : 0);
                 
                 // Preserve timer data from current game before updating
                 const preservedTimerData = {};
@@ -1560,16 +1500,9 @@ function handleGameAction(data) {
 
                 // Always refresh control point markers with the latest data from server
                 const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-                console.log('GameUpdated - User is owner:', userIsOwner, 'Current user ID:', currentUser.id, 'Owner ID:', currentGame.owner ? currentGame.owner.id : 'none');
                 if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
-                    console.log('Calling refreshOwnerControlPointMarkers from gameUpdated');
-                    console.log('Game update control points:', currentGame.controlPoints.length);
-                    console.log('First control point:', currentGame.controlPoints[0]);
                     window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
                 } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
-                    console.log('Calling refreshPlayerControlPointMarkers from gameUpdated');
-                    console.log('Game update control points:', currentGame.controlPoints.length);
-                    console.log('First control point:', currentGame.controlPoints[0]);
                     window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
                 }
             }
@@ -1588,7 +1521,6 @@ function handleGameAction(data) {
 
         case 'timeUpdate':
             // Handle time updates (countdown or timer)
-            console.log('Time update received:', data.data);
             if (data.data && data.data.remainingTime !== undefined) {
                 updateTimeDisplay(data.data.remainingTime);
             }
@@ -1604,36 +1536,29 @@ function handleGameAction(data) {
             }
             break;
         case 'controlPointTeamAssigned':
-            console.log('Control point team assigned:', data.data);
             // Update the local control point data with the new team assignment
             if (currentGame && currentGame.controlPoints) {
                 const controlPointIndex = currentGame.controlPoints.findIndex(cp => cp.id === data.data.controlPointId);
                 if (controlPointIndex !== -1) {
                     currentGame.controlPoints[controlPointIndex].ownedByTeam = data.data.team;
-                    console.log('Updated local control point with team assignment:', data.data.team);
                 }
             }
             
             // Refresh control point markers to show the new team assignment visually
             const isUserOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-            console.log('ControlPointTeamAssigned - User is owner:', isUserOwner, 'Current user ID:', currentUser.id, 'Owner ID:', currentGame.owner ? currentGame.owner.id : 'none');
             if (isUserOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
-                console.log('Calling refreshOwnerControlPointMarkers from controlPointTeamAssigned');
                 window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
             } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
-                console.log('Calling refreshPlayerControlPointMarkers from controlPointTeamAssigned');
                 window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
             }
             
             // Also update the individual marker popup for owners to show the new team assignment
             if (isUserOwner && window.updateOwnerControlPointPopups) {
-                console.log('Updating owner control point popups with team assignment');
                 window.updateOwnerControlPointPopups();
             }
             break;
             
         default:
-            console.log('Unhandled game action:', data.action);
     }
 }
 
@@ -1642,7 +1567,6 @@ function updateGameStateControls() {
     if (!currentGame) return;
     
     const status = currentGame.status || 'stopped';
-    console.log('Updating game state controls for status:', status);
     
     const timeSelector = document.getElementById('timeSelectorContainer');
     const timeControls = document.getElementById('timeControls');
@@ -1663,12 +1587,10 @@ function updateGameStateControls() {
     
     switch (status) {
         case 'stopped':
-            console.log('Showing stopped state controls');
             if (timeSelector) timeSelector.style.display = 'block';
             if (startBtn) startBtn.style.display = 'block';
             break;
         case 'running':
-            console.log('Showing running state controls');
             if (timeControls) timeControls.style.display = 'flex';
             if (pauseBtn) pauseBtn.style.display = 'block';
             // End button should NOT be visible in running state
@@ -1677,34 +1599,23 @@ function updateGameStateControls() {
             const teamsDialog = document.getElementById('teamsDialog');
             if (teamsDialog && teamsDialog.style.display === 'flex') {
                 // Teams dialog is open, don't close it when updating team count
-                console.log('Teams dialog is open, keeping it open for team management');
             } else {
                 // Teams dialog is not open, close it normally when game starts
                 closeTeamsDialog();
             }
             break;
         case 'paused':
-            console.log('Showing paused state controls');
             if (timeControls) timeControls.style.display = 'flex';
             if (resumeBtn) resumeBtn.style.display = 'block';
             if (endBtn) endBtn.style.display = 'block';
             break;
         case 'finished':
-            console.log('Showing finished state controls');
             // Show restart button in finished state
             if (restartBtn) restartBtn.style.display = 'block';
             break;
     }
     
     // Debug: Log current state of elements
-    console.log('Controls state:', {
-        timeSelector: timeSelector ? timeSelector.style.display : 'not found',
-        timeControls: timeControls ? timeControls.style.display : 'not found',
-        startBtn: startBtn ? startBtn.style.display : 'not found',
-        pauseBtn: pauseBtn ? pauseBtn.style.display : 'not found',
-        resumeBtn: resumeBtn ? resumeBtn.style.display : 'not found',
-        endBtn: endBtn ? endBtn.style.display : 'not found'
-    });
 }
 
 // Update game time
@@ -1836,13 +1747,11 @@ function syncTimeSelector() {
         }
         
         timeSelector.value = selectedValue;
-        console.log('Time selector synced to:', selectedValue, 'for game totalTime:', currentGame.totalTime);
     }
 }
 
 // Handle time updates from server and start local timer
 function handleTimeUpdate(timeData) {
-    console.log('Handling time update:', timeData);
     
     // Store the last time update from server
     lastTimeUpdate = {
@@ -1861,7 +1770,6 @@ function handleTimeUpdate(timeData) {
     
     // Start local timer for smooth updates
     if (currentGame && currentGame.status === 'running') {
-        console.log('[FRONTEND] Starting local timer');
         localTimer = setInterval(() => {
             updateTimeDisplay();
         }, 1000);
@@ -1882,7 +1790,6 @@ function updateTimeDisplay() {
     let timeData = lastTimeUpdate;
     
     if (!timeData) {
-        console.log('No time data available');
         return;
     }
     
@@ -1893,7 +1800,6 @@ function updateTimeDisplay() {
     
     // Check if all required elements exist before proceeding
     if (!gameStatusElement || !timePlayedElement || !timeRemainingContainer || !timeRemainingElement) {
-        console.log('Some time display elements not found, skipping update');
         return;
     }
     
@@ -1933,7 +1839,6 @@ function updateTimeDisplay() {
         if (currentRemainingTime <= 0 && localTimer) {
             clearInterval(localTimer);
             localTimer = null;
-            console.log('[FRONTEND] Local timer stopped - time expired');
         }
     }
     
@@ -1945,25 +1850,15 @@ function updateTimeDisplay() {
 
 // Open game summary dialog
 function openGameSummaryDialog() {
-    console.log('Attempting to open game summary dialog');
-    console.log('Current game status:', currentGame ? currentGame.status : 'no game');
-    console.log('Current user:', currentUser ? currentUser.name : 'no user');
-    console.log('Current user role:', currentGame && currentGame.owner && currentGame.owner.id === currentUser.id ? 'owner' : 'player');
     
     const dialog = document.getElementById('gameSummaryDialog');
     if (dialog) {
-        console.log('Game summary dialog found, setting display to flex');
-        console.log('Dialog current display style:', dialog.style.display);
         dialog.style.display = 'flex';
-        console.log('Dialog new display style:', dialog.style.display);
         updateGameSummaryContent();
         
         // Force a reflow to ensure the display change is applied
         dialog.offsetHeight;
     } else {
-        console.log('Game summary dialog element not found!');
-        console.log('Available elements with id gameSummaryDialog:', document.querySelectorAll('#gameSummaryDialog').length);
-        console.log('Document body HTML:', document.body.innerHTML.substring(0, 500));
     }
 }
 
@@ -1977,7 +1872,6 @@ function closeGameSummaryDialog() {
 
 // Update game summary content
 async function updateGameSummaryContent() {
-    console.log(`[FRONTEND] updateGameSummaryContent called for game ${currentGame?.id}`);
     
     if (!currentGame) return;
     
@@ -1987,17 +1881,9 @@ async function updateGameSummaryContent() {
     const teamsElement = document.getElementById('summaryTeams');
     const controlPointsElement = document.getElementById('summaryControlPoints');
     
-    console.log(`[FRONTEND] Summary elements found:`, {
-        durationElement: !!durationElement,
-        playersElement: !!playersElement,
-        teamsElement: !!teamsElement,
-        controlPointsElement: !!controlPointsElement
-    });
     
     // Load game results first to get the accurate game duration from backend
-    console.log(`[FRONTEND] About to load game results...`);
     const results = await loadGameResults();
-    console.log(`[FRONTEND] Game results loaded:`, results);
     
     if (durationElement) {
         let playedTime = 0;
@@ -2005,7 +1891,6 @@ async function updateGameSummaryContent() {
         // Use the game duration from backend results if available
         if (results && results.gameDuration !== undefined) {
             playedTime = results.gameDuration;
-            console.log(`[FRONTEND] Using backend game duration: ${playedTime}s`);
         } else {
             // Fallback to local time data if backend duration is not available
             playedTime = currentGame.playedTime || 0;
@@ -2014,7 +1899,6 @@ async function updateGameSummaryContent() {
             if (lastTimeUpdate && lastTimeUpdate.playedTime !== undefined) {
                 playedTime = lastTimeUpdate.playedTime;
             }
-            console.log(`[FRONTEND] Using local time data: ${playedTime}s`);
         }
         
         // Format the time in minutes and seconds
@@ -2022,34 +1906,28 @@ async function updateGameSummaryContent() {
         const seconds = playedTime % 60;
         const durationText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
         
-        console.log(`[FRONTEND] Setting summary duration to: ${durationText} (from ${playedTime}s)`);
         durationElement.textContent = durationText;
-        console.log(`[FRONTEND] Summary duration element content: "${durationElement.textContent}"`);
     }
     
     if (playersElement) {
         const playerCount = currentGame.players ? currentGame.players.length : 0;
         playersElement.textContent = playerCount;
-        console.log(`[FRONTEND] Set players count to: ${playerCount}`);
     }
     
     if (teamsElement) {
         const teamCount = currentGame.teamCount || 2;
         teamsElement.textContent = teamCount;
-        console.log(`[FRONTEND] Set teams count to: ${teamCount}`);
     }
     
     if (controlPointsElement) {
         const cpCount = currentGame.controlPoints ? currentGame.controlPoints.length : 0;
         controlPointsElement.textContent = cpCount;
-        console.log(`[FRONTEND] Set control points count to: ${cpCount}`);
     }
 }
 
 // Load game results and display them in the summary
 async function loadGameResults() {
     try {
-        console.log(`[FRONTEND] Loading game results for game ${currentGame.id}`);
         
         const token = localStorage.getItem('token');
         const headers = {
@@ -2060,12 +1938,10 @@ async function loadGameResults() {
             headers['Authorization'] = `Bearer ${token}`;
         }
         
-        console.log(`[FRONTEND] Making request to /api/games/${currentGame.id}/results`);
         const response = await fetch(`/api/games/${currentGame.id}/results`, {
             headers: headers
         });
         
-        console.log(`[FRONTEND] Results response status: ${response.status}`);
         
         if (!response.ok) {
             const errorText = await response.text();
@@ -2074,11 +1950,6 @@ async function loadGameResults() {
         }
         
         const results = await response.json();
-        console.log(`[FRONTEND] Results received:`, results);
-        console.log(`[FRONTEND] Teams count: ${results.teams?.length}, Teams: ${results.teams?.join(', ')}`);
-        console.log(`[FRONTEND] Control points count: ${results.controlPoints?.length}`);
-        console.log(`[FRONTEND] Team totals:`, results.teamTotals);
-        console.log(`[FRONTEND] Game duration: ${results.gameDuration}s`);
         displayGameResults(results);
         return results; // Return results for use in updateGameSummaryContent
     } catch (error) {
@@ -2273,7 +2144,6 @@ function displayGameResults(results) {
         const minutes = Math.floor(playedTime / 60);
         const seconds = playedTime % 60;
         const durationText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        console.log(`[FRONTEND] Updated summary duration from results: ${durationText} (from ${playedTime}s)`);
         durationElement.textContent = durationText;
     }
 }
@@ -2710,7 +2580,6 @@ function notifyMarkerDestruction(userId, reason) {
                 timestamp: Date.now()
             }
         });
-        console.log('Notified backend about destroyed marker for user:', userId, 'Reason:', reason);
     }
 }
 
@@ -2723,7 +2592,6 @@ function cleanupInvalidMarkers() {
         if (!playerId || playerId === 'null' || playerId === 'undefined' || playerId === '0') {
             if (marker) {
                 map.removeLayer(marker);
-                console.log('Destroyed marker with invalid user ID:', playerId);
                 notifyMarkerDestruction(playerId, 'invalid_user_id');
                 destroyedCount++;
             }
@@ -2732,7 +2600,6 @@ function cleanupInvalidMarkers() {
     });
     
     if (destroyedCount > 0) {
-        console.log(`Cleaned up ${destroyedCount} markers with invalid user IDs`);
         // Request backend to refresh markers list
         if (socket && currentGame) {
             socket.emit('gameAction', {
@@ -2748,7 +2615,6 @@ function cleanupInvalidMarkers() {
 // Validate marker before any operation that requires user ID
 function validateMarker(userId, operation) {
     if (!userId || userId === 'null' || userId === 'undefined' || userId === '0') {
-        console.log(`Skipping ${operation} for invalid user ID:`, userId);
         return false;
     }
     return true;
@@ -2770,15 +2636,31 @@ function startMarkerCleanupInterval() {
     }, 30000);
 }
 
-// Handle bomb time updates
-function handleBombTimeUpdate(data) {
-    console.log('Handling bomb time update:', data);
+// Handle bomb time updates from WebSocket
+function handleBombTimeUpdateFromSocket(data) {
     
     // Call the bomb time update function from control-points-player.js
     if (window.handleBombTimeUpdate) {
         window.handleBombTimeUpdate(data);
     } else {
         console.warn('handleBombTimeUpdate function not found in control-points-player.js');
+    }
+}
+
+// Request active bomb timers from server
+function requestActiveBombTimers() {
+    if (socket && currentGame) {
+        socket.emit('getActiveBombTimers', { gameId: currentGame.id });
+    }
+}
+
+// Handle active bomb timers response from WebSocket
+function handleActiveBombTimersFromSocket(data) {
+    // Call the active bomb timers function from control-points-player.js
+    if (window.handleActiveBombTimers) {
+        window.handleActiveBombTimers(data);
+    } else {
+        console.warn('handleActiveBombTimers function not found in control-points-player.js');
     }
 }
 

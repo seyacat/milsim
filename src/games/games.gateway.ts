@@ -919,6 +919,19 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @SubscribeMessage('getActiveBombTimers')
+  async handleGetActiveBombTimers(client: Socket, payload: { gameId: number }) {
+    const { gameId } = payload;
+    const user = this.connectedUsers.get(client.id);
+
+    try {
+      const activeBombTimers = await this.gamesService.getActiveBombTimers(gameId);
+      client.emit('activeBombTimers', activeBombTimers);
+    } catch (error: any) {
+      client.emit('activeBombTimersError', { message: 'Failed to get active bomb timers' });
+    }
+  }
+
   // Method to broadcast game updates to all connected clients in a game
   broadcastGameUpdate(gameId: number, game: any) {
     this.server.to(`game_${gameId}`).emit('gameUpdate', {
