@@ -47,7 +47,6 @@ interface BombTimer {
   activatedByUserId: number;
   activatedByUserName: string;
   activatedByTeam: string; // Team that activated the bomb
-  intervalId?: NodeJS.Timeout;
   lastBroadcastTime: number;
 }
 
@@ -956,21 +955,23 @@ export class GamesService {
               `[SERVER_RESTART] Recovering bomb timer for control point ${controlPoint.id}, remaining time: ${bombTimeData.remainingTime}s`,
             );
             
-            // Restart the bomb timer with calculated remaining time
-            await this.activateBombTimer(
-              controlPoint.id,
+            // Create bomb timer entry without interval
+            const bombTimer: BombTimer = {
+              controlPointId: controlPoint.id,
               gameInstanceId,
-              bombTimeData.totalTime,
-              bombTimeData.activatedByUserId || 0,
-              bombTimeData.activatedByUserName || 'System Recovery',
-              bombTimeData.activatedByTeam || 'unknown',
-            );
+              totalTime: bombTimeData.totalTime,
+              remainingTime: bombTimeData.remainingTime,
+              isActive: bombTimeData.isActive,
+              activatedByUserId: bombTimeData.activatedByUserId || 0,
+              activatedByUserName: bombTimeData.activatedByUserName || 'System Recovery',
+              activatedByTeam: bombTimeData.activatedByTeam || 'unknown',
+              lastBroadcastTime: 0,
+            };
 
-            // Update the remaining time to the calculated value
-            const bombTimer = this.bombTimers.get(controlPoint.id);
-            if (bombTimer) {
-              bombTimer.remainingTime = bombTimeData.remainingTime;
-            }
+            this.bombTimers.set(controlPoint.id, bombTimer);
+
+            // Start periodic broadcast for this bomb timer
+            this.startBombTimeBroadcast(controlPoint.id, gameInstanceId);
           }
         }
       }
@@ -2274,33 +2275,7 @@ export class GamesService {
       lastBroadcastTime: 0,
     };
 
-    // Start countdown interval (update every second internally, broadcast every 20 seconds like other timers)
-    bombTimer.intervalId = setInterval(() => {
-      if (bombTimer.isActive) {
-        // Decrement remaining time
-        bombTimer.remainingTime--;
-
-        // Broadcast time update every 20 seconds like other timers
-        if (bombTimer.remainingTime % 20 === 0 && this.gamesGateway) {
-          this.gamesGateway.broadcastBombTimeUpdate(controlPointId, {
-            remainingTime: bombTimer.remainingTime,
-            totalTime: bombTimer.totalTime,
-            isActive: bombTimer.isActive,
-            activatedByUserId: bombTimer.activatedByUserId,
-            activatedByUserName: bombTimer.activatedByUserName,
-            activatedByTeam: bombTimer.activatedByTeam,
-          });
-          bombTimer.lastBroadcastTime = bombTimer.remainingTime;
-        }
-
-        // Check if bomb time's up
-        if (bombTimer.remainingTime <= 0) {
-          // Bomb exploded - handle explosion logic
-          void this.handleBombExplosion(controlPointId, gameInstanceId);
-        }
-      }
-    }, 1000); // 1 second interval
-
+    // Store bomb timer for reference (without interval)
     this.bombTimers.set(controlPointId, bombTimer);
 
     // Add bomb activated event to history
@@ -2309,6 +2284,7 @@ export class GamesService {
       bombTime,
       activatedByUserId: userId,
       activatedByUserName: userName,
+      activatedByTeam: team,
       timestamp: new Date(),
     });
 
@@ -2323,14 +2299,48 @@ export class GamesService {
         activatedByTeam: bombTimer.activatedByTeam,
       });
     }
+
+    // Start periodic bomb time calculation and broadcast
+    this.startBombTimeBroadcast(controlPointId, gameInstanceId);
   }
 
   private stopBombTimer(controlPointId: number): void {
     const bombTimer = this.bombTimers.get(controlPointId);
-    if (bombTimer && bombTimer.intervalId) {
-      clearInterval(bombTimer.intervalId);
+    if (bombTimer) {
       this.bombTimers.delete(controlPointId);
     }
+  }
+
+  // Start periodic bomb time calculation and broadcast
+  private startBombTimeBroadcast(controlPointId: number, gameInstanceId: number): void {
+    const intervalId = setInterval(async () => {
+      const bombTimeData = await this.calculateRemainingBombTime(controlPointId, gameInstanceId);
+      
+      if (!bombTimeData || !bombTimeData.isActive) {
+        // Bomb is no longer active, stop broadcasting
+        clearInterval(intervalId);
+        return;
+      }
+
+      // Broadcast bomb time update
+      if (this.gamesGateway) {
+        this.gamesGateway.broadcastBombTimeUpdate(controlPointId, {
+          remainingTime: bombTimeData.remainingTime,
+          totalTime: bombTimeData.totalTime,
+          isActive: bombTimeData.isActive,
+          activatedByUserId: bombTimeData.activatedByUserId,
+          activatedByUserName: bombTimeData.activatedByUserName,
+          activatedByTeam: bombTimeData.activatedByTeam,
+        });
+      }
+
+      // Check if bomb time's up
+      if (bombTimeData.remainingTime <= 0) {
+        // Bomb exploded - handle explosion logic
+        await this.handleBombExplosion(controlPointId, gameInstanceId);
+        clearInterval(intervalId);
+      }
+    }, 1000); // 1 second interval
   }
 
   private async handleBombExplosion(controlPointId: number, gameInstanceId: number): Promise<void> {
@@ -2353,63 +2363,10 @@ export class GamesService {
       });
     }
 
-    // TODO: Add any additional explosion logic here
     console.log(`[BOMB] Bomb exploded at control point ${controlPointId}`);
   }
 
-  // Pause all bomb timers when game is paused
-  pauseAllBombTimers(gameId: number): void {
-    const game = this.gamesRepository
-      .findOne({
-        where: { id: gameId },
-        relations: ['controlPoints'],
-      })
-      .then(game => {
-        if (game && game.controlPoints) {
-          for (const controlPoint of game.controlPoints) {
-            const bombTimer = this.bombTimers.get(controlPoint.id);
-            if (bombTimer) {
-              bombTimer.isActive = false;
-            }
-          }
-        }
-      });
-  }
 
-  // Resume all bomb timers when game is resumed
-  resumeAllBombTimers(gameId: number): void {
-    const game = this.gamesRepository
-      .findOne({
-        where: { id: gameId },
-        relations: ['controlPoints'],
-      })
-      .then(game => {
-        if (game && game.controlPoints) {
-          for (const controlPoint of game.controlPoints) {
-            const bombTimer = this.bombTimers.get(controlPoint.id);
-            if (bombTimer) {
-              bombTimer.isActive = true;
-            }
-          }
-        }
-      });
-  }
-
-  // Stop all bomb timers when game ends
-  stopAllBombTimers(gameId: number): void {
-    const game = this.gamesRepository
-      .findOne({
-        where: { id: gameId },
-        relations: ['controlPoints'],
-      })
-      .then(game => {
-        if (game && game.controlPoints) {
-          for (const controlPoint of game.controlPoints) {
-            this.stopBombTimer(controlPoint.id);
-          }
-        }
-      });
-  }
 
   // Get current bomb time for a control point
   async getBombTime(controlPointId: number): Promise<{
