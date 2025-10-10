@@ -1136,6 +1136,9 @@ export class GamesService {
           for (const controlPoint of game.controlPoints) {
             this.pauseControlPointTimer(controlPoint.id);
           }
+          
+          // Also pause bomb timers for this game
+          this.pauseBombTimers(gameId);
         }
       });
   }
@@ -1151,6 +1154,88 @@ export class GamesService {
         if (game && game.controlPoints) {
           for (const controlPoint of game.controlPoints) {
             this.resumeControlPointTimer(controlPoint.id);
+          }
+          
+          // Also resume bomb timers for this game
+          this.resumeBombTimers(gameId);
+        }
+      });
+  }
+
+  // Resume bomb timers for a game
+  private resumeBombTimers(gameId: number): void {
+    const game = this.gamesRepository
+      .findOne({
+        where: { id: gameId },
+        relations: ['controlPoints'],
+      })
+      .then(game => {
+        if (!game || !game.instanceId) {
+          return;
+        }
+
+        // Check all control points for active bomb timers
+        if (game.controlPoints) {
+          for (const controlPoint of game.controlPoints) {
+            if (controlPoint.hasBombChallenge && controlPoint.bombTime) {
+              // Calculate remaining bomb time from history
+              this.calculateRemainingBombTime(controlPoint.id, game.instanceId)
+                .then(bombTimeData => {
+                  if (bombTimeData && bombTimeData.isActive) {
+                    console.log(
+                      `[BOMB_TIMER] Resuming bomb timer for control point ${controlPoint.id}, remaining time: ${bombTimeData.remainingTime}s`,
+                    );
+                    
+                    // Restart bomb time broadcast (game.instanceId is guaranteed non-null by the outer check)
+                    this.startBombTimeBroadcast(controlPoint.id, game.instanceId!);
+                  }
+                })
+                .catch(console.error);
+            }
+          }
+        }
+      });
+  }
+
+  // Pause bomb timers for a game
+  private pauseBombTimers(gameId: number): void {
+    const game = this.gamesRepository
+      .findOne({
+        where: { id: gameId },
+        relations: ['controlPoints'],
+      })
+      .then(game => {
+        if (!game || !game.instanceId) {
+          return;
+        }
+
+        // Check all control points for active bomb timers
+        if (game.controlPoints) {
+          for (const controlPoint of game.controlPoints) {
+            if (controlPoint.hasBombChallenge && controlPoint.bombTime) {
+              // Calculate remaining bomb time from history
+              this.calculateRemainingBombTime(controlPoint.id, game.instanceId)
+                .then(bombTimeData => {
+                  if (bombTimeData && bombTimeData.isActive) {
+                    console.log(
+                      `[BOMB_TIMER] Pausing bomb timer for control point ${controlPoint.id}, remaining time: ${bombTimeData.remainingTime}s`,
+                    );
+                    
+                    // Force broadcast current bomb time when pausing
+                    if (this.gamesGateway) {
+                      this.gamesGateway.broadcastBombTimeUpdate(controlPoint.id, {
+                        remainingTime: bombTimeData.remainingTime,
+                        totalTime: bombTimeData.totalTime,
+                        isActive: bombTimeData.isActive,
+                        activatedByUserId: bombTimeData.activatedByUserId,
+                        activatedByUserName: bombTimeData.activatedByUserName,
+                        activatedByTeam: bombTimeData.activatedByTeam,
+                      });
+                    }
+                  }
+                })
+                .catch(console.error);
+            }
           }
         }
       });
