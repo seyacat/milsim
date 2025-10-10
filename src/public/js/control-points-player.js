@@ -209,6 +209,22 @@ function addControlPointMarkerPlayer(controlPoint) {
                          display: none;
                          z-index: 1000;
                      ">00:00</div>
+                <!-- Position challenge bars (only shown when position challenge is active) -->
+                <div class="position-challenge-bars"
+                     id="position_challenge_bars_${controlPoint.id}"
+                     style="
+                         position: absolute;
+                         top: -45px;
+                         left: 50%;
+                         transform: translateX(-50%);
+                         display: ${(controlPoint.hasPositionChallenge && currentGame && currentGame.status === 'running') ? 'flex' : 'none'};
+                         flex-direction: column;
+                         gap: 2px;
+                         width: 40px;
+                         z-index: 1000;
+                     ">
+                    <!-- Team bars will be dynamically populated -->
+                </div>
                 <!-- Control point marker -->
                 <div style="
                     background: ${iconColor}80;
@@ -970,6 +986,73 @@ function updatePlayerControlPointPopupWithFreshData(controlPointId, marker) {
     }
 }
 
+// Update position challenge bars with team data
+function updatePositionChallengeBars(controlPointId, teamPoints) {
+    const barsContainer = document.getElementById(`position_challenge_bars_${controlPointId}`);
+    if (!barsContainer) return;
+    
+    // Clear existing bars
+    barsContainer.innerHTML = '';
+    
+    // Calculate total points to determine percentages
+    const totalPoints = Object.values(teamPoints).reduce((sum, points) => sum + points, 0);
+    
+    // Team colors
+    const teamColors = {
+        'blue': '#2196F3',
+        'red': '#F44336',
+        'green': '#4CAF50',
+        'yellow': '#FFEB3B'
+    };
+    
+    // Create bars for each team with points
+    Object.entries(teamPoints).forEach(([team, points]) => {
+        if (points > 0) {
+            const percentage = totalPoints > 0 ? (points / totalPoints) * 100 : 0;
+            const barWidth = Math.max(2, (percentage / 100) * 40); // Minimum 2px, max 40px
+            
+            const bar = document.createElement('div');
+            bar.style.cssText = `
+                height: 4px;
+                width: ${barWidth}px;
+                background: ${teamColors[team] || '#9E9E9E'};
+                border-radius: 2px;
+                transition: width 0.3s ease;
+            `;
+            barsContainer.appendChild(bar);
+        }
+    });
+    
+    // Show the bars container if there are points and position challenge is active
+    const controlPoint = getControlPointById(controlPointId);
+    if (controlPoint && controlPoint.hasPositionChallenge && currentGame && currentGame.status === 'running') {
+        barsContainer.style.display = 'flex';
+    } else {
+        barsContainer.style.display = 'none';
+    }
+}
+
+// Handle position challenge update from server
+function handlePositionChallengeUpdate(data) {
+    const { controlPointId, teamPoints } = data;
+    updatePositionChallengeBars(controlPointId, teamPoints);
+}
+
+// Update all position challenge bars when game starts
+function updateAllPositionChallengeBars() {
+    if (!currentGame || !currentGame.controlPoints) return;
+    
+    currentGame.controlPoints.forEach(controlPoint => {
+        if (controlPoint.hasPositionChallenge) {
+            // Initialize with empty team points - will be updated by server events
+            updatePositionChallengeBars(controlPoint.id, {});
+        }
+    });
+}
+
 window.updateControlPointPopupForBomb = updateControlPointPopupForBomb;
 window.requestPlayerControlPointData = requestPlayerControlPointData;
 window.updatePlayerControlPointPopupWithFreshData = updatePlayerControlPointPopupWithFreshData;
+window.updatePositionChallengeBars = updatePositionChallengeBars;
+window.handlePositionChallengeUpdate = handlePositionChallengeUpdate;
+window.updateAllPositionChallengeBars = updateAllPositionChallengeBars;

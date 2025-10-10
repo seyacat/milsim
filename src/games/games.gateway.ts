@@ -12,6 +12,7 @@ import { WebsocketAuthService } from '../auth/websocket-auth.service';
 import { AuthService } from '../auth/auth.service';
 import { ConnectionTrackerService } from '../connection-tracker.service';
 import { ControlPoint } from './entities/control-point.entity';
+import { PositionChallengeService } from './services/position-challenge.service';
 
 @WebSocketGateway({
   cors: {
@@ -36,6 +37,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly gamesService: GamesService,
     private readonly websocketAuthService: WebsocketAuthService,
     private readonly connectionTracker: ConnectionTrackerService,
+    private readonly positionChallengeService: PositionChallengeService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -201,6 +203,11 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           });
           console.log(`[JOIN_GAME_WS] Sent ${positions.length} positions to owner`);
         }
+      }
+
+      // Start position challenge interval if game is running and has position challenges
+      if (currentGame.status === 'running') {
+        this.startPositionChallengeInterval(gameId);
       }
 
       client.emit('joinSuccess', {
@@ -456,6 +463,31 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               },
               from: client.id,
             });
+          }
+          break;
+        }
+
+        case 'positionChallengeUpdate': {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            // Store the player's position for position challenge calculations
+            this.playerPositions.set(user.id, {
+              lat: data.lat,
+              lng: data.lng,
+              accuracy: data.accuracy,
+              socketId: client.id,
+            });
+
+            console.log(`[POSITION_CHALLENGE] Player ${user.id} (${user.name}) sent position update - Lat: ${data.lat}, Lng: ${data.lng}, Accuracy: ${data.accuracy}m`);
+
+            // Update position challenge service with the new position
+            this.positionChallengeService.updatePlayerPosition(
+              gameId,
+              user.id,
+              data.lat,
+              data.lng,
+              data.accuracy
+            );
           }
           break;
         }
@@ -1267,6 +1299,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         ...timeData,
       });
     }
+  
   }
   // Method to broadcast bomb time updates to all connected clients in a game
   async broadcastBombTimeUpdate(
@@ -1306,5 +1339,46 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         ...bombTimeData,
       });
     }
+  }
+
+  /**
+   * Broadcast position challenge update to all clients in a game
+   */
+  broadcastPositionChallengeUpdate(
+    gameId: number,
+    controlPointId: number,
+    teamPoints: Record<string, number>,
+  ) {
+    this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
+      controlPointId,
+      teamPoints,
+    });
+  }
+
+  /**
+   * Start position challenge interval for a game
+   */
+  private startPositionChallengeInterval(gameId: number): void {
+    // Convert player positions to the expected format
+    const playerPositions = new Map<number, any>();
+    this.playerPositions.forEach((position, userId) => {
+      playerPositions.set(userId, {
+        userId,
+        lat: position.lat,
+        lng: position.lng,
+        accuracy: position.accuracy,
+        socketId: position.socketId,
+      });
+    });
+
+    // Start position challenge calculation every 20 seconds
+    this.positionChallengeService.startPositionChallengeInterval(gameId, playerPositions);
+  }
+
+  /**
+   * Stop position challenge interval for a game
+   */
+  private stopPositionChallengeInterval(gameId: number): void {
+    this.positionChallengeService.stopPositionChallengeInterval(gameId);
   }
 }

@@ -14,6 +14,7 @@ import { GameInstance } from './entities/game-instance.entity';
 import { GameHistory } from './entities/game-history.entity';
 import { GamesGateway } from './games.gateway';
 import { TimerCalculationService } from './services/timer-calculation.service';
+import { PositionChallengeService } from './services/position-challenge.service';
 
 interface GameTimer {
   gameId: number;
@@ -71,6 +72,7 @@ export class GamesService {
     @Inject(forwardRef(() => GamesGateway))
     private gamesGateway: GamesGateway,
     private timerCalculationService: TimerCalculationService,
+    private positionChallengeService: PositionChallengeService,
   ) {
     // Recover running games on server restart
     void this.recoverRunningGames();
@@ -480,6 +482,8 @@ export class GamesService {
       void this.startGameTimer(gameId, game.totalTime, gameInstance.id);
       // Start all control point timers
       void this.startAllControlPointTimers(gameId);
+      // Start position challenge interval
+      this.startPositionChallengeInterval(gameId);
     }
 
     return updatedGame;
@@ -526,6 +530,8 @@ export class GamesService {
     this.pauseGameTimer(gameId);
     // Pause all control point timers
     this.pauseAllControlPointTimers(gameId);
+    // Stop position challenge interval
+    this.stopPositionChallengeInterval(gameId);
 
     // Force broadcast time update on pause
     this.forceTimeBroadcast(gameId);
@@ -574,6 +580,8 @@ export class GamesService {
     this.resumeGameTimer(gameId);
     // Resume all control point timers
     this.resumeAllControlPointTimers(gameId);
+    // Start position challenge interval
+    this.startPositionChallengeInterval(gameId);
 
     // Force broadcast time update on resume
     this.forceTimeBroadcast(gameId);
@@ -613,6 +621,8 @@ export class GamesService {
     this.stopGameTimer(gameId);
     // Stop all control point timers
     this.stopAllControlPointTimers(gameId);
+    // Stop position challenge interval
+    this.stopPositionChallengeInterval(gameId);
 
     // Force broadcast final time update on game end
     this.forceTimeBroadcast(gameId);
@@ -1950,6 +1960,14 @@ export class GamesService {
       bombDeactivationCount: number;
       bombExplosionCount: number;
     }>;
+    positionChallengeStats: {
+      controlPoints: Array<{
+        id: number;
+        name: string;
+        teamPoints: { [team: string]: number };
+      }>;
+      teamTotals: { [team: string]: number };
+    };
   }> {
     console.log(`[GAME_RESULTS] Generating results report for game ${gameId}`);
 
@@ -1966,6 +1984,10 @@ export class GamesService {
         teams: [],
         gameDuration: 0,
         playerCaptureStats: [],
+        positionChallengeStats: {
+          controlPoints: [],
+          teamTotals: {},
+        },
       };
     }
 
@@ -2057,12 +2079,17 @@ export class GamesService {
     const playerCaptureStats = await this.getPlayerCaptureStats(game.instanceId);
     console.log(`[GAME_RESULTS] Player capture stats:`, playerCaptureStats.players);
 
+    // Get position challenge statistics
+    const positionChallengeStats = await this.positionChallengeService.getPositionChallengeStats(game.instanceId);
+    console.log(`[GAME_RESULTS] Position challenge stats:`, positionChallengeStats);
+
     return {
       controlPoints: controlPointsReport,
       teamTotals,
       teams,
       gameDuration,
       playerCaptureStats: playerCaptureStats.players,
+      positionChallengeStats,
     };
   }
 
@@ -2503,6 +2530,22 @@ export class GamesService {
     console.log(
       `[BOMB] Bomb deactivated at control point ${controlPointId} by ${userName} (${team}) - Activated by: ${activatedByTeam} - Opposing team: ${isOpposingTeamDeactivation}`,
     );
+  }
+
+  /**
+   * Start position challenge interval for a game
+   */
+  private startPositionChallengeInterval(gameId: number): void {
+    // This will be handled by the GamesGateway which has access to player positions
+    // The gateway will call the positionChallengeService
+  }
+
+  /**
+   * Stop position challenge interval for a game
+   */
+  private stopPositionChallengeInterval(gameId: number): void {
+    // This will be handled by the GamesGateway which has access to player positions
+    // The gateway will call the positionChallengeService
   }
 
 }

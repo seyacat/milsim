@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { GamesController } from './games.controller';
 import { GamesService } from './games.service';
 import { TimerCalculationService } from './services/timer-calculation.service';
+import { PositionChallengeService } from './services/position-challenge.service';
 import { Game } from './entities/game.entity';
 import { Player } from './entities/player.entity';
 import { ControlPoint } from './entities/control-point.entity';
@@ -18,7 +19,7 @@ import { AuthModule } from '../auth/auth.module';
     AuthModule,
   ],
   controllers: [GamesController],
-  providers: [GamesService, TimerCalculationService, GamesGateway, WebsocketAuthService],
+  providers: [GamesService, TimerCalculationService, PositionChallengeService, GamesGateway, WebsocketAuthService],
   exports: [GamesService],
 })
 export class GamesModule {}

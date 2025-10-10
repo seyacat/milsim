@@ -716,6 +716,9 @@ function startGPS() {
 
     document.getElementById('gpsStatus').textContent = 'Activando...';
 
+    // Variable to track last position challenge update
+    let lastPositionChallengeUpdate = 0;
+
     watchId = navigator.geolocation.watchPosition(
         (position) => {
             const lat = position.coords.latitude;
@@ -750,6 +753,13 @@ function startGPS() {
                     data: { lat, lng, accuracy }
                 });
             }
+
+            // Send position challenge update every 20 seconds
+            const now = Date.now();
+            if (now - lastPositionChallengeUpdate >= 20000) {
+                sendPositionChallengeUpdate(lat, lng, accuracy);
+                lastPositionChallengeUpdate = now;
+            }
         },
         (error) => {
             console.error('GPS error:', error);
@@ -773,6 +783,17 @@ function startGPS() {
             maximumAge: 60000
         }
     );
+}
+
+// Send position challenge update to backend
+function sendPositionChallengeUpdate(lat, lng, accuracy) {
+    if (socket && currentGame) {
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'positionChallengeUpdate',
+            data: { lat, lng, accuracy }
+        });
+    }
 }
 
 // Create or recreate user marker with current team
@@ -2252,6 +2273,88 @@ function displayGameResults(results) {
         
         playerTable.appendChild(playerTbody);
         resultsContainer.appendChild(playerTable);
+    }
+    
+    // Add position challenge statistics table
+    if (results.positionChallengeStats && results.positionChallengeStats.controlPoints && results.positionChallengeStats.controlPoints.length > 0) {
+        const positionChallengeTitle = document.createElement('h4');
+        positionChallengeTitle.textContent = 'Puntos de Control por Posición';
+        positionChallengeTitle.style.cssText = 'text-align: center; margin: 30px 0 15px 0; color: white;';
+        resultsContainer.appendChild(positionChallengeTitle);
+        
+        const positionChallengeTable = document.createElement('table');
+        positionChallengeTable.style.cssText = 'width: 100%; border-collapse: collapse; background: rgba(255, 255, 255, 0.1); border-radius: 8px; overflow: hidden;';
+        
+        // Create position challenge table header
+        const positionChallengeThead = document.createElement('thead');
+        const positionChallengeHeaderRow = document.createElement('tr');
+        positionChallengeHeaderRow.style.cssText = 'background: rgba(255, 255, 255, 0.2);';
+        
+        // Add control point name header
+        const positionChallengeCpHeader = document.createElement('th');
+        positionChallengeCpHeader.textContent = 'Punto de Control';
+        positionChallengeCpHeader.style.cssText = 'padding: 10px; text-align: left; color: white; font-weight: bold; border-bottom: 1px solid rgba(255, 255, 255, 0.3);';
+        positionChallengeHeaderRow.appendChild(positionChallengeCpHeader);
+        
+        // Add team headers
+        teams.forEach(team => {
+            const teamHeader = document.createElement('th');
+            teamHeader.textContent = team.toUpperCase();
+            teamHeader.style.cssText = 'padding: 10px; text-align: center; color: white; font-weight: bold; border-bottom: 1px solid rgba(255, 255, 255, 0.3);';
+            positionChallengeHeaderRow.appendChild(teamHeader);
+        });
+        
+        positionChallengeThead.appendChild(positionChallengeHeaderRow);
+        positionChallengeTable.appendChild(positionChallengeThead);
+        
+        // Create position challenge table body
+        const positionChallengeTbody = document.createElement('tbody');
+        
+        // Add position challenge control point rows
+        const positionChallengeControlPoints = results.positionChallengeStats.controlPoints || [];
+        positionChallengeControlPoints.forEach(cp => {
+            const row = document.createElement('tr');
+            row.style.cssText = 'border-bottom: 1px solid rgba(255, 255, 255, 0.1);';
+            
+            // Control point name
+            const cpCell = document.createElement('td');
+            cpCell.textContent = cp.name;
+            cpCell.style.cssText = 'padding: 10px; color: white;';
+            row.appendChild(cpCell);
+            
+            // Team points
+            teams.forEach(team => {
+                const pointsCell = document.createElement('td');
+                const teamPoints = cp.teamPoints && cp.teamPoints[team] ? cp.teamPoints[team] : 0;
+                pointsCell.textContent = teamPoints.toFixed(1);
+                pointsCell.style.cssText = 'padding: 10px; text-align: center; color: white;';
+                row.appendChild(pointsCell);
+            });
+            
+            positionChallengeTbody.appendChild(row);
+        });
+        
+        // Add position challenge totals row
+        const positionChallengeTotalsRow = document.createElement('tr');
+        positionChallengeTotalsRow.style.cssText = 'background: rgba(255, 255, 255, 0.2); font-weight: bold;';
+        
+        const positionChallengeTotalsLabel = document.createElement('td');
+        positionChallengeTotalsLabel.textContent = 'TOTAL';
+        positionChallengeTotalsLabel.style.cssText = 'padding: 10px; color: white;';
+        positionChallengeTotalsRow.appendChild(positionChallengeTotalsLabel);
+        
+        teams.forEach(team => {
+            const totalCell = document.createElement('td');
+            const teamTotalPoints = results.positionChallengeStats.teamTotals && results.positionChallengeStats.teamTotals[team] ? results.positionChallengeStats.teamTotals[team] : 0;
+            totalCell.textContent = teamTotalPoints.toFixed(1);
+            totalCell.style.cssText = 'padding: 10px; text-align: center; color: white;';
+            positionChallengeTotalsRow.appendChild(totalCell);
+        });
+        
+        positionChallengeTbody.appendChild(positionChallengeTotalsRow);
+        positionChallengeTable.appendChild(positionChallengeTbody);
+        
+        resultsContainer.appendChild(positionChallengeTable);
     }
     
     // Update the game duration with the accurate value from backend results
