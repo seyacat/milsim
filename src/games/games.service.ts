@@ -1377,7 +1377,7 @@ export class GamesService {
     controlPointId: number,
     userId: number,
     code?: string,
-  ): Promise<ControlPoint> {
+  ): Promise<{ controlPoint: ControlPoint; bombActivated?: boolean }> {
     const controlPoint = await this.controlPointsRepository.findOne({
       where: { id: controlPointId },
       relations: ['game'],
@@ -1429,8 +1429,8 @@ export class GamesService {
           player.team, // Pass the team that activated the bomb
         );
         
-        // Return the control point without changing ownership
-        return controlPoint;
+        // Return the control point without changing ownership and mark it as bomb activation
+        return { controlPoint, bombActivated: true };
       }
       
       // If disarmed code is used, continue with normal control point capture
@@ -1463,7 +1463,7 @@ export class GamesService {
       await this.updateControlPointTimer(controlPoint.id, controlPoint.game.instanceId);
     }
 
-    return updatedControlPoint;
+    return { controlPoint: updatedControlPoint };
   }
 
   // Get initial control point state from database

@@ -466,8 +466,18 @@ function submitBombChallenge(controlPointId) {
         return;
     }
     
-    // Send the armed code via takeControlPoint action - the backend will handle bomb activation
-    sendTakeControlPointAction(controlPointId, armedCode);
+    // Send bomb activation action via WebSocket
+    if (socket && currentGame) {
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'activateBomb',
+            data: {
+                controlPointId: controlPointId,
+                armedCode: armedCode,
+                userId: currentUser.id
+            }
+        });
+    }
     
     // Clear the input field after submission
     armedCodeInput.value = '';

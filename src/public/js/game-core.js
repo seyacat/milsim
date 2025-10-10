@@ -121,14 +121,30 @@ function initializeWebSocket(gameId) {
             // Debug: Check if this is a gameUpdated event with control points
             if (data.type === 'gameUpdated' && data.game.controlPoints) {
                 
-                // Also refresh control point markers when gameUpdate event contains control points
-                const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-                if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
-                    // Refreshing owner control point markers from gameUpdate event
-                    window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
-                } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
-                    // Refreshing player control point markers from gameUpdate event
-                    window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
+                // Check if this is a bomb-related update that doesn't require full refresh
+                const hasBombUpdates = data.game.controlPoints && data.game.controlPoints.some(cp =>
+                    cp.hasBombChallenge ||
+                    (cp.bombTimer && cp.bombTimer.isActive) ||
+                    (cp.bombTimer && cp.bombTimer.remainingTime !== undefined)
+                );
+                
+                if (hasBombUpdates) {
+                    // For bomb updates, only update bomb timer display without full refresh
+                    if (window.updateBombTimerDisplay) {
+                        setTimeout(() => {
+                            window.updateBombTimerDisplay();
+                        }, 100);
+                    }
+                } else {
+                    // For non-bomb updates, refresh control point markers when gameUpdate event contains control points
+                    const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+                    if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
+                        // Refreshing owner control point markers from gameUpdate event
+                        window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
+                    } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
+                        // Refreshing player control point markers from gameUpdate event
+                        window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
+                    }
                 }
             }
         }
@@ -1237,19 +1253,19 @@ function handleGameAction(data) {
                 currentGame.controlPoints = [data.data];
             }
             
-            // Refresh all control point markers to apply visual changes (circles, bomb emoji, etc.)
-            const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-            if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
-                window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
-            } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
-                window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
-            } else {
-                // Fallback: Update existing marker individually
+            // Check if this is a bomb-related update that doesn't require full refresh
+            const isBombUpdate = data.data.hasBombChallenge ||
+                                (data.data.bombTimer && data.data.bombTimer.isActive) ||
+                                (data.data.bombTimer && data.data.bombTimer.remainingTime !== undefined);
+            
+            if (isBombUpdate) {
+                // For bomb updates, only update the individual marker without full refresh
                 map.eachLayer((layer) => {
                     if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.id) {
                         layer.controlPointData = data.data;
                         
                         // Use appropriate popup function based on user role
+                        const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
                         if (userIsOwner && window.createOwnerControlPointEditMenu) {
                             layer.bindPopup(window.createOwnerControlPointEditMenu(data.data, layer));
                         } else if (window.createPlayerControlPointMenu) {
@@ -1262,6 +1278,40 @@ function handleGameAction(data) {
                         }
                     }
                 });
+                
+                // Update bomb timer display if available
+                if (window.updateBombTimerDisplay) {
+                    setTimeout(() => {
+                        window.updateBombTimerDisplay();
+                    }, 100);
+                }
+            } else {
+                // For non-bomb updates, refresh all control point markers to apply visual changes
+                const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+                if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
+                    window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
+                } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
+                    window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
+                } else {
+                    // Fallback: Update existing marker individually
+                    map.eachLayer((layer) => {
+                        if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.id) {
+                            layer.controlPointData = data.data;
+                            
+                            // Use appropriate popup function based on user role
+                            if (userIsOwner && window.createOwnerControlPointEditMenu) {
+                                layer.bindPopup(window.createOwnerControlPointEditMenu(data.data, layer));
+                            } else if (window.createPlayerControlPointMenu) {
+                                layer.bindPopup(window.createPlayerControlPointMenu(data.data, layer));
+                            }
+                            
+                            // Close popup if it's open
+                            if (layer.isPopupOpen()) {
+                                layer.closePopup();
+                            }
+                        }
+                    });
+                }
             }
             break;
         case 'controlPointDeleted':
@@ -1498,12 +1548,28 @@ function handleGameAction(data) {
                 updateCurrentUserTeam();
                 updateGameInfo();
 
-                // Always refresh control point markers with the latest data from server
-                const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-                if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
-                    window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
-                } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
-                    window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
+                // Check if this is a bomb-related update that doesn't require full refresh
+                const hasBombUpdates = currentGame.controlPoints && currentGame.controlPoints.some(cp =>
+                    cp.hasBombChallenge ||
+                    (cp.bombTimer && cp.bombTimer.isActive) ||
+                    (cp.bombTimer && cp.bombTimer.remainingTime !== undefined)
+                );
+                
+                if (hasBombUpdates) {
+                    // For bomb updates, only update bomb timer display without full refresh
+                    if (window.updateBombTimerDisplay) {
+                        setTimeout(() => {
+                            window.updateBombTimerDisplay();
+                        }, 100);
+                    }
+                } else {
+                    // For non-bomb updates, refresh all control point markers with the latest data from server
+                    const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+                    if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
+                        window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
+                    } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
+                        window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
+                    }
                 }
             }
             break;
@@ -1556,6 +1622,20 @@ function handleGameAction(data) {
             if (isUserOwner && window.updateOwnerControlPointPopups) {
                 window.updateOwnerControlPointPopups();
             }
+            break;
+            
+        case 'bombActivated':
+            // Show bomb activation success message
+            if (data.data.userId === currentUser.id) {
+                showSuccess('¡Bomba activada exitosamente!');
+            } else {
+                showInfo(`${data.data.userName} ha activado una bomba`);
+            }
+            break;
+            
+        case 'bombActivationError':
+            // Show bomb activation error
+            showError('Error al activar la bomba: ' + data.data.error);
             break;
             
         default:

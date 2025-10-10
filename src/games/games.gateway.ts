@@ -463,45 +463,77 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           const user = this.connectedUsers.get(client.id);
           if (user) {
             try {
-              const updatedControlPoint = await this.gamesService.takeControlPoint(
+              const result = await this.gamesService.takeControlPoint(
                 data.controlPointId,
                 user.id,
                 data.code,
               );
 
               // Remove sensitive code data before broadcasting to all clients
-              const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
+              const { code, armedCode, disarmedCode, ...safeControlPoint } = result.controlPoint;
 
               // Get the complete updated game with all control points AFTER the update
               const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-              // Broadcast the updated control point to all clients (without codes)
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'controlPointTaken',
-                data: {
-                  controlPointId: data.controlPointId,
-                  userId: user.id,
-                  userName: user.name,
-                  team: updatedControlPoint.ownedByTeam,
-                  controlPoint: safeControlPoint,
-                },
-                from: client.id,
-              });
-
-              // Send the full control point data (with codes) only to the owner
-              const game = await this.gamesService.findOne(gameId, user.id);
-              if (game.owner && game.owner.id === user.id) {
+              // If bomb was activated, send a different action
+              if (result.bombActivated) {
+                // Send bomb activated action to the client
                 client.emit('gameAction', {
+                  action: 'bombActivated',
+                  data: {
+                    controlPointId: data.controlPointId,
+                    userId: user.id,
+                    userName: user.name,
+                    team: result.controlPoint.ownedByTeam,
+                    controlPoint: safeControlPoint,
+                  },
+                  from: client.id,
+                });
+
+                // Send the full control point data (with codes) only to the owner
+                const game = await this.gamesService.findOne(gameId, user.id);
+                if (game.owner && game.owner.id === user.id) {
+                  client.emit('gameAction', {
+                    action: 'bombActivated',
+                    data: {
+                      controlPointId: data.controlPointId,
+                      userId: user.id,
+                      userName: user.name,
+                      team: result.controlPoint.ownedByTeam,
+                      controlPoint: result.controlPoint, // Full data with codes
+                    },
+                    from: client.id,
+                  });
+                }
+              } else {
+                // Broadcast the updated control point to all clients (without codes)
+                this.server.to(`game_${gameId}`).emit('gameAction', {
                   action: 'controlPointTaken',
                   data: {
                     controlPointId: data.controlPointId,
                     userId: user.id,
                     userName: user.name,
-                    team: updatedControlPoint.ownedByTeam,
-                    controlPoint: updatedControlPoint, // Full data with codes
+                    team: result.controlPoint.ownedByTeam,
+                    controlPoint: safeControlPoint,
                   },
                   from: client.id,
                 });
+
+                // Send the full control point data (with codes) only to the owner
+                const game = await this.gamesService.findOne(gameId, user.id);
+                if (game.owner && game.owner.id === user.id) {
+                  client.emit('gameAction', {
+                    action: 'controlPointTaken',
+                    data: {
+                      controlPointId: data.controlPointId,
+                      userId: user.id,
+                      userName: user.name,
+                      team: result.controlPoint.ownedByTeam,
+                      controlPoint: result.controlPoint, // Full data with codes
+                    },
+                    from: client.id,
+                  });
+                }
               }
 
               // Also broadcast the complete game update so frontend has all control points
@@ -858,6 +890,100 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 action: 'playerPositionsResponse',
                 data: { positions },
                 from: client.id,
+              });
+            }
+          }
+          break;
+        }
+
+        case 'activateBomb': {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            try {
+              // Use the same takeControlPoint method but with bomb-specific handling
+              const result = await this.gamesService.takeControlPoint(
+                data.controlPointId,
+                user.id,
+                data.armedCode,
+              );
+
+              // Remove sensitive code data before broadcasting to all clients
+              const { code, armedCode, disarmedCode, ...safeControlPoint } = result.controlPoint;
+
+              // Get the complete updated game with all control points AFTER the update
+              const updatedGame = await this.gamesService.findOne(gameId, user.id);
+
+              // If bomb was activated, send bomb activated action
+              if (result.bombActivated) {
+                // Send bomb activated action to the client
+                client.emit('gameAction', {
+                  action: 'bombActivated',
+                  data: {
+                    controlPointId: data.controlPointId,
+                    userId: user.id,
+                    userName: user.name,
+                    team: result.controlPoint.ownedByTeam,
+                    controlPoint: safeControlPoint,
+                  },
+                  from: client.id,
+                });
+
+                // Send the full control point data (with codes) only to the owner
+                const game = await this.gamesService.findOne(gameId, user.id);
+                if (game.owner && game.owner.id === user.id) {
+                  client.emit('gameAction', {
+                    action: 'bombActivated',
+                    data: {
+                      controlPointId: data.controlPointId,
+                      userId: user.id,
+                      userName: user.name,
+                      team: result.controlPoint.ownedByTeam,
+                      controlPoint: result.controlPoint, // Full data with codes
+                    },
+                    from: client.id,
+                  });
+                }
+              } else {
+                // If bomb was not activated (disarmed code used), send control point taken action
+                // Broadcast the updated control point to all clients (without codes)
+                this.server.to(`game_${gameId}`).emit('gameAction', {
+                  action: 'controlPointTaken',
+                  data: {
+                    controlPointId: data.controlPointId,
+                    userId: user.id,
+                    userName: user.name,
+                    team: result.controlPoint.ownedByTeam,
+                    controlPoint: safeControlPoint,
+                  },
+                  from: client.id,
+                });
+
+                // Send the full control point data (with codes) only to the owner
+                const game = await this.gamesService.findOne(gameId, user.id);
+                if (game.owner && game.owner.id === user.id) {
+                  client.emit('gameAction', {
+                    action: 'controlPointTaken',
+                    data: {
+                      controlPointId: data.controlPointId,
+                      userId: user.id,
+                      userName: user.name,
+                      team: result.controlPoint.ownedByTeam,
+                      controlPoint: result.controlPoint, // Full data with codes
+                    },
+                    from: client.id,
+                  });
+                }
+              }
+
+              // Also broadcast the complete game update so frontend has all control points
+              this.server.to(`game_${gameId}`).emit('gameUpdate', {
+                type: 'gameUpdated',
+                game: updatedGame,
+              });
+            } catch (error: any) {
+              client.emit('gameActionError', {
+                action: 'activateBomb',
+                error: error.message,
               });
             }
           }
