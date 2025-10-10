@@ -1759,6 +1759,7 @@ export class GamesService {
       team: string;
       captureCount: number;
       bombDeactivationCount: number;
+      bombExplosionCount: number;
     }>;
   }> {
     console.log(`[GAME_RESULTS] Generating results report for game ${gameId}`);
@@ -1885,6 +1886,7 @@ export class GamesService {
       team: string;
       captureCount: number;
       bombDeactivationCount: number;
+      bombExplosionCount: number;
     }>;
   }> {
     console.log(`[PLAYER_CAPTURE_STATS] Getting capture stats for game instance ${gameInstanceId}`);
@@ -1932,10 +1934,11 @@ export class GamesService {
         team: string;
         captureCount: number;
         bombDeactivationCount: number;
+        bombExplosionCount: number;
       }
     >();
 
-    // Initialize all players with 0 captures and 0 bomb deactivations
+    // Initialize all players with 0 captures, 0 bomb deactivations, and 0 bomb explosions
     if (game.players) {
       for (const player of game.players) {
         if (player.user && player.team && player.team !== 'none') {
@@ -1945,6 +1948,7 @@ export class GamesService {
             team: player.team,
             captureCount: 0,
             bombDeactivationCount: 0,
+            bombExplosionCount: 0,
           });
         }
       }
@@ -2015,6 +2019,47 @@ export class GamesService {
       } else {
         console.log(
           `[PLAYER_CAPTURE_STATS] Player ${deactivatedByUserId} not found in player stats for bomb deactivation`,
+        );
+      }
+    }
+
+    // Count bomb explosions per player - count explosions for the player who activated the bomb
+    const bombExplosionEvents = history.filter(
+      event =>
+        event.eventType === 'bomb_exploded' &&
+        event.data &&
+        event.data.activatedByUserId,
+    );
+
+    console.log(
+      `[PLAYER_CAPTURE_STATS] Found ${bombExplosionEvents.length} bomb explosion events`,
+    );
+
+    for (const event of bombExplosionEvents) {
+      const {
+        activatedByUserId,
+        activatedByUserName,
+        activatedByTeam,
+        controlPointId,
+      } = event.data;
+
+      if (!activatedByUserId || !activatedByTeam) {
+        console.log(
+          `[PLAYER_CAPTURE_STATS] Skipping bomb explosion event with missing userId or team:`,
+          event.data,
+        );
+        continue;
+      }
+
+      const player = playerStats.get(activatedByUserId);
+      if (player) {
+        player.bombExplosionCount++;
+        console.log(
+          `[PLAYER_CAPTURE_STATS] Player ${player.userName} had bomb explode at control point ${controlPointId}, count: ${player.bombExplosionCount}`,
+        );
+      } else {
+        console.log(
+          `[PLAYER_CAPTURE_STATS] Player ${activatedByUserId} not found in player stats for bomb explosion`,
         );
       }
     }
@@ -2126,9 +2171,18 @@ export class GamesService {
     // Stop the bomb timer
     this.stopBombTimer(controlPointId);
 
+    // Get the bomb activation data from history to determine who activated it
+    const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(controlPointId, gameInstanceId);
+    const activatedByUserId = bombTimeData?.activatedByUserId;
+    const activatedByUserName = bombTimeData?.activatedByUserName;
+    const activatedByTeam = bombTimeData?.activatedByTeam;
+
     // Add bomb exploded event to history
     await this.addGameHistory(gameInstanceId, 'bomb_exploded', {
       controlPointId,
+      activatedByUserId,
+      activatedByUserName,
+      activatedByTeam,
       timestamp: new Date(),
     });
 
@@ -2142,7 +2196,7 @@ export class GamesService {
       });
     }
 
-    console.log(`[BOMB] Bomb exploded at control point ${controlPointId}`);
+    console.log(`[BOMB] Bomb exploded at control point ${controlPointId}, activated by: ${activatedByUserName} (${activatedByTeam})`);
   }
 
   // Get current bomb time for a control point

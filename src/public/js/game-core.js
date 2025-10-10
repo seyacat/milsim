@@ -2184,6 +2184,16 @@ function displayGameResults(results) {
         capturesHeader.textContent = 'Puntos Tomados';
         capturesHeader.style.cssText = 'padding: 10px; text-align: center; color: white; font-weight: bold; border-bottom: 1px solid rgba(255, 255, 255, 0.3);';
         playerHeaderRow.appendChild(capturesHeader);
+
+        const deactivationsHeader = document.createElement('th');
+        deactivationsHeader.textContent = 'Desactivaciones';
+        deactivationsHeader.style.cssText = 'padding: 10px; text-align: center; color: white; font-weight: bold; border-bottom: 1px solid rgba(255, 255, 255, 0.3);';
+        playerHeaderRow.appendChild(deactivationsHeader);
+
+        const explosionsHeader = document.createElement('th');
+        explosionsHeader.textContent = 'Explosiones';
+        explosionsHeader.style.cssText = 'padding: 10px; text-align: center; color: white; font-weight: bold; border-bottom: 1px solid rgba(255, 255, 255, 0.3);';
+        playerHeaderRow.appendChild(explosionsHeader);
         
         playerThead.appendChild(playerHeaderRow);
         playerTable.appendChild(playerThead);
@@ -2215,7 +2225,19 @@ function displayGameResults(results) {
             capturesCell.textContent = player.captureCount;
             capturesCell.style.cssText = 'padding: 10px; text-align: center; color: white; font-weight: bold;';
             row.appendChild(capturesCell);
-            
+
+            // Bomb deactivations count
+            const deactivationsCell = document.createElement('td');
+            deactivationsCell.textContent = player.bombDeactivationCount || 0;
+            deactivationsCell.style.cssText = 'padding: 10px; text-align: center; color: white; font-weight: bold;';
+            row.appendChild(deactivationsCell);
+
+            // Bomb explosions count
+            const explosionsCell = document.createElement('td');
+            explosionsCell.textContent = player.bombExplosionCount || 0;
+            explosionsCell.style.cssText = 'padding: 10px; text-align: center; color: white; font-weight: bold;';
+            row.appendChild(explosionsCell);
+
             playerTbody.appendChild(row);
         });
         
