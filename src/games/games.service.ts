@@ -1799,6 +1799,7 @@ export class GamesService {
       userName: string;
       team: string;
       captureCount: number;
+      bombDeactivationCount: number;
     }>;
   }> {
     console.log(`[GAME_RESULTS] Generating results report for game ${gameId}`);
@@ -2041,6 +2042,7 @@ export class GamesService {
       userName: string;
       team: string;
       captureCount: number;
+      bombDeactivationCount: number;
     }>;
   }> {
     console.log(`[PLAYER_CAPTURE_STATS] Getting capture stats for game instance ${gameInstanceId}`);
@@ -2082,10 +2084,16 @@ export class GamesService {
     // Initialize player stats
     const playerStats = new Map<
       number,
-      { userId: number; userName: string; team: string; captureCount: number }
+      {
+        userId: number;
+        userName: string;
+        team: string;
+        captureCount: number;
+        bombDeactivationCount: number;
+      }
     >();
 
-    // Initialize all players with 0 captures
+    // Initialize all players with 0 captures and 0 bomb deactivations
     if (game.players) {
       for (const player of game.players) {
         if (player.user && player.team && player.team !== 'none') {
@@ -2094,6 +2102,7 @@ export class GamesService {
             userName: player.user.name,
             team: player.team,
             captureCount: 0,
+            bombDeactivationCount: 0,
           });
         }
       }
@@ -2122,6 +2131,49 @@ export class GamesService {
         );
       } else {
         console.log(`[PLAYER_CAPTURE_STATS] Player ${userId} not found in player stats`);
+      }
+    }
+
+    // Count bomb deactivations per player - only count deactivations by opposing teams
+    const bombDeactivationEvents = history.filter(
+      event =>
+        event.eventType === 'bomb_deactivated' &&
+        event.data &&
+        event.data.deactivatedByUserId &&
+        event.data.isOpposingTeamDeactivation === true,
+    );
+
+    console.log(
+      `[PLAYER_CAPTURE_STATS] Found ${bombDeactivationEvents.length} bomb deactivation events by opposing teams`,
+    );
+
+    for (const event of bombDeactivationEvents) {
+      const {
+        deactivatedByUserId,
+        deactivatedByUserName,
+        deactivatedByTeam,
+        controlPointId,
+        activatedByTeam,
+      } = event.data;
+
+      if (!deactivatedByUserId || !deactivatedByTeam) {
+        console.log(
+          `[PLAYER_CAPTURE_STATS] Skipping bomb deactivation event with missing userId or team:`,
+          event.data,
+        );
+        continue;
+      }
+
+      const player = playerStats.get(deactivatedByUserId);
+      if (player) {
+        player.bombDeactivationCount++;
+        console.log(
+          `[PLAYER_CAPTURE_STATS] Player ${player.userName} deactivated bomb at control point ${controlPointId} (activated by ${activatedByTeam}), count: ${player.bombDeactivationCount}`,
+        );
+      } else {
+        console.log(
+          `[PLAYER_CAPTURE_STATS] Player ${deactivatedByUserId} not found in player stats for bomb deactivation`,
+        );
       }
     }
 
@@ -2386,12 +2438,21 @@ export class GamesService {
     // Stop the bomb timer
     this.stopBombTimer(controlPointId);
 
+    // Get the bomb timer to check who activated it
+    const bombTimer = this.bombTimers.get(controlPointId);
+    const activatedByTeam = bombTimer?.activatedByTeam;
+
+    // Check if this is a deactivation by opposing team (only count points for opposing team deactivations)
+    const isOpposingTeamDeactivation = activatedByTeam && activatedByTeam !== team;
+
     // Add bomb deactivated event to history
     await this.addGameHistory(gameInstanceId, 'bomb_deactivated', {
       controlPointId,
       deactivatedByUserId: userId,
       deactivatedByUserName: userName,
       deactivatedByTeam: team,
+      activatedByTeam: activatedByTeam,
+      isOpposingTeamDeactivation: isOpposingTeamDeactivation,
       timestamp: new Date(),
     });
 
@@ -2404,6 +2465,8 @@ export class GamesService {
       });
     }
 
-    console.log(`[BOMB] Bomb deactivated at control point ${controlPointId} by ${userName}`);
+    console.log(
+      `[BOMB] Bomb deactivated at control point ${controlPointId} by ${userName} (${team}) - Activated by: ${activatedByTeam} - Opposing team: ${isOpposingTeamDeactivation}`,
+    );
   }
 }
