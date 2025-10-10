@@ -157,10 +157,8 @@ function initializeWebSocket(gameId) {
     });
 
     socket.on('gameState', (game) => {
-        console.log('GAME_STATE: Received fresh game state with ' + (game.controlPoints ? game.controlPoints.length : 0) + ' control points');
         if (game.controlPoints) {
             game.controlPoints.forEach(cp => {
-                console.log('GAME_STATE: Control point ' + cp.id + ' - ownedByTeam: ' + cp.ownedByTeam + ', hasCodeChallenge: ' + cp.hasCodeChallenge + ', code: ' + (cp.code ? '***' : 'null'));
             });
         }
         currentGame = game;
@@ -260,6 +258,19 @@ function initializeWebSocket(gameId) {
     socket.on('controlPointData', (data) => {
         handleControlPointData(data);
     });
+
+    // Add position challenge response listener
+    socket.on('gameAction', (data) => {
+        if (data.action === 'positionChallengeUpdate') {
+            console.log(`[POSITION_CHALLENGE_FRONTEND] Received response for position challenge update:`, data);
+        }
+    });
+
+    socket.on('gameActionError', (data) => {
+        if (data.action === 'positionChallengeUpdate') {
+            console.error(`[POSITION_CHALLENGE_FRONTEND] Error sending position challenge update:`, data.error);
+        }
+    });
 }
 
 // Load game data
@@ -291,6 +302,9 @@ async function loadGame(gameId) {
         updateGameInfo();
         updatePlayerMarkers();
         loadControlPoints(gameId);
+        
+        // Reset position challenge timer when game is loaded
+        resetPositionChallengeTimer();
         
         // Request initial control point time data if game is running
         if (currentGame.status === 'running' && socket) {
@@ -754,11 +768,14 @@ function startGPS() {
                 });
             }
 
-            // Send position challenge update every 20 seconds
+            // Send position challenge update every 5 seconds (only if game data is available)
             const now = Date.now();
-            if (now - lastPositionChallengeUpdate >= 20000) {
+            if (now - lastPositionChallengeUpdate >= 5000 && currentGame) {
                 sendPositionChallengeUpdate(lat, lng, accuracy);
                 lastPositionChallengeUpdate = now;
+            } else if (!currentGame) {
+            } else {
+                console.log(`[POSITION_CHALLENGE_FRONTEND] Not sending yet - ${5000 - (now - lastPositionChallengeUpdate)}ms remaining`);
             }
         },
         (error) => {
@@ -779,21 +796,53 @@ function startGPS() {
         },
         {
             enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 60000
+            timeout: 5000,
+            maximumAge: 0  // Force fresh GPS updates every time
         }
     );
 }
 
 // Send position challenge update to backend
 function sendPositionChallengeUpdate(lat, lng, accuracy) {
+    
     if (socket && currentGame) {
         socket.emit('gameAction', {
             gameId: currentGame.id,
             action: 'positionChallengeUpdate',
             data: { lat, lng, accuracy }
         });
+    } else {
+        console.log(`[POSITION_CHALLENGE_FRONTEND] Cannot send position challenge update - missing socket or game data`);
     }
+}
+
+// Reset position challenge timer when game is loaded
+function resetPositionChallengeTimer() {
+    lastPositionChallengeUpdate = 0; // Reset timer to send immediately on next GPS update
+    
+    // If we have a user marker with position, send it immediately for testing
+    if (userMarker) {
+        const position = userMarker.getLatLng();
+        sendPositionChallengeUpdate(position.lat, position.lng, 10); // Use 10m accuracy for testing
+    } else {
+        // Use a default position for testing on PC
+        sendPositionChallengeUpdate(-0.180653, -78.467834, 10); // Default Quito coordinates
+    }
+    
+    // Start interval for PC testing - send position every 5 seconds
+    if (window.positionChallengeInterval) {
+        clearInterval(window.positionChallengeInterval);
+    }
+    
+    window.positionChallengeInterval = setInterval(() => {
+        if (userMarker) {
+            const position = userMarker.getLatLng();
+            sendPositionChallengeUpdate(position.lat, position.lng, 10);
+        } else {
+            sendPositionChallengeUpdate(-0.180653, -78.467834, 10);
+        }
+    }, 5000);
+    
 }
 
 // Create or recreate user marker with current team
@@ -2924,8 +2973,6 @@ function updateOpenControlPointPopups() {
 
 // Handle control point data response
 function handleControlPointData(controlPoint) {
-    console.log('CONTROL_POINT_DATA: Received fresh control point data for ID ' + controlPoint.id);
-    console.log('CONTROL_POINT_DATA: Control point data - ownedByTeam: ' + controlPoint.ownedByTeam + ', hasCodeChallenge: ' + controlPoint.hasCodeChallenge + ', code: ' + (controlPoint.code ? '***' : 'null'));
     
     // Update the control point data in currentGame
     if (currentGame && currentGame.controlPoints) {

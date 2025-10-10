@@ -111,7 +111,7 @@ export class PositionChallengeService {
     // Get all players in the game
     const players = await this.playersRepository.find({
       where: { game: { id: controlPoint.gameId } },
-      relations: ['user'],
+      relations: ['user', 'game'],
     });
 
     console.log(`[POSITION_CHALLENGE] Checking control point ${controlPoint.name} (ID: ${controlPoint.id}) - MinDistance: ${controlPoint.minDistance}m, MinAccuracy: ${controlPoint.minAccuracy}m`);
@@ -150,9 +150,9 @@ export class PositionChallengeService {
   /**
    * Calculate points for players in a control point
    */
-  calculatePointsForControlPoint(
+  async calculatePointsForControlPoint(
     playersInControlPoint: Array<{ player: Player; position: PlayerPosition }>,
-  ): PositionChallengeResult {
+  ): Promise<PositionChallengeResult> {
     const result: PositionChallengeResult = {
       controlPointId: 0,
       controlPointName: '',
@@ -164,15 +164,29 @@ export class PositionChallengeService {
       return result;
     }
 
-    // Get control point info from the playersInControlPoint array
-    // Since all players are in the same control point, we can get it from the first player
-    const controlPoint = playersInControlPoint[0].player.game.controlPoints?.find(
-      cp => cp.hasPositionChallenge,
-    );
-
-    if (!controlPoint) {
+    // Get the game ID from the first player
+    const firstPlayer = playersInControlPoint[0];
+    if (!firstPlayer.player.game || !firstPlayer.player.game.id) {
+      console.log(`[POSITION_CHALLENGE] Cannot calculate points - first player has no game or game ID`);
       return result;
     }
+    const gameId = firstPlayer.player.game.id;
+    
+    // Get all control points for this game with position challenge enabled
+    const controlPoints = await this.controlPointsRepository.find({
+      where: { game: { id: gameId }, hasPositionChallenge: true },
+    });
+
+    if (controlPoints.length === 0) {
+      console.log(`[POSITION_CHALLENGE] No control points with position challenge found for game ${gameId}`);
+      return result;
+    }
+
+    // Since we're processing one control point at a time, we need to determine which control point these players are in
+    // For now, we'll use the first control point with position challenge (this should be improved)
+    const controlPoint = controlPoints[0];
+    
+    console.log(`[POSITION_CHALLENGE] Using control point ${controlPoint.name} (ID: ${controlPoint.id}) for point calculation`);
 
     result.controlPointId = controlPoint.id;
     result.controlPointName = controlPoint.name;
@@ -200,6 +214,7 @@ export class PositionChallengeService {
     // Calculate total points (sum of all team points)
     result.totalPoints = Array.from(teamPoints.values()).reduce((sum, points) => sum + points, 0);
 
+    console.log(`[POSITION_CHALLENGE] Calculated ${result.totalPoints} total points for control point ${controlPoint.name}`);
     return result;
   }
 
@@ -219,11 +234,15 @@ export class PositionChallengeService {
       relations: ['game'],
     });
 
+    console.log(`[POSITION_CHALLENGE] Found ${controlPoints.length} control points with position challenge enabled for game ${gameId}`);
+
     for (const controlPoint of controlPoints) {
+      console.log(`[POSITION_CHALLENGE] Processing control point: ${controlPoint.name} (ID: ${controlPoint.id})`);
       const playersInControlPoint = await this.getPlayersInControlPoint(controlPoint, playerPositions);
       
       if (playersInControlPoint.length > 0) {
-        const result = this.calculatePointsForControlPoint(playersInControlPoint);
+        console.log(`[POSITION_CHALLENGE] Control point ${controlPoint.name} has ${playersInControlPoint.length} valid players`);
+        const result = await this.calculatePointsForControlPoint(playersInControlPoint);
         results.push(result);
 
         // Extract team points for broadcasting
@@ -232,9 +251,12 @@ export class PositionChallengeService {
           teamPoints[player.team] = (teamPoints[player.team] || 0) + player.points;
         }
         teamPointsByControlPoint.set(controlPoint.id, teamPoints);
+      } else {
+        console.log(`[POSITION_CHALLENGE] Control point ${controlPoint.name} has no valid players`);
       }
     }
 
+    console.log(`[POSITION_CHALLENGE] Completed processing for game ${gameId} - ${results.length} control points with players`);
     return { results, teamPointsByControlPoint };
   }
 
@@ -272,6 +294,8 @@ export class PositionChallengeService {
    * Start position challenge interval for a game
    */
   startPositionChallengeInterval(gameId: number, playerPositions: Map<number, PlayerPosition>): void {
+    console.log(`[POSITION_CHALLENGE] Starting position challenge interval for game ${gameId} with ${playerPositions.size} initial player positions`);
+    
     // Clear existing interval if any
     this.stopPositionChallengeInterval(gameId);
 
@@ -286,16 +310,21 @@ export class PositionChallengeService {
       gamePositions.set(userId, position);
     });
 
+    console.log(`[POSITION_CHALLENGE] Game ${gameId} now has ${gamePositions.size} player positions stored`);
+
     // Start new interval every 20 seconds
     const interval = setInterval(() => {
       void (async () => {
         try {
           const currentPlayerPositions = this.getPlayerPositionsForGame(gameId);
+          console.log(`[POSITION_CHALLENGE] Interval triggered for game ${gameId} - Processing ${currentPlayerPositions.size} player positions`);
+          
           const { results, teamPointsByControlPoint } = await this.processPositionChallenge(gameId, currentPlayerPositions);
           
           console.log(`[POSITION_CHALLENGE] Processing position challenge for game ${gameId} - Found ${results.length} control points with players`);
           
           // Create events for Timer Calculation Service
+          console.log(`[POSITION_CHALLENGE] Creating events for ${results.length} control points with players`);
           for (const result of results) {
             if (result.players.length > 0) {
               console.log(`[POSITION_CHALLENGE] Control point ${result.controlPointName} (${result.controlPointId}) - ${result.players.length} players, total points: ${result.totalPoints}`);
@@ -303,13 +332,17 @@ export class PositionChallengeService {
                 console.log(`[POSITION_CHALLENGE]   Player ${player.userName} (${player.team}): ${player.points.toFixed(1)} points`);
               }
               await this.createPositionChallengeEvent(gameId, result);
+            } else {
+              console.log(`[POSITION_CHALLENGE] Control point ${result.controlPointName} has no players in result, skipping event creation`);
             }
           }
 
           // Broadcast position challenge updates to frontend
+          console.log(`[POSITION_CHALLENGE] Broadcasting updates for ${teamPointsByControlPoint.size} control points`);
           for (const [controlPointId, teamPoints] of teamPointsByControlPoint.entries()) {
             console.log(`[POSITION_CHALLENGE] Broadcasting update for control point ${controlPointId}:`, teamPoints);
             this.gamesGateway.broadcastPositionChallengeUpdate(gameId, controlPointId, teamPoints);
+            console.log(`[POSITION_CHALLENGE] Broadcast sent for control point ${controlPointId}`);
           }
         } catch (error) {
           console.error(`[POSITION_CHALLENGE] Error processing position challenge for game ${gameId}:`, error);
@@ -318,6 +351,7 @@ export class PositionChallengeService {
     }, 20000); // 20 seconds
 
     this.positionChallengeIntervals.set(gameId, interval);
+    console.log(`[POSITION_CHALLENGE] Position challenge interval started for game ${gameId} - will run every 20 seconds`);
   }
 
   /**
@@ -340,9 +374,12 @@ export class PositionChallengeService {
     });
 
     if (!game || !game.instanceId) {
+      console.log(`[POSITION_CHALLENGE] Cannot create event - Game ${gameId} has no instance ID`);
       return;
     }
 
+    console.log(`[POSITION_CHALLENGE] Creating position challenge event for game instance ${game.instanceId}, control point ${result.controlPointName}`);
+    
     await this.timerCalculationService.addGameHistory(game.instanceId, 'position_challenge_scored', {
       controlPointId: result.controlPointId,
       controlPointName: result.controlPointName,
@@ -350,6 +387,8 @@ export class PositionChallengeService {
       totalPoints: result.totalPoints,
       timestamp: new Date(),
     });
+
+    console.log(`[POSITION_CHALLENGE] Position challenge event created successfully for game instance ${game.instanceId}`);
   }
 
   /**

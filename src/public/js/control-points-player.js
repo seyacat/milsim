@@ -797,7 +797,6 @@ function handleBombTimeUpdate(data) {
     const { controlPointId, remainingTime, totalTime, isActive, activatedByUserId, activatedByUserName, activatedByTeam, exploded } = data;
     
     // Log when bomb timer receives value from server
-    console.log('BOMB TIMER: Received update from server - ControlPointId: ' + controlPointId + ', RemainingTime: ' + remainingTime + ', IsActive: ' + isActive + ', Exploded: ' + exploded);
     
     if (exploded) {
         // Bomb exploded - remove timer and show explosion notification
@@ -988,48 +987,62 @@ function updatePlayerControlPointPopupWithFreshData(controlPointId, marker) {
 
 // Update position challenge bars with team data
 function updatePositionChallengeBars(controlPointId, teamPoints) {
-    const barsContainer = document.getElementById(`position_challenge_bars_${controlPointId}`);
-    if (!barsContainer) return;
-    
-    // Clear existing bars
-    barsContainer.innerHTML = '';
-    
-    // Calculate total points to determine percentages
-    const totalPoints = Object.values(teamPoints).reduce((sum, points) => sum + points, 0);
-    
-    // Team colors
-    const teamColors = {
-        'blue': '#2196F3',
-        'red': '#F44336',
-        'green': '#4CAF50',
-        'yellow': '#FFEB3B'
-    };
-    
-    // Create bars for each team with points
-    Object.entries(teamPoints).forEach(([team, points]) => {
-        if (points > 0) {
-            const percentage = totalPoints > 0 ? (points / totalPoints) * 100 : 0;
-            const barWidth = Math.max(2, (percentage / 100) * 40); // Minimum 2px, max 40px
-            
-            const bar = document.createElement('div');
-            bar.style.cssText = `
-                height: 4px;
-                width: ${barWidth}px;
-                background: ${teamColors[team] || '#9E9E9E'};
-                border-radius: 2px;
-                transition: width 0.3s ease;
-            `;
-            barsContainer.appendChild(bar);
-        }
-    });
-    
-    // Show the bars container if there are points and position challenge is active
-    const controlPoint = getControlPointById(controlPointId);
-    if (controlPoint && controlPoint.hasPositionChallenge && currentGame && currentGame.status === 'running') {
-        barsContainer.style.display = 'flex';
-    } else {
-        barsContainer.style.display = 'none';
+  const barsContainer = document.getElementById(`position_challenge_bars_${controlPointId}`);
+  if (!barsContainer) {
+    console.log(`[POSITION_CHALLENGE_BARS] Bars container not found for control point ${controlPointId}`);
+    return;
+  }
+
+  console.log(`[POSITION_CHALLENGE_BARS] Updating bars for control point ${controlPointId}:`, teamPoints);
+
+  // Clear existing bars
+  barsContainer.innerHTML = '';
+
+  // Calculate total points to determine percentages
+  const totalPoints = Object.values(teamPoints).reduce((sum, points) => sum + points, 0);
+
+  console.log(`[POSITION_CHALLENGE_BARS] Total points: ${totalPoints}`);
+
+  // Team colors
+  const teamColors = {
+    'blue': '#2196F3',
+    'red': '#F44336',
+    'green': '#4CAF50',
+    'yellow': '#FFEB3B'
+  };
+
+  // Create bars for each team with points
+  Object.entries(teamPoints).forEach(([team, points]) => {
+    if (points > 0) {
+      const percentage = totalPoints > 0 ? (points / totalPoints) * 100 : 0;
+      const barWidth = Math.max(2, (percentage / 100) * 40); // Minimum 2px, max 40px
+      
+      console.log(`[POSITION_CHALLENGE_BARS] Team ${team}: ${points} points (${percentage.toFixed(1)}%) -> ${barWidth}px`);
+      
+      const bar = document.createElement('div');
+      bar.style.cssText = `
+        height: 4px;
+        width: ${barWidth}px;
+        background: ${teamColors[team] || '#9E9E9E'};
+        border-radius: 2px;
+        transition: width 0.3s ease;
+      `;
+      barsContainer.appendChild(bar);
     }
+  });
+
+  // Show the bars container if there are points and position challenge is active
+  const controlPoint = getControlPointById(controlPointId);
+  console.log(`[POSITION_CHALLENGE_BARS] Control point data:`, controlPoint);
+  console.log(`[POSITION_CHALLENGE_BARS] Current game status:`, currentGame?.status);
+  
+  if (controlPoint && controlPoint.hasPositionChallenge && currentGame && currentGame.status === 'running') {
+    barsContainer.style.display = 'flex';
+    console.log(`[POSITION_CHALLENGE_BARS] Showing bars for control point ${controlPointId}`);
+  } else {
+    barsContainer.style.display = 'none';
+    console.log(`[POSITION_CHALLENGE_BARS] Hiding bars for control point ${controlPointId} - hasPositionChallenge: ${controlPoint?.hasPositionChallenge}, gameRunning: ${currentGame?.status === 'running'}`);
+  }
 }
 
 // Handle position challenge update from server
