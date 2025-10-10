@@ -157,11 +157,20 @@ function initializeWebSocket(gameId) {
     });
 
     socket.on('gameState', (game) => {
+        console.log('GAME_STATE: Received fresh game state with ' + (game.controlPoints ? game.controlPoints.length : 0) + ' control points');
+        if (game.controlPoints) {
+            game.controlPoints.forEach(cp => {
+                console.log('GAME_STATE: Control point ' + cp.id + ' - ownedByTeam: ' + cp.ownedByTeam + ', hasCodeChallenge: ' + cp.hasCodeChallenge + ', code: ' + (cp.code ? '***' : 'null'));
+            });
+        }
         currentGame = game;
         // Update current user's team information from game data
         updateCurrentUserTeam();
         updateGameInfo();
         updatePlayerMarkers();
+        
+        // Update any open control point popups with fresh data
+        updateOpenControlPointPopups();
     });
 
     socket.on('joinSuccess', (data) => {
@@ -246,6 +255,10 @@ function initializeWebSocket(gameId) {
 
     socket.on('activeBombTimers', (data) => {
         handleActiveBombTimersFromSocket(data);
+    });
+
+    socket.on('controlPointData', (data) => {
+        handleControlPointData(data);
     });
 }
 
@@ -1928,10 +1941,6 @@ function updateTimeDisplay() {
         }
     }
     
-    // Debug log every 10 seconds
-    if (currentPlayedTime % 10 === 0) {
-        console.log(`[FRONTEND] Local timer - Played: ${currentPlayedTime}s, Elapsed since update: ${elapsedSinceUpdate}s`);
-    }
 }
 
 // Open game summary dialog
@@ -2489,6 +2498,9 @@ function handleControlPointTimeUpdate(data) {
     setTimeout(() => {
         updateAllTimerDisplays();
     }, 500);
+    
+    // Also update any open control point popups with fresh timer data
+    updateOpenControlPointPopups();
 }
 
 // Handle initial control point times data
@@ -2545,11 +2557,14 @@ function handleControlPointTimes(data) {
     
     // Force update all timer displays immediately when control point times are loaded
     updateAllTimerDisplays();
-    
+
     // Force update all timer displays after a short delay to ensure DOM is ready
     setTimeout(() => {
         updateAllTimerDisplays();
     }, 500);
+    
+    // Also update any open control point popups with fresh timer data
+    updateOpenControlPointPopups();
 }
 
 // Function to update all timer displays based on game state
@@ -2779,5 +2794,72 @@ window.onload = function() {
     setTimeout(startMarkerCleanupInterval, 10000); // Start after 10 seconds
 };
 
+// Update all open control point popups with fresh data
+function updateOpenControlPointPopups() {
+    if (!map || !currentGame || !currentGame.controlPoints) return;
+    
+    map.eachLayer((layer) => {
+        if (layer instanceof L.Marker && layer.controlPointData && layer.isPopupOpen()) {
+            const controlPointId = layer.controlPointData.id;
+            const freshControlPoint = currentGame.controlPoints.find(cp => cp.id === controlPointId);
+            
+            if (freshControlPoint) {
+                // Update the marker's control point data
+                layer.controlPointData = freshControlPoint;
+                
+                // Use appropriate update function based on user role
+                const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+                if (isOwner && window.updateControlPointPopupWithFreshData) {
+                    window.updateControlPointPopupWithFreshData(controlPointId, layer);
+                } else if (window.updatePlayerControlPointPopupWithFreshData) {
+                    window.updatePlayerControlPointPopupWithFreshData(controlPointId, layer);
+                }
+            }
+        }
+    });
+}
+
+// Handle control point data response
+function handleControlPointData(controlPoint) {
+    console.log('CONTROL_POINT_DATA: Received fresh control point data for ID ' + controlPoint.id);
+    console.log('CONTROL_POINT_DATA: Control point data - ownedByTeam: ' + controlPoint.ownedByTeam + ', hasCodeChallenge: ' + controlPoint.hasCodeChallenge + ', code: ' + (controlPoint.code ? '***' : 'null'));
+    
+    // Update the control point data in currentGame
+    if (currentGame && currentGame.controlPoints) {
+        const controlPointIndex = currentGame.controlPoints.findIndex(cp => cp.id === controlPoint.id);
+        if (controlPointIndex !== -1) {
+            currentGame.controlPoints[controlPointIndex] = controlPoint;
+        } else {
+            currentGame.controlPoints.push(controlPoint);
+        }
+    }
+    
+    // Update any open popup for this control point with fresh data
+    if (map) {
+        map.eachLayer((layer) => {
+            if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === controlPoint.id && layer.isPopupOpen()) {
+                // Update the marker's control point data with fresh data
+                layer.controlPointData = controlPoint;
+                
+                // Create and update the popup with fresh data
+                const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+                if (isOwner && window.createControlPointEditMenu) {
+                    const popupContent = window.createControlPointEditMenu(controlPoint, layer);
+                    
+                    // Update the popup with fresh content without reopening
+                    layer.setPopupContent(popupContent);
+                } else if (window.createControlPointPlayerMenu) {
+                    const popupContent = window.createControlPointPlayerMenu(controlPoint, layer);
+                    
+                    // Update the popup with fresh content without reopening
+                    layer.setPopupContent(popupContent);
+                }
+            }
+        });
+    }
+}
+
 // Make functions available globally
 window.closeControlPointPopup = closeControlPointPopup;
+window.updateOpenControlPointPopups = updateOpenControlPointPopups;
+window.handleControlPointData = handleControlPointData;

@@ -266,13 +266,31 @@ function addControlPointMarkerPlayer(controlPoint) {
         marker.positionCircle = circle;
     }
 
-    // Create popup with "Tomar" option for players
-    const popupContent = createControlPointPlayerMenu(controlPoint, marker);
+    // Create minimal loading popup initially
+    const loadingPopup = document.createElement('div');
+    loadingPopup.className = 'control-point-popup';
+    loadingPopup.innerHTML = `
+        <div class="point-name">${controlPoint.name}</div>
+        <div style="text-align: center; padding: 10px; color: #666;">
+            Cargando datos del punto...
+        </div>
+    `;
     
-    marker.bindPopup(popupContent, {
+    marker.bindPopup(loadingPopup, {
         closeOnClick: false,
         autoClose: false,
         closeButton: true
+    });
+
+    // Add popup open handler to request fresh data and update popup
+    marker.on('popupopen', function() {
+        // Request fresh control point data when popup opens
+        requestPlayerControlPointData(controlPoint.id, marker);
+        
+        // Update popup with fresh data after a short delay to allow WebSocket response
+        setTimeout(() => {
+            updatePlayerControlPointPopupWithFreshData(controlPoint.id, marker);
+        }, 100);
     });
 
     // Store control point data on marker for reference
@@ -905,4 +923,53 @@ window.updateBombTimerDisplay = updateBombTimerDisplay;
 window.requestActiveBombTimers = requestActiveBombTimers;
 window.handleActiveBombTimers = handleActiveBombTimers;
 window.submitBombDeactivation = submitBombDeactivation;
+// Request fresh control point data from server for players
+function requestPlayerControlPointData(controlPointId, marker) {
+    if (socket && currentGame) {
+        // Request specific control point data using the new handler
+        socket.emit('getControlPointData', {
+            gameId: currentGame.id,
+            controlPointId: controlPointId
+        });
+        
+        // Also request specific control point times for accurate timer data
+        socket.emit('getControlPointTimes', { gameId: currentGame.id });
+        
+        // Request active bomb timers if applicable
+        if (window.requestActiveBombTimers) {
+            window.requestActiveBombTimers();
+        }
+    }
+}
+
+// Update player control point popup with fresh data
+function updatePlayerControlPointPopupWithFreshData(controlPointId, marker) {
+    if (!currentGame || !currentGame.controlPoints) return;
+    
+    // Find the latest control point data from currentGame
+    const freshControlPoint = currentGame.controlPoints.find(cp => cp.id === controlPointId);
+    if (!freshControlPoint) return;
+    
+    // Update the marker's control point data
+    marker.controlPointData = freshControlPoint;
+    
+    // Create updated popup content
+    const popupContent = createControlPointPlayerMenu(freshControlPoint, marker);
+    
+    // Update the popup
+    marker.bindPopup(popupContent, {
+        closeOnClick: false,
+        autoClose: false,
+        closeButton: true
+    });
+    
+    // If popup is open, update it immediately
+    if (marker.isPopupOpen()) {
+        marker.closePopup();
+        marker.openPopup();
+    }
+}
+
 window.updateControlPointPopupForBomb = updateControlPointPopupForBomb;
+window.requestPlayerControlPointData = requestPlayerControlPointData;
+window.updatePlayerControlPointPopupWithFreshData = updatePlayerControlPointPopupWithFreshData;

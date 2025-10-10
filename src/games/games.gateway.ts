@@ -11,6 +11,7 @@ import { GamesService } from './games.service';
 import { WebsocketAuthService } from '../auth/websocket-auth.service';
 import { AuthService } from '../auth/auth.service';
 import { ConnectionTrackerService } from '../connection-tracker.service';
+import { ControlPoint } from './entities/control-point.entity';
 
 @WebSocketGateway({
   cors: {
@@ -1139,6 +1140,37 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.emit('gameState', game);
     } catch (error: any) {
       client.emit('gameStateError', { message: 'Failed to get game state' });
+    }
+  }
+
+  @SubscribeMessage('getControlPointData')
+  async handleGetControlPointData(client: Socket, payload: { controlPointId: number }) {
+    const { controlPointId } = payload;
+    const user = this.connectedUsers.get(client.id);
+
+    try {
+      // Get the control point with game relation
+      const controlPoint = await this.gamesService.getControlPointWithGame(controlPointId);
+      
+      if (!controlPoint) {
+        client.emit('controlPointDataError', { message: 'Control point not found' });
+        return;
+      }
+
+      // Check if user is the owner of the game
+      const game = await this.gamesService.findOne(controlPoint.game.id, user?.id);
+      const isOwner = game.owner && game.owner.id === user?.id;
+
+      // If user is not the owner, remove sensitive code data
+      let responseControlPoint = controlPoint;
+      if (!isOwner) {
+        const { code, armedCode, disarmedCode, ...safeControlPoint } = controlPoint;
+        responseControlPoint = safeControlPoint as ControlPoint;
+      }
+
+      client.emit('controlPointData', responseControlPoint);
+    } catch (error: any) {
+      client.emit('controlPointDataError', { message: 'Failed to get control point data' });
     }
   }
 

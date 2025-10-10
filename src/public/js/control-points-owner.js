@@ -270,10 +270,11 @@ function addControlPointMarkerOwner(controlPoint) {
         marker.positionCircle = circle;
     }
 
-    // Create popup with edit options
-    const popupContent = createControlPointEditMenu(controlPoint, marker);
+    // Create a minimal popup that will be updated with fresh data when opened
+    const loadingPopup = L.popup()
+        .setContent('Cargando datos del punto...');
     
-    marker.bindPopup(popupContent, {
+    marker.bindPopup(loadingPopup, {
         closeOnClick: false,
         autoClose: false,
         closeButton: true
@@ -285,6 +286,9 @@ function addControlPointMarkerOwner(controlPoint) {
         if (map && mapClickHandler) {
             map.off('click', mapClickHandler);
         }
+        
+        // Request fresh control point data when popup opens
+        requestControlPointData(controlPoint.id, marker);
         
         // Update bomb button states when popup opens
         if (controlPoint.hasBombChallenge && controlPoint.type !== 'site') {
@@ -1269,4 +1273,55 @@ window.isBombActive = isBombActive;
 window.updateBombButtonStates = updateBombButtonStates;
 window.updateAllBombButtonStates = updateAllBombButtonStates;
 window.activateBombAsOwner = activateBombAsOwner;
+// Request fresh control point data from server
+function requestControlPointData(controlPointId, marker) {
+    if (socket && currentGame) {
+        console.log('CONTROL_POINT_MENU: Requesting fresh data for control point ' + controlPointId);
+        
+        // Request specific control point data with the new handler
+        socket.emit('getControlPointData', {
+            gameId: currentGame.id,
+            controlPointId: controlPointId
+        });
+        
+        // Also request specific control point times for accurate timer data
+        socket.emit('getControlPointTimes', { gameId: currentGame.id });
+        
+        // Request active bomb timers if applicable
+        if (window.requestActiveBombTimers) {
+            window.requestActiveBombTimers();
+        }
+    }
+}
+
+// Update control point popup with fresh data
+function updateControlPointPopupWithFreshData(controlPointId, marker) {
+    if (!currentGame || !currentGame.controlPoints) return;
+    
+    // Find the latest control point data from currentGame
+    const freshControlPoint = currentGame.controlPoints.find(cp => cp.id === controlPointId);
+    if (!freshControlPoint) return;
+    
+    // Update the marker's control point data
+    marker.controlPointData = freshControlPoint;
+    
+    // Create updated popup content
+    const popupContent = createControlPointEditMenu(freshControlPoint, marker);
+    
+    // Update the popup
+    marker.bindPopup(popupContent, {
+        closeOnClick: false,
+        autoClose: false,
+        closeButton: true
+    });
+    
+    // If popup is open, update it immediately
+    if (marker.isPopupOpen()) {
+        marker.closePopup();
+        marker.openPopup();
+    }
+}
+
 window.deactivateBombAsOwner = deactivateBombAsOwner;
+window.requestControlPointData = requestControlPointData;
+window.updateControlPointPopupWithFreshData = updateControlPointPopupWithFreshData;
