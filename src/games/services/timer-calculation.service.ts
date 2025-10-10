@@ -35,6 +35,8 @@ export interface TimeEvent {
 
 @Injectable()
 export class TimerCalculationService {
+  private gameHistoryCache = new Map<number, GameHistory[]>(); // gameInstanceId -> history events
+
   constructor(
     @InjectRepository(GameHistory)
     private gameHistoryRepository: Repository<GameHistory>,
@@ -60,17 +62,35 @@ export class TimerCalculationService {
       gameInstance: { id: gameInstanceId },
     });
 
-    return this.gameHistoryRepository.save(gameHistory);
+    const savedHistory = await this.gameHistoryRepository.save(gameHistory);
+    
+    // Update cache
+    this.updateCache(gameInstanceId, savedHistory);
+    
+    return savedHistory;
+  }
+
+  /**
+   * Update cache with new history event
+   */
+  private updateCache(gameInstanceId: number, newHistory: GameHistory): void {
+    const cachedHistory = this.gameHistoryCache.get(gameInstanceId) || [];
+    cachedHistory.push(newHistory);
+    this.gameHistoryCache.set(gameInstanceId, cachedHistory);
+  }
+
+  /**
+   * Clear cache for a game instance
+   */
+  clearCache(gameInstanceId: number): void {
+    this.gameHistoryCache.delete(gameInstanceId);
   }
 
   /**
    * Calculate elapsed time from game history events
    */
   async calculateElapsedTimeFromEvents(gameInstanceId: number): Promise<number> {
-    const history = await this.gameHistoryRepository.find({
-      where: { gameInstance: { id: gameInstanceId } },
-      order: { timestamp: 'ASC' },
-    });
+    const history = await this.getGameHistoryWithCache(gameInstanceId);
 
     const timeEvents = history.filter(record =>
       ['game_started', 'game_paused', 'game_resumed'].includes(record.eventType),
@@ -122,10 +142,7 @@ export class TimerCalculationService {
    * Get time events from game history
    */
   async getTimeEventsFromHistory(gameInstanceId: number): Promise<TimeEvent[]> {
-    const history = await this.gameHistoryRepository.find({
-      where: { gameInstance: { id: gameInstanceId } },
-      order: { timestamp: 'ASC' },
-    });
+    const history = await this.getGameHistoryWithCache(gameInstanceId);
 
     const filteredHistory = history.filter(record =>
       ['game_started', 'game_paused', 'game_resumed'].includes(record.eventType),
@@ -144,10 +161,7 @@ export class TimerCalculationService {
     controlPointId: number,
     gameInstanceId: number,
   ): Promise<number> {
-    const history = await this.gameHistoryRepository.find({
-      where: { gameInstance: { id: gameInstanceId } },
-      order: { timestamp: 'ASC' },
-    });
+    const history = await this.getGameHistoryWithCache(gameInstanceId);
 
     const game = await this.gamesRepository.findOne({
       where: { instanceId: gameInstanceId },
@@ -235,10 +249,7 @@ export class TimerCalculationService {
     gameInstanceId: number,
     team: string,
   ): Promise<number> {
-    const history = await this.gameHistoryRepository.find({
-      where: { gameInstance: { id: gameInstanceId } },
-      order: { timestamp: 'ASC' },
-    });
+    const history = await this.getGameHistoryWithCache(gameInstanceId);
 
     const game = await this.gamesRepository.findOne({
       where: { instanceId: gameInstanceId },
@@ -319,10 +330,7 @@ export class TimerCalculationService {
     controlPointId: number,
     gameInstanceId: number,
   ): Promise<BombTimeData | null> {
-    const history = await this.gameHistoryRepository.find({
-      where: { gameInstance: { id: gameInstanceId } },
-      order: { timestamp: 'ASC' },
-    });
+    const history = await this.getGameHistoryWithCache(gameInstanceId);
 
     const game = await this.gamesRepository.findOne({
       where: { instanceId: gameInstanceId },
@@ -429,5 +437,27 @@ export class TimerCalculationService {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  }
+
+  /**
+   * Get game history with cache support
+   */
+  async getGameHistoryWithCache(gameInstanceId: number): Promise<GameHistory[]> {
+    // Check cache first
+    const cachedHistory = this.gameHistoryCache.get(gameInstanceId);
+    if (cachedHistory) {
+      return cachedHistory;
+    }
+
+    // If not in cache, fetch from database
+    const history = await this.gameHistoryRepository.find({
+      where: { gameInstance: { id: gameInstanceId } },
+      order: { timestamp: 'ASC' },
+    });
+
+    // Update cache
+    this.gameHistoryCache.set(gameInstanceId, history);
+
+    return history;
   }
 }

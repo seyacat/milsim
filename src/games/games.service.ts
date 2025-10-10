@@ -56,7 +56,6 @@ export class GamesService {
   private gameTimers = new Map<number, GameTimer>();
   private controlPointTimers = new Map<number, ControlPointTimer>(); // controlPointId -> timer
   private bombTimers = new Map<number, BombTimer>(); // controlPointId -> bomb timer
-  private gameHistoryCache = new Map<number, GameHistory[]>(); // gameInstanceId -> history events
 
   constructor(
     @InjectRepository(Game)
@@ -1365,10 +1364,8 @@ export class GamesService {
   }
 
   async getGameHistory(gameInstanceId: number): Promise<GameHistory[]> {
-    return this.gameHistoryRepository.find({
-      where: { gameInstance: { id: gameInstanceId } },
-      order: { timestamp: 'DESC' },
-    });
+    // Use TimerCalculationService which now has cache support
+    return this.timerCalculationService.getGameHistoryWithCache(gameInstanceId);
   }
 
   // Update active connections count for a game
