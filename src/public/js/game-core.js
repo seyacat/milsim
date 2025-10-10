@@ -120,31 +120,28 @@ function initializeWebSocket(gameId) {
             
             // Debug: Check if this is a gameUpdated event with control points
             if (data.type === 'gameUpdated' && data.game.controlPoints) {
+                // Always refresh control point markers when gameUpdate event contains control points
+                // This ensures visual updates for ownership changes
+                const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+                if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
+                    // Refreshing owner control point markers from gameUpdate event
+                    window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
+                } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
+                    // Refreshing player control point markers from gameUpdate event
+                    window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
+                }
                 
-                // Check if this is a bomb-related update that doesn't require full refresh
+                // Also update bomb timer display if there are bomb updates
                 const hasBombUpdates = data.game.controlPoints && data.game.controlPoints.some(cp =>
                     cp.hasBombChallenge ||
                     (cp.bombTimer && cp.bombTimer.isActive) ||
                     (cp.bombTimer && cp.bombTimer.remainingTime !== undefined)
                 );
                 
-                if (hasBombUpdates) {
-                    // For bomb updates, only update bomb timer display without full refresh
-                    if (window.updateBombTimerDisplay) {
-                        setTimeout(() => {
-                            window.updateBombTimerDisplay();
-                        }, 100);
-                    }
-                } else {
-                    // For non-bomb updates, refresh control point markers when gameUpdate event contains control points
-                    const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-                    if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
-                        // Refreshing owner control point markers from gameUpdate event
-                        window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
-                    } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
-                        // Refreshing player control point markers from gameUpdate event
-                        window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
-                    }
+                if (hasBombUpdates && window.updateBombTimerDisplay) {
+                    setTimeout(() => {
+                        window.updateBombTimerDisplay();
+                    }, 100);
                 }
             }
         }
@@ -1260,65 +1257,24 @@ function handleGameAction(data) {
                 currentGame.controlPoints = [data.data];
             }
             
-            // Check if this is a bomb-related update that doesn't require full refresh
+            // Always refresh control point markers for ownership changes
+            // This ensures visual updates when control points are taken
+            const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+            if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
+                window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
+            } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
+                window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
+            }
+            
+            // Also update bomb timer display if this is a bomb-related update
             const isBombUpdate = data.data.hasBombChallenge ||
                                 (data.data.bombTimer && data.data.bombTimer.isActive) ||
                                 (data.data.bombTimer && data.data.bombTimer.remainingTime !== undefined);
             
-            if (isBombUpdate) {
-                // For bomb updates, only update the individual marker without full refresh
-                map.eachLayer((layer) => {
-                    if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.id) {
-                        layer.controlPointData = data.data;
-                        
-                        // Use appropriate popup function based on user role
-                        const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-                        if (userIsOwner && window.createOwnerControlPointEditMenu) {
-                            layer.bindPopup(window.createOwnerControlPointEditMenu(data.data, layer));
-                        } else if (window.createPlayerControlPointMenu) {
-                            layer.bindPopup(window.createPlayerControlPointMenu(data.data, layer));
-                        }
-                        
-                        // Close popup if it's open
-                        if (layer.isPopupOpen()) {
-                            layer.closePopup();
-                        }
-                    }
-                });
-                
-                // Update bomb timer display if available
-                if (window.updateBombTimerDisplay) {
-                    setTimeout(() => {
-                        window.updateBombTimerDisplay();
-                    }, 100);
-                }
-            } else {
-                // For non-bomb updates, refresh all control point markers to apply visual changes
-                const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-                if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
-                    window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
-                } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
-                    window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
-                } else {
-                    // Fallback: Update existing marker individually
-                    map.eachLayer((layer) => {
-                        if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === data.data.id) {
-                            layer.controlPointData = data.data;
-                            
-                            // Use appropriate popup function based on user role
-                            if (userIsOwner && window.createOwnerControlPointEditMenu) {
-                                layer.bindPopup(window.createOwnerControlPointEditMenu(data.data, layer));
-                            } else if (window.createPlayerControlPointMenu) {
-                                layer.bindPopup(window.createPlayerControlPointMenu(data.data, layer));
-                            }
-                            
-                            // Close popup if it's open
-                            if (layer.isPopupOpen()) {
-                                layer.closePopup();
-                            }
-                        }
-                    });
-                }
+            if (isBombUpdate && window.updateBombTimerDisplay) {
+                setTimeout(() => {
+                    window.updateBombTimerDisplay();
+                }, 100);
             }
             break;
         case 'controlPointDeleted':
@@ -1557,28 +1513,26 @@ function handleGameAction(data) {
                 updateCurrentUserTeam();
                 updateGameInfo();
 
-                // Check if this is a bomb-related update that doesn't require full refresh
+                // Always refresh control point markers when gameUpdate event contains control points
+                // This ensures visual updates for ownership changes regardless of bomb updates
+                const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
+                if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
+                    window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
+                } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
+                    window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
+                }
+                
+                // Also update bomb timer display if there are bomb updates
                 const hasBombUpdates = currentGame.controlPoints && currentGame.controlPoints.some(cp =>
                     cp.hasBombChallenge ||
                     (cp.bombTimer && cp.bombTimer.isActive) ||
                     (cp.bombTimer && cp.bombTimer.remainingTime !== undefined)
                 );
                 
-                if (hasBombUpdates) {
-                    // For bomb updates, only update bomb timer display without full refresh
-                    if (window.updateBombTimerDisplay) {
-                        setTimeout(() => {
-                            window.updateBombTimerDisplay();
-                        }, 100);
-                    }
-                } else {
-                    // For non-bomb updates, refresh all control point markers with the latest data from server
-                    const userIsOwner = currentGame.owner && currentGame.owner.id === currentUser.id;
-                    if (userIsOwner && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
-                        window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
-                    } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
-                        window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
-                    }
+                if (hasBombUpdates && window.updateBombTimerDisplay) {
+                    setTimeout(() => {
+                        window.updateBombTimerDisplay();
+                    }, 100);
                 }
             }
             break;
