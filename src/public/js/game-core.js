@@ -431,7 +431,7 @@ function updateGameInfo() {
     // Update time display based on game state
     const timePlayedContainer = document.getElementById('timePlayedContainer');
     if (timePlayedContainer) {
-        if (currentGame.status === 'running') {
+        if (currentGame.status === 'running' || currentGame.status === 'paused') {
             timePlayedContainer.style.display = 'block';
             // Initialize time display if we have time data
             if (currentGame.remainingTime !== undefined) {
