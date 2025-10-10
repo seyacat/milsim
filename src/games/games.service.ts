@@ -13,6 +13,7 @@ import { ControlPoint } from './entities/control-point.entity';
 import { GameInstance } from './entities/game-instance.entity';
 import { GameHistory } from './entities/game-history.entity';
 import { GamesGateway } from './games.gateway';
+import { TimerCalculationService } from './services/timer-calculation.service';
 
 interface GameTimer {
   gameId: number;
@@ -54,6 +55,7 @@ interface BombTimer {
 export class GamesService {
   private gameTimers = new Map<number, GameTimer>();
   private controlPointTimers = new Map<number, ControlPointTimer>(); // controlPointId -> timer
+  private bombTimers = new Map<number, BombTimer>(); // controlPointId -> bomb timer
   private gameHistoryCache = new Map<number, GameHistory[]>(); // gameInstanceId -> history events
 
   constructor(
@@ -69,6 +71,7 @@ export class GamesService {
     private gameHistoryRepository: Repository<GameHistory>,
     @Inject(forwardRef(() => GamesGateway))
     private gamesGateway: GamesGateway,
+    private timerCalculationService: TimerCalculationService,
   ) {
     // Recover running games on server restart
     void this.recoverRunningGames();
@@ -731,7 +734,7 @@ export class GamesService {
     this.stopGameTimer(gameId);
 
     // Calculate elapsed time from game history events
-    const elapsedTime = await this.calculateElapsedTimeFromEvents(gameInstanceId);
+    const elapsedTime = await this.timerCalculationService.calculateElapsedTimeFromEvents(gameInstanceId);
 
     const timer: GameTimer = {
       gameId,
@@ -741,14 +744,15 @@ export class GamesService {
       elapsedTime: elapsedTime,
       startTime: new Date(),
       isRunning: true,
-      timeEvents: await this.getTimeEventsFromHistory(gameInstanceId),
+      timeEvents: await this.timerCalculationService.getTimeEventsFromHistory(gameInstanceId),
     };
 
     // Start countdown interval (update every second internally, broadcast every 20 seconds)
     timer.intervalId = setInterval(() => {
       if (timer.isRunning) {
         // Calculate elapsed time from events for accuracy (without async/await in interval)
-        this.calculateElapsedTimeFromEvents(gameInstanceId)
+        this.timerCalculationService
+          .calculateElapsedTimeFromEvents(gameInstanceId)
           .then(currentElapsedTime => {
             timer.elapsedTime = currentElapsedTime;
 
@@ -805,97 +809,6 @@ export class GamesService {
     }
   }
 
-  // Calculate elapsed time from game history events
-  private async calculateElapsedTimeFromEvents(gameInstanceId: number): Promise<number> {
-    // Get all game history events
-    const history = await this.gameHistoryRepository.find({
-      where: {
-        gameInstance: { id: gameInstanceId },
-      },
-      order: { timestamp: 'ASC' },
-    });
-
-    // Filter for time events (game_started, game_paused, game_resumed)
-    const timeEvents = history.filter(record =>
-      ['game_started', 'game_paused', 'game_resumed'].includes(record.eventType),
-    );
-
-    if (timeEvents.length === 0) {
-      return 0;
-    }
-
-    // Get current game status
-    const game = await this.gamesRepository.findOne({
-      where: { instanceId: gameInstanceId },
-    });
-    const isCurrentlyRunning = game && game.status === 'running';
-
-    let totalElapsedTime = 0;
-    let currentGameState: 'running' | 'paused' = 'paused'; // Start paused until game starts
-    let lastEventTime: Date | null = null;
-
-    // Process time events chronologically
-    for (let i = 0; i < timeEvents.length; i++) {
-      const event = timeEvents[i];
-      const nextEvent = i < timeEvents.length - 1 ? timeEvents[i + 1] : null;
-
-      if (event.eventType === 'game_started' || event.eventType === 'game_resumed') {
-        // Game started or resumed - start counting time
-        currentGameState = 'running';
-        lastEventTime = event.timestamp;
-      } else if (event.eventType === 'game_paused') {
-        // Game paused - add time from last start/resume to pause
-        if (currentGameState === 'running' && lastEventTime) {
-          const segmentTime = Math.floor(
-            (event.timestamp.getTime() - lastEventTime.getTime()) / 1000,
-          );
-          totalElapsedTime += segmentTime;
-        }
-        currentGameState = 'paused';
-        lastEventTime = event.timestamp;
-      }
-
-      // If this is the last event and game is currently running, add time to now
-      if (
-        i === timeEvents.length - 1 &&
-        isCurrentlyRunning &&
-        currentGameState === 'running' &&
-        lastEventTime
-      ) {
-        const currentSegmentTime = Math.floor((Date.now() - lastEventTime.getTime()) / 1000);
-        totalElapsedTime += currentSegmentTime;
-      }
-    }
-
-    return totalElapsedTime;
-  }
-
-  // Get time events from game history
-  private async getTimeEventsFromHistory(gameInstanceId: number): Promise<
-    Array<{
-      type: 'game_started' | 'game_paused' | 'game_resumed';
-      timestamp: Date;
-    }>
-  > {
-    // Get all history records for this game instance
-    const history = await this.gameHistoryRepository.find({
-      where: {
-        gameInstance: { id: gameInstanceId },
-      },
-      order: { timestamp: 'ASC' },
-    });
-
-    // Filter for the specific time events we need
-    const filteredHistory = history.filter(record =>
-      ['game_started', 'game_paused', 'game_resumed'].includes(record.eventType),
-    );
-
-    return filteredHistory.map(record => ({
-      type: record.eventType as 'game_started' | 'game_paused' | 'game_resumed',
-      timestamp: record.timestamp,
-    }));
-  }
-
   // Recover running games on server restart
   private async recoverRunningGames(): Promise<void> {
     try {
@@ -945,7 +858,7 @@ export class GamesService {
       for (const controlPoint of game.controlPoints) {
         if (controlPoint.hasBombChallenge && controlPoint.bombTime) {
           // Calculate remaining bomb time from history
-          const bombTimeData = await this.calculateRemainingBombTime(
+          const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(
             controlPoint.id,
             gameInstanceId,
           );
@@ -1057,7 +970,7 @@ export class GamesService {
           this.gamesGateway.broadcastControlPointTimeUpdate(controlPointId, {
             currentHoldTime: timer.currentHoldTime,
             currentTeam: timer.currentTeam,
-            displayTime: this.formatTime(timer.currentHoldTime),
+            displayTime: this.timerCalculationService.formatTime(timer.currentHoldTime),
           });
           timer.lastBroadcastTime = timer.currentHoldTime;
         }
@@ -1071,7 +984,7 @@ export class GamesService {
       this.gamesGateway.broadcastControlPointTimeUpdate(controlPointId, {
         currentHoldTime: timer.currentHoldTime,
         currentTeam: timer.currentTeam,
-        displayTime: this.formatTime(timer.currentHoldTime),
+        displayTime: this.timerCalculationService.formatTime(timer.currentHoldTime),
       });
     }
   }
@@ -1098,12 +1011,6 @@ export class GamesService {
     }
   }
 
-  // Format time in mm:ss
-  private formatTime(seconds: number): string {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
-  }
 
   // Start all control point timers for a game
   async startAllControlPointTimers(gameId: number): Promise<void> {
@@ -1179,7 +1086,7 @@ export class GamesService {
           for (const controlPoint of game.controlPoints) {
             if (controlPoint.hasBombChallenge && controlPoint.bombTime) {
               // Calculate remaining bomb time from history
-              this.calculateRemainingBombTime(controlPoint.id, game.instanceId)
+              this.timerCalculationService.calculateRemainingBombTime(controlPoint.id, game.instanceId)
                 .then(bombTimeData => {
                   if (bombTimeData && bombTimeData.isActive) {
                     console.log(
@@ -1214,7 +1121,7 @@ export class GamesService {
           for (const controlPoint of game.controlPoints) {
             if (controlPoint.hasBombChallenge && controlPoint.bombTime) {
               // Calculate remaining bomb time from history
-              this.calculateRemainingBombTime(controlPoint.id, game.instanceId)
+              this.timerCalculationService.calculateRemainingBombTime(controlPoint.id, game.instanceId)
                 .then(bombTimeData => {
                   if (bombTimeData && bombTimeData.isActive) {
                     console.log(
@@ -1448,19 +1355,13 @@ export class GamesService {
     });
   }
 
-  // Game History methods
+  // Game History methods - delegate to TimerCalculationService
   async addGameHistory(
     gameInstanceId: number,
     eventType: string,
     data?: any,
   ): Promise<GameHistory> {
-    const gameHistory = this.gameHistoryRepository.create({
-      eventType,
-      data,
-      gameInstance: { id: gameInstanceId },
-    });
-
-    return this.gameHistoryRepository.save(gameHistory);
+    return this.timerCalculationService.addGameHistory(gameInstanceId, eventType, data);
   }
 
   async getGameHistory(gameInstanceId: number): Promise<GameHistory[]> {
@@ -1618,7 +1519,7 @@ export class GamesService {
 
     // Check if bomb is already active by calculating from history
     if (controlPoint.game?.instanceId) {
-      const bombTimeData = await this.calculateRemainingBombTime(
+      const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(
         controlPointId,
         controlPoint.game.instanceId,
       );
@@ -1688,7 +1589,7 @@ export class GamesService {
 
     // Check if bomb is active by calculating from history
     if (controlPoint.game?.instanceId) {
-      const bombTimeData = await this.calculateRemainingBombTime(
+      const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(
         controlPointId,
         controlPoint.game.instanceId,
       );
@@ -1748,102 +1649,10 @@ export class GamesService {
     controlPointId: number,
     gameInstanceId: number,
   ): Promise<number> {
-    // Get all game history events
-    const history = await this.gameHistoryRepository.find({
-      where: {
-        gameInstance: { id: gameInstanceId },
-      },
-      order: { timestamp: 'ASC' },
-    });
-
-    // Get current game status
-    const game = await this.gamesRepository.findOne({
-      where: { instanceId: gameInstanceId },
-    });
-    const isCurrentlyRunning = game && game.status === 'running';
-
-    // Get current control point ownership
-    const controlPoint = await this.controlPointsRepository.findOne({
-      where: { id: controlPointId },
-    });
-    const currentOwnerTeam = controlPoint?.ownedByTeam || null;
-
-    // Filter for relevant events: control point captures and game state changes
-    const timeline = [
-      ...history
-        .filter(event => event.eventType === 'control_point_taken' && event.data)
-        .map(event => ({
-          type: 'capture' as const,
-          timestamp: event.timestamp,
-          controlPointId: event.data.controlPointId,
-          team: event.data.team,
-        })),
-      ...history
-        .filter(event =>
-          ['game_started', 'game_paused', 'game_resumed', 'game_ended'].includes(event.eventType),
-        )
-        .map(event => ({
-          type: 'game_state' as const,
-          timestamp: event.timestamp,
-          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended',
-        })),
-    ];
-
-    // Sort timeline by timestamp
-    timeline.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-    let totalHoldTime = 0;
-    let currentTeam: string | null = null;
-    let gameState: 'running' | 'paused' | 'ended' = 'paused';
-    let currentHoldStart: Date | null = null;
-
-    // Process timeline chronologically
-    for (let i = 0; i < timeline.length; i++) {
-      const event = timeline[i];
-
-      if (event.type === 'game_state') {
-        // Handle game state changes
-        if (event.state === 'game_started' || event.state === 'game_resumed') {
-          gameState = 'running';
-          // If we have a current team and game is running, start counting time
-          if (currentTeam && currentTeam === currentOwnerTeam) {
-            currentHoldStart = event.timestamp;
-          }
-        } else if (event.state === 'game_paused' || event.state === 'game_ended') {
-          // Add time from current hold start to pause/end event
-          if (currentHoldStart && currentTeam === currentOwnerTeam) {
-            const intervalTime = Math.floor(
-              (event.timestamp.getTime() - currentHoldStart.getTime()) / 1000,
-            );
-            totalHoldTime += intervalTime;
-          }
-          gameState = event.state === 'game_paused' ? 'paused' : 'ended';
-          currentHoldStart = null;
-        }
-      } else if (event.type === 'capture' && event.controlPointId === controlPointId) {
-        // This is a capture event for our control point
-        // Add time from previous hold start to this capture event
-        if (currentHoldStart && currentTeam === currentOwnerTeam) {
-          const intervalTime = Math.floor(
-            (event.timestamp.getTime() - currentHoldStart.getTime()) / 1000,
-          );
-          totalHoldTime += intervalTime;
-        }
-
-        currentTeam = event.team;
-        // Start new hold period if game is running and team matches current owner
-        currentHoldStart =
-          gameState === 'running' && currentTeam === currentOwnerTeam ? event.timestamp : null;
-      }
-    }
-
-    // Handle current running interval if game is still running and control point is owned
-    if (isCurrentlyRunning && currentHoldStart && currentTeam === currentOwnerTeam) {
-      const currentIntervalTime = Math.floor((Date.now() - currentHoldStart.getTime()) / 1000);
-      totalHoldTime += currentIntervalTime;
-    }
-
-    return totalHoldTime;
+    return this.timerCalculationService.calculateAccumulatedHoldTime(
+      controlPointId,
+      gameInstanceId,
+    );
   }
   // Get control point hold time for display
   async getControlPointHoldTime(
@@ -1859,7 +1668,7 @@ export class GamesService {
     const timer = this.controlPointTimers.get(controlPointId);
     if (timer) {
       return {
-        displayTime: this.formatTime(timer.currentHoldTime),
+        displayTime: this.timerCalculationService.formatTime(timer.currentHoldTime),
         totalHoldTime: timer.currentHoldTime,
         currentHoldTime: timer.currentHoldTime,
         currentTeam: timer.currentTeam,
@@ -1867,7 +1676,7 @@ export class GamesService {
     } else {
       const initialState = await this.getInitialControlPointState(controlPointId, gameInstanceId);
       return {
-        displayTime: this.formatTime(initialState.currentHoldTime),
+        displayTime: this.timerCalculationService.formatTime(initialState.currentHoldTime),
         totalHoldTime: initialState.currentHoldTime,
         currentHoldTime: initialState.currentHoldTime,
         currentTeam: initialState.currentTeam,
@@ -1917,7 +1726,7 @@ export class GamesService {
             controlPointId: controlPoint.id,
             currentHoldTime: timer.currentHoldTime,
             currentTeam: timer.currentTeam,
-            displayTime: this.formatTime(timer.currentHoldTime),
+            displayTime: this.timerCalculationService.formatTime(timer.currentHoldTime),
           });
         } else {
           const initialState = await this.getInitialControlPointState(
@@ -1928,7 +1737,7 @@ export class GamesService {
             controlPointId: controlPoint.id,
             currentHoldTime: initialState.currentHoldTime,
             currentTeam: initialState.currentTeam,
-            displayTime: this.formatTime(initialState.currentHoldTime),
+            displayTime: this.timerCalculationService.formatTime(initialState.currentHoldTime),
           });
         }
       }
@@ -2023,7 +1832,7 @@ export class GamesService {
 
         // Calculate time for each team from game history
         for (const team of teams) {
-          const teamTime = await this.calculateTeamHoldTime(controlPoint.id, game.instanceId, team);
+          const teamTime = await this.timerCalculationService.calculateTeamHoldTime(controlPoint.id, game.instanceId, team);
           teamTimes[team] = teamTime;
         }
 
@@ -2052,7 +1861,9 @@ export class GamesService {
     );
 
     // Calculate total game duration from game history
-    const gameDuration = await this.calculateElapsedTimeFromEvents(game.instanceId);
+    const gameDuration = await this.timerCalculationService.calculateElapsedTimeFromEvents(
+      game.instanceId,
+    );
     console.log(`[GAME_RESULTS] Game duration: ${gameDuration}s`);
 
     // Get player capture statistics
@@ -2068,125 +1879,6 @@ export class GamesService {
     };
   }
 
-  // Calculate hold time for a specific team on a control point
-  private async calculateTeamHoldTime(
-    controlPointId: number,
-    gameInstanceId: number,
-    team: string,
-  ): Promise<number> {
-    console.log(
-      `[TEAM_HOLD_TIME] Calculating time for team ${team} on control point ${controlPointId}`,
-    );
-
-    // Get all game history events
-    const history = await this.gameHistoryRepository.find({
-      where: {
-        gameInstance: { id: gameInstanceId },
-      },
-      order: { timestamp: 'ASC' },
-    });
-
-    console.log(`[TEAM_HOLD_TIME] Found ${history.length} history events`);
-
-    // Get current game status
-    const game = await this.gamesRepository.findOne({
-      where: { instanceId: gameInstanceId },
-    });
-    const isCurrentlyRunning = game && game.status === 'running';
-
-    // Filter for relevant events: control point captures and game state changes
-    const timeline = [
-      ...history
-        .filter(event => event.eventType === 'control_point_taken' && event.data)
-        .map(event => ({
-          type: 'capture' as const,
-          timestamp: event.timestamp,
-          controlPointId: event.data.controlPointId,
-          team: event.data.team,
-        })),
-      ...history
-        .filter(event =>
-          ['game_started', 'game_paused', 'game_resumed', 'game_ended'].includes(event.eventType),
-        )
-        .map(event => ({
-          type: 'game_state' as const,
-          timestamp: event.timestamp,
-          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended',
-        })),
-    ];
-
-    console.log(
-      `[TEAM_HOLD_TIME] Timeline has ${timeline.length} events for control point ${controlPointId}`,
-    );
-
-    // Sort timeline by timestamp
-    timeline.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-    let totalHoldTime = 0;
-    let currentTeam: string | null = null;
-    let gameState: 'running' | 'paused' | 'ended' = 'paused';
-    let currentHoldStart: Date | null = null;
-
-    // Process timeline chronologically
-    for (let i = 0; i < timeline.length; i++) {
-      const event = timeline[i];
-
-      if (event.type === 'game_state') {
-        // Handle game state changes
-        if (event.state === 'game_started' || event.state === 'game_resumed') {
-          gameState = 'running';
-          // If we have a current team and it matches the specified team, start counting time
-          if (currentTeam && currentTeam === team) {
-            currentHoldStart = event.timestamp;
-          }
-        } else if (event.state === 'game_paused' || event.state === 'game_ended') {
-          // Add time from current hold start to pause/end event
-          if (currentHoldStart && currentTeam === team) {
-            const intervalTime = Math.floor(
-              (event.timestamp.getTime() - currentHoldStart.getTime()) / 1000,
-            );
-            totalHoldTime += intervalTime;
-            console.log(
-              `[TEAM_HOLD_TIME] Added ${intervalTime}s for team ${team}, total: ${totalHoldTime}s`,
-            );
-          }
-          gameState = event.state === 'game_paused' ? 'paused' : 'ended';
-          currentHoldStart = null;
-        }
-      } else if (event.type === 'capture' && event.controlPointId === controlPointId) {
-        // This is a capture event for our control point
-        // Add time from previous hold start to this capture event
-        if (currentHoldStart && currentTeam === team) {
-          const intervalTime = Math.floor(
-            (event.timestamp.getTime() - currentHoldStart.getTime()) / 1000,
-          );
-          totalHoldTime += intervalTime;
-          console.log(
-            `[TEAM_HOLD_TIME] Added capture interval ${intervalTime}s for team ${team}, total: ${totalHoldTime}s`,
-          );
-        }
-
-        currentTeam = event.team;
-        // Start new hold period if game is running and team matches the specified team
-        currentHoldStart = gameState === 'running' && currentTeam === team ? event.timestamp : null;
-        console.log(
-          `[TEAM_HOLD_TIME] Control point ${controlPointId} captured by team ${currentTeam}`,
-        );
-      }
-    }
-
-    // Handle current running interval if game is still running and control point is owned
-    if (isCurrentlyRunning && currentHoldStart && currentTeam === team) {
-      const currentIntervalTime = Math.floor((Date.now() - currentHoldStart.getTime()) / 1000);
-      totalHoldTime += currentIntervalTime;
-      console.log(
-        `[TEAM_HOLD_TIME] Added current interval ${currentIntervalTime}s for team ${team}, total: ${totalHoldTime}s`,
-      );
-    }
-
-    console.log(`[TEAM_HOLD_TIME] Final time for team ${team}: ${totalHoldTime}s`);
-    return totalHoldTime;
-  }
 
   // Get player capture statistics for game results
   async getPlayerCaptureStats(gameInstanceId: number): Promise<{
@@ -2396,7 +2088,7 @@ export class GamesService {
 
     const intervalId = setInterval(() => {
       void (async () => {
-        const bombTimeData = await this.calculateRemainingBombTime(controlPointId, gameInstanceId);
+        const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(controlPointId, gameInstanceId);
 
         if (!bombTimeData || !bombTimeData.isActive) {
           // Bomb is no longer active, stop broadcasting
@@ -2475,7 +2167,7 @@ export class GamesService {
       return null;
     }
 
-    return this.calculateRemainingBombTime(controlPointId, controlPoint.game.instanceId);
+    return this.timerCalculationService.calculateRemainingBombTime(controlPointId, controlPoint.game.instanceId);
   }
 
   // Get all active bomb timers for a game
@@ -2510,7 +2202,7 @@ export class GamesService {
       for (const controlPoint of game.controlPoints) {
         if (controlPoint.hasBombChallenge && controlPoint.bombTime) {
           // Calculate remaining bomb time from history (not from in-memory timer)
-          const bombTimeData = await this.calculateRemainingBombTime(
+          const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(
             controlPoint.id,
             game.instanceId,
           );
@@ -2542,7 +2234,7 @@ export class GamesService {
     team: string,
   ): Promise<void> {
     // Get the bomb activation data from history to check who activated it
-    const bombTimeData = await this.calculateRemainingBombTime(controlPointId, gameInstanceId);
+    const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(controlPointId, gameInstanceId);
     const activatedByTeam = bombTimeData?.activatedByTeam;
 
     // Check if this is a deactivation by opposing team (only count points for opposing team deactivations)
@@ -2573,136 +2265,4 @@ export class GamesService {
     );
   }
 
-  // Calculate remaining bomb time from game history events
-  private async calculateRemainingBombTime(
-    controlPointId: number,
-    gameInstanceId: number,
-  ): Promise<{
-    remainingTime: number;
-    totalTime: number;
-    isActive: boolean;
-    activatedByUserId?: number;
-    activatedByUserName?: string;
-    activatedByTeam?: string;
-  } | null> {
-    // Get all game history events
-    const history = await this.gameHistoryRepository.find({
-      where: {
-        gameInstance: { id: gameInstanceId },
-      },
-      order: { timestamp: 'ASC' },
-    });
-
-    // Get current game status
-    const game = await this.gamesRepository.findOne({
-      where: { instanceId: gameInstanceId },
-    });
-    const isCurrentlyRunning = game && game.status === 'running';
-
-    // Filter for bomb events and game state changes
-    const timeline = [
-      ...history
-        .filter(
-          event =>
-            ['bomb_activated', 'bomb_deactivated', 'bomb_exploded'].includes(event.eventType) &&
-            event.data &&
-            event.data.controlPointId === controlPointId,
-        )
-        .map(event => ({
-          type: event.eventType as 'bomb_activated' | 'bomb_deactivated' | 'bomb_exploded',
-          timestamp: event.timestamp,
-          data: event.data,
-        })),
-      ...history
-        .filter(event =>
-          ['game_started', 'game_paused', 'game_resumed', 'game_ended'].includes(event.eventType),
-        )
-        .map(event => ({
-          type: 'game_state' as const,
-          timestamp: event.timestamp,
-          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended',
-        })),
-    ];
-
-    // Sort timeline by timestamp
-    timeline.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-    let bombActive = false;
-    let bombStartTime: Date | null = null;
-    let totalBombTime = 0;
-    let remainingTime = 0;
-    let activatedByUserId: number | undefined;
-    let activatedByUserName: string | undefined;
-    let activatedByTeam: string | undefined;
-    let gameState: 'running' | 'paused' | 'ended' = 'paused';
-    let currentActiveStart: Date | null = null;
-
-    // Process timeline chronologically
-    for (let i = 0; i < timeline.length; i++) {
-      const event = timeline[i];
-
-      if (event.type === 'game_state') {
-        // Handle game state changes
-        if (event.state === 'game_started' || event.state === 'game_resumed') {
-          gameState = 'running';
-          // If bomb is active and game is running, start counting time
-          if (bombActive && bombStartTime) {
-            currentActiveStart = event.timestamp;
-          }
-        } else if (event.state === 'game_paused' || event.state === 'game_ended') {
-          // Add time from current active start to pause/end event
-          if (currentActiveStart && bombActive) {
-            const intervalTime = Math.floor(
-              (event.timestamp.getTime() - currentActiveStart.getTime()) / 1000,
-            );
-            remainingTime = Math.max(0, remainingTime - intervalTime);
-          }
-          gameState = event.state === 'game_paused' ? 'paused' : 'ended';
-          currentActiveStart = null;
-        }
-      } else if (event.type === 'bomb_activated') {
-        // Bomb activated - start counting down
-        bombActive = true;
-        bombStartTime = event.timestamp;
-        totalBombTime = event.data.bombTime;
-        remainingTime = totalBombTime;
-        activatedByUserId = event.data.activatedByUserId;
-        activatedByUserName = event.data.activatedByUserName;
-        activatedByTeam = event.data.activatedByTeam;
-
-        // Start counting if game is running
-        currentActiveStart = gameState === 'running' ? event.timestamp : null;
-      } else if (event.type === 'bomb_deactivated' || event.type === 'bomb_exploded') {
-        // Bomb deactivated or exploded - stop counting
-        if (currentActiveStart && bombActive) {
-          const intervalTime = Math.floor(
-            (event.timestamp.getTime() - currentActiveStart.getTime()) / 1000,
-          );
-          remainingTime = Math.max(0, remainingTime - intervalTime);
-        }
-        bombActive = false;
-        currentActiveStart = null;
-      }
-    }
-
-    // Handle current running interval if bomb is still active and game is running
-    if (isCurrentlyRunning && currentActiveStart && bombActive) {
-      const currentIntervalTime = Math.floor((Date.now() - currentActiveStart.getTime()) / 1000);
-      remainingTime = Math.max(0, remainingTime - currentIntervalTime);
-    }
-
-    // If bomb is not active, return null
-    if (!bombActive) {
-      return null;
-    }
-
-    return {
-      remainingTime,
-      totalTime: totalBombTime,
-      isActive: bombActive,
-      activatedByUserId,
-      activatedByUserName,
-      activatedByTeam,
-    };
-  }
 }

@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { GamesController } from './games.controller';
 import { GamesService } from './games.service';
+import { TimerCalculationService } from './services/timer-calculation.service';
 import { Game } from './entities/game.entity';
 import { Player } from './entities/player.entity';
 import { ControlPoint } from './entities/control-point.entity';
@@ -17,7 +18,7 @@ import { AuthModule } from '../auth/auth.module';
     AuthModule,
   ],
   controllers: [GamesController],
-  providers: [GamesService, GamesGateway, WebsocketAuthService],
+  providers: [GamesService, TimerCalculationService, GamesGateway, WebsocketAuthService],
   exports: [GamesService],
 })
 export class GamesModule {}
