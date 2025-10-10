@@ -930,7 +930,7 @@ export class GamesService {
   private async recoverActiveBombTimers(gameId: number, gameInstanceId: number): Promise<void> {
     try {
       console.log(`[SERVER_RESTART] Recovering active bomb timers for game ${gameId}`);
-      
+
       // Get all control points for this game
       const game = await this.gamesRepository.findOne({
         where: { id: gameId },
@@ -949,12 +949,12 @@ export class GamesService {
             controlPoint.id,
             gameInstanceId,
           );
-          
+
           if (bombTimeData && bombTimeData.isActive) {
             console.log(
               `[SERVER_RESTART] Recovering bomb timer for control point ${controlPoint.id}, remaining time: ${bombTimeData.remainingTime}s`,
             );
-            
+
             // Create bomb timer entry without interval
             const bombTimer: BombTimer = {
               controlPointId: controlPoint.id,
@@ -1136,7 +1136,7 @@ export class GamesService {
           for (const controlPoint of game.controlPoints) {
             this.pauseControlPointTimer(controlPoint.id);
           }
-          
+
           // Also pause bomb timers for this game
           this.pauseBombTimers(gameId);
         }
@@ -1155,7 +1155,7 @@ export class GamesService {
           for (const controlPoint of game.controlPoints) {
             this.resumeControlPointTimer(controlPoint.id);
           }
-          
+
           // Also resume bomb timers for this game
           this.resumeBombTimers(gameId);
         }
@@ -1185,7 +1185,7 @@ export class GamesService {
                     console.log(
                       `[BOMB_TIMER] Resuming bomb timer for control point ${controlPoint.id}, remaining time: ${bombTimeData.remainingTime}s`,
                     );
-                    
+
                     // Restart bomb time broadcast (game.instanceId is guaranteed non-null by the outer check)
                     this.startBombTimeBroadcast(controlPoint.id, game.instanceId!);
                   }
@@ -1220,7 +1220,7 @@ export class GamesService {
                     console.log(
                       `[BOMB_TIMER] Pausing bomb timer for control point ${controlPoint.id}, remaining time: ${bombTimeData.remainingTime}s`,
                     );
-                    
+
                     // Force broadcast current bomb time when pausing
                     if (this.gamesGateway) {
                       this.gamesGateway.broadcastBombTimeUpdate(controlPoint.id, {
@@ -2398,34 +2398,45 @@ export class GamesService {
 
   // Start periodic bomb time calculation and broadcast
   private startBombTimeBroadcast(controlPointId: number, gameInstanceId: number): void {
-    const intervalId = setInterval(async () => {
-      const bombTimeData = await this.calculateRemainingBombTime(controlPointId, gameInstanceId);
-      
-      if (!bombTimeData || !bombTimeData.isActive) {
-        // Bomb is no longer active, stop broadcasting
-        clearInterval(intervalId);
-        return;
-      }
+    let lastBroadcastTime = 0;
 
-      // Broadcast bomb time update
-      if (this.gamesGateway) {
-        this.gamesGateway.broadcastBombTimeUpdate(controlPointId, {
-          remainingTime: bombTimeData.remainingTime,
-          totalTime: bombTimeData.totalTime,
-          isActive: bombTimeData.isActive,
-          activatedByUserId: bombTimeData.activatedByUserId,
-          activatedByUserName: bombTimeData.activatedByUserName,
-          activatedByTeam: bombTimeData.activatedByTeam,
-        });
-      }
+    const intervalId = setInterval(() => {
+      void (async () => {
+        const bombTimeData = await this.calculateRemainingBombTime(controlPointId, gameInstanceId);
 
-      // Check if bomb time's up
-      if (bombTimeData.remainingTime <= 0) {
-        // Bomb exploded - handle explosion logic
-        await this.handleBombExplosion(controlPointId, gameInstanceId);
-        clearInterval(intervalId);
-      }
-    }, 1000); // 1 second interval
+        if (!bombTimeData || !bombTimeData.isActive) {
+          // Bomb is no longer active, stop broadcasting
+          clearInterval(intervalId);
+          return;
+        }
+
+        // Broadcast bomb time update ONLY every 20 seconds
+        const currentTime = bombTimeData.totalTime - bombTimeData.remainingTime;
+        if (currentTime - lastBroadcastTime >= 20) {
+          if (this.gamesGateway) {
+            console.log(
+              `[BOMB_TIMER] Broadcasting update for control point ${controlPointId} - Remaining: ${bombTimeData.remainingTime}s`,
+            );
+            this.gamesGateway.broadcastBombTimeUpdate(controlPointId, {
+              remainingTime: bombTimeData.remainingTime,
+              totalTime: bombTimeData.totalTime,
+              isActive: bombTimeData.isActive,
+              activatedByUserId: bombTimeData.activatedByUserId,
+              activatedByUserName: bombTimeData.activatedByUserName,
+              activatedByTeam: bombTimeData.activatedByTeam,
+            });
+          }
+          lastBroadcastTime = currentTime;
+        }
+
+        // Check if bomb time's up
+        if (bombTimeData.remainingTime <= 0) {
+          // Bomb exploded - handle explosion logic
+          await this.handleBombExplosion(controlPointId, gameInstanceId);
+          clearInterval(intervalId);
+        }
+      })();
+    }, 1000); // 1 second interval for calculation, 20 seconds for broadcast
   }
 
   private async handleBombExplosion(controlPointId: number, gameInstanceId: number): Promise<void> {
@@ -2450,8 +2461,6 @@ export class GamesService {
 
     console.log(`[BOMB] Bomb exploded at control point ${controlPointId}`);
   }
-
-
 
   // Get current bomb time for a control point
   async getBombTime(controlPointId: number): Promise<{
@@ -2675,7 +2684,7 @@ export class GamesService {
         activatedByUserId = event.data.activatedByUserId;
         activatedByUserName = event.data.activatedByUserName;
         activatedByTeam = event.data.activatedByTeam;
-        
+
         // Start counting if game is running
         currentActiveStart = gameState === 'running' ? event.timestamp : null;
       } else if (event.type === 'bomb_deactivated' || event.type === 'bomb_exploded') {

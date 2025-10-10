@@ -762,6 +762,9 @@ function handleBombTimeUpdate(data) {
     
     const { controlPointId, remainingTime, totalTime, isActive, activatedByUserId, activatedByUserName, activatedByTeam, exploded } = data;
     
+    // Log when bomb timer receives value from server
+    console.log('BOMB TIMER: Received update from server - ControlPointId: ' + controlPointId + ', RemainingTime: ' + remainingTime + ', IsActive: ' + isActive + ', Exploded: ' + exploded);
+    
     if (exploded) {
         // Bomb exploded - remove timer and show explosion notification
         activeBombTimers.delete(controlPointId);
