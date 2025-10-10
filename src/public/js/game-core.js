@@ -1752,11 +1752,13 @@ function resumeGame() {
 }
 
 function endGame() {
-    if (socket && currentGame) {
-        socket.emit('gameAction', {
-            gameId: currentGame.id,
-            action: 'endGame'
-        });
+    if (confirm('¿Estás seguro de que quieres finalizar el juego? Esta acción no se puede deshacer.')) {
+        if (socket && currentGame) {
+            socket.emit('gameAction', {
+                gameId: currentGame.id,
+                action: 'endGame'
+            });
+        }
     }
 }
 
