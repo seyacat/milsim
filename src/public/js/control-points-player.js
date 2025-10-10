@@ -1081,23 +1081,35 @@ function updatePositionChallengeBars(controlPointId, teamPoints) {
         const endX = svgCenterX + radiusPixels * Math.cos(endAngle);
         const endY = svgCenterY + radiusPixels * Math.sin(endAngle);
 
-        // Create large arc flag (1 for angles > 180 degrees, 0 otherwise)
-        const largeArcFlag = sliceAngle > Math.PI ? 1 : 0;
-
         // Create path for pie slice
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        const pathData = [
-          `M ${svgCenterX} ${svgCenterY}`,
-          `L ${startX} ${startY}`,
-          `A ${radiusPixels} ${radiusPixels} 0 ${largeArcFlag} 1 ${endX} ${endY}`,
-          'Z'
-        ].join(' ');
+        
+        let pathData;
+        if (Math.abs(sliceAngle - 2 * Math.PI) < 0.001) {
+          // Full circle - create a complete circle
+          pathData = [
+            `M ${svgCenterX} ${svgCenterY}`,
+            `L ${svgCenterX + radiusPixels} ${svgCenterY}`,
+            `A ${radiusPixels} ${radiusPixels} 0 1 1 ${svgCenterX - radiusPixels} ${svgCenterY}`,
+            `A ${radiusPixels} ${radiusPixels} 0 1 1 ${svgCenterX + radiusPixels} ${svgCenterY}`,
+            'Z'
+          ].join(' ');
+        } else {
+          // Partial slice
+          const largeArcFlag = sliceAngle > Math.PI ? 1 : 0;
+          pathData = [
+            `M ${svgCenterX} ${svgCenterY}`,
+            `L ${startX} ${startY}`,
+            `A ${radiusPixels} ${radiusPixels} 0 ${largeArcFlag} 1 ${endX} ${endY}`,
+            'Z'
+          ].join(' ');
+        }
 
         path.setAttribute('d', pathData);
         path.setAttribute('fill', teamColors[team] || '#9E9E9E');
         path.setAttribute('opacity', '0.8');
-        path.setAttribute('stroke', '#FFFFFF');
-        path.setAttribute('stroke-width', '1');
+        path.setAttribute('stroke', 'none'); // Remove white borders
+        path.setAttribute('stroke-width', '0');
         
         svgElement.appendChild(path);
 
@@ -1122,6 +1134,11 @@ function updatePositionChallengeBars(controlPointId, teamPoints) {
     };
 
     console.log(`[POSITION_CHALLENGE_PIE] SUCCESS: Pie chart created for control point ${controlPointId}`);
+    
+    // Force map refresh to ensure SVG is rendered
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
   } else {
     console.log(`[POSITION_CHALLENGE_PIE] No pie chart created - conditions: totalPoints=${totalPoints}, hasPositionChallenge=${controlPoint?.hasPositionChallenge}, gameRunning=${currentGame?.status === 'running'}`);
   }

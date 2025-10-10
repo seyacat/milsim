@@ -208,6 +208,24 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Start position challenge interval if game is running and has position challenges
       if (currentGame.status === 'running') {
         this.startPositionChallengeInterval(gameId);
+        
+        // Send current position challenge data to the user
+        try {
+          const currentPositionChallengeData = await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
+          console.log(`[JOIN_GAME_WS] Sending current position challenge data to client ${client.id}:`,
+            Array.from(currentPositionChallengeData.entries()).map(([cpId, points]) => `${cpId}: ${JSON.stringify(points)}`));
+          
+          // Send position challenge data for each control point
+          for (const [controlPointId, teamPoints] of currentPositionChallengeData.entries()) {
+            client.emit('positionChallengeUpdate', {
+              controlPointId,
+              teamPoints,
+            });
+            console.log(`[JOIN_GAME_WS] Sent position challenge data for control point ${controlPointId} to client ${client.id}`);
+          }
+        } catch (error) {
+          console.error(`[JOIN_GAME_WS] Error sending position challenge data to client ${client.id}:`, error);
+        }
       }
 
       client.emit('joinSuccess', {

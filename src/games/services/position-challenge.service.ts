@@ -419,4 +419,40 @@ export class PositionChallengeService {
       teamTotals: Object.fromEntries(teamTotals),
     };
   }
+
+  /**
+   * Get current position challenge data for a game
+   * This is used when a user joins or refreshes the page
+   */
+  async getCurrentPositionChallengeData(gameId: number): Promise<Map<number, Record<string, number>>> {
+    const teamPointsByControlPoint = new Map<number, Record<string, number>>();
+    
+    try {
+      // Get all control points with position challenge enabled for this game
+      const controlPoints = await this.controlPointsRepository.find({
+        where: { game: { id: gameId }, hasPositionChallenge: true },
+        relations: ['game'],
+      });
+
+      console.log(`[POSITION_CHALLENGE] Getting current data for game ${gameId} - Found ${controlPoints.length} control points with position challenge`);
+
+      // Get current player positions for this game
+      const currentPlayerPositions = this.getPlayerPositionsForGame(gameId);
+      console.log(`[POSITION_CHALLENGE] Current player positions for game ${gameId}: ${currentPlayerPositions.size}`);
+
+      // Process position challenge to get current team points
+      const { teamPointsByControlPoint: currentTeamPoints } = await this.processPositionChallenge(
+        gameId,
+        currentPlayerPositions,
+      );
+
+      console.log(`[POSITION_CHALLENGE] Current team points for game ${gameId}:`,
+        Array.from(currentTeamPoints.entries()).map(([cpId, points]) => `${cpId}: ${JSON.stringify(points)}`));
+
+      return currentTeamPoints;
+    } catch (error) {
+      console.error(`[POSITION_CHALLENGE] Error getting current position challenge data for game ${gameId}:`, error);
+      return teamPointsByControlPoint;
+    }
+  }
 }
