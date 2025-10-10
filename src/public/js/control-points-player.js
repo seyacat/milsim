@@ -738,6 +738,11 @@ function stopBombTimerInterval() {
 
 // Decrement bomb timers locally by 1 second each second
 function decrementBombTimers() {
+    // Only decrement if game is running
+    if (!currentGame || currentGame.status !== 'running') {
+        return;
+    }
+    
     activeBombTimers.forEach((bombTimer, controlPointId) => {
         // Only decrement if bomb is active and has remaining time
         if (bombTimer.isActive && bombTimer.remainingTime > 0) {

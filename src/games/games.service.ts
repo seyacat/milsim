@@ -917,10 +917,65 @@ export class GamesService {
             // Restart the timer with the existing game instance
             void this.startGameTimer(game.id, game.totalTime, game.instanceId);
           }
+
+          // Recover active bomb timers for this game
+          await this.recoverActiveBombTimers(game.id, game.instanceId);
         }
       }
     } catch (error) {
       console.error('[SERVER_RESTART] Error recovering running games:', error);
+    }
+  }
+
+  // Recover active bomb timers on server restart
+  private async recoverActiveBombTimers(gameId: number, gameInstanceId: number): Promise<void> {
+    try {
+      console.log(`[SERVER_RESTART] Recovering active bomb timers for game ${gameId}`);
+      
+      // Get all control points for this game
+      const game = await this.gamesRepository.findOne({
+        where: { id: gameId },
+        relations: ['controlPoints'],
+      });
+
+      if (!game || !game.controlPoints) {
+        return;
+      }
+
+      // Check each control point for active bomb timers
+      for (const controlPoint of game.controlPoints) {
+        if (controlPoint.hasBombChallenge && controlPoint.bombTime) {
+          // Calculate remaining bomb time from history
+          const bombTimeData = await this.calculateRemainingBombTime(
+            controlPoint.id,
+            gameInstanceId,
+          );
+          
+          if (bombTimeData && bombTimeData.isActive) {
+            console.log(
+              `[SERVER_RESTART] Recovering bomb timer for control point ${controlPoint.id}, remaining time: ${bombTimeData.remainingTime}s`,
+            );
+            
+            // Restart the bomb timer with calculated remaining time
+            await this.activateBombTimer(
+              controlPoint.id,
+              gameInstanceId,
+              bombTimeData.totalTime,
+              bombTimeData.activatedByUserId || 0,
+              bombTimeData.activatedByUserName || 'System Recovery',
+              bombTimeData.activatedByTeam || 'unknown',
+            );
+
+            // Update the remaining time to the calculated value
+            const bombTimer = this.bombTimers.get(controlPoint.id);
+            if (bombTimer) {
+              bombTimer.remainingTime = bombTimeData.remainingTime;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[SERVER_RESTART] Error recovering active bomb timers:', error);
     }
   }
 
@@ -2357,14 +2412,15 @@ export class GamesService {
   }
 
   // Get current bomb time for a control point
-  getBombTime(controlPointId: number): {
+  async getBombTime(controlPointId: number): Promise<{
     remainingTime: number;
     totalTime: number;
     isActive: boolean;
     activatedByUserId?: number;
     activatedByUserName?: string;
     activatedByTeam?: string;
-  } | null {
+  } | null> {
+    // First check if there's an active in-memory timer
     const bombTimer = this.bombTimers.get(controlPointId);
     if (bombTimer) {
       return {
@@ -2376,7 +2432,18 @@ export class GamesService {
         activatedByTeam: bombTimer.activatedByTeam,
       };
     }
-    return null;
+
+    // If no in-memory timer, calculate from game history events
+    const controlPoint = await this.controlPointsRepository.findOne({
+      where: { id: controlPointId },
+      relations: ['game'],
+    });
+
+    if (!controlPoint || !controlPoint.game?.instanceId) {
+      return null;
+    }
+
+    return this.calculateRemainingBombTime(controlPointId, controlPoint.game.instanceId);
   }
 
   // Get all active bomb timers for a game
@@ -2468,5 +2535,138 @@ export class GamesService {
     console.log(
       `[BOMB] Bomb deactivated at control point ${controlPointId} by ${userName} (${team}) - Activated by: ${activatedByTeam} - Opposing team: ${isOpposingTeamDeactivation}`,
     );
+  }
+
+  // Calculate remaining bomb time from game history events
+  private async calculateRemainingBombTime(
+    controlPointId: number,
+    gameInstanceId: number,
+  ): Promise<{
+    remainingTime: number;
+    totalTime: number;
+    isActive: boolean;
+    activatedByUserId?: number;
+    activatedByUserName?: string;
+    activatedByTeam?: string;
+  } | null> {
+    // Get all game history events
+    const history = await this.gameHistoryRepository.find({
+      where: {
+        gameInstance: { id: gameInstanceId },
+      },
+      order: { timestamp: 'ASC' },
+    });
+
+    // Get current game status
+    const game = await this.gamesRepository.findOne({
+      where: { instanceId: gameInstanceId },
+    });
+    const isCurrentlyRunning = game && game.status === 'running';
+
+    // Filter for bomb events and game state changes
+    const timeline = [
+      ...history
+        .filter(
+          event =>
+            ['bomb_activated', 'bomb_deactivated', 'bomb_exploded'].includes(event.eventType) &&
+            event.data &&
+            event.data.controlPointId === controlPointId,
+        )
+        .map(event => ({
+          type: event.eventType as 'bomb_activated' | 'bomb_deactivated' | 'bomb_exploded',
+          timestamp: event.timestamp,
+          data: event.data,
+        })),
+      ...history
+        .filter(event =>
+          ['game_started', 'game_paused', 'game_resumed', 'game_ended'].includes(event.eventType),
+        )
+        .map(event => ({
+          type: 'game_state' as const,
+          timestamp: event.timestamp,
+          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended',
+        })),
+    ];
+
+    // Sort timeline by timestamp
+    timeline.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+    let bombActive = false;
+    let bombStartTime: Date | null = null;
+    let totalBombTime = 0;
+    let remainingTime = 0;
+    let activatedByUserId: number | undefined;
+    let activatedByUserName: string | undefined;
+    let activatedByTeam: string | undefined;
+    let gameState: 'running' | 'paused' | 'ended' = 'paused';
+    let currentActiveStart: Date | null = null;
+
+    // Process timeline chronologically
+    for (let i = 0; i < timeline.length; i++) {
+      const event = timeline[i];
+
+      if (event.type === 'game_state') {
+        // Handle game state changes
+        if (event.state === 'game_started' || event.state === 'game_resumed') {
+          gameState = 'running';
+          // If bomb is active and game is running, start counting time
+          if (bombActive && bombStartTime) {
+            currentActiveStart = event.timestamp;
+          }
+        } else if (event.state === 'game_paused' || event.state === 'game_ended') {
+          // Add time from current active start to pause/end event
+          if (currentActiveStart && bombActive) {
+            const intervalTime = Math.floor(
+              (event.timestamp.getTime() - currentActiveStart.getTime()) / 1000,
+            );
+            remainingTime = Math.max(0, remainingTime - intervalTime);
+          }
+          gameState = event.state === 'game_paused' ? 'paused' : 'ended';
+          currentActiveStart = null;
+        }
+      } else if (event.type === 'bomb_activated') {
+        // Bomb activated - start counting down
+        bombActive = true;
+        bombStartTime = event.timestamp;
+        totalBombTime = event.data.bombTime;
+        remainingTime = totalBombTime;
+        activatedByUserId = event.data.activatedByUserId;
+        activatedByUserName = event.data.activatedByUserName;
+        activatedByTeam = event.data.activatedByTeam;
+        
+        // Start counting if game is running
+        currentActiveStart = gameState === 'running' ? event.timestamp : null;
+      } else if (event.type === 'bomb_deactivated' || event.type === 'bomb_exploded') {
+        // Bomb deactivated or exploded - stop counting
+        if (currentActiveStart && bombActive) {
+          const intervalTime = Math.floor(
+            (event.timestamp.getTime() - currentActiveStart.getTime()) / 1000,
+          );
+          remainingTime = Math.max(0, remainingTime - intervalTime);
+        }
+        bombActive = false;
+        currentActiveStart = null;
+      }
+    }
+
+    // Handle current running interval if bomb is still active and game is running
+    if (isCurrentlyRunning && currentActiveStart && bombActive) {
+      const currentIntervalTime = Math.floor((Date.now() - currentActiveStart.getTime()) / 1000);
+      remainingTime = Math.max(0, remainingTime - currentIntervalTime);
+    }
+
+    // If bomb is not active, return null
+    if (!bombActive) {
+      return null;
+    }
+
+    return {
+      remainingTime,
+      totalTime: totalBombTime,
+      isActive: bombActive,
+      activatedByUserId,
+      activatedByUserName,
+      activatedByTeam,
+    };
   }
 }
