@@ -54,7 +54,7 @@ interface BombTimer {
 export class GamesService {
   private gameTimers = new Map<number, GameTimer>();
   private controlPointTimers = new Map<number, ControlPointTimer>(); // controlPointId -> timer
-  private bombTimers = new Map<number, BombTimer>(); // controlPointId -> bomb timer
+  private gameHistoryCache = new Map<number, GameHistory[]>(); // gameInstanceId -> history events
 
   constructor(
     @InjectRepository(Game)
@@ -1616,12 +1616,17 @@ export class GamesService {
       throw new ConflictException('Código de activación incorrecto');
     }
 
-    // Check if bomb is already active
-    const existingBombTimer = this.bombTimers.get(controlPointId);
-    const isBombActive = existingBombTimer && existingBombTimer.isActive;
+    // Check if bomb is already active by calculating from history
+    if (controlPoint.game?.instanceId) {
+      const bombTimeData = await this.calculateRemainingBombTime(
+        controlPointId,
+        controlPoint.game.instanceId,
+      );
+      const isBombActive = bombTimeData && bombTimeData.isActive;
 
-    if (isBombActive) {
-      throw new ConflictException('La bomba ya está activada, no se puede reactivar');
+      if (isBombActive) {
+        throw new ConflictException('La bomba ya está activada, no se puede reactivar');
+      }
     }
 
     // Activate the bomb
@@ -1681,11 +1686,18 @@ export class GamesService {
       throw new ConflictException('Código de desactivación incorrecto');
     }
 
-    // Check if bomb is active
-    const existingBombTimer = this.bombTimers.get(controlPointId);
-    const isBombActive = existingBombTimer && existingBombTimer.isActive;
+    // Check if bomb is active by calculating from history
+    if (controlPoint.game?.instanceId) {
+      const bombTimeData = await this.calculateRemainingBombTime(
+        controlPointId,
+        controlPoint.game.instanceId,
+      );
+      const isBombActive = bombTimeData && bombTimeData.isActive;
 
-    if (!isBombActive) {
+      if (!isBombActive) {
+        throw new ConflictException('La bomba no está activada, no se puede desactivar');
+      }
+    } else {
       throw new ConflictException('La bomba no está activada, no se puede desactivar');
     }
 
@@ -2348,21 +2360,6 @@ export class GamesService {
       return;
     }
 
-    const bombTimer: BombTimer = {
-      controlPointId,
-      gameInstanceId,
-      totalTime: bombTime,
-      remainingTime: bombTime,
-      isActive: true,
-      activatedByUserId: userId,
-      activatedByUserName: userName,
-      activatedByTeam: team,
-      lastBroadcastTime: 0,
-    };
-
-    // Store bomb timer for reference (without interval)
-    this.bombTimers.set(controlPointId, bombTimer);
-
     // Add bomb activated event to history
     await this.addGameHistory(gameInstanceId, 'bomb_activated', {
       controlPointId,
@@ -2376,12 +2373,12 @@ export class GamesService {
     // Send initial bomb time update IMMEDIATELY when bomb is activated
     if (this.gamesGateway) {
       this.gamesGateway.broadcastBombTimeUpdate(controlPointId, {
-        remainingTime: bombTimer.remainingTime,
-        totalTime: bombTimer.totalTime,
-        isActive: bombTimer.isActive,
-        activatedByUserId: bombTimer.activatedByUserId,
-        activatedByUserName: bombTimer.activatedByUserName,
-        activatedByTeam: bombTimer.activatedByTeam,
+        remainingTime: bombTime,
+        totalTime: bombTime,
+        isActive: true,
+        activatedByUserId: userId,
+        activatedByUserName: userName,
+        activatedByTeam: team,
       });
     }
 
@@ -2390,10 +2387,7 @@ export class GamesService {
   }
 
   private stopBombTimer(controlPointId: number): void {
-    const bombTimer = this.bombTimers.get(controlPointId);
-    if (bombTimer) {
-      this.bombTimers.delete(controlPointId);
-    }
+    // No in-memory timer to stop - handled by history calculation
   }
 
   // Start periodic bomb time calculation and broadcast
@@ -2471,20 +2465,7 @@ export class GamesService {
     activatedByUserName?: string;
     activatedByTeam?: string;
   } | null> {
-    // First check if there's an active in-memory timer
-    const bombTimer = this.bombTimers.get(controlPointId);
-    if (bombTimer) {
-      return {
-        remainingTime: bombTimer.remainingTime,
-        totalTime: bombTimer.totalTime,
-        isActive: bombTimer.isActive,
-        activatedByUserId: bombTimer.activatedByUserId,
-        activatedByUserName: bombTimer.activatedByUserName,
-        activatedByTeam: bombTimer.activatedByTeam,
-      };
-    }
-
-    // If no in-memory timer, calculate from game history events
+    // Always calculate from game history events, not from in-memory timer
     const controlPoint = await this.controlPointsRepository.findOne({
       where: { id: controlPointId },
       relations: ['game'],
@@ -2525,19 +2506,26 @@ export class GamesService {
       relations: ['controlPoints'],
     });
 
-    if (game && game.controlPoints) {
+    if (game && game.instanceId && game.controlPoints) {
       for (const controlPoint of game.controlPoints) {
-        const bombTimer = this.bombTimers.get(controlPoint.id);
-        if (bombTimer && bombTimer.isActive) {
-          activeBombTimers.push({
-            controlPointId: controlPoint.id,
-            remainingTime: bombTimer.remainingTime,
-            totalTime: bombTimer.totalTime,
-            isActive: bombTimer.isActive,
-            activatedByUserId: bombTimer.activatedByUserId,
-            activatedByUserName: bombTimer.activatedByUserName,
-            activatedByTeam: bombTimer.activatedByTeam,
-          });
+        if (controlPoint.hasBombChallenge && controlPoint.bombTime) {
+          // Calculate remaining bomb time from history (not from in-memory timer)
+          const bombTimeData = await this.calculateRemainingBombTime(
+            controlPoint.id,
+            game.instanceId,
+          );
+
+          if (bombTimeData && bombTimeData.isActive) {
+            activeBombTimers.push({
+              controlPointId: controlPoint.id,
+              remainingTime: bombTimeData.remainingTime,
+              totalTime: bombTimeData.totalTime,
+              isActive: bombTimeData.isActive,
+              activatedByUserId: bombTimeData.activatedByUserId,
+              activatedByUserName: bombTimeData.activatedByUserName,
+              activatedByTeam: bombTimeData.activatedByTeam,
+            });
+          }
         }
       }
     }
@@ -2553,12 +2541,9 @@ export class GamesService {
     userName: string,
     team: string,
   ): Promise<void> {
-    // Stop the bomb timer
-    this.stopBombTimer(controlPointId);
-
-    // Get the bomb timer to check who activated it
-    const bombTimer = this.bombTimers.get(controlPointId);
-    const activatedByTeam = bombTimer?.activatedByTeam;
+    // Get the bomb activation data from history to check who activated it
+    const bombTimeData = await this.calculateRemainingBombTime(controlPointId, gameInstanceId);
+    const activatedByTeam = bombTimeData?.activatedByTeam;
 
     // Check if this is a deactivation by opposing team (only count points for opposing team deactivations)
     const isOpposingTeamDeactivation = activatedByTeam && activatedByTeam !== team;
