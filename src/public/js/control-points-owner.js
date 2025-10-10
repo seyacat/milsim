@@ -897,7 +897,6 @@ window.updateSingleOwnerMarker = updateSingleOwnerMarker;
 // Handle bomb time updates for owners (no timer display needed, just prevent recursion)
 function handleBombTimeUpdate(data) {
     // Owners don't need to display bomb timers, just log for debugging
-    console.log('Bomb time update received (owner):', data);
 }
 
 // Make bomb time update function available globally for owners

@@ -346,6 +346,13 @@ async function loadControlPoints(gameId) {
                 window.requestActiveBombTimers();
             }, 1000);
         }
+        
+        // Update bomb timer display after control points are loaded
+        if (window.updateBombTimerDisplay) {
+            setTimeout(() => {
+                window.updateBombTimerDisplay();
+            }, 1500);
+        }
     } catch (error) {
         console.error('Error loading control points:', error);
     }
@@ -1332,6 +1339,8 @@ function handleGameAction(data) {
                 showInfo(`${data.data.userName} ha tomado un punto de control`);
             } else {
                 showSuccess(`¡Has tomado el punto de control!`);
+                // Close control point popup for successful action
+                closeControlPointPopup(data.data.controlPointId);
             }
             break;
         case 'playerTeamUpdated':
@@ -1628,8 +1637,17 @@ function handleGameAction(data) {
             // Show bomb activation success message
             if (data.data.userId === currentUser.id) {
                 showSuccess('¡Bomba activada exitosamente!');
+                // Close control point popup for successful action
+                closeControlPointPopup(data.data.controlPointId);
             } else {
                 showInfo(`${data.data.userName} ha activado una bomba`);
+            }
+            
+            // Update the control point popup to show deactivation interface
+            if (window.updateControlPointPopupForBomb) {
+                setTimeout(() => {
+                    window.updateControlPointPopupForBomb(data.data.controlPointId);
+                }, 100);
             }
             break;
             
@@ -1638,8 +1656,40 @@ function handleGameAction(data) {
             showError('Error al activar la bomba: ' + data.data.error);
             break;
             
+        case 'bombDeactivated':
+            // Show bomb deactivation success message
+            if (data.data.userId === currentUser.id) {
+                showSuccess('¡Bomba desactivada exitosamente!');
+                // Close control point popup for successful action
+                closeControlPointPopup(data.data.controlPointId);
+            } else {
+                showInfo(`${data.data.userName} ha desactivado una bomba`);
+            }
+            
+            // Update the control point popup to show activation interface
+            if (window.updateControlPointPopupForBomb) {
+                setTimeout(() => {
+                    window.updateControlPointPopupForBomb(data.data.controlPointId);
+                }, 100);
+            }
+            break;
+            
         default:
     }
+}
+
+// Close control point popup for a specific control point
+function closeControlPointPopup(controlPointId) {
+    if (!map) return;
+    
+    map.eachLayer((layer) => {
+        if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === controlPointId) {
+            // Close the popup if it's open
+            if (layer.isPopupOpen()) {
+                layer.closePopup();
+            }
+        }
+    });
 }
 
 // Update game state controls based on current game status
@@ -2750,3 +2800,6 @@ window.onload = function() {
     // Start periodic marker cleanup after initialization
     setTimeout(startMarkerCleanupInterval, 10000); // Start after 10 seconds
 };
+
+// Make functions available globally
+window.closeControlPointPopup = closeControlPointPopup;

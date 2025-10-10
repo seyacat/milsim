@@ -1372,12 +1372,12 @@ export class GamesService {
     return updatedGame;
   }
 
-  // Take control point with code validation
+  // Take control point with code validation (for normal control points)
   async takeControlPoint(
     controlPointId: number,
     userId: number,
     code?: string,
-  ): Promise<{ controlPoint: ControlPoint; bombActivated?: boolean }> {
+  ): Promise<{ controlPoint: ControlPoint }> {
     const controlPoint = await this.controlPointsRepository.findOne({
       where: { id: controlPointId },
       relations: ['game'],
@@ -1402,39 +1402,6 @@ export class GamesService {
 
     if (player.team === 'none' || !player.team) {
       throw new ConflictException('Debes estar asignado a un equipo para tomar puntos de control');
-    }
-
-    // Check if bomb challenge is active and validate codes
-    if (controlPoint.hasBombChallenge) {
-      if (!code) {
-        throw new ConflictException('Se requiere código para este punto de control');
-      }
-
-      // For bomb challenges, the code should match either armed or disarmed code
-      const isArmedCode = controlPoint.armedCode && code.trim() === controlPoint.armedCode;
-      const isDisarmedCode = controlPoint.disarmedCode && code.trim() === controlPoint.disarmedCode;
-
-      if (!isArmedCode && !isDisarmedCode) {
-        throw new ConflictException('Código incorrecto para el desafío de bomba');
-      }
-
-      // If armed code is used, activate the bomb and return without changing ownership
-      if (isArmedCode && controlPoint.bombTime && controlPoint.game?.instanceId) {
-        await this.activateBomb(
-          controlPoint.id,
-          controlPoint.game.instanceId,
-          controlPoint.bombTime,
-          userId,
-          player.user?.name || 'Unknown Player',
-          player.team, // Pass the team that activated the bomb
-        );
-        
-        // Return the control point without changing ownership and mark it as bomb activation
-        return { controlPoint, bombActivated: true };
-      }
-      
-      // If disarmed code is used, continue with normal control point capture
-      // (this allows disarming bombs by taking control of the point)
     }
 
     // Check if code challenge is active and validate code
@@ -1464,6 +1431,135 @@ export class GamesService {
     }
 
     return { controlPoint: updatedControlPoint };
+  }
+
+  // Activate bomb with armed code
+  async activateBomb(
+    controlPointId: number,
+    userId: number,
+    armedCode: string,
+  ): Promise<{ controlPoint: ControlPoint }> {
+    const controlPoint = await this.controlPointsRepository.findOne({
+      where: { id: controlPointId },
+      relations: ['game'],
+    });
+
+    if (!controlPoint) {
+      throw new NotFoundException('Control point not found');
+    }
+
+    // Get the player to determine their team
+    const player = await this.playersRepository.findOne({
+      where: {
+        game: { id: controlPoint.game.id },
+        user: { id: userId },
+      },
+      relations: ['user'], // Ensure user relation is loaded
+    });
+
+    if (!player) {
+      throw new NotFoundException('Player not found in this game');
+    }
+
+    if (player.team === 'none' || !player.team) {
+      throw new ConflictException('Debes estar asignado a un equipo para activar bombas');
+    }
+
+    // Check if bomb challenge is active
+    if (!controlPoint.hasBombChallenge) {
+      throw new ConflictException('Este punto de control no tiene desafío de bomba');
+    }
+
+    // Validate armed code
+    if (!controlPoint.armedCode || armedCode.trim() !== controlPoint.armedCode) {
+      throw new ConflictException('Código de activación incorrecto');
+    }
+
+    // Check if bomb is already active
+    const existingBombTimer = this.bombTimers.get(controlPointId);
+    const isBombActive = existingBombTimer && existingBombTimer.isActive;
+
+    if (isBombActive) {
+      throw new ConflictException('La bomba ya está activada, no se puede reactivar');
+    }
+
+    // Activate the bomb
+    if (controlPoint.bombTime && controlPoint.game?.instanceId) {
+      await this.activateBombTimer(
+        controlPoint.id,
+        controlPoint.game.instanceId,
+        controlPoint.bombTime,
+        userId,
+        player.user?.name || 'Unknown Player',
+        player.team,
+      );
+    }
+
+    return { controlPoint };
+  }
+
+  // Deactivate bomb with disarmed code
+  async deactivateBomb(
+    controlPointId: number,
+    userId: number,
+    disarmedCode: string,
+  ): Promise<{ controlPoint: ControlPoint }> {
+    const controlPoint = await this.controlPointsRepository.findOne({
+      where: { id: controlPointId },
+      relations: ['game'],
+    });
+
+    if (!controlPoint) {
+      throw new NotFoundException('Control point not found');
+    }
+
+    // Get the player to determine their team
+    const player = await this.playersRepository.findOne({
+      where: {
+        game: { id: controlPoint.game.id },
+        user: { id: userId },
+      },
+      relations: ['user'], // Ensure user relation is loaded
+    });
+
+    if (!player) {
+      throw new NotFoundException('Player not found in this game');
+    }
+
+    if (player.team === 'none' || !player.team) {
+      throw new ConflictException('Debes estar asignado a un equipo para desactivar bombas');
+    }
+
+    // Check if bomb challenge is active
+    if (!controlPoint.hasBombChallenge) {
+      throw new ConflictException('Este punto de control no tiene desafío de bomba');
+    }
+
+    // Validate disarmed code
+    if (!controlPoint.disarmedCode || disarmedCode.trim() !== controlPoint.disarmedCode) {
+      throw new ConflictException('Código de desactivación incorrecto');
+    }
+
+    // Check if bomb is active
+    const existingBombTimer = this.bombTimers.get(controlPointId);
+    const isBombActive = existingBombTimer && existingBombTimer.isActive;
+
+    if (!isBombActive) {
+      throw new ConflictException('La bomba no está activada, no se puede desactivar');
+    }
+
+    // Deactivate the bomb
+    if (controlPoint.game?.instanceId) {
+      await this.deactivateBombTimer(
+        controlPoint.id,
+        controlPoint.game.instanceId,
+        userId,
+        player.user?.name || 'Unknown Player',
+        player.team,
+      );
+    }
+
+    return { controlPoint };
   }
 
   // Get initial control point state from database
@@ -1918,8 +2014,7 @@ export class GamesService {
 
         currentTeam = event.team;
         // Start new hold period if game is running and team matches the specified team
-        currentHoldStart =
-          gameState === 'running' && currentTeam === team ? event.timestamp : null;
+        currentHoldStart = gameState === 'running' && currentTeam === team ? event.timestamp : null;
         console.log(
           `[TEAM_HOLD_TIME] Control point ${controlPointId} captured by team ${currentTeam}`,
         );
@@ -2009,7 +2104,7 @@ export class GamesService {
     // Count captures per player - count ALL captures regardless of team change
     for (const event of captureEvents) {
       const { userId, team, controlPointId } = event.data;
-      
+
       if (!userId || !team) {
         console.log(
           `[PLAYER_CAPTURE_STATS] Skipping event with missing userId or team:`,
@@ -2037,7 +2132,7 @@ export class GamesService {
   }
 
   // Bomb timer management methods
-  private async activateBomb(
+  private async activateBombTimer(
     controlPointId: number,
     gameInstanceId: number,
     bombTime: number,
@@ -2278,5 +2373,37 @@ export class GamesService {
     }
 
     return activeBombTimers;
+  }
+
+  // Deactivate bomb timer
+  private async deactivateBombTimer(
+    controlPointId: number,
+    gameInstanceId: number,
+    userId: number,
+    userName: string,
+    team: string,
+  ): Promise<void> {
+    // Stop the bomb timer
+    this.stopBombTimer(controlPointId);
+
+    // Add bomb deactivated event to history
+    await this.addGameHistory(gameInstanceId, 'bomb_deactivated', {
+      controlPointId,
+      deactivatedByUserId: userId,
+      deactivatedByUserName: userName,
+      deactivatedByTeam: team,
+      timestamp: new Date(),
+    });
+
+    // Broadcast bomb deactivation
+    if (this.gamesGateway) {
+      this.gamesGateway.broadcastBombTimeUpdate(controlPointId, {
+        remainingTime: 0,
+        totalTime: 0,
+        isActive: false,
+      });
+    }
+
+    console.log(`[BOMB] Bomb deactivated at control point ${controlPointId} by ${userName}`);
   }
 }

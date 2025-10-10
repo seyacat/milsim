@@ -1,5 +1,38 @@
 // Control points functionality for players
 
+// Submit bomb deactivation
+function submitBombDeactivation(controlPointId) {
+    const disarmedCodeInput = document.getElementById(`disarmedCodeInput_${controlPointId}`);
+    const disarmedCode = disarmedCodeInput ? disarmedCodeInput.value.trim() : '';
+    
+    if (!disarmedCode) {
+        showToast('Por favor ingresa el código de desactivación', 'error');
+        return;
+    }
+    
+    // Send bomb deactivation request to server
+    if (socket && currentGame) {
+        socket.emit('gameAction', {
+            gameId: currentGame.id,
+            action: 'deactivateBomb',
+            data: {
+                controlPointId: controlPointId,
+                disarmedCode: disarmedCode,
+                userId: currentUser.id
+            }
+        });
+        
+        // Clear input
+        if (disarmedCodeInput) {
+            disarmedCodeInput.value = '';
+        }
+        
+        showToast('Enviando código de desactivación...', 'info');
+    } else {
+        showToast('Error de conexión', 'error');
+    }
+}
+
 // Create control point interaction menu for players
 function createControlPointPlayerMenu(controlPoint, marker) {
     const menu = document.createElement('div');
@@ -58,13 +91,40 @@ function createControlPointPlayerMenu(controlPoint, marker) {
     // Show bomb challenge inputs and submit button if bomb challenge is active
     let bombChallengeSection = '';
     if (canTakePoint && controlPoint.hasBombChallenge) {
-        bombChallengeSection = `
-            <div class="bomb-challenge-section" style="margin-top: 10px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Código Armado:</label>
-                <input type="text" id="armedCodeInput_${controlPoint.id}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="Ingresa el código armado">
-                <button class="submit-bomb-button" onclick="submitBombChallenge(${controlPoint.id})" style="width: 100%; margin-top: 8px; padding: 8px; background: #FF5722; color: white; border: none; border-radius: 4px; cursor: pointer;">Activar Bomba</button>
-            </div>
-        `;
+        // Check if bomb is already active - use activeBombTimers which is working correctly
+        let isBombActive = false;
+        
+        // Check activeBombTimers first (this is what makes the timer work correctly)
+        if (activeBombTimers && activeBombTimers.has(controlPoint.id)) {
+            const bombTimer = activeBombTimers.get(controlPoint.id);
+            if (bombTimer && bombTimer.isActive) {
+                isBombActive = true;
+            }
+        }
+        // Fallback to control point data
+        else if (controlPoint.bombTimer && controlPoint.bombTimer.isActive) {
+            isBombActive = true;
+        }
+        
+        if (isBombActive) {
+            // Bomb is active - show disarmed code input and deactivation button (available to ALL teams)
+            bombChallengeSection = `
+                <div class="bomb-challenge-section" style="margin-top: 10px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Código Desactivación:</label>
+                    <input type="text" id="disarmedCodeInput_${controlPoint.id}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="Ingresa el código de desactivación">
+                    <button class="submit-bomb-button" onclick="submitBombDeactivation(${controlPoint.id})" style="width: 100%; margin-top: 8px; padding: 8px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Desactivar Bomba</button>
+                </div>
+            `;
+        } else {
+            // Bomb is not active - show armed code input and activation button
+            bombChallengeSection = `
+                <div class="bomb-challenge-section" style="margin-top: 10px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: bold;">Código Armado:</label>
+                    <input type="text" id="armedCodeInput_${controlPoint.id}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="Ingresa el código armado">
+                    <button class="submit-bomb-button" onclick="submitBombChallenge(${controlPoint.id})" style="width: 100%; margin-top: 8px; padding: 8px; background: #FF5722; color: white; border: none; border-radius: 4px; cursor: pointer;">Activar Bomba</button>
+                </div>
+            `;
+        }
     }
     
     menu.innerHTML = `
@@ -547,6 +607,36 @@ function updateControlPointPopups() {
     
 }
 
+// Update specific control point popup when bomb state changes
+function updateControlPointPopupForBomb(controlPointId) {
+    if (!map) return;
+    
+    map.eachLayer((layer) => {
+        if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === controlPointId) {
+            // Update the control point data with the latest bomb state
+            if (currentGame && currentGame.controlPoints) {
+                const latestControlPoint = currentGame.controlPoints.find(cp => cp.id === controlPointId);
+                if (latestControlPoint) {
+                    layer.controlPointData = latestControlPoint;
+                }
+            }
+            
+            const popupContent = createControlPointPlayerMenu(layer.controlPointData, layer);
+            layer.bindPopup(popupContent, {
+                closeOnClick: false,
+                autoClose: false,
+                closeButton: true
+            });
+            
+            // If popup is currently open, update it
+            if (layer.isPopupOpen()) {
+                layer.closePopup();
+                layer.openPopup();
+            }
+        }
+    });
+}
+
 // Refresh control point markers - remove and recreate with updated settings
 function refreshControlPointMarkers(controlPoints) {
     if (!map) return;
@@ -622,10 +712,48 @@ window.updateTimerDisplay = updateTimerDisplay;
 
 // Bomb timer functionality
 let activeBombTimers = new Map();
+let bombTimerInterval = null;
+
+// Start bomb timer interval for local decrementing
+function startBombTimerInterval() {
+    // Clear any existing interval
+    if (bombTimerInterval) {
+        clearInterval(bombTimerInterval);
+    }
+    
+    // Start new interval to decrement bomb timers locally every second
+    bombTimerInterval = setInterval(() => {
+        decrementBombTimers();
+        updateBombTimerDisplay();
+    }, 1000);
+}
+
+// Stop bomb timer interval
+function stopBombTimerInterval() {
+    if (bombTimerInterval) {
+        clearInterval(bombTimerInterval);
+        bombTimerInterval = null;
+    }
+}
+
+// Decrement bomb timers locally by 1 second each second
+function decrementBombTimers() {
+    activeBombTimers.forEach((bombTimer, controlPointId) => {
+        // Only decrement if bomb is active and has remaining time
+        if (bombTimer.isActive && bombTimer.remainingTime > 0) {
+            bombTimer.remainingTime--;
+            
+            // If time reaches 0, mark as exploded
+            if (bombTimer.remainingTime <= 0) {
+                bombTimer.remainingTime = 0;
+                // The server will send an exploded event, so we don't need to handle explosion here
+            }
+        }
+    });
+}
 
 // Handle bomb time updates from server
 function handleBombTimeUpdate(data) {
-    console.log('Bomb time update received:', data);
     
     const { controlPointId, remainingTime, totalTime, isActive, activatedByUserId, activatedByUserName, activatedByTeam, exploded } = data;
     
@@ -634,6 +762,11 @@ function handleBombTimeUpdate(data) {
         activeBombTimers.delete(controlPointId);
         updateBombTimerDisplay();
         showToast(`Bomba explotó en el punto de control!`, 'error');
+        
+        // Stop bomb timer interval if no more active bombs
+        if (activeBombTimers.size === 0) {
+            stopBombTimerInterval();
+        }
         return;
     }
     
@@ -641,28 +774,36 @@ function handleBombTimeUpdate(data) {
         // Bomb timer is no longer active
         activeBombTimers.delete(controlPointId);
         updateBombTimerDisplay();
+        
+        // Stop bomb timer interval if no more active bombs
+        if (activeBombTimers.size === 0) {
+            stopBombTimerInterval();
+        }
         return;
     }
     
-    // Update or add bomb timer
+    // Update or add bomb timer - replace the current value with server value
     activeBombTimers.set(controlPointId, {
         controlPointId,
-        remainingTime,
+        remainingTime, // This replaces any locally decremented value
         totalTime,
+        isActive,
         activatedByUserId,
         activatedByUserName,
-        activatedByTeam
+        activatedByTeam,
+        lastUpdate: Date.now() // Store when we received this update
     });
     
-    console.log('Active bomb timers:', Array.from(activeBombTimers.entries()));
     updateBombTimerDisplay();
+    
+    // Start bomb timer interval if not already running
+    if (!bombTimerInterval && activeBombTimers.size > 0) {
+        startBombTimerInterval();
+    }
     
     // Debug: Check if bomb timer element exists
     const bombTimerElement = document.getElementById(`bomb_timer_${controlPointId}`);
-    console.log(`Bomb timer element for ${controlPointId}:`, bombTimerElement);
     if (!bombTimerElement) {
-        console.log(`WARNING: Bomb timer element not found for control point ${controlPointId}`);
-        console.log('Available bomb timer elements:', document.querySelectorAll('[id^="bomb_timer_"]'));
         
         // If bomb timer element doesn't exist, try to update again after a short delay
         // This handles cases where control point markers are still being created
@@ -674,7 +815,6 @@ function handleBombTimeUpdate(data) {
 
 // Update bomb timer display in the UI
 function updateBombTimerDisplay() {
-    console.log('Updating bomb timer display, active bombs:', activeBombTimers.size);
     
     // Hide all bomb timers first
     map.eachLayer((layer) => {
@@ -689,7 +829,6 @@ function updateBombTimerDisplay() {
     // Show bomb timers for active bombs
     activeBombTimers.forEach((bombTimer, controlPointId) => {
         const bombTimerElement = document.getElementById(`bomb_timer_${controlPointId}`);
-        console.log(`Looking for bomb timer element for control point ${controlPointId}:`, bombTimerElement);
         
         if (bombTimerElement) {
             // Format time as MM:SS
@@ -712,7 +851,6 @@ function updateBombTimerDisplay() {
             }
             
             bombTimerElement.style.display = 'block';
-            console.log(`Bomb timer displayed for control point ${controlPointId}: ${formattedTime}`);
         } else {
             console.log(`Bomb timer element not found for control point ${controlPointId}`);
         }
@@ -723,13 +861,11 @@ function updateBombTimerDisplay() {
 function requestActiveBombTimers() {
     if (socket && currentGame) {
         socket.emit('getActiveBombTimers', { gameId: currentGame.id });
-        console.log('Requested active bomb timers for game:', currentGame.id);
     }
 }
 
 // Handle active bomb timers response
 function handleActiveBombTimers(serverBombTimers) {
-    console.log('Active bomb timers received:', serverBombTimers);
     
     // Clear existing bomb timers
     activeBombTimers.clear();
@@ -737,12 +873,22 @@ function handleActiveBombTimers(serverBombTimers) {
     // Add all active bomb timers from the server
     if (serverBombTimers && Array.isArray(serverBombTimers)) {
         serverBombTimers.forEach(bombTimer => {
-            activeBombTimers.set(bombTimer.controlPointId, bombTimer);
+            activeBombTimers.set(bombTimer.controlPointId, {
+                ...bombTimer,
+                lastUpdate: Date.now() // Store when we received this update
+            });
         });
     }
     
     // Update the display
     updateBombTimerDisplay();
+    
+    // Start or stop bomb timer interval based on active bombs
+    if (activeBombTimers.size > 0) {
+        startBombTimerInterval();
+    } else {
+        stopBombTimerInterval();
+    }
 }
 
 // Make functions available globally
@@ -750,3 +896,5 @@ window.handleBombTimeUpdate = handleBombTimeUpdate;
 window.updateBombTimerDisplay = updateBombTimerDisplay;
 window.requestActiveBombTimers = requestActiveBombTimers;
 window.handleActiveBombTimers = handleActiveBombTimers;
+window.submitBombDeactivation = submitBombDeactivation;
+window.updateControlPointPopupForBomb = updateControlPointPopupForBomb;
