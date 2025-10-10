@@ -881,8 +881,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               // Get the complete updated game with all control points AFTER the update
               const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-              // Send bomb activated action to the client
-              client.emit('gameAction', {
+              // Broadcast bomb activated action to all clients in the game room
+              this.server.to(`game_${gameId}`).emit('gameAction', {
                 action: 'bombActivated',
                 data: {
                   controlPointId: data.controlPointId,
@@ -940,8 +940,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               // Get the complete updated game with all control points AFTER the update
               const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-              // Send bomb deactivated action to the client
-              client.emit('gameAction', {
+              // Broadcast bomb deactivated action to all clients in the game room
+              this.server.to(`game_${gameId}`).emit('gameAction', {
                 action: 'bombDeactivated',
                 data: {
                   controlPointId: data.controlPointId,
@@ -975,6 +975,136 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
             } catch (error: any) {
               client.emit('gameActionError', {
                 action: 'deactivateBomb',
+                error: error.message,
+              });
+            }
+          }
+          break;
+        }
+
+        case 'activateBombAsOwner': {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            try {
+              // Check if user is the game owner
+              const game = await this.gamesService.findOne(gameId, user.id);
+              if (!game.owner || game.owner.id !== user.id) {
+                throw new ConflictException(
+                  'Solo el propietario del juego puede activar bombas sin código',
+                );
+              }
+
+              // Use the new activateBombAsOwner method (no code validation)
+              const result = await this.gamesService.activateBombAsOwner(
+                data.controlPointId,
+                user.id,
+              );
+
+              // Remove sensitive code data before broadcasting to all clients
+              const { code, armedCode, disarmedCode, ...safeControlPoint } = result.controlPoint;
+
+              // Get the complete updated game with all control points AFTER the update
+              const updatedGame = await this.gamesService.findOne(gameId, user.id);
+
+              // Broadcast bomb activated action to all clients in the game room
+              this.server.to(`game_${gameId}`).emit('gameAction', {
+                action: 'bombActivated',
+                data: {
+                  controlPointId: data.controlPointId,
+                  userId: user.id,
+                  userName: user.name,
+                  controlPoint: safeControlPoint,
+                  activatedByOwner: true,
+                },
+                from: client.id,
+              });
+
+              // Send the full control point data (with codes) only to the owner
+              client.emit('gameAction', {
+                action: 'bombActivated',
+                data: {
+                  controlPointId: data.controlPointId,
+                  userId: user.id,
+                  userName: user.name,
+                  controlPoint: result.controlPoint, // Full data with codes
+                  activatedByOwner: true,
+                },
+                from: client.id,
+              });
+
+              // Also broadcast the complete game update so frontend has all control points
+              this.server.to(`game_${gameId}`).emit('gameUpdate', {
+                type: 'gameUpdated',
+                game: updatedGame,
+              });
+            } catch (error: any) {
+              client.emit('gameActionError', {
+                action: 'activateBombAsOwner',
+                error: error.message,
+              });
+            }
+          }
+          break;
+        }
+
+        case 'deactivateBombAsOwner': {
+          const user = this.connectedUsers.get(client.id);
+          if (user) {
+            try {
+              // Check if user is the game owner
+              const game = await this.gamesService.findOne(gameId, user.id);
+              if (!game.owner || game.owner.id !== user.id) {
+                throw new ConflictException(
+                  'Solo el propietario del juego puede desactivar bombas sin código',
+                );
+              }
+
+              // Use the new deactivateBombAsOwner method (no code validation)
+              const result = await this.gamesService.deactivateBombAsOwner(
+                data.controlPointId,
+                user.id,
+              );
+
+              // Remove sensitive code data before broadcasting to all clients
+              const { code, armedCode, disarmedCode, ...safeControlPoint } = result.controlPoint;
+
+              // Get the complete updated game with all control points AFTER the update
+              const updatedGame = await this.gamesService.findOne(gameId, user.id);
+
+              // Broadcast bomb deactivated action to all clients in the game room
+              this.server.to(`game_${gameId}`).emit('gameAction', {
+                action: 'bombDeactivated',
+                data: {
+                  controlPointId: data.controlPointId,
+                  userId: user.id,
+                  userName: user.name,
+                  controlPoint: safeControlPoint,
+                  deactivatedByOwner: true,
+                },
+                from: client.id,
+              });
+
+              // Send the full control point data (with codes) only to the owner
+              client.emit('gameAction', {
+                action: 'bombDeactivated',
+                data: {
+                  controlPointId: data.controlPointId,
+                  userId: user.id,
+                  userName: user.name,
+                  controlPoint: result.controlPoint, // Full data with codes
+                  deactivatedByOwner: true,
+                },
+                from: client.id,
+              });
+
+              // Also broadcast the complete game update so frontend has all control points
+              this.server.to(`game_${gameId}`).emit('gameUpdate', {
+                type: 'gameUpdated',
+                game: updatedGame,
+              });
+            } catch (error: any) {
+              client.emit('gameActionError', {
+                action: 'deactivateBombAsOwner',
                 error: error.message,
               });
             }

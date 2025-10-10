@@ -1487,21 +1487,9 @@ export class GamesService {
       throw new NotFoundException('Control point not found');
     }
 
-    // Get the player to determine their team
-    const player = await this.playersRepository.findOne({
-      where: {
-        game: { id: controlPoint.game.id },
-        user: { id: userId },
-      },
-      relations: ['user'], // Ensure user relation is loaded
-    });
-
-    if (!player) {
-      throw new NotFoundException('Player not found in this game');
-    }
-
-    if (player.team === 'none' || !player.team) {
-      throw new ConflictException('Debes estar asignado a un equipo para activar bombas');
+    // Check if game is running
+    if (controlPoint.game.status !== 'running') {
+      throw new ConflictException('Solo se puede activar la bomba cuando el juego está en ejecución');
     }
 
     // Check if bomb challenge is active
@@ -1527,6 +1515,33 @@ export class GamesService {
       }
     }
 
+    // Get user info for bomb activation
+    const user = await this.playersRepository.findOne({
+      where: {
+        game: { id: controlPoint.game.id },
+        user: { id: userId },
+      },
+      relations: ['user'],
+    });
+
+    let userName = 'Owner';
+    let team = 'owner';
+
+    if (user) {
+      userName = user.user?.name || 'Unknown Player';
+      team = user.team || 'owner';
+    } else {
+      // If user is not a player, they might be the owner
+      const game = await this.gamesRepository.findOne({
+        where: { id: controlPoint.game.id },
+        relations: ['owner'],
+      });
+      if (game && game.owner && game.owner.id === userId) {
+        userName = game.owner.name || 'Owner';
+        team = 'owner';
+      }
+    }
+
     // Activate the bomb
     if (controlPoint.bombTime && controlPoint.game?.instanceId) {
       await this.activateBombTimer(
@@ -1534,8 +1549,8 @@ export class GamesService {
         controlPoint.game.instanceId,
         controlPoint.bombTime,
         userId,
-        player.user?.name || 'Unknown Player',
-        player.team,
+        userName,
+        team,
       );
     }
 
@@ -1557,21 +1572,9 @@ export class GamesService {
       throw new NotFoundException('Control point not found');
     }
 
-    // Get the player to determine their team
-    const player = await this.playersRepository.findOne({
-      where: {
-        game: { id: controlPoint.game.id },
-        user: { id: userId },
-      },
-      relations: ['user'], // Ensure user relation is loaded
-    });
-
-    if (!player) {
-      throw new NotFoundException('Player not found in this game');
-    }
-
-    if (player.team === 'none' || !player.team) {
-      throw new ConflictException('Debes estar asignado a un equipo para desactivar bombas');
+    // Check if game is running
+    if (controlPoint.game.status !== 'running') {
+      throw new ConflictException('Solo se puede desactivar la bomba cuando el juego está en ejecución');
     }
 
     // Check if bomb challenge is active
@@ -1599,14 +1602,200 @@ export class GamesService {
       throw new ConflictException('La bomba no está activada, no se puede desactivar');
     }
 
+    // Get user info for bomb deactivation
+    const user = await this.playersRepository.findOne({
+      where: {
+        game: { id: controlPoint.game.id },
+        user: { id: userId },
+      },
+      relations: ['user'],
+    });
+
+    let userName = 'Owner';
+    let team = 'owner';
+
+    if (user) {
+      userName = user.user?.name || 'Unknown Player';
+      team = user.team || 'owner';
+    } else {
+      // If user is not a player, they might be the owner
+      const game = await this.gamesRepository.findOne({
+        where: { id: controlPoint.game.id },
+        relations: ['owner'],
+      });
+      if (game && game.owner && game.owner.id === userId) {
+        userName = game.owner.name || 'Owner';
+        team = 'owner';
+      }
+    }
+
     // Deactivate the bomb
     if (controlPoint.game?.instanceId) {
       await this.deactivateBombTimer(
         controlPoint.id,
         controlPoint.game.instanceId,
         userId,
-        player.user?.name || 'Unknown Player',
-        player.team,
+        userName,
+        team,
+      );
+    }
+
+    return { controlPoint };
+  }
+
+  // Activate bomb without code validation (for owner)
+  async activateBombAsOwner(
+    controlPointId: number,
+    userId: number,
+  ): Promise<{ controlPoint: ControlPoint }> {
+    const controlPoint = await this.controlPointsRepository.findOne({
+      where: { id: controlPointId },
+      relations: ['game'],
+    });
+
+    if (!controlPoint) {
+      throw new NotFoundException('Control point not found');
+    }
+
+    // Check if game is running
+    if (controlPoint.game.status !== 'running') {
+      throw new ConflictException('Solo se puede activar la bomba cuando el juego está en ejecución');
+    }
+
+    // Check if bomb challenge is active
+    if (!controlPoint.hasBombChallenge) {
+      throw new ConflictException('Este punto de control no tiene desafío de bomba');
+    }
+
+    // Check if bomb is already active by calculating from history
+    if (controlPoint.game?.instanceId) {
+      const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(
+        controlPointId,
+        controlPoint.game.instanceId,
+      );
+      const isBombActive = bombTimeData && bombTimeData.isActive;
+
+      if (isBombActive) {
+        throw new ConflictException('La bomba ya está activada, no se puede reactivar');
+      }
+    }
+
+    // Get user info for bomb activation
+    const user = await this.playersRepository.findOne({
+      where: {
+        game: { id: controlPoint.game.id },
+        user: { id: userId },
+      },
+      relations: ['user'],
+    });
+
+    let userName = 'Owner';
+    let team = 'owner';
+
+    if (user) {
+      userName = user.user?.name || 'Unknown Player';
+      team = user.team || 'owner';
+    } else {
+      // If user is not a player, they might be the owner
+      const game = await this.gamesRepository.findOne({
+        where: { id: controlPoint.game.id },
+        relations: ['owner'],
+      });
+      if (game && game.owner && game.owner.id === userId) {
+        userName = game.owner.name || 'Owner';
+        team = 'owner';
+      }
+    }
+
+    // Activate the bomb
+    if (controlPoint.bombTime && controlPoint.game?.instanceId) {
+      await this.activateBombTimer(
+        controlPoint.id,
+        controlPoint.game.instanceId,
+        controlPoint.bombTime,
+        userId,
+        userName,
+        team,
+      );
+    }
+
+    return { controlPoint };
+  }
+
+  // Deactivate bomb without code validation (for owner)
+  async deactivateBombAsOwner(
+    controlPointId: number,
+    userId: number,
+  ): Promise<{ controlPoint: ControlPoint }> {
+    const controlPoint = await this.controlPointsRepository.findOne({
+      where: { id: controlPointId },
+      relations: ['game'],
+    });
+
+    if (!controlPoint) {
+      throw new NotFoundException('Control point not found');
+    }
+
+    // Check if game is running
+    if (controlPoint.game.status !== 'running') {
+      throw new ConflictException('Solo se puede desactivar la bomba cuando el juego está en ejecución');
+    }
+
+    // Check if bomb challenge is active
+    if (!controlPoint.hasBombChallenge) {
+      throw new ConflictException('Este punto de control no tiene desafío de bomba');
+    }
+
+    // Check if bomb is active by calculating from history
+    if (controlPoint.game?.instanceId) {
+      const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(
+        controlPointId,
+        controlPoint.game.instanceId,
+      );
+      const isBombActive = bombTimeData && bombTimeData.isActive;
+
+      if (!isBombActive) {
+        throw new ConflictException('La bomba no está activada, no se puede desactivar');
+      }
+    } else {
+      throw new ConflictException('La bomba no está activada, no se puede desactivar');
+    }
+
+    // Get user info for bomb deactivation
+    const user = await this.playersRepository.findOne({
+      where: {
+        game: { id: controlPoint.game.id },
+        user: { id: userId },
+      },
+      relations: ['user'],
+    });
+
+    let userName = 'Owner';
+    let team = 'owner';
+
+    if (user) {
+      userName = user.user?.name || 'Unknown Player';
+      team = user.team || 'owner';
+    } else {
+      // If user is not a player, they might be the owner
+      const game = await this.gamesRepository.findOne({
+        where: { id: controlPoint.game.id },
+        relations: ['owner'],
+      });
+      if (game && game.owner && game.owner.id === userId) {
+        userName = game.owner.name || 'Owner';
+        team = 'owner';
+      }
+    }
+
+    // Deactivate the bomb
+    if (controlPoint.game?.instanceId) {
+      await this.deactivateBombTimer(
+        controlPoint.id,
+        controlPoint.game.instanceId,
+        userId,
+        userName,
+        team,
       );
     }
 
