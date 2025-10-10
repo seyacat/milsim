@@ -985,23 +985,28 @@ function updatePlayerControlPointPopupWithFreshData(controlPointId, marker) {
     }
 }
 
-// Update position challenge bars with team data
+// Update position challenge pie chart with team data
 function updatePositionChallengeBars(controlPointId, teamPoints) {
-  const barsContainer = document.getElementById(`position_challenge_bars_${controlPointId}`);
-  if (!barsContainer) {
-    console.log(`[POSITION_CHALLENGE_BARS] Bars container not found for control point ${controlPointId}`);
+  console.log(`[POSITION_CHALLENGE_PIE] START - Updating pie chart for control point ${controlPointId}:`, teamPoints);
+  
+  // Find the marker
+  let marker = null;
+  
+  map.eachLayer((layer) => {
+    if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === controlPointId) {
+      marker = layer;
+    }
+  });
+
+  if (!marker) {
+    console.log(`[POSITION_CHALLENGE_PIE] ERROR: Marker not found for control point ${controlPointId}`);
     return;
   }
-
-  console.log(`[POSITION_CHALLENGE_BARS] Updating bars for control point ${controlPointId}:`, teamPoints);
-
-  // Clear existing bars
-  barsContainer.innerHTML = '';
 
   // Calculate total points to determine percentages
   const totalPoints = Object.values(teamPoints).reduce((sum, points) => sum + points, 0);
 
-  console.log(`[POSITION_CHALLENGE_BARS] Total points: ${totalPoints}`);
+  console.log(`[POSITION_CHALLENGE_PIE] Total points: ${totalPoints}`);
 
   // Team colors
   const teamColors = {
@@ -1011,37 +1016,114 @@ function updatePositionChallengeBars(controlPointId, teamPoints) {
     'yellow': '#FFEB3B'
   };
 
-  // Create bars for each team with points
-  Object.entries(teamPoints).forEach(([team, points]) => {
-    if (points > 0) {
-      const percentage = totalPoints > 0 ? (points / totalPoints) * 100 : 0;
-      const barWidth = Math.max(2, (percentage / 100) * 40); // Minimum 2px, max 40px
-      
-      console.log(`[POSITION_CHALLENGE_BARS] Team ${team}: ${points} points (${percentage.toFixed(1)}%) -> ${barWidth}px`);
-      
-      const bar = document.createElement('div');
-      bar.style.cssText = `
-        height: 4px;
-        width: ${barWidth}px;
-        background: ${teamColors[team] || '#9E9E9E'};
-        border-radius: 2px;
-        transition: width 0.3s ease;
-      `;
-      barsContainer.appendChild(bar);
-    }
-  });
-
-  // Show the bars container if there are points and position challenge is active
+  // Get control point to determine radius
   const controlPoint = getControlPointById(controlPointId);
-  console.log(`[POSITION_CHALLENGE_BARS] Control point data:`, controlPoint);
-  console.log(`[POSITION_CHALLENGE_BARS] Current game status:`, currentGame?.status);
+  console.log(`[POSITION_CHALLENGE_PIE] Control point data:`, controlPoint);
+  console.log(`[POSITION_CHALLENGE_PIE] Game status:`, currentGame?.status);
   
-  if (controlPoint && controlPoint.hasPositionChallenge && currentGame && currentGame.status === 'running') {
-    barsContainer.style.display = 'flex';
-    console.log(`[POSITION_CHALLENGE_BARS] Showing bars for control point ${controlPointId}`);
+  // Remove existing pie SVG if it exists
+  if (marker.pieSvg) {
+    console.log(`[POSITION_CHALLENGE_PIE] Removing existing pie SVG overlay`);
+    map.removeLayer(marker.pieSvg);
+    marker.pieSvg = null;
+    marker.pieData = null;
+  }
+
+  // Create pie chart if there are points and position challenge is active
+  if (totalPoints > 0 && controlPoint && controlPoint.hasPositionChallenge && currentGame && currentGame.status === 'running') {
+    console.log(`[POSITION_CHALLENGE_PIE] Creating pie chart for control point ${controlPointId}`);
+
+    // Get the position circle to use its bounds
+    const positionCircle = marker.positionCircle;
+    if (!positionCircle) {
+      console.log(`[POSITION_CHALLENGE_PIE] ERROR: No position circle found for control point ${controlPointId}`);
+      return;
+    }
+
+    console.log(`[POSITION_CHALLENGE_PIE] Position circle found:`, positionCircle);
+
+    // Create SVG element as Leaflet overlay
+    const svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    
+    // Get circle bounds and center
+    const bounds = positionCircle.getBounds();
+    const centerLatLng = positionCircle.getLatLng();
+    const radiusPixels = map.latLngToLayerPoint(bounds.getNorthEast()).distanceTo(map.latLngToLayerPoint(centerLatLng));
+    
+    // Set SVG dimensions to match circle
+    const svgWidth = radiusPixels * 2;
+    const svgHeight = radiusPixels * 2;
+    
+    svgElement.setAttribute('width', svgWidth);
+    svgElement.setAttribute('height', svgHeight);
+    svgElement.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+    svgElement.style.pointerEvents = 'none';
+    svgElement.style.zIndex = '1000';
+
+    console.log(`[POSITION_CHALLENGE_PIE] SVG dimensions: ${svgWidth}x${svgHeight}`);
+
+    let startAngle = 0;
+
+    // Create pie slices for each team with points
+    Object.entries(teamPoints).forEach(([team, points]) => {
+      if (points > 0) {
+        const percentage = points / totalPoints;
+        const sliceAngle = percentage * 2 * Math.PI;
+        const endAngle = startAngle + sliceAngle;
+
+        console.log(`[POSITION_CHALLENGE_PIE] Team ${team}: ${points} points (${(percentage * 100).toFixed(1)}%)`);
+
+        // Calculate arc coordinates relative to SVG center
+        const svgCenterX = svgWidth / 2;
+        const svgCenterY = svgHeight / 2;
+        const startX = svgCenterX + radiusPixels * Math.cos(startAngle);
+        const startY = svgCenterY + radiusPixels * Math.sin(startAngle);
+        const endX = svgCenterX + radiusPixels * Math.cos(endAngle);
+        const endY = svgCenterY + radiusPixels * Math.sin(endAngle);
+
+        // Create large arc flag (1 for angles > 180 degrees, 0 otherwise)
+        const largeArcFlag = sliceAngle > Math.PI ? 1 : 0;
+
+        // Create path for pie slice
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const pathData = [
+          `M ${svgCenterX} ${svgCenterY}`,
+          `L ${startX} ${startY}`,
+          `A ${radiusPixels} ${radiusPixels} 0 ${largeArcFlag} 1 ${endX} ${endY}`,
+          'Z'
+        ].join(' ');
+
+        path.setAttribute('d', pathData);
+        path.setAttribute('fill', teamColors[team] || '#9E9E9E');
+        path.setAttribute('opacity', '0.8');
+        path.setAttribute('stroke', '#FFFFFF');
+        path.setAttribute('stroke-width', '1');
+        
+        svgElement.appendChild(path);
+
+        startAngle = endAngle;
+      }
+    });
+
+    // Create Leaflet SVG overlay that moves with the map
+    const svgOverlay = L.svgOverlay(svgElement, bounds, {
+      opacity: 0.8,
+      interactive: false
+    }).addTo(map);
+
+    console.log(`[POSITION_CHALLENGE_PIE] SVG overlay created with bounds:`, bounds);
+
+    // Store SVG overlay reference for cleanup
+    marker.pieSvg = svgOverlay;
+    marker.pieData = {
+      controlPointId,
+      teamPoints,
+      bounds
+    };
+
+    console.log(`[POSITION_CHALLENGE_PIE] SUCCESS: Pie chart created for control point ${controlPointId}`);
   } else {
-    barsContainer.style.display = 'none';
-    console.log(`[POSITION_CHALLENGE_BARS] Hiding bars for control point ${controlPointId} - hasPositionChallenge: ${controlPoint?.hasPositionChallenge}, gameRunning: ${currentGame?.status === 'running'}`);
+    console.log(`[POSITION_CHALLENGE_PIE] No pie chart created - conditions: totalPoints=${totalPoints}, hasPositionChallenge=${controlPoint?.hasPositionChallenge}, gameRunning=${currentGame?.status === 'running'}`);
   }
 }
 

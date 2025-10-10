@@ -150,46 +150,23 @@ export class PositionChallengeService {
   /**
    * Calculate points for players in a control point
    */
-  async calculatePointsForControlPoint(
+  calculatePointsForControlPoint(
+    controlPoint: ControlPoint,
     playersInControlPoint: Array<{ player: Player; position: PlayerPosition }>,
-  ): Promise<PositionChallengeResult> {
+  ): PositionChallengeResult {
     const result: PositionChallengeResult = {
-      controlPointId: 0,
-      controlPointName: '',
+      controlPointId: controlPoint.id,
+      controlPointName: controlPoint.name,
       players: [],
       totalPoints: 0,
     };
 
     if (playersInControlPoint.length === 0) {
+      console.log(`[POSITION_CHALLENGE] No players in control point ${controlPoint.name}, returning empty result`);
       return result;
     }
 
-    // Get the game ID from the first player
-    const firstPlayer = playersInControlPoint[0];
-    if (!firstPlayer.player.game || !firstPlayer.player.game.id) {
-      console.log(`[POSITION_CHALLENGE] Cannot calculate points - first player has no game or game ID`);
-      return result;
-    }
-    const gameId = firstPlayer.player.game.id;
-    
-    // Get all control points for this game with position challenge enabled
-    const controlPoints = await this.controlPointsRepository.find({
-      where: { game: { id: gameId }, hasPositionChallenge: true },
-    });
-
-    if (controlPoints.length === 0) {
-      console.log(`[POSITION_CHALLENGE] No control points with position challenge found for game ${gameId}`);
-      return result;
-    }
-
-    // Since we're processing one control point at a time, we need to determine which control point these players are in
-    // For now, we'll use the first control point with position challenge (this should be improved)
-    const controlPoint = controlPoints[0];
-    
-    console.log(`[POSITION_CHALLENGE] Using control point ${controlPoint.name} (ID: ${controlPoint.id}) for point calculation`);
-
-    result.controlPointId = controlPoint.id;
-    result.controlPointName = controlPoint.name;
+    console.log(`[POSITION_CHALLENGE] Calculating points for control point ${controlPoint.name} (ID: ${controlPoint.id}) with ${playersInControlPoint.length} players`);
 
     // Calculate points: 20 points divided by number of players in the CP
     const pointsPerPlayer = 20 / playersInControlPoint.length;
@@ -215,6 +192,7 @@ export class PositionChallengeService {
     result.totalPoints = Array.from(teamPoints.values()).reduce((sum, points) => sum + points, 0);
 
     console.log(`[POSITION_CHALLENGE] Calculated ${result.totalPoints} total points for control point ${controlPoint.name}`);
+    console.log(`[POSITION_CHALLENGE] Team points:`, Object.fromEntries(teamPoints));
     return result;
   }
 
@@ -242,7 +220,7 @@ export class PositionChallengeService {
       
       if (playersInControlPoint.length > 0) {
         console.log(`[POSITION_CHALLENGE] Control point ${controlPoint.name} has ${playersInControlPoint.length} valid players`);
-        const result = await this.calculatePointsForControlPoint(playersInControlPoint);
+        const result = this.calculatePointsForControlPoint(controlPoint, playersInControlPoint);
         results.push(result);
 
         // Extract team points for broadcasting

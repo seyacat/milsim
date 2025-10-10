@@ -271,6 +271,12 @@ function initializeWebSocket(gameId) {
             console.error(`[POSITION_CHALLENGE_FRONTEND] Error sending position challenge update:`, data.error);
         }
     });
+
+    // Add position challenge update listener for receiving team points updates
+    socket.on('positionChallengeUpdate', (data) => {
+        console.log(`[POSITION_CHALLENGE_FRONTEND] Received position challenge update:`, data);
+        handlePositionChallengeUpdate(data);
+    });
 }
 
 // Load game data
@@ -3009,7 +3015,25 @@ function handleControlPointData(controlPoint) {
     }
 }
 
+// Handle position challenge update from backend
+function handlePositionChallengeUpdate(data) {
+    console.log(`[POSITION_CHALLENGE_FRONTEND] Processing position challenge update:`, data);
+    
+    const { controlPointId, teamPoints } = data;
+    
+    // Update position challenge bars for both owner and player views
+    if (window.updatePositionChallengeBars) {
+        window.updatePositionChallengeBars(controlPointId, teamPoints);
+    } else {
+        console.warn(`[POSITION_CHALLENGE_FRONTEND] updatePositionChallengeBars function not found`);
+    }
+    
+    // Also update the control point popups if they are open
+    updateOpenControlPointPopups();
+}
+
 // Make functions available globally
 window.closeControlPointPopup = closeControlPointPopup;
 window.updateOpenControlPointPopups = updateOpenControlPointPopups;
 window.handleControlPointData = handleControlPointData;
+window.handlePositionChallengeUpdate = handlePositionChallengeUpdate;
