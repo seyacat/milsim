@@ -247,6 +247,9 @@ function addControlPointMarkerPlayer(controlPoint) {
         
         // Store circle reference on marker for later removal
         marker.positionCircle = circle;
+        
+        // Create empty pie chart SVG that will be updated when team points arrive
+        createPositionChallengePieChart(marker, controlPoint, circle);
     }
 
     // Create minimal loading popup initially
@@ -442,6 +445,48 @@ function updatePlayerControlPointPopupWithFreshData(controlPointId, marker) {
     }
 }
 
+// Create position challenge pie chart (empty initially)
+function createPositionChallengePieChart(marker, controlPoint, positionCircle) {
+    // Get circle bounds and center
+    const bounds = positionCircle.getBounds();
+    const centerLatLng = positionCircle.getLatLng();
+    const radiusPixels = map.latLngToLayerPoint(bounds.getNorthEast()).distanceTo(map.latLngToLayerPoint(centerLatLng));
+    
+    // Set SVG dimensions to match circle
+    const svgWidth = radiusPixels * 2;
+    const svgHeight = radiusPixels * 2;
+
+    // Create SVG element as Leaflet overlay
+    const svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    
+    svgElement.setAttribute('width', svgWidth);
+    svgElement.setAttribute('height', svgHeight);
+    svgElement.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
+    svgElement.style.pointerEvents = 'none';
+    svgElement.style.zIndex = '1000';
+
+    // Create Leaflet SVG overlay that moves with the map
+    const svgOverlay = L.svgOverlay(svgElement, bounds, {
+        opacity: 0.5, // Medium opacity on the overlay
+        interactive: false
+    }).addTo(map);
+    
+    // Force the overlay to be on top of other layers
+    svgOverlay.bringToFront();
+
+    // Store SVG overlay reference for later updates
+    marker.pieSvg = svgOverlay;
+    marker.pieElement = svgElement;
+    marker.pieData = {
+        controlPointId: controlPoint.id,
+        teamPoints: {},
+        bounds,
+        svgWidth,
+        svgHeight,
+        radiusPixels
+    };
+}
+
 // Export functions
 window.addPlayerControlPointMarker = addControlPointMarkerPlayer;
 window.createPlayerControlPointMenu = createControlPointPlayerMenu;
@@ -451,3 +496,4 @@ window.updateTimerDisplay = updateTimerDisplay;
 window.updateControlPointPopupForBomb = updateControlPointPopupForBomb;
 window.requestPlayerControlPointData = requestPlayerControlPointData;
 window.updatePlayerControlPointPopupWithFreshData = updatePlayerControlPointPopupWithFreshData;
+window.createPositionChallengePieChart = createPositionChallengePieChart;
