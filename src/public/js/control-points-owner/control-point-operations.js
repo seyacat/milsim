@@ -1,7 +1,7 @@
 // Control point operations for owners
 
 // Update control point
-function updateControlPoint(controlPointId, markerId) {
+function updateControlPoint(controlPointId) {
     const type = document.getElementById(`controlPointType_${controlPointId}`).value;
     const name = document.getElementById(`controlPointEditName_${controlPointId}`).value.trim();
     const positionChallenge = document.getElementById(`positionChallenge_${controlPointId}`).checked;
@@ -21,7 +21,7 @@ function updateControlPoint(controlPointId, markerId) {
             // Find the current marker to check if it's already a Site
             let currentIsSite = false;
             map.eachLayer((layer) => {
-                if (layer instanceof L.Marker && layer._leaflet_id === markerId && layer.controlPointData && layer.controlPointData.type === 'site') {
+                if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === controlPointId && layer.controlPointData.type === 'site') {
                     currentIsSite = true;
                 }
             });
@@ -113,7 +113,7 @@ function updateControlPoint(controlPointId, markerId) {
 }
 
 // Delete control point
-function deleteControlPoint(controlPointId, markerId) {
+function deleteControlPoint(controlPointId) {
     if (!confirm('¿Estás seguro de que quieres eliminar este punto?')) {
         return;
     }
@@ -134,12 +134,12 @@ function deleteControlPoint(controlPointId, markerId) {
 }
 
 // Enable drag mode for moving control points
-function enableDragMode(controlPointId, markerId) {
+function enableDragMode(controlPointId) {
     
-    // Find the marker
+    // Find the marker by control point ID instead of marker ID
     let targetMarker = null;
     map.eachLayer((layer) => {
-        if (layer instanceof L.Marker && layer._leaflet_id === markerId && layer.controlPointData) {
+        if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === controlPointId) {
             targetMarker = layer;
         }
     });

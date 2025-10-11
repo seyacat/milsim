@@ -233,9 +233,9 @@ function createControlPointEditMenu(controlPoint, marker) {
             ` : ''}
             
             <div class="action-buttons">
-                <button onclick="window.enableDragMode(${controlPoint.id}, ${marker._leaflet_id})" class="btn btn-move" title="Mover punto" style="background: rgba(33, 150, 243, 0.2); border: 1px solid #2196F3; color: #2196F3;">🧭</button>
-                <button onclick="window.updateControlPoint(${controlPoint.id}, ${marker._leaflet_id})" class="btn btn-primary">Actualizar</button>
-                <button onclick="window.deleteControlPoint(${controlPoint.id}, ${marker._leaflet_id})" class="btn btn-danger">Eliminar</button>
+                <button onclick="window.enableDragMode(${controlPoint.id})" class="btn btn-move" title="Mover punto" style="background: rgba(33, 150, 243, 0.2); border: 1px solid #2196F3; color: #2196F3;">🧭</button>
+                <button onclick="window.updateControlPoint(${controlPoint.id})" class="btn btn-primary">Actualizar</button>
+                <button onclick="window.deleteControlPoint(${controlPoint.id})" class="btn btn-danger">Eliminar</button>
             </div>
         </div>
     `;
