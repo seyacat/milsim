@@ -1,0 +1,453 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Game } from '../entities/game.entity';
+import { GameInstance } from '../entities/game-instance.entity';
+import { ControlPoint } from '../entities/control-point.entity';
+import { GamesGateway } from '../games.gateway';
+import { TimerCalculationService } from './timer-calculation.service';
+
+interface GameTimer {
+  gameId: number;
+  totalTime: number | null; // Total time in seconds (null for unlimited)
+  remainingTime: number | null; // Remaining time in seconds (null for unlimited)
+  elapsedTime: number; // Elapsed time in seconds (always tracked)
+  startTime: Date; // When the game started
+  intervalId?: NodeJS.Timeout;
+  isRunning: boolean;
+  timeEvents: Array<{
+    type: 'game_started' | 'game_paused' | 'game_resumed';
+    timestamp: Date;
+  }>; // Track time events for accurate calculation
+}
+
+interface ControlPointTimer {
+  controlPointId: number;
+  gameInstanceId: number;
+  currentHoldTime: number;
+  currentTeam: string | null;
+  intervalId?: NodeJS.Timeout;
+  isRunning: boolean;
+  lastBroadcastTime: number;
+}
+
+@Injectable()
+export class TimerManagementService {
+  private gameTimers = new Map<number, GameTimer>();
+  private controlPointTimers = new Map<number, ControlPointTimer>(); // controlPointId -> timer
+
+  constructor(
+    @InjectRepository(Game)
+    private gamesRepository: Repository<Game>,
+    @InjectRepository(GameInstance)
+    private gameInstancesRepository: Repository<GameInstance>,
+    @InjectRepository(ControlPoint)
+    private controlPointsRepository: Repository<ControlPoint>,
+    private gamesGateway: GamesGateway,
+    private timerCalculationService: TimerCalculationService,
+  ) {}
+
+  // Game Timer management methods
+  async startGameTimer(
+    gameId: number,
+    totalTime: number | null,
+    gameInstanceId: number,
+  ): Promise<void> {
+    // Stop existing timer if any
+    this.stopGameTimer(gameId);
+
+    // Calculate elapsed time from game history events
+    const elapsedTime = await this.timerCalculationService.calculateElapsedTimeFromEvents(gameInstanceId);
+
+    const timer: GameTimer = {
+      gameId,
+      totalTime: totalTime === 0 ? null : totalTime, // Treat 0 as indefinite (null)
+      remainingTime:
+        totalTime === 0 ? null : totalTime !== null ? Math.max(0, totalTime - elapsedTime) : null,
+      elapsedTime: elapsedTime,
+      startTime: new Date(),
+      isRunning: true,
+      timeEvents: await this.timerCalculationService.getTimeEventsFromHistory(gameInstanceId),
+    };
+
+    // Start countdown interval (update every second internally, broadcast every 20 seconds)
+    timer.intervalId = setInterval(() => {
+      if (timer.isRunning) {
+        // Calculate elapsed time from events for accuracy (without async/await in interval)
+        this.timerCalculationService
+          .calculateElapsedTimeFromEvents(gameInstanceId)
+          .then(currentElapsedTime => {
+            timer.elapsedTime = currentElapsedTime;
+
+            // Update remaining time if there's a total time limit
+            if (timer.totalTime !== null && timer.remainingTime !== null) {
+              timer.remainingTime = Math.max(0, timer.totalTime - timer.elapsedTime);
+            }
+
+            // Broadcast time update ONLY every 20 seconds
+            if (timer.elapsedTime % 20 === 0 && this.gamesGateway) {
+              this.gamesGateway.broadcastTimeUpdate(gameId, {
+                remainingTime: timer.remainingTime,
+                playedTime: timer.elapsedTime,
+                totalTime: timer.totalTime,
+              });
+            }
+
+            // Check if time's up for limited games (only if totalTime is not null)
+            if (
+              timer.totalTime !== null &&
+              timer.remainingTime !== null &&
+              timer.remainingTime <= 0
+            ) {
+              // Time's up - end the game automatically (system action)
+              // Note: This will be handled by the game management service
+            }
+          })
+          .catch(console.error);
+      }
+    }, 1000); // 1 second interval
+
+    this.gameTimers.set(gameId, timer);
+
+    // Send initial time update
+    if (this.gamesGateway) {
+      this.gamesGateway.broadcastTimeUpdate(gameId, {
+        remainingTime: timer.remainingTime,
+        playedTime: timer.elapsedTime,
+        totalTime: timer.totalTime,
+      });
+    }
+  }
+
+  pauseGameTimer(gameId: number): void {
+    const timer = this.gameTimers.get(gameId);
+    if (timer) {
+      timer.isRunning = false;
+    }
+  }
+
+  resumeGameTimer(gameId: number): void {
+    const timer = this.gameTimers.get(gameId);
+    if (timer) {
+      timer.isRunning = true;
+    }
+  }
+
+  stopGameTimer(gameId: number): void {
+    const timer = this.gameTimers.get(gameId);
+    if (timer && timer.intervalId) {
+      clearInterval(timer.intervalId);
+      this.gameTimers.delete(gameId);
+    }
+  }
+
+  // Force broadcast time update (used for important events)
+  forceTimeBroadcast(gameId: number): void {
+    const timer = this.gameTimers.get(gameId);
+    if (timer && this.gamesGateway) {
+      this.gamesGateway.broadcastTimeUpdate(gameId, {
+        remainingTime: timer.remainingTime,
+        playedTime: timer.elapsedTime,
+        totalTime: timer.totalTime,
+      });
+    }
+  }
+
+  // Get current time for a game
+  getGameTime(
+    gameId: number,
+  ): { remainingTime: number | null; totalTime: number | null; playedTime: number } | null {
+    const timer = this.gameTimers.get(gameId);
+    if (timer) {
+      return {
+        remainingTime: timer.remainingTime,
+        totalTime: timer.totalTime,
+        playedTime: timer.elapsedTime,
+      };
+    }
+    return null;
+  }
+
+  // Control Point Timer management methods
+  async startControlPointTimer(
+    controlPointId: number,
+    gameInstanceId: number,
+  ): Promise<void> {
+    // Stop existing timer if any
+    this.stopControlPointTimer(controlPointId);
+
+    // Check if game is running before starting timer
+    const game = await this.gamesRepository.findOne({
+      where: { instanceId: gameInstanceId },
+    });
+
+    if (!game || game.status !== 'running') {
+      console.log(
+        `[CONTROL_POINT_TIMER] Not starting timer for control point ${controlPointId} - game is not running`,
+      );
+      return;
+    }
+
+    // Get initial control point state
+    const initialState = await this.getInitialControlPointState(controlPointId, gameInstanceId);
+
+    const timer: ControlPointTimer = {
+      controlPointId,
+      gameInstanceId,
+      currentHoldTime: initialState.currentHoldTime,
+      currentTeam: initialState.currentTeam,
+      isRunning: true,
+      lastBroadcastTime: 0,
+    };
+
+    // Start countdown interval (update every second internally, broadcast every 20 seconds)
+    timer.intervalId = setInterval(() => {
+      if (timer.isRunning) {
+        // Increment current hold time
+        timer.currentHoldTime++;
+
+        // Broadcast time update ONLY every 20 seconds
+        if (timer.currentHoldTime % 20 === 0 && this.gamesGateway) {
+          this.gamesGateway.broadcastControlPointTimeUpdate(controlPointId, {
+            currentHoldTime: timer.currentHoldTime,
+            currentTeam: timer.currentTeam,
+            displayTime: this.timerCalculationService.formatTime(timer.currentHoldTime),
+          });
+          timer.lastBroadcastTime = timer.currentHoldTime;
+        }
+      }
+    }, 1000); // 1 second interval
+
+    this.controlPointTimers.set(controlPointId, timer);
+
+    // Send initial time update
+    if (this.gamesGateway) {
+      this.gamesGateway.broadcastControlPointTimeUpdate(controlPointId, {
+        currentHoldTime: timer.currentHoldTime,
+        currentTeam: timer.currentTeam,
+        displayTime: this.timerCalculationService.formatTime(timer.currentHoldTime),
+      });
+    }
+  }
+
+  pauseControlPointTimer(controlPointId: number): void {
+    const timer = this.controlPointTimers.get(controlPointId);
+    if (timer) {
+      timer.isRunning = false;
+    }
+  }
+
+  resumeControlPointTimer(controlPointId: number): void {
+    const timer = this.controlPointTimers.get(controlPointId);
+    if (timer) {
+      timer.isRunning = true;
+    }
+  }
+
+  stopControlPointTimer(controlPointId: number): void {
+    const timer = this.controlPointTimers.get(controlPointId);
+    if (timer && timer.intervalId) {
+      clearInterval(timer.intervalId);
+      this.controlPointTimers.delete(controlPointId);
+    }
+  }
+
+  // Start all control point timers for a game
+  async startAllControlPointTimers(gameId: number): Promise<void> {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+      relations: ['controlPoints'],
+    });
+
+    if (!game || !game.instanceId) {
+      return;
+    }
+
+    // Start timers for all control points
+    if (game.controlPoints) {
+      for (const controlPoint of game.controlPoints) {
+        await this.startControlPointTimer(controlPoint.id, game.instanceId);
+      }
+    }
+  }
+
+  // Pause all control point timers for a game
+  pauseAllControlPointTimers(gameId: number): void {
+    const game = this.gamesRepository
+      .findOne({
+        where: { id: gameId },
+        relations: ['controlPoints'],
+      })
+      .then(game => {
+        if (game && game.controlPoints) {
+          for (const controlPoint of game.controlPoints) {
+            this.pauseControlPointTimer(controlPoint.id);
+          }
+        }
+      });
+  }
+
+  // Resume all control point timers for a game
+  resumeAllControlPointTimers(gameId: number): void {
+    const game = this.gamesRepository
+      .findOne({
+        where: { id: gameId },
+        relations: ['controlPoints'],
+      })
+      .then(game => {
+        if (game && game.controlPoints) {
+          for (const controlPoint of game.controlPoints) {
+            this.resumeControlPointTimer(controlPoint.id);
+          }
+        }
+      });
+  }
+
+  // Stop all control point timers for a game
+  stopAllControlPointTimers(gameId: number): void {
+    const game = this.gamesRepository
+      .findOne({
+        where: { id: gameId },
+        relations: ['controlPoints'],
+      })
+      .then(game => {
+        if (game && game.controlPoints) {
+          for (const controlPoint of game.controlPoints) {
+            this.stopControlPointTimer(controlPoint.id);
+          }
+        }
+      });
+  }
+
+  // Update control point timer when ownership changes
+  async updateControlPointTimer(controlPointId: number, gameInstanceId: number): Promise<void> {
+    // Stop existing timer
+    this.stopControlPointTimer(controlPointId);
+
+    // Start new timer with updated data
+    await this.startControlPointTimer(controlPointId, gameInstanceId);
+  }
+
+  // Get initial control point state from database
+  async getInitialControlPointState(
+    controlPointId: number,
+    gameInstanceId: number,
+  ): Promise<{ currentHoldTime: number; currentTeam: string | null }> {
+    // Get the control point from database to check current ownership
+    const controlPoint = await this.controlPointsRepository.findOne({
+      where: { id: controlPointId },
+    });
+
+    if (!controlPoint) {
+      return { currentHoldTime: 0, currentTeam: null };
+    }
+
+    // If control point is not owned by a team, return 0 time
+    if (!controlPoint.ownedByTeam) {
+      return { currentHoldTime: 0, currentTeam: null };
+    }
+
+    // Calculate accumulated time from game history for this control point
+    const accumulatedTime = await this.calculateAccumulatedHoldTime(controlPointId, gameInstanceId);
+
+    return {
+      currentHoldTime: accumulatedTime,
+      currentTeam: controlPoint.ownedByTeam,
+    };
+  }
+
+  // Calculate accumulated hold time from game history for a specific control point
+  private async calculateAccumulatedHoldTime(
+    controlPointId: number,
+    gameInstanceId: number,
+  ): Promise<number> {
+    return this.timerCalculationService.calculateAccumulatedHoldTime(
+      controlPointId,
+      gameInstanceId,
+    );
+  }
+
+  // Get control point hold time for display
+  async getControlPointHoldTime(
+    controlPointId: number,
+    gameInstanceId: number,
+  ): Promise<{
+    displayTime: string;
+    totalHoldTime: number;
+    currentHoldTime: number;
+    currentTeam: string | null;
+  }> {
+    // Get current timer state if exists, otherwise get initial state
+    const timer = this.controlPointTimers.get(controlPointId);
+    if (timer) {
+      return {
+        displayTime: this.timerCalculationService.formatTime(timer.currentHoldTime),
+        totalHoldTime: timer.currentHoldTime,
+        currentHoldTime: timer.currentHoldTime,
+        currentTeam: timer.currentTeam,
+      };
+    } else {
+      const initialState = await this.getInitialControlPointState(controlPointId, gameInstanceId);
+      return {
+        displayTime: this.timerCalculationService.formatTime(initialState.currentHoldTime),
+        totalHoldTime: initialState.currentHoldTime,
+        currentHoldTime: initialState.currentHoldTime,
+        currentTeam: initialState.currentTeam,
+      };
+    }
+  }
+
+  // Get all control point times for a game
+  async getControlPointTimes(gameId: number): Promise<
+    Array<{
+      controlPointId: number;
+      currentHoldTime: number;
+      currentTeam: string | null;
+      displayTime: string;
+    }>
+  > {
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+      relations: ['controlPoints'],
+    });
+
+    if (!game || !game.instanceId) {
+      return [];
+    }
+
+    const controlPointTimes: Array<{
+      controlPointId: number;
+      currentHoldTime: number;
+      currentTeam: string | null;
+      displayTime: string;
+    }> = [];
+
+    if (game.controlPoints) {
+      for (const controlPoint of game.controlPoints) {
+        // Get current timer state if exists, otherwise get initial state
+        const timer = this.controlPointTimers.get(controlPoint.id);
+        if (timer) {
+          controlPointTimes.push({
+            controlPointId: controlPoint.id,
+            currentHoldTime: timer.currentHoldTime,
+            currentTeam: timer.currentTeam,
+            displayTime: this.timerCalculationService.formatTime(timer.currentHoldTime),
+          });
+        } else {
+          const initialState = await this.getInitialControlPointState(
+            controlPoint.id,
+            game.instanceId,
+          );
+          controlPointTimes.push({
+            controlPointId: controlPoint.id,
+            currentHoldTime: initialState.currentHoldTime,
+            currentTeam: initialState.currentTeam,
+            displayTime: this.timerCalculationService.formatTime(initialState.currentHoldTime),
+          });
+        }
+      }
+    }
+
+    return controlPointTimes;
+  }
+}
