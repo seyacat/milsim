@@ -536,60 +536,144 @@ export class PositionChallengeService {
   }
 
   /**
-   * Check if a team should take control based on accumulated points
-   * Note: This logic is now handled by the timer-calculation service based on game history
-   * This method is kept for backward compatibility but control changes are now event-driven
+   * Check if a team should take control based on points since last reset
+   * New algorithm: Count points from most recent position_challenge_scored event
+   * OR from game start/control point taken event
    */
   private async checkControlPointControl(gameId: number, controlPointId: number, accumulatedPoints: ControlPointAccumulatedPoints): Promise<string | null> {
     const THRESHOLD = 60; // Points threshold to take control
     
-    // Find team with highest points
-    let maxPoints = 0;
-    let controllingTeam: string | null = null;
-    let isTie = false;
-
-    for (const [team, points] of accumulatedPoints.teamPoints.entries()) {
-      if (points > maxPoints) {
-        maxPoints = points;
-        controllingTeam = team;
-        isTie = false;
-      } else if (points === maxPoints && maxPoints > 0) {
-        isTie = true;
-      }
-    }
-
-    // Check if a team meets the threshold and there's no tie
-    if (maxPoints >= THRESHOLD && controllingTeam && !isTie) {
-      console.log(`[POSITION_CHALLENGE] Team ${controllingTeam} reached ${maxPoints} points and takes control of control point ${controlPointId}`);
-      
-      // Update control point ownership
-      await this.controlPointsRepository.update(controlPointId, {
-        ownedByTeam: controllingTeam,
-      });
-
-      // Create control change event
+    try {
+      // Get game to access history
       const game = await this.gamesRepository.findOne({
         where: { id: gameId },
       });
 
-      if (game && game.instanceId) {
-        await this.timerCalculationService.addGameHistory(game.instanceId, 'position_challenge_control_change', {
-          controlPointId,
-          controlPointName: accumulatedPoints.controlPointName,
-          controllingTeam,
-          points: maxPoints,
-          timestamp: new Date(),
-        });
+      if (!game || !game.instanceId) {
+        console.log(`[POSITION_CHALLENGE] Cannot check control - Game ${gameId} has no instance ID`);
+        return null;
       }
 
-      return controllingTeam;
-    } else if (isTie) {
-      console.log(`[POSITION_CHALLENGE] Tie detected for control point ${controlPointId} - max points: ${maxPoints}, teams tied`);
-    } else if (maxPoints > 0) {
-      console.log(`[POSITION_CHALLENGE] No team reached threshold for control point ${controlPointId} - max points: ${maxPoints}`);
-    }
+      // Get game history to find the reset point
+      const history = await this.timerCalculationService.getGameHistoryWithCache(game.instanceId);
+      
+      // Find the most recent position_challenge_scored event for this control point
+      const positionChallengeEvents = history.filter(
+        event => event.eventType === 'position_challenge_scored' && event.data && event.data.controlPointId === controlPointId
+      );
 
-    return null;
+      // Find the most recent control_point_taken event for this control point
+      const controlTakenEvents = history.filter(
+        event => event.eventType === 'control_point_taken' && event.data && event.data.controlPointId === controlPointId
+      );
+
+      // Find game start event
+      const gameStartEvents = history.filter(event => event.eventType === 'game_started');
+
+      // Determine the reset timestamp
+      let resetTimestamp: Date | null = null;
+      
+      if (positionChallengeEvents.length > 0) {
+        // Use the most recent position_challenge_scored event
+        resetTimestamp = positionChallengeEvents[positionChallengeEvents.length - 1].timestamp;
+        console.log(`[POSITION_CHALLENGE] Using reset from position_challenge_scored event at ${resetTimestamp}`);
+      } else if (controlTakenEvents.length > 0) {
+        // Use the most recent control_point_taken event
+        resetTimestamp = controlTakenEvents[controlTakenEvents.length - 1].timestamp;
+        console.log(`[POSITION_CHALLENGE] Using reset from control_point_taken event at ${resetTimestamp}`);
+      } else if (gameStartEvents.length > 0) {
+        // Use game start event
+        resetTimestamp = gameStartEvents[0].timestamp;
+        console.log(`[POSITION_CHALLENGE] Using reset from game_started event at ${resetTimestamp}`);
+      } else {
+        console.log(`[POSITION_CHALLENGE] No reset events found for control point ${controlPointId}`);
+        return null;
+      }
+
+      // Track when each team reaches 60 points
+      const teamReached60At = new Map<string, Date>();
+      const teamPointsTracker = new Map<string, number>();
+      
+      // Process events in chronological order (oldest to newest) to track which team reaches 60 points first
+      const eventsSinceReset = positionChallengeEvents
+        .filter(event => event.timestamp >= resetTimestamp && event.data && event.data.players)
+        .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()); // Oldest first
+
+      // Track cumulative points for each team
+      const teamCumulativePoints = new Map<string, number>();
+      
+      for (const event of eventsSinceReset) {
+        // Add points from this event to each team
+        for (const player of event.data.players) {
+          const currentPoints = teamCumulativePoints.get(player.team) || 0;
+          const newPoints = currentPoints + player.points;
+          teamCumulativePoints.set(player.team, newPoints);
+          
+          // Check if this team just reached 60 points at this event
+          if (newPoints >= THRESHOLD && currentPoints < THRESHOLD && !teamReached60At.has(player.team)) {
+            teamReached60At.set(player.team, event.timestamp);
+            console.log(`[POSITION_CHALLENGE] Team ${player.team} reached 60 points at ${event.timestamp}`);
+          }
+        }
+      }
+
+      // Update teamPointsTracker for logging
+      teamCumulativePoints.forEach((points, team) => {
+        teamPointsTracker.set(team, points);
+      });
+
+      console.log(`[POSITION_CHALLENGE] Points since reset for control point ${controlPointId}:`, Object.fromEntries(teamPointsTracker));
+      console.log(`[POSITION_CHALLENGE] Teams that reached 60 points:`, Array.from(teamReached60At.entries()).map(([team, time]) => `${team} at ${time}`));
+
+      // Find the team that reached 60 points first
+      let firstTeamTo60: string | null = null;
+      let earliestTime: Date | null = null;
+      
+      for (const [team, time] of teamReached60At.entries()) {
+        if (!earliestTime || time < earliestTime) {
+          earliestTime = time;
+          firstTeamTo60 = team;
+        }
+      }
+
+      // Check if we have a team that reached 60 points first
+      if (firstTeamTo60 && earliestTime) {
+        console.log(`[POSITION_CHALLENGE] Team ${firstTeamTo60} was first to reach 60 points at ${earliestTime} and takes control of control point ${controlPointId}`);
+        
+        // Update control point ownership
+        await this.controlPointsRepository.update(controlPointId, {
+          ownedByTeam: firstTeamTo60,
+        });
+
+        // Create control change event using control_point_taken (same as code challenge)
+        await this.timerCalculationService.addGameHistory(game.instanceId, 'control_point_taken', {
+          controlPointId,
+          controlPointName: accumulatedPoints.controlPointName,
+          team: firstTeamTo60,
+          points: THRESHOLD,
+          timestamp: new Date(),
+          positionChallenge: true, // Mark as position challenge control change
+        });
+
+        return firstTeamTo60;
+      } else {
+        // Check if multiple teams reached 60 points (tie scenario)
+        const teamsAt60 = Array.from(teamReached60At.keys());
+        if (teamsAt60.length > 1) {
+          console.log(`[POSITION_CHALLENGE] Tie detected for control point ${controlPointId} - multiple teams reached 60 points: ${teamsAt60.join(', ')}`);
+        } else if (teamsAt60.length === 0) {
+          const currentMaxPoints = Math.max(...Array.from(teamPointsTracker.values()));
+          if (currentMaxPoints > 0) {
+            console.log(`[POSITION_CHALLENGE] No team reached threshold for control point ${controlPointId} - max points since reset: ${currentMaxPoints}`);
+          }
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error(`[POSITION_CHALLENGE] Error checking control point control for ${controlPointId}:`, error);
+      return null;
+    }
   }
 
   /**
