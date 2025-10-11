@@ -13,6 +13,7 @@ import { AuthService } from '../auth/auth.service';
 import { ConnectionTrackerService } from '../connection-tracker.service';
 import { ControlPoint } from './entities/control-point.entity';
 import { PositionChallengeService } from './services/position-challenge.service';
+import { TimerManagementService } from './services/timer-management.service';
 
 @WebSocketGateway({
   cors: {
@@ -38,6 +39,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly websocketAuthService: WebsocketAuthService,
     private readonly connectionTracker: ConnectionTrackerService,
     private readonly positionChallengeService: PositionChallengeService,
+    private readonly timerManagementService: TimerManagementService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -606,7 +608,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 );
 
                 // Update control point timer with new ownership
-                await this.gamesService.updateControlPointTimer(
+                await this.timerManagementService.updateControlPointTimer(
                   data.controlPointId,
                   updatedControlPoint.game.instanceId,
                 );
@@ -1374,7 +1376,35 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
-   * Start position challenge interval for a game
+   * Process position challenge for a game
+   * This is called by the timer management service every 20 seconds
+   */
+  async processPositionChallenge(gameId: number): Promise<void> {
+    try {
+      // Convert player positions to the expected format
+      const playerPositions = new Map<number, any>();
+      this.playerPositions.forEach((position, userId) => {
+        playerPositions.set(userId, {
+          userId,
+          lat: position.lat,
+          lng: position.lng,
+          accuracy: position.accuracy,
+          socketId: position.socketId,
+        });
+      });
+
+      // Start position challenge processing with current player positions
+      this.positionChallengeService.startPositionChallengeProcessing(gameId, playerPositions);
+
+      // Process position challenge for the game
+      await this.positionChallengeService.processPositionChallengeForGame(gameId);
+    } catch (error) {
+      console.error(`[POSITION_CHALLENGE_GATEWAY] Error processing position challenge for game ${gameId}:`, error);
+    }
+  }
+
+  /**
+   * Start position challenge processing for a game
    */
   private startPositionChallengeInterval(gameId: number): void {
     // Convert player positions to the expected format
@@ -1389,14 +1419,14 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     });
 
-    // Start position challenge calculation every 20 seconds
-    this.positionChallengeService.startPositionChallengeInterval(gameId, playerPositions);
+    // Start position challenge processing with current player positions
+    this.positionChallengeService.startPositionChallengeProcessing(gameId, playerPositions);
   }
 
   /**
-   * Stop position challenge interval for a game
+   * Stop position challenge processing for a game
    */
   private stopPositionChallengeInterval(gameId: number): void {
-    this.positionChallengeService.stopPositionChallengeInterval(gameId);
+    this.positionChallengeService.stopPositionChallengeProcessing(gameId);
   }
 }

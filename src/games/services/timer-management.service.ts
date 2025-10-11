@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Game } from '../entities/game.entity';
@@ -35,6 +35,7 @@ interface ControlPointTimer {
 export class TimerManagementService {
   private gameTimers = new Map<number, GameTimer>();
   private controlPointTimers = new Map<number, ControlPointTimer>(); // controlPointId -> timer
+  private positionChallengeTimers = new Map<number, NodeJS.Timeout>(); // gameId -> position challenge interval
 
   constructor(
     @InjectRepository(Game)
@@ -43,6 +44,7 @@ export class TimerManagementService {
     private gameInstancesRepository: Repository<GameInstance>,
     @InjectRepository(ControlPoint)
     private controlPointsRepository: Repository<ControlPoint>,
+    @Inject(forwardRef(() => GamesGateway))
     private gamesGateway: GamesGateway,
     private timerCalculationService: TimerCalculationService,
   ) {}
@@ -109,6 +111,9 @@ export class TimerManagementService {
 
     this.gameTimers.set(gameId, timer);
 
+    // Start position challenge processing interval
+    this.startPositionChallengeProcessing(gameId);
+
     // Send initial time update
     if (this.gamesGateway) {
       this.gamesGateway.broadcastTimeUpdate(gameId, {
@@ -139,6 +144,9 @@ export class TimerManagementService {
       clearInterval(timer.intervalId);
       this.gameTimers.delete(gameId);
     }
+    
+    // Stop position challenge processing
+    this.stopPositionChallengeProcessing(gameId);
   }
 
   // Force broadcast time update (used for important events)
@@ -449,5 +457,54 @@ export class TimerManagementService {
     }
 
     return controlPointTimes;
+  }
+
+  /**
+   * Start position challenge processing interval for a game
+   */
+  private startPositionChallengeProcessing(gameId: number): void {
+    // Stop existing interval if any
+    this.stopPositionChallengeProcessing(gameId);
+
+    // Start new interval every 20 seconds
+    const interval = setInterval(() => {
+      void (async () => {
+        try {
+          // Check if game is still running
+          const game = await this.gamesRepository.findOne({
+            where: { id: gameId },
+          });
+
+          if (!game || game.status !== 'running') {
+            console.log(`[POSITION_CHALLENGE_TIMER] Game ${gameId} is not running, stopping position challenge processing`);
+            this.stopPositionChallengeProcessing(gameId);
+            return;
+          }
+
+          // Trigger position challenge processing through games gateway
+          // The games gateway has access to player positions and can call the position challenge service
+          if (this.gamesGateway) {
+            await this.gamesGateway.processPositionChallenge(gameId);
+          }
+        } catch (error) {
+          console.error(`[POSITION_CHALLENGE_TIMER] Error in position challenge processing for game ${gameId}:`, error);
+        }
+      })();
+    }, 20000); // 20 seconds
+
+    this.positionChallengeTimers.set(gameId, interval);
+    console.log(`[POSITION_CHALLENGE_TIMER] Position challenge processing started for game ${gameId} - will run every 20 seconds`);
+  }
+
+  /**
+   * Stop position challenge processing for a game
+   */
+  private stopPositionChallengeProcessing(gameId: number): void {
+    const interval = this.positionChallengeTimers.get(gameId);
+    if (interval) {
+      clearInterval(interval);
+      this.positionChallengeTimers.delete(gameId);
+      console.log(`[POSITION_CHALLENGE_TIMER] Position challenge processing stopped for game ${gameId}`);
+    }
   }
 }
