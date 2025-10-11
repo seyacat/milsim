@@ -149,8 +149,13 @@ function enableDragMode(controlPointId, markerId) {
         return;
     }
     
-    // Close the popup menu
-    targetMarker.closePopup();
+    // Close the popup menu with multiple approaches to ensure it closes
+    if (targetMarker.isPopupOpen()) {
+        targetMarker.closePopup();
+    }
+    
+    // Also try closing via map to ensure any open popup is closed
+    map.closePopup();
     
     // Make marker draggable
     targetMarker.dragging.enable();
