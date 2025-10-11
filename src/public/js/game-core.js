@@ -274,7 +274,6 @@ function initializeWebSocket(gameId) {
 
     // Add position challenge update listener for receiving team points updates
     socket.on('positionChallengeUpdate', (data) => {
-        console.log(`[POSITION_CHALLENGE_FRONTEND] Received position challenge update:`, data);
         handlePositionChallengeUpdate(data);
     });
 }
@@ -3017,7 +3016,6 @@ function handleControlPointData(controlPoint) {
 
 // Handle position challenge update from backend
 function handlePositionChallengeUpdate(data) {
-    console.log(`[POSITION_CHALLENGE_FRONTEND] Processing position challenge update:`, data);
     
     const { controlPointId, teamPoints } = data;
     
