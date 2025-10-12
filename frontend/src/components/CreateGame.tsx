@@ -8,10 +8,8 @@ interface CreateGameProps {
   currentUser: User
 }
 
-const CreateGame: React.FC<CreateGameProps> = () => {
+const CreateGame: React.FC<CreateGameProps> = ({ currentUser }) => {
   const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [totalTime, setTotalTime] = useState(3600) // 1 hour in seconds
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   const { addToast } = useToast()
@@ -20,64 +18,62 @@ const CreateGame: React.FC<CreateGameProps> = () => {
     e.preventDefault()
     setLoading(true)
 
+    if (!name.trim()) {
+      addToast({ message: 'El nombre del juego es requerido', type: 'error' })
+      setLoading(false)
+      return
+    }
+
     try {
-      await GameService.createGame({
-        name,
-        description,
-        totalTime
+      const game = await GameService.createGame({
+        name: name.trim(),
+        ownerId: currentUser.id,
+        totalTime: 1200 // 20 minutes in seconds
       })
-      addToast({ message: 'Game created successfully', type: 'success' })
-      navigate('/dashboard')
+      addToast({ message: '¡Juego creado exitosamente!', type: 'success' })
+      
+      // Redirect to the game page after a short delay
+      setTimeout(() => {
+        navigate(`/owner/${game.id}`)
+      }, 1500)
     } catch (error) {
-      addToast({ message: 'Error creating game: ' + error, type: 'error' })
+      console.error('Error creating game:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+      addToast({ message: `Error al crear el juego: ${errorMessage}`, type: 'error' })
     } finally {
       setLoading(false)
     }
   }
 
+  const cancel = () => {
+    navigate('/dashboard')
+  }
+
   return (
     <div className="create-game-container">
-      <div className="create-game-form">
-        <h2>Create New Game</h2>
-        <form onSubmit={handleSubmit}>
+      <div className="card create-game-card">
+        <h1 className="create-game-title">Crear Nuevo Juego</h1>
+        <form id="createGameForm" className="create-game-form" onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Game Name:</label>
-            <input
-              type="text"
+            <label htmlFor="name" className="form-label">Nombre del Juego:</label>
+            <input 
+              type="text" 
+              id="name" 
+              name="name" 
+              className="form-input" 
+              required 
+              placeholder="Ingresa el nombre del juego"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              required
             />
           </div>
-          <div className="form-group">
-            <label>Description:</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-            />
-          </div>
-          <div className="form-group">
-            <label>Game Duration (minutes):</label>
-            <input
-              type="number"
-              value={totalTime / 60}
-              onChange={(e) => setTotalTime(parseInt(e.target.value) * 60)}
-              min="1"
-              max="240"
-              required
-            />
-          </div>
-          <div className="form-actions">
-            <button type="submit" disabled={loading}>
-              {loading ? 'Creating...' : 'Create Game'}
+          
+          <div className="form-buttons">
+            <button type="button" className="btn btn-secondary" onClick={cancel}>
+              Cancelar
             </button>
-            <button 
-              type="button" 
-              onClick={() => navigate('/dashboard')}
-              className="btn-secondary"
-            >
-              Cancel
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? 'Creando...' : 'Crear Juego'}
             </button>
           </div>
         </form>

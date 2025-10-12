@@ -33,85 +33,40 @@ const GameOverlay: React.FC<GameOverlayProps> = ({
 
   return (
     <div className="game-overlay">
-      {/* Game Info Panel */}
-      <div className="game-info-panel">
-        <div className="game-header">
-          <h2 className="game-name" onClick={enableGameNameEdit}>
-            {currentGame.name}
-          </h2>
-          <div className="game-status">
-            <span className={`status-badge status-${currentGame.status}`}>
-              {getStatusText(currentGame.status)}
-            </span>
-          </div>
+      <div className="game-info">
+        <div className="game-title-container">
+          <h2>{currentGame.name}</h2>
+          <span className="edit-pencil" onClick={enableGameNameEdit} title="Editar nombre del juego">
+            ✏️
+          </span>
         </div>
-
-        <div className="game-stats">
-          <div className="stat-item">
-            <span className="stat-label">Jugadores:</span>
-            <span className="stat-value">{currentGame.activeConnections}</span>
+        <div className="game-details">
+          <div>
+            Estado: <span>{getStatusText(currentGame.status)}</span>
           </div>
-          <div className="stat-item">
-            <span className="stat-label">Equipos:</span>
-            <span className="stat-value">{currentGame.teamCount}</span>
+          <div>
+            Jugadores: <span>{currentGame.activeConnections}</span>
           </div>
-          <div className="stat-item">
-            <span className="stat-label">GPS:</span>
-            <span className={`stat-value gps-${gpsStatus.toLowerCase()}`}>
-              {gpsStatus}
-            </span>
+          <div>
+            Propietario: <span>{currentUser.name}</span>
           </div>
-        </div>
-
-        <div className="time-display">
-          <div className="time-section">
-            <span className="time-label">Tiempo Total:</span>
-            <span className="time-value">
-              {formatTime(currentGame.totalTime)}
-            </span>
+          <div>
+            Usuario: <span>{currentUser.name}</span>
           </div>
-          {currentGame.remainingTime !== undefined && (
-            <div className="time-section">
-              <span className="time-label">Tiempo Restante:</span>
-              <span className="time-value">
-                {formatTime(currentGame.remainingTime)}
-              </span>
+          {currentGame.playedTime !== undefined && (
+            <div>
+              Tiempo jugado: <span>{formatTime(currentGame.playedTime)}</span>
             </div>
           )}
-          {currentGame.playedTime !== undefined && (
-            <div className="time-section">
-              <span className="time-label">Tiempo Jugado:</span>
-              <span className="time-value">
-                {formatTime(currentGame.playedTime)}
-              </span>
+          {currentGame.remainingTime !== undefined && (
+            <div>
+              Tiempo restante: <span>{formatTime(currentGame.remainingTime)}</span>
             </div>
           )}
         </div>
       </div>
-
-      {/* Control Points Panel */}
-      <div className="control-points-panel">
-        <h3>Puntos de Control</h3>
-        <div className="control-points-list">
-          {currentGame.controlPoints.map(cp => (
-            <div key={cp.id} className="control-point-item">
-              <div className="cp-info">
-                <span className="cp-name">{cp.name}</span>
-                <span className="cp-type">{cp.type === 'site' ? 'Sitio' : 'Control'}</span>
-              </div>
-              <div className="cp-status">
-                {cp.currentTeam && (
-                  <span className={`team-badge team-${cp.currentTeam}`}>
-                    {cp.currentTeam}
-                  </span>
-                )}
-                {cp.displayTime && (
-                  <span className="cp-time">{cp.displayTime}</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+      <div className="game-details">
+        GPS: <span>{gpsStatus}</span>
       </div>
     </div>
   )

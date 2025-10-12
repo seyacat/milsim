@@ -19,7 +19,7 @@ async function bootstrap() {
 
   // Serve static files from public2 directory at root path
   // This should come after controller routes to avoid conflicts
-  app.useStaticAssets(join(process.cwd(), 'src', 'public2'), {
+  app.useStaticAssets(join(process.cwd(), 'src', 'public'), {
     prefix: '/',
     index: 'index.html', // Serve index.html for root path
   });
@@ -30,7 +30,7 @@ async function bootstrap() {
     if (req.path.startsWith('/api/') || req.path.includes('.')) {
       return next();
     }
-    res.sendFile(join(process.cwd(), 'src', 'public2', 'index.html'));
+    res.sendFile(join(process.cwd(), 'src', 'public', 'index.html'));
   });
 
   await app.listen(process.env.PORT ?? 6600);

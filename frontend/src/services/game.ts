@@ -28,7 +28,7 @@ export class GameService {
     return response.json();
   }
 
-  static async createGame(gameData: { name: string; description?: string; totalTime?: number }): Promise<Game> {
+  static async createGame(gameData: { name: string; description?: string; totalTime?: number; ownerId?: number }): Promise<Game> {
     const response = await fetch(`${API_BASE_URL}/games`, {
       method: 'POST',
       headers: AuthService.getAuthHeaders(),

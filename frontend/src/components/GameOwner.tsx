@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useToast } from '../contexts/ToastContext'
 import GameOwnerMap from './GameOwner/GameOwnerMap'
@@ -7,6 +7,7 @@ import LocationInfo from './GameOwner/LocationInfo'
 import ControlPanel from './GameOwner/ControlPanel'
 import MapControls from './GameOwner/MapControls'
 import { useGameOwner } from '../hooks/useGameOwner'
+import '../styles/game-owner.css'
 
 const GameOwner: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>()
@@ -14,12 +15,12 @@ const GameOwner: React.FC = () => {
   const { addToast: originalAddToast } = useToast()
   
   // Create a wrapper that matches the expected type
-  const addToast = (toast: { message: string; type?: string }) => {
+  const addToast = useCallback((toast: { message: string; type?: string }) => {
     originalAddToast({
       message: toast.message,
       type: toast.type as any
     })
-  }
+  }, [originalAddToast])
   
   const {
     currentUser,

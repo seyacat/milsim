@@ -8,7 +8,6 @@ interface ControlPanelProps {
   resumeGame: () => Promise<void>
   endGame: () => Promise<void>
   restartGame: () => Promise<void>
-  addTime: (seconds: number) => Promise<void>
 }
 
 const ControlPanel: React.FC<ControlPanelProps> = ({
@@ -17,8 +16,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   pauseGame,
   resumeGame,
   endGame,
-  restartGame,
-  addTime
+  restartGame
 }) => {
   const handleStartGame = () => {
     startGame()
@@ -40,45 +38,60 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
     restartGame()
   }
 
-  const handleAddTime = (seconds: number) => {
-    addTime(seconds)
-  }
   const getStatusActions = () => {
     switch (currentGame.status) {
       case 'stopped':
         return (
           <button
-            className="control-btn start-btn"
+            id="startGameBtn"
+            className="btn btn-primary"
             onClick={handleStartGame}
+            style={{ display: 'block', width: '100%' }}
           >
-            Iniciar Juego
+            Iniciar
           </button>
         )
       case 'running':
         return (
           <button
-            className="control-btn pause-btn"
+            id="pauseGameBtn"
+            className="btn btn-warning"
             onClick={handlePauseGame}
+            style={{ display: 'block', width: '100%' }}
           >
-            Pausar Juego
+            Pausar
           </button>
         )
       case 'paused':
         return (
-          <button
-            className="control-btn resume-btn"
-            onClick={handleResumeGame}
-          >
-            Reanudar Juego
-          </button>
+          <>
+            <button
+              id="endGameBtn"
+              className="btn btn-danger"
+              onClick={handleEndGame}
+              style={{ display: 'block', width: '100%', marginBottom: '10px' }}
+            >
+              Finalizar
+            </button>
+            <button
+              id="resumeGameBtn"
+              className="btn btn-primary"
+              onClick={handleResumeGame}
+              style={{ display: 'block', width: '100%' }}
+            >
+              Reanudar
+            </button>
+          </>
         )
       case 'finished':
         return (
           <button
-            className="control-btn restart-btn"
+            id="restartGameBtn"
+            className="btn btn-primary"
             onClick={handleRestartGame}
+            style={{ display: 'block', width: '100%' }}
           >
-            Reiniciar Juego
+            Reiniciar
           </button>
         )
       default:
@@ -88,91 +101,18 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
 
   return (
     <div className="control-panel">
-      <h3>Controles del Juego</h3>
-      
-      {/* Main Game Controls */}
-      <div className="main-controls">
+      <div id="ownerControls" style={{ display: 'block' }}>
         {getStatusActions()}
-        
-        {currentGame.status !== 'finished' && (
+        {currentGame.status !== 'finished' && currentGame.status !== 'running' && currentGame.status !== 'paused' && currentGame.status !== 'stopped' && (
           <button
-            className="control-btn end-btn"
+            id="endGameBtn"
+            className="btn btn-danger"
             onClick={handleEndGame}
+            style={{ display: 'block', width: '100%', marginBottom: '10px' }}
           >
-            Finalizar Juego
+            Finalizar
           </button>
         )}
-      </div>
-
-      {/* Quick Time Controls */}
-      <div className="time-controls">
-        <h4>Control de Tiempo Rápido</h4>
-        <div className="time-buttons-grid">
-          <button
-            className="time-control-btn"
-            onClick={() => handleAddTime(30)}
-          >
-            +30s
-          </button>
-          <button
-            className="time-control-btn"
-            onClick={() => handleAddTime(60)}
-          >
-            +1m
-          </button>
-          <button
-            className="time-control-btn"
-            onClick={() => handleAddTime(300)}
-          >
-            +5m
-          </button>
-          <button
-            className="time-control-btn"
-            onClick={() => handleAddTime(600)}
-          >
-            +10m
-          </button>
-        </div>
-      </div>
-
-      {/* Game Status Info */}
-      <div className="game-status-info">
-        <div className="status-item">
-          <span className="status-label">Estado:</span>
-          <span className={`status-value status-${currentGame.status}`}>
-            {currentGame.status === 'stopped' && 'Detenido'}
-            {currentGame.status === 'running' && 'En Curso'}
-            {currentGame.status === 'paused' && 'Pausado'}
-            {currentGame.status === 'finished' && 'Finalizado'}
-          </span>
-        </div>
-        <div className="status-item">
-          <span className="status-label">Jugadores:</span>
-          <span className="status-value">{currentGame.activeConnections}</span>
-        </div>
-        <div className="status-item">
-          <span className="status-label">Puntos de Control:</span>
-          <span className="status-value">{currentGame.controlPoints.length}</span>
-        </div>
-      </div>
-
-      {/* Emergency Controls */}
-      <div className="emergency-controls">
-        <h4>Controles de Emergencia</h4>
-        <div className="emergency-buttons">
-          <button
-            className="emergency-btn force-end-btn"
-            onClick={handleEndGame}
-          >
-            Forzar Finalización
-          </button>
-          <button
-            className="emergency-btn reset-btn"
-            onClick={handleRestartGame}
-          >
-            Reiniciar Todo
-          </button>
-        </div>
       </div>
     </div>
   )

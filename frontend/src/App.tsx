@@ -64,17 +64,17 @@ function App() {
               currentUser ? <CreateGame currentUser={currentUser} /> : <Navigate to="/login" replace />
             } 
           />
-          <Route 
-            path="/owner/:gameId" 
+          <Route
+            path="/owner/:gameId"
             element={
-              currentUser ? <GameOwner currentUser={currentUser} /> : <Navigate to="/login" replace />
-            } 
+              currentUser ? <GameOwner /> : <Navigate to="/login" replace />
+            }
           />
-          <Route 
-            path="/player/:gameId" 
+          <Route
+            path="/player/:gameId"
             element={
-              currentUser ? <GamePlayer currentUser={currentUser} /> : <Navigate to="/login" replace />
-            } 
+              currentUser ? <GamePlayer /> : <Navigate to="/login" replace />
+            }
           />
           <Route path="/" element={<Navigate to={currentUser ? "/dashboard" : "/login"} replace />} />
         </Routes>

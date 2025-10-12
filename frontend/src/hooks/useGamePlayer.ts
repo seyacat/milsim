@@ -5,7 +5,7 @@ import { GameService } from '../services/game'
 import { User, Game, ControlPoint, Toast } from '../types'
 import { io, Socket } from 'socket.io-client'
 
-interface UseGameOwnerReturn {
+interface UseGamePlayerReturn {
   currentUser: User | null
   currentGame: Game | null
   isLoading: boolean
@@ -16,26 +16,17 @@ interface UseGameOwnerReturn {
   userMarkerRef: React.MutableRefObject<any>
   playerMarkersRef: React.MutableRefObject<any>
   controlPointMarkersRef: React.MutableRefObject<any>
-  startGame: () => void
-  pauseGame: () => void
-  resumeGame: () => void
-  endGame: () => void
-  restartGame: () => void
-  addTime: (seconds: number) => void
-  updateGameTime: (timeInSeconds: number) => void
   goBack: () => void
   reloadPage: () => void
   centerOnUser: () => void
   centerOnSite: () => void
-  openTeamsDialog: () => void
-  enableGameNameEdit: () => void
 }
 
-export const useGameOwner = (
+export const useGamePlayer = (
   gameId: string | undefined,
   navigate: NavigateFunction,
   addToast: (toast: Omit<Toast, 'id'>) => void
-): UseGameOwnerReturn => {
+): UseGamePlayerReturn => {
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [currentGame, setCurrentGame] = useState<Game | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -82,12 +73,6 @@ export const useGameOwner = (
           return
         }
 
-        if (game.owner.id !== user.id) {
-          memoizedAddToast({ message: 'No tienes permisos para ver este juego', type: 'error' })
-          memoizedNavigate('/dashboard')
-          return
-        }
-
         setCurrentUser(user)
         setCurrentGame(game)
       } catch (error) {
@@ -124,14 +109,7 @@ export const useGameOwner = (
         socket.emit('joinGame', { gameId: parseInt(gameId) })
       })
 
-      // Listen for game state changes
-      socket.on('gameAction', (data: { action: string; data: any }) => {
-        if (data.action === 'gameStateChanged' && data.data.game) {
-          setCurrentGame(data.data.game)
-        }
-      })
-
-      // Listen for game updates (including restart)
+      // Listen for game updates
       socket.on('gameUpdate', (data: { game: Game; type?: string }) => {
         if (data.game) {
           setCurrentGame(data.game)
@@ -180,123 +158,6 @@ export const useGameOwner = (
     }
   }, [gameId, memoizedNavigate, memoizedAddToast])
 
-  const startGame = useCallback(() => {
-    if (!currentGame || !socketRef.current) return
-    try {
-      // Send start action via WebSocket (like in original code)
-      socketRef.current.emit('gameAction', {
-        gameId: currentGame.id,
-        action: 'startGame'
-      })
-      memoizedAddToast({ message: 'Juego iniciado', type: 'success' })
-    } catch (error) {
-      console.error('Error starting game:', error)
-      memoizedAddToast({ message: 'Error al iniciar el juego', type: 'error' })
-    }
-  }, [currentGame, memoizedAddToast])
-
-  const pauseGame = useCallback(() => {
-    if (!currentGame || !socketRef.current) return
-    try {
-      // Send pause action via WebSocket (like in original code)
-      socketRef.current.emit('gameAction', {
-        gameId: currentGame.id,
-        action: 'pauseGame'
-      })
-      memoizedAddToast({ message: 'Juego pausado', type: 'success' })
-    } catch (error) {
-      console.error('Error pausing game:', error)
-      memoizedAddToast({ message: 'Error al pausar el juego', type: 'error' })
-    }
-  }, [currentGame, memoizedAddToast])
-
-  const resumeGame = useCallback(() => {
-    if (!currentGame || !socketRef.current) return
-    try {
-      // Send resume action via WebSocket (like in original code)
-      socketRef.current.emit('gameAction', {
-        gameId: currentGame.id,
-        action: 'resumeGame'
-      })
-      memoizedAddToast({ message: 'Juego reanudado', type: 'success' })
-    } catch (error) {
-      console.error('Error resuming game:', error)
-      memoizedAddToast({ message: 'Error al reanudar el juego', type: 'error' })
-    }
-  }, [currentGame, memoizedAddToast])
-
-  const endGame = useCallback(() => {
-    if (!currentGame || !socketRef.current) return
-    try {
-      // Send end action via WebSocket (like in original code)
-      socketRef.current.emit('gameAction', {
-        gameId: currentGame.id,
-        action: 'endGame'
-      })
-      memoizedAddToast({ message: 'Juego finalizado', type: 'success' })
-    } catch (error) {
-      console.error('Error ending game:', error)
-      memoizedAddToast({ message: 'Error al finalizar el juego', type: 'error' })
-    }
-  }, [currentGame, memoizedAddToast])
-
-  const restartGame = useCallback(() => {
-    if (!currentGame || !socketRef.current) return
-    try {
-      // Send restart action via WebSocket
-      socketRef.current.emit('gameAction', {
-        gameId: currentGame.id,
-        action: 'restartGame'
-      })
-      memoizedAddToast({ message: 'Juego reiniciado', type: 'success' })
-    } catch (error) {
-      console.error('Error restarting game:', error)
-      memoizedAddToast({ message: 'Error al reiniciar el juego', type: 'error' })
-    }
-  }, [currentGame, memoizedAddToast])
-
-  const addTime = useCallback((seconds: number) => {
-    if (!currentGame || !socketRef.current) return
-    try {
-      // Send add time action via WebSocket (like in original code)
-      socketRef.current.emit('gameAction', {
-        gameId: currentGame.id,
-        action: 'addTime',
-        data: {
-          seconds: seconds
-        }
-      })
-      const minutes = seconds / 60
-      memoizedAddToast({ message: `Se agregaron ${minutes} minutos al juego`, type: 'success' })
-    } catch (error) {
-      console.error('Error adding time:', error)
-      memoizedAddToast({ message: 'Error al añadir tiempo', type: 'error' })
-    }
-  }, [currentGame, memoizedAddToast])
-
-  const updateGameTime = useCallback((timeInSeconds: number) => {
-    if (!currentGame || !socketRef.current) return
-    try {
-      // Send update game time action via WebSocket (like in original code)
-      socketRef.current.emit('gameAction', {
-        gameId: currentGame.id,
-        action: 'updateGameTime',
-        data: {
-          timeInSeconds: timeInSeconds
-        }
-      })
-      let timeText = 'indefinido'
-      if (timeInSeconds > 0) {
-        const minutes = timeInSeconds / 60
-        timeText = `${minutes} min`
-      }
-      memoizedAddToast({ message: `Tiempo del juego actualizado: ${timeText}`, type: 'success' })
-    } catch (error) {
-      console.error('Error updating game time:', error)
-      memoizedAddToast({ message: 'Error al actualizar el tiempo', type: 'error' })
-    }
-  }, [currentGame, memoizedAddToast])
-
   const goBack = useCallback(() => {
     memoizedNavigate('/dashboard')
   }, [memoizedNavigate])
@@ -320,14 +181,6 @@ export const useGameOwner = (
     }
   }, [currentGame])
 
-  const openTeamsDialog = useCallback(() => {
-    memoizedAddToast({ message: 'Funcionalidad de equipos no implementada aún', type: 'info' })
-  }, [memoizedAddToast])
-
-  const enableGameNameEdit = useCallback(() => {
-    memoizedAddToast({ message: 'Funcionalidad de edición de nombre no implementada aún', type: 'info' })
-  }, [memoizedAddToast])
-
   return {
     currentUser,
     currentGame,
@@ -339,18 +192,9 @@ export const useGameOwner = (
     userMarkerRef,
     playerMarkersRef,
     controlPointMarkersRef,
-    startGame,
-    pauseGame,
-    resumeGame,
-    endGame,
-    restartGame,
-    addTime,
-    updateGameTime,
     goBack,
     reloadPage,
     centerOnUser,
-    centerOnSite,
-    openTeamsDialog,
-    enableGameNameEdit
+    centerOnSite
   }
 }

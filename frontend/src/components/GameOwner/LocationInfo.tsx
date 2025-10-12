@@ -4,7 +4,6 @@ import { Game } from '../../types'
 interface LocationInfoProps {
   currentPosition: { lat: number; lng: number; accuracy: number } | null
   currentGame: Game
-  addTime: (seconds: number) => Promise<void>
   updateGameTime: (timeInSeconds: number) => Promise<void>
   openTeamsDialog: () => void
 }
@@ -12,15 +11,10 @@ interface LocationInfoProps {
 const LocationInfo: React.FC<LocationInfoProps> = ({
   currentPosition,
   currentGame,
-  addTime,
   updateGameTime,
   openTeamsDialog
 }) => {
   const [timeInput, setTimeInput] = useState('')
-
-  const handleAddTime = (seconds: number) => {
-    addTime(seconds)
-  }
 
   const handleUpdateTime = () => {
     const timeInSeconds = parseInt(timeInput) * 60
@@ -30,91 +24,39 @@ const LocationInfo: React.FC<LocationInfoProps> = ({
     }
   }
 
+  const handleTimeSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const timeInSeconds = parseInt(e.target.value)
+    updateGameTime(timeInSeconds)
+  }
+
+  // Default time value for the select
+  const defaultTimeValue = 1200 // 20 minutes
+
   return (
     <div className="location-info-panel">
-      {/* GPS Position Info */}
-      <div className="gps-info">
-        <h3>Posición GPS</h3>
-        {currentPosition ? (
-          <div className="position-data">
-            <div className="coord">
-              <span className="label">Lat:</span>
-              <span className="value">{currentPosition.lat.toFixed(6)}</span>
-            </div>
-            <div className="coord">
-              <span className="label">Lng:</span>
-              <span className="value">{currentPosition.lng.toFixed(6)}</span>
-            </div>
-            <div className="coord">
-              <span className="label">Precisión:</span>
-              <span className="value">{currentPosition.accuracy.toFixed(1)}m</span>
-            </div>
-          </div>
-        ) : (
-          <div className="no-position">
-            Posición GPS no disponible
-          </div>
-        )}
-      </div>
-
-      {/* Time Management */}
-      <div className="time-management">
-        <h3>Gestión de Tiempo</h3>
-        <div className="time-buttons">
-          <button 
-            className="time-btn" 
-            onClick={() => handleAddTime(60)}
-          >
-            +1 min
-          </button>
-          <button 
-            className="time-btn" 
-            onClick={() => handleAddTime(300)}
-          >
-            +5 min
-          </button>
-          <button 
-            className="time-btn" 
-            onClick={() => handleAddTime(600)}
-          >
-            +10 min
-          </button>
-        </div>
-        
-        <div className="set-time-section">
-          <input
-            type="number"
-            placeholder="Minutos"
-            value={timeInput}
-            onChange={(e) => setTimeInput(e.target.value)}
-            className="time-input"
-          />
-          <button 
-            className="set-time-btn"
-            onClick={handleUpdateTime}
-          >
-            Establecer Tiempo
-          </button>
-        </div>
-      </div>
-
-      {/* Teams Management */}
-      <div className="teams-management">
-        <h3>Gestión de Equipos</h3>
-        <button 
-          className="teams-btn"
-          onClick={openTeamsDialog}
+      <div>Lat: <span>{currentPosition ? currentPosition.lat.toFixed(6) : '-'}</span></div>
+      <div>Lng: <span>{currentPosition ? currentPosition.lng.toFixed(6) : '-'}</span></div>
+      <div>Precisión: <span>{currentPosition ? currentPosition.accuracy.toFixed(1) + 'm' : '-'}</span></div>
+      
+      
+      <button className="btn btn-secondary" onClick={openTeamsDialog} style={{ marginTop: '10px', width: '100%' }}>
+        JUGADORES
+      </button>
+      
+      <div style={{ marginTop: '10px' }}>
+        <label style={{ color: 'white', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Tiempo:</label>
+        <select
+          style={{ width: '100%', padding: '5px', borderRadius: '3px', background: '#333', color: 'white', border: '1px solid #666' }}
+          onChange={handleTimeSelect}
+          defaultValue={defaultTimeValue}
         >
-          Administrar Equipos
-        </button>
-        <div className="teams-summary">
-          <div className="team-count">
-            Equipos activos: {currentGame.teamCount}
-          </div>
-          <div className="players-count">
-            Jugadores: {currentGame.activeConnections}
-          </div>
-        </div>
+          <option value="20">20 seg (test)</option>
+          <option value="300">5 min</option>
+          <option value="600">10 min</option>
+          <option value="1200">20 min</option>
+          <option value="3600">1 hora</option>
+          <option value="0">indefinido</option>
+        </select>
       </div>
     </div>
   )

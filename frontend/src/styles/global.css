@@ -427,3 +427,37 @@ body {
         opacity: 0;
     }
 }
+
+/* Create Game Styles */
+.create-game-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-xl);
+}
+
+.create-game-card {
+    width: 100%;
+    max-width: 400px;
+}
+
+.create-game-title {
+    text-align: center;
+    margin-bottom: var(--spacing-2xl);
+    font-size: var(--font-size-3xl);
+}
+
+.create-game-form .btn {
+    margin-top: var(--spacing-md);
+}
+
+.form-buttons {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-lg);
+}
+
+.form-buttons .btn {
+    flex: 1;
+}
