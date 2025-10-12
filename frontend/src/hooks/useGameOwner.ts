@@ -7,6 +7,7 @@ import { io, Socket } from 'socket.io-client'
 import { useControlPoints } from './useControlPoints'
 import { useGameTime, ControlPointTimeData } from './useGameTime'
 import { useControlPointTimers } from './useControlPointTimers'
+import { useBombTimers } from './useBombTimers'
 
 interface UseGameOwnerReturn {
   currentUser: User | null
@@ -76,6 +77,9 @@ export const useGameOwner = (
   // Use control point timers hook
   const { updateAllTimerDisplays } = useControlPointTimers(currentGame, socketRef.current, controlPointTimes)
 
+  // Use bomb timers hook
+  const { updateAllBombTimerDisplays } = useBombTimers(currentGame, socketRef.current)
+
   // Use control points hook
   const { controlPointMarkers, positionCircles, pieCharts, enableDragMode, updateAllControlPointTimers } = useControlPoints({
     game: currentGame,
@@ -91,8 +95,9 @@ export const useGameOwner = (
       console.log('[USE_GAME_OWNER] Control point times updated, updating timers:', controlPointTimes.length);
       updateAllControlPointTimers();
       updateAllTimerDisplays();
+      updateAllBombTimerDisplays();
     }
-  }, [controlPointTimes, updateAllControlPointTimers, updateAllTimerDisplays]);
+  }, [controlPointTimes, updateAllControlPointTimers, updateAllTimerDisplays, updateAllBombTimerDisplays]);
 
   useEffect(() => {
     let isMounted = true

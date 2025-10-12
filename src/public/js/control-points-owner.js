@@ -1375,7 +1375,6 @@ function updatePositionChallengeBars(controlPointId, teamPoints) {
     
     // Check if pie chart exists
     if (!marker.pieElement) {
-      console.log(`[POSITION_CHALLENGE_PIE] Pie chart not found for control point ${controlPointId}`);
       return;
     }
 
