@@ -560,7 +560,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               socketId: client.id,
             });
 
-            console.log(`[POSITION_CHALLENGE] Player ${user.id} (${user.name}) sent position update - Lat: ${data.lat}, Lng: ${data.lng}, Accuracy: ${data.accuracy}m`);
 
             // Update position challenge service with the new position
             this.positionChallengeService.updatePlayerPosition(

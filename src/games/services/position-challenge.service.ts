@@ -122,13 +122,9 @@ export class PositionChallengeService {
       relations: ['user', 'game'],
     });
 
-    console.log(`[POSITION_CHALLENGE] Checking control point ${controlPoint.name} (ID: ${controlPoint.id}) - MinDistance: ${controlPoint.minDistance}m, MinAccuracy: ${controlPoint.minAccuracy}m`);
-    console.log(`[POSITION_CHALLENGE] Total players in game: ${players.length}, Total positions available: ${playerPositions.size}`);
-
     for (const player of players) {
       const position = playerPositions.get(player.user.id);
       if (!position) {
-        console.log(`[POSITION_CHALLENGE] Player ${player.user.name} (${player.user.id}) - No position data available`);
         continue;
       }
 
@@ -143,15 +139,12 @@ export class PositionChallengeService {
         controlPoint.longitude,
       );
 
-      console.log(`[POSITION_CHALLENGE] Player ${player.user.name} (${player.user.id}) - Distance: ${distance.toFixed(1)}m, Accuracy: ${position.accuracy}m, InRadius: ${isInRadius}, ValidAccuracy: ${hasValidAccuracy}`);
 
       if (isInRadius && hasValidAccuracy) {
-        console.log(`[POSITION_CHALLENGE] Player ${player.user.name} (${player.user.id}) - VALID for position challenge`);
         playersInControlPoint.push({ player, position });
       }
     }
 
-    console.log(`[POSITION_CHALLENGE] Control point ${controlPoint.name} - Total valid players: ${playersInControlPoint.length}`);
     return playersInControlPoint;
   }
 
@@ -170,11 +163,9 @@ export class PositionChallengeService {
     };
 
     if (playersInControlPoint.length === 0) {
-      console.log(`[POSITION_CHALLENGE] No players in control point ${controlPoint.name}, returning empty result`);
       return result;
     }
 
-    console.log(`[POSITION_CHALLENGE] Calculating points for control point ${controlPoint.name} (ID: ${controlPoint.id}) with ${playersInControlPoint.length} players`);
 
     // Calculate points: 20 points divided by number of players in the CP
     const pointsPerPlayer = 20 / playersInControlPoint.length;
@@ -199,8 +190,6 @@ export class PositionChallengeService {
     // Calculate total points (sum of all team points)
     result.totalPoints = Array.from(teamPoints.values()).reduce((sum, points) => sum + points, 0);
 
-    console.log(`[POSITION_CHALLENGE] Calculated ${result.totalPoints} total points for control point ${controlPoint.name}`);
-    console.log(`[POSITION_CHALLENGE] Team points:`, Object.fromEntries(teamPoints));
     return result;
   }
 
@@ -220,14 +209,11 @@ export class PositionChallengeService {
       relations: ['game'],
     });
 
-    console.log(`[POSITION_CHALLENGE] Found ${controlPoints.length} control points with position challenge enabled for game ${gameId}`);
 
     for (const controlPoint of controlPoints) {
-      console.log(`[POSITION_CHALLENGE] Processing control point: ${controlPoint.name} (ID: ${controlPoint.id})`);
       const playersInControlPoint = await this.getPlayersInControlPoint(controlPoint, playerPositions);
       
       if (playersInControlPoint.length > 0) {
-        console.log(`[POSITION_CHALLENGE] Control point ${controlPoint.name} has ${playersInControlPoint.length} valid players`);
         const result = this.calculatePointsForControlPoint(controlPoint, playersInControlPoint);
         results.push(result);
 
@@ -242,7 +228,6 @@ export class PositionChallengeService {
       }
     }
 
-    console.log(`[POSITION_CHALLENGE] Completed processing for game ${gameId} - ${results.length} control points with players`);
     return { results, teamPointsByControlPoint };
   }
 
@@ -250,11 +235,9 @@ export class PositionChallengeService {
    * Update player position for position challenge calculations
    */
   updatePlayerPosition(gameId: number, userId: number, lat: number, lng: number, accuracy: number): void {
-    console.log(`[POSITION_CHALLENGE] Updating position for player ${userId} in game ${gameId}: Lat=${lat}, Lng=${lng}, Accuracy=${accuracy}m`);
     
     if (!this.playerPositions.has(gameId)) {
       this.playerPositions.set(gameId, new Map<number, PlayerPosition>());
-      console.log(`[POSITION_CHALLENGE] Created new position map for game ${gameId}`);
     }
 
     const gamePositions = this.playerPositions.get(gameId)!;
@@ -266,7 +249,6 @@ export class PositionChallengeService {
       socketId: '', // Not needed for position challenge calculations
     });
 
-    console.log(`[POSITION_CHALLENGE] Position stored for player ${userId}. Total players in game ${gameId}: ${gamePositions.size}`);
   }
 
   /**
@@ -281,7 +263,6 @@ export class PositionChallengeService {
    * This should be called when the game starts and player positions are available
    */
   startPositionChallengeProcessing(gameId: number, playerPositions: Map<number, PlayerPosition>): void {
-    console.log(`[POSITION_CHALLENGE] Starting position challenge processing for game ${gameId} with ${playerPositions.size} initial player positions`);
     
     // Initialize player positions for this game
     if (!this.playerPositions.has(gameId)) {
@@ -294,7 +275,6 @@ export class PositionChallengeService {
       gamePositions.set(userId, position);
     });
 
-    console.log(`[POSITION_CHALLENGE] Game ${gameId} now has ${gamePositions.size} player positions stored`);
   }
 
   /**
@@ -303,7 +283,6 @@ export class PositionChallengeService {
   stopPositionChallengeProcessing(gameId: number): void {
     // Clear player positions for this game
     this.playerPositions.delete(gameId);
-    console.log(`[POSITION_CHALLENGE] Stopped position challenge processing for game ${gameId}`);
   }
 
   /**
@@ -313,25 +292,17 @@ export class PositionChallengeService {
   async processPositionChallengeForGame(gameId: number): Promise<void> {
     try {
       const currentPlayerPositions = this.getPlayerPositionsForGame(gameId);
-      console.log(`[POSITION_CHALLENGE] Processing position challenge for game ${gameId} - ${currentPlayerPositions.size} player positions`);
       
       if (currentPlayerPositions.size === 0) {
-        console.log(`[POSITION_CHALLENGE] No player positions available for game ${gameId}, skipping processing`);
         return;
       }
       
           const { results, teamPointsByControlPoint } = await this.processPositionChallengeWithAccumulation(gameId, currentPlayerPositions);
           
-          console.log(`[POSITION_CHALLENGE] Processing position challenge for game ${gameId} - Found ${results.length} control points with players`);
           
           // Create events for Timer Calculation Service
-          console.log(`[POSITION_CHALLENGE] Creating events for ${results.length} control points with players`);
           for (const result of results) {
             if (result.players.length > 0) {
-              console.log(`[POSITION_CHALLENGE] Control point ${result.controlPointName} (${result.controlPointId}) - ${result.players.length} players, total points: ${result.totalPoints}`);
-              for (const player of result.players) {
-                console.log(`[POSITION_CHALLENGE]   Player ${player.userName} (${player.team}): ${player.points.toFixed(1)} points`);
-              }
               await this.createPositionChallengeEvent(gameId, result);
             } else {
               console.log(`[POSITION_CHALLENGE] Control point ${result.controlPointName} has no players in result, skipping event creation`);
@@ -339,11 +310,8 @@ export class PositionChallengeService {
           }
 
           // Broadcast position challenge updates to frontend
-          console.log(`[POSITION_CHALLENGE] Broadcasting updates for ${teamPointsByControlPoint.size} control points`);
           for (const [controlPointId, teamPoints] of teamPointsByControlPoint.entries()) {
-            console.log(`[POSITION_CHALLENGE] Broadcasting update for control point ${controlPointId}:`, teamPoints);
             this.gamesGateway.broadcastPositionChallengeUpdate(gameId, controlPointId, teamPoints);
-            console.log(`[POSITION_CHALLENGE] Broadcast sent for control point ${controlPointId}`);
           }
         } catch (error) {
           console.error(`[POSITION_CHALLENGE] Error processing position challenge for game ${gameId}:`, error);
