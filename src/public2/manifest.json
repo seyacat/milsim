@@ -1,0 +1,39 @@
+{
+  "name": "Milsim - Military Simulation",
+  "short_name": "Milsim",
+  "description": "Military simulation game with real-time location tracking",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1a0d",
+  "theme_color": "#2d5a2d",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "es",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIiByeD0iMjQiIGZpbGw9IiMyZDVhMmQiLz4KPHBhdGggZD0iTTk2IDQ4QzY5LjQ5IDQ4IDQ4IDY5LjQ5IDQ4IDk2QzQ4IDEyMi41MSA2OS40OSAxNDQgOTYgMTQ0QzEyMi41MSAxNDQgMTQ0IDEyMi41MSAxNDQgOTZDMTQ0IDY5LjQ5IDEyMi41MSA0OCA5NiA0OFoiIGZpbGw9IiNlOGY1ZTgiLz4KPHBhdGggZD0iTTk2IDU2QzEwMy43MyA1NiAxMTEgNTguNzQgMTE3LjA3IDYzLjkyTDExNy4wNyA2My45MkMxMjMuMTQgNjkuMTEgMTI3LjUgNzYuMzcgMTI5LjQzIDg0LjUzTDEyOS40MyA4NC41M0MxMzEuMzUgOTIuNjkgMTMwLjcyIDEwMS4zMiAxMjcuNjMgMTA5LjA5TDEyNy42MyAxMDkuMDlDMTI0LjU0IDExNi44NiAxMTkuMTcgMTIzLjM2IDExMi4yMyAxMjcuNTlMMTEyLjIzIDEyNy41OUMxMDUuMjkgMTMxLjgyIDk3LjE0IDEzMy41IDg5LjA3IDEzMi4zOEw4OS4wNyAxMzIuMzhDODEgMTMxLjI2IDczLjQzIDEyNy4zMyA2Ny42NyAxMjEuMTdMNjcuNjcgMTIxLjE3QzYxLjkyIDExNS4wMSA1OC4zMiAxMDYuOTkgNTcuMzcgOTguNTlMNTcuMzcgOTguNTlDNTYuNDIgOTAuMTkgNTguMTcgODEuODQgNjIuMjcgNzQuNzVMNjIuMjcgNzQuNzVDNjYuMzcgNjcuNjYgNzIuNTkgNjIuMTcgODAuMDEgNTkuMTVMODAuMDEgNTkuMTVDODcuNDMgNTYuMTMgOTUuNjMgNTUuNzggMTAzLjIzIDU4LjEzTDEwMy4yMyA1OC4xM0MxMTAuODMgNjAuNDggMTE3LjQ0IDY1LjM5IDEyMi4wOSA3MS45OUwxMjIuMDkgNzEuOTlDMTI2Ljc0IDc4LjU5IDEyOS4xOSA4Ni41OCAxMjkuMDcgOTQuNzVMMTI5LjA3IDk0Ljc1QzEyOC45NSAxMDIuOTIgMTI2LjI3IDExMC44MiAxMjEuNDMgMTE3LjE4TDExNy4wNyA2My45MlpNNjcuNjcgMTIxLjE3TDY3LjY3IDEyMS4xN1oiIGZpbGw9IiMxYTNkMWEiLz4KPC9zdmc+Cg==",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgdmlld0JveD0iMCAwIDUxMiA1MTIiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iNjQiIGZpbGw9IiMyZDVhMmQiLz4KPHBhdGggZD0iTTI1NiAxMjhDMTg1LjMwNyAxMjggMTI4IDE4NS4zMDcgMTI4IDI1NkMxMjggMzI2LjY5MyAxODUuMzA3IDM4NCAyNTYgMzg0QzMyNi42OTMgMzg0IDM4NCAzMjYuNjkyIDM4NCAyNTZDMzg0IDE4NS4zMDcgMzI2LjY5MyAxMjggMjU2IDEyOFoiIGZpbGw9IiNlOGY1ZTgiLz4KPHBhdGggZD0iTTI1NiAxNDlDMzA5LjkyOSAxNDkgMzU1IDE5NC4wNzEgMzU1IDI0OEMzNTUgMzAxLjkyOSAzMDkuOTI5IDM0NyAyNTYgMzQ3QzIwMi4wNzEgMzQ3IDE1NyAzMDEuOTI5IDE1NyAyNDhDMTU3IDE5NC4wNzEgMjAyLjA3MSAxNDkgMjU2IDE0OVoiIGZpbGw9IiMxYTNkMWEiLz4KPC9zdmc+Cg==",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTI4MCIgaGVpZ2h0PSI3MjAiIHZpZXdCb3g9IjAgMCAxMjgwIDcyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjEyODAiIGhlaWdodD0iNzIwIiBmaWxsPSIjMGQxYTBkIi8+CjxyZWN0IHg9IjE2MCIgeT0iODAiIHdpZHRoPSI5NjAiIGhlaWdodD0iNTYwIiByeD0iMjQiIGZpbGw9IiMxNTIwMTUiLz4KPHJlY3QgeD0iMjQwIiB5PSIyMDAiIHdpZHRoPSI4MDAiIGhlaWdodD0iMzIwIiByeD0iMTYiIGZpbGw9IiMyZDVhMmQiLz4KPHJlY3QgeD0iMzIwIiB5PSIyODAiIHdpZHRoPSI0NDAiIGhlaWdodD0iMTYwIiByeD0iOCIgZmlsbD0iIzNkN2EzZCIvPgo8L3N2Zz4K",
+      "sizes": "1280x720",
+      "type": "image/svg+xml",
+      "form_factor": "wide"
+    },
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTA4MCIgaGVpZ2h0PSIxOTIwIiB2aWV3Qm94PSIwIDAgMTA4MCAxOTIwIiBmaWxsPSJub25lIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgo8cmVjdCB3aWR0aD0iMTA4MCIgaGVpZ2h0PSIxOTIwIiBmaWxsPSIjMGQxYTBkIi8+CjxyZWN0IHg9IjEwMCIgeT0iMTYwIiB3aWR0aD0iODgwIiBoZWlnaHQ9IjE2MDAiIHJ4PSIyNCIgZmlsbD0iIzE1MjAxNSIvPgo8cmVjdCB4PSIyMDAiIHk9IjQwMCIgd2lkdGg9IjY4MCIgaGVpZ2h0PSIxMTIwIiByeD0iMTYiIGZpbGw9IiMyZDVhMmQiLz4KPHJlY3QgeD0iMzAwIiB5PSI2MDAiIHdpZHRoPSI0ODAiIGhlaWdodD0iNzIwIiByeD0iOCIgZmlsbD0iIzNkN2EzZCIvPgo8L3N2Zz4K",
+      "sizes": "1080x1920",
+      "type": "image/svg+xml",
+      "form_factor": "narrow"
+    }
+  ]
+}
