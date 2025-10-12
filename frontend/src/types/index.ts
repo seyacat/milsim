@@ -46,6 +46,7 @@ export interface ControlPoint {
   ownedByTeam?: TeamColor;
   hasBombChallenge: boolean;
   hasPositionChallenge: boolean;
+  hasCodeChallenge: boolean;
   bombTimer?: BombTimer;
   currentTeam?: TeamColor;
   currentHoldTime?: number;

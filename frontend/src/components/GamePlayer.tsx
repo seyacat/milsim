@@ -23,6 +23,7 @@ const GamePlayer: React.FC = () => {
     userMarkerRef,
     playerMarkersRef,
     controlPointMarkersRef,
+    socket,
     goBack,
     reloadPage,
     centerOnUser,
@@ -58,6 +59,7 @@ const GamePlayer: React.FC = () => {
           controlPointMarkersRef={controlPointMarkersRef}
           gpsStatus={gpsStatus}
           currentPosition={currentPosition}
+          socket={socket}
         />
         
         <GameOverlay
@@ -65,6 +67,7 @@ const GamePlayer: React.FC = () => {
           currentGame={currentGame}
           isOwner={false}
           goBack={goBack}
+          socket={socket}
         />
         
         <LocationInfo

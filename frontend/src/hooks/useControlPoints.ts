@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { ControlPoint, Game } from '../types';
 import * as L from 'leaflet';
@@ -154,6 +155,24 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     }
   }, [socket, game, showToast]);
 
+  // Assign team to control point
+  const assignControlPointTeam = useCallback((controlPointId: number, team: string) => {
+    if (!socket || !game) return;
+
+    socket.emit('gameAction', {
+      gameId: game.id,
+      action: 'assignControlPointTeam',
+      data: {
+        controlPointId: controlPointId,
+        team: team
+      }
+    });
+
+    if (showToast) {
+      showToast(`Equipo asignado: ${team}`, 'success');
+    }
+  }, [socket, game, showToast]);
+
   // Make functions available globally for popup buttons
   useEffect(() => {
     (window as any).enableDragMode = enableDragMode;
@@ -167,7 +186,11 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     };
     (window as any).activateBombAsOwner = activateBombAsOwner;
     (window as any).deactivateBombAsOwner = deactivateBombAsOwner;
-  }, [enableDragMode, activateBombAsOwner, deactivateBombAsOwner]);
+    (window as any).assignControlPointTeam = assignControlPointTeam;
+    (window as any).togglePositionInputs = togglePositionInputs;
+    (window as any).toggleCodeInputs = toggleCodeInputs;
+    (window as any).toggleBombInputs = toggleBombInputs;
+  }, [enableDragMode, activateBombAsOwner, deactivateBombAsOwner, assignControlPointTeam]);
 
   // Listen for WebSocket events related to challenges
   useEffect(() => {
@@ -295,7 +318,12 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     controlPointMarkers: controlPointMarkers.current,
     positionCircles: positionCircles.current,
     pieCharts: pieCharts.current,
-    enableDragMode
+    enableDragMode,
+    updatePositionChallengeBars,
+    handleBombTimeUpdate,
+    activateBombAsOwner,
+    deactivateBombAsOwner,
+    assignControlPointTeam
   };
 };
 
@@ -463,6 +491,28 @@ const createPositionCircle = (controlPoint: ControlPoint, map: L.Map): L.Circle 
   return circle;
 };
 
+// Toggle functions for challenge inputs
+const togglePositionInputs = (controlPointId: number) => {
+  const positionInputs = document.getElementById(`position_inputs_${controlPointId}`);
+  if (positionInputs) {
+    positionInputs.style.display = positionInputs.style.display === 'none' ? 'block' : 'none';
+  }
+};
+
+const toggleCodeInputs = (controlPointId: number) => {
+  const codeInputs = document.getElementById(`code_inputs_${controlPointId}`);
+  if (codeInputs) {
+    codeInputs.style.display = codeInputs.style.display === 'none' ? 'block' : 'none';
+  }
+};
+
+const toggleBombInputs = (controlPointId: number) => {
+  const bombInputs = document.getElementById(`bomb_inputs_${controlPointId}`);
+  if (bombInputs) {
+    bombInputs.style.display = bombInputs.style.display === 'none' ? 'block' : 'none';
+  }
+};
+
 // Create owner popup content
 const createOwnerPopupContent = (controlPoint: ControlPoint, marker: L.Marker): HTMLElement => {
   const popup = document.createElement('div');
@@ -506,10 +556,98 @@ const createOwnerPopupContent = (controlPoint: ControlPoint, marker: L.Marker): 
         <input type="text" id="controlPointEditName_${controlPoint.id}" value="${controlPoint.name}" class="form-input">
       </div>
       
-      <div class="action-buttons">
-        <button onclick="window.enableDragMode(${controlPoint.id}, ${(marker as any)._leaflet_id})" class="btn btn-move" title="Mover punto" style="background: rgba(33, 150, 243, 0.2); border: 1px solid #2196F3; color: #2196F3;">🧭</button>
-        <button onclick="window.updateControlPoint(${controlPoint.id}, ${(marker as any)._leaflet_id})" class="btn btn-primary">Actualizar</button>
-        <button onclick="window.deleteControlPoint(${controlPoint.id}, ${(marker as any)._leaflet_id})" class="btn btn-danger">Eliminar</button>
+      <!-- Team Assignment -->
+      <div class="form-group">
+        <label class="form-label">Asignar Equipo:</label>
+        <div class="team-buttons" style="display: flex; gap: 5px; margin-top: 5px;">
+          <button onclick="window.assignControlPointTeam(${controlPoint.id}, 'blue')" class="btn btn-blue" style="background: #2196F3; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px;">Azul</button>
+          <button onclick="window.assignControlPointTeam(${controlPoint.id}, 'red')" class="btn btn-red" style="background: #F44336; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px;">Rojo</button>
+          <button onclick="window.assignControlPointTeam(${controlPoint.id}, 'green')" class="btn btn-green" style="background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px;">Verde</button>
+          <button onclick="window.assignControlPointTeam(${controlPoint.id}, 'yellow')" class="btn btn-yellow" style="background: #FFEB3B; color: black; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px;">Amarillo</button>
+        </div>
+      </div>
+      
+      <!-- Challenges Section -->
+      <div class="challenges-section" style="margin-top: 15px; border-top: 1px solid #ddd; padding-top: 10px;">
+        <h5 style="margin: 0 0 10px 0; font-size: 14px; color: #333;">Desafíos</h5>
+        
+        <!-- Position Challenge -->
+        <div class="challenge-item" style="margin-bottom: 10px;">
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" id="position_challenge_${controlPoint.id}" ${controlPoint.hasPositionChallenge ? 'checked' : ''}
+                   onchange="window.togglePositionInputs(${controlPoint.id})" style="margin-right: 8px;">
+            <span style="font-size: 13px;">Desafío de Posición</span>
+          </label>
+          <div id="position_inputs_${controlPoint.id}" style="margin-top: 5px; margin-left: 20px; display: ${controlPoint.hasPositionChallenge ? 'block' : 'none'}">
+            <div style="display: flex; gap: 5px; align-items: center;">
+              <label style="font-size: 12px; min-width: 80px;">Distancia mínima:</label>
+              <input type="number" id="min_distance_${controlPoint.id}" value="${controlPoint.minDistance || 50}"
+                     class="form-input" style="width: 80px; font-size: 12px; padding: 2px 5px;" min="1" max="1000">
+              <span style="font-size: 12px;">metros</span>
+            </div>
+            <div style="display: flex; gap: 5px; align-items: center; margin-top: 5px;">
+              <label style="font-size: 12px; min-width: 80px;">Precisión mínima:</label>
+              <input type="number" id="min_accuracy_${controlPoint.id}" value="${controlPoint.minAccuracy || 10}"
+                     class="form-input" style="width: 80px; font-size: 12px; padding: 2px 5px;" min="1" max="100">
+              <span style="font-size: 12px;">metros</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Code Challenge -->
+        <div class="challenge-item" style="margin-bottom: 10px;">
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" id="code_challenge_${controlPoint.id}" ${controlPoint.hasCodeChallenge ? 'checked' : ''}
+                   onchange="window.toggleCodeInputs(${controlPoint.id})" style="margin-right: 8px;">
+            <span style="font-size: 13px;">Desafío de Código</span>
+          </label>
+          <div id="code_inputs_${controlPoint.id}" style="margin-top: 5px; margin-left: 20px; display: ${controlPoint.hasCodeChallenge ? 'block' : 'none'}">
+            <div style="display: flex; gap: 5px; align-items: center;">
+              <label style="font-size: 12px; min-width: 80px;">Código:</label>
+              <input type="text" id="code_${controlPoint.id}" value="${controlPoint.code || ''}"
+                     class="form-input" style="width: 120px; font-size: 12px; padding: 2px 5px;" placeholder="Ej: 1234">
+            </div>
+          </div>
+        </div>
+        
+        <!-- Bomb Challenge -->
+        <div class="challenge-item" style="margin-bottom: 10px;">
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" id="bomb_challenge_${controlPoint.id}" ${controlPoint.hasBombChallenge ? 'checked' : ''}
+                   onchange="window.toggleBombInputs(${controlPoint.id})" style="margin-right: 8px;">
+            <span style="font-size: 13px;">Desafío de Bomba</span>
+          </label>
+          <div id="bomb_inputs_${controlPoint.id}" style="margin-top: 5px; margin-left: 20px; display: ${controlPoint.hasBombChallenge ? 'block' : 'none'}">
+            <div style="display: flex; gap: 5px; align-items: center;">
+              <label style="font-size: 12px; min-width: 80px;">Tiempo:</label>
+              <input type="number" id="bomb_time_${controlPoint.id}" value="${controlPoint.bombTime || 300}"
+                     class="form-input" style="width: 80px; font-size: 12px; padding: 2px 5px;" min="30" max="3600">
+              <span style="font-size: 12px;">segundos</span>
+            </div>
+            <div style="display: flex; gap: 5px; align-items: center; margin-top: 5px;">
+              <label style="font-size: 12px; min-width: 80px;">Código armar:</label>
+              <input type="text" id="armed_code_${controlPoint.id}" value="${controlPoint.armedCode || ''}"
+                     class="form-input" style="width: 120px; font-size: 12px; padding: 2px 5px;" placeholder="Código para armar">
+            </div>
+            <div style="display: flex; gap: 5px; align-items: center; margin-top: 5px;">
+              <label style="font-size: 12px; min-width: 80px;">Código desarmar:</label>
+              <input type="text" id="disarmed_code_${controlPoint.id}" value="${controlPoint.disarmedCode || ''}"
+                     class="form-input" style="width: 120px; font-size: 12px; padding: 2px 5px;" placeholder="Código para desarmar">
+            </div>
+            ${controlPoint.hasBombChallenge ? `
+              <div style="margin-top: 10px; display: flex; gap: 5px;">
+                <button onclick="window.activateBombAsOwner(${controlPoint.id})" class="btn btn-danger" style="background: #F44336; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px;">Activar Bomba</button>
+                <button onclick="window.deactivateBombAsOwner(${controlPoint.id})" class="btn btn-success" style="background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px;">Desactivar</button>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+      
+      <div class="action-buttons" style="margin-top: 15px; display: flex; gap: 5px; justify-content: space-between;">
+        <button onclick="window.enableDragMode(${controlPoint.id}, ${(marker as any)._leaflet_id})" class="btn btn-move" title="Mover punto" style="background: rgba(33, 150, 243, 0.2); border: 1px solid #2196F3; color: #2196F3; padding: 8px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">🧭 Mover</button>
+        <button onclick="window.updateControlPoint(${controlPoint.id}, ${(marker as any)._leaflet_id})" class="btn btn-primary" style="background: #2196F3; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">Actualizar</button>
+        <button onclick="window.deleteControlPoint(${controlPoint.id}, ${(marker as any)._leaflet_id})" class="btn btn-danger" style="background: #F44336; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;">Eliminar</button>
       </div>
     </div>
   `;

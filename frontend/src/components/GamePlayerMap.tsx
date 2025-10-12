@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react'
 import { User, Game } from '../types'
+import { useControlPointTimers } from '../hooks/useControlPointTimers'
+import { useBombTimers } from '../hooks/useBombTimers'
 
 interface GamePlayerMapProps {
   currentUser: User
@@ -11,6 +13,7 @@ interface GamePlayerMapProps {
   controlPointMarkersRef: React.MutableRefObject<any>
   gpsStatus: string
   currentPosition: { lat: number; lng: number; accuracy: number } | null
+  socket: any
 }
 
 const GamePlayerMap: React.FC<GamePlayerMapProps> = ({
@@ -22,8 +25,15 @@ const GamePlayerMap: React.FC<GamePlayerMapProps> = ({
   playerMarkersRef,
   controlPointMarkersRef,
   gpsStatus,
-  currentPosition
+  currentPosition,
+  socket
 }) => {
+  // Initialize control point timers
+  const { updateControlPointTimerDisplay, updateAllTimerDisplays } = useControlPointTimers(currentGame, socket)
+  
+  // Initialize bomb timers
+  const { updateBombTimerDisplay, updateAllBombTimerDisplays } = useBombTimers(currentGame, socket)
+
   useEffect(() => {
     // Initialize map when component mounts
     const initializeMap = async () => {
@@ -110,6 +120,18 @@ const GamePlayerMap: React.FC<GamePlayerMapProps> = ({
         html: `
           <div class="control-point-icon">
             <div class="control-point-label">${controlPoint.name}</div>
+            <!-- Timer display above marker (dynamically shown/hidden based on ownership) -->
+            <div class="control-point-timer"
+                 id="timer_${controlPoint.id}"
+                 style="display: none; position: absolute; top: -25px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-family: monospace; white-space: nowrap;">
+              00:00
+            </div>
+            <!-- Bomb timer display below marker (dynamically shown/hidden based on bomb status) -->
+            <div class="bomb-timer"
+                 id="bomb_timer_${controlPoint.id}"
+                 style="display: none; position: absolute; bottom: -25px; left: 50%; transform: translateX(-50%); background: rgba(255,0,0,0.8); color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-family: monospace; white-space: nowrap;">
+              00:00
+            </div>
             ${controlPoint.hasPositionChallenge ? '<div class="position-challenge-indicator">P</div>' : ''}
             ${controlPoint.hasBombChallenge ? '<div class="bomb-challenge-indicator">B</div>' : ''}
           </div>
@@ -126,6 +148,12 @@ const GamePlayerMap: React.FC<GamePlayerMapProps> = ({
 
     // Store marker reference
     controlPointMarkersRef.current[controlPoint.id] = marker
+
+    // Update timer display for this control point
+    updateControlPointTimerDisplay(controlPoint.id)
+    
+    // Update bomb timer display for this control point
+    updateBombTimerDisplay(controlPoint.id)
   }
 
   const createPlayerControlPointPopup = (controlPoint: any) => {

@@ -16,6 +16,7 @@ interface UseGamePlayerReturn {
   userMarkerRef: React.MutableRefObject<any>
   playerMarkersRef: React.MutableRefObject<any>
   controlPointMarkersRef: React.MutableRefObject<any>
+  socket: Socket | null
   goBack: () => void
   reloadPage: () => void
   centerOnUser: () => void
@@ -176,7 +177,7 @@ export const useGamePlayer = (
     if (mapInstanceRef.current && currentGame) {
       const siteControlPoint = currentGame.controlPoints.find(cp => cp.type === 'site')
       if (siteControlPoint) {
-        mapInstanceRef.current.setView([siteControlPoint.lat, siteControlPoint.lng], 16)
+        mapInstanceRef.current.setView([siteControlPoint.latitude, siteControlPoint.longitude], 16)
       }
     }
   }, [currentGame])
@@ -192,6 +193,7 @@ export const useGamePlayer = (
     userMarkerRef,
     playerMarkersRef,
     controlPointMarkersRef,
+    socket: socketRef.current,
     goBack,
     reloadPage,
     centerOnUser,

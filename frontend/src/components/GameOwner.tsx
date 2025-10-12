@@ -33,6 +33,7 @@ const GameOwner: React.FC = () => {
     userMarkerRef,
     playerMarkersRef,
     controlPointMarkersRef,
+    socket,
     startGame,
     pauseGame,
     resumeGame,
@@ -86,11 +87,12 @@ const GameOwner: React.FC = () => {
       />
 
       {/* Game Overlay */}
-      <GameOverlay 
+      <GameOverlay
         currentGame={currentGame}
         currentUser={currentUser}
         gpsStatus={gpsStatus}
         enableGameNameEdit={enableGameNameEdit}
+        socket={socket}
       />
 
       {/* Location Info */}

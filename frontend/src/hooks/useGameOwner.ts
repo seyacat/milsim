@@ -17,6 +17,7 @@ interface UseGameOwnerReturn {
   userMarkerRef: React.MutableRefObject<any>
   playerMarkersRef: React.MutableRefObject<any>
   controlPointMarkersRef: React.MutableRefObject<any>
+  socket: Socket | null
   startGame: () => void
   pauseGame: () => void
   resumeGame: () => void
@@ -530,6 +531,7 @@ export const useGameOwner = (
     userMarkerRef,
     playerMarkersRef,
     controlPointMarkersRef,
+    socket: socketRef.current,
     startGame,
     pauseGame,
     resumeGame,
