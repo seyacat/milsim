@@ -669,6 +669,14 @@ export class PositionChallengeService {
           });
 
           console.log(`[POSITION_CHALLENGE] Control point taken event broadcasted for control point ${controlPointId}`);
+
+          // Also broadcast a controlPointUpdated event to ensure the control point markers are refreshed
+          // This ensures the marker colors update immediately
+          this.gamesGateway.server.to(`game_${gameId}`).emit('gameAction', {
+            action: 'controlPointUpdated',
+            data: safeControlPoint,
+            from: 'system',
+          });
         }
 
         // Create control change event using control_point_taken (same as code challenge)

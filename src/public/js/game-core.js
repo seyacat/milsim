@@ -1407,6 +1407,24 @@ function handleGameAction(data) {
                 // Close control point popup for successful action
                 closeControlPointPopup(data.data.controlPointId);
             }
+            
+            // Update the control point data in currentGame to reflect ownership change
+            if (currentGame && currentGame.controlPoints && data.data.controlPoint) {
+                const controlPointIndex = currentGame.controlPoints.findIndex(cp => cp.id === data.data.controlPointId);
+                if (controlPointIndex !== -1) {
+                    // Update the control point with the new ownership data
+                    currentGame.controlPoints[controlPointIndex] = data.data.controlPoint;
+                }
+            }
+            
+            // Always refresh control point markers for ownership changes
+            // This ensures visual updates when control points are taken via position challenge
+            const userIsOwnerForControlPointTaken = currentGame.owner && currentGame.owner.id === currentUser.id;
+            if (userIsOwnerForControlPointTaken && window.refreshOwnerControlPointMarkers && currentGame.controlPoints) {
+                window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
+            } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
+                window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
+            }
             break;
         case 'playerTeamUpdated':
             handlePlayerTeamUpdate(data.data);
