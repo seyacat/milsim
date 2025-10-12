@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import { User, Game } from '../types'
-import { useControlPointTimers } from '../hooks/useControlPointTimers'
+import { useControlPointTimers, ControlPointTimeData } from '../hooks/useControlPointTimers'
 import { useBombTimers } from '../hooks/useBombTimers'
 
 interface GamePlayerMapProps {
@@ -14,6 +14,7 @@ interface GamePlayerMapProps {
   gpsStatus: string
   currentPosition: { lat: number; lng: number; accuracy: number } | null
   socket: any
+  controlPointTimes: ControlPointTimeData[]
 }
 
 const GamePlayerMap: React.FC<GamePlayerMapProps> = ({
@@ -26,13 +27,31 @@ const GamePlayerMap: React.FC<GamePlayerMapProps> = ({
   controlPointMarkersRef,
   gpsStatus,
   currentPosition,
-  socket
+  socket,
+  controlPointTimes
 }) => {
+  // Log the control point times received as props
+  useEffect(() => {
+    console.log('[GAME_PLAYER_MAP] Received controlPointTimes as props:', {
+      hasData: !!controlPointTimes,
+      length: controlPointTimes?.length || 0,
+      data: controlPointTimes
+    });
+  }, [controlPointTimes]);
+
   // Initialize control point timers
-  const { updateControlPointTimerDisplay, updateAllTimerDisplays } = useControlPointTimers(currentGame, socket)
+  const { controlPointTimes: timerData, updateControlPointTimerDisplay, updateAllTimerDisplays } = useControlPointTimers(currentGame, socket, controlPointTimes)
   
   // Initialize bomb timers
   const { updateBombTimerDisplay, updateAllBombTimerDisplays } = useBombTimers(currentGame, socket)
+
+  // Update all timer displays when control point times change
+  useEffect(() => {
+    if (currentGame && currentGame.controlPoints) {
+      console.log('[GAME_PLAYER_MAP] Updating all timer displays with timer data:', timerData);
+      updateAllTimerDisplays();
+    }
+  }, [timerData, currentGame, updateAllTimerDisplays]);
 
   useEffect(() => {
     // Initialize map when component mounts
@@ -150,6 +169,7 @@ const GamePlayerMap: React.FC<GamePlayerMapProps> = ({
     controlPointMarkersRef.current[controlPoint.id] = marker
 
     // Update timer display for this control point
+    console.log(`[GAME_PLAYER_MAP] Created control point marker for ID ${controlPoint.id}, updating timer display`);
     updateControlPointTimerDisplay(controlPoint.id)
     
     // Update bomb timer display for this control point

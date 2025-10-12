@@ -4,6 +4,7 @@ import { AuthService } from '../services/auth'
 import { GameService } from '../services/game'
 import { User, Game, ControlPoint, Toast } from '../types'
 import { io, Socket } from 'socket.io-client'
+import { useGameTime, ControlPointTimeData } from './useGameTime'
 
 interface UseGamePlayerReturn {
   currentUser: User | null
@@ -21,6 +22,7 @@ interface UseGamePlayerReturn {
   reloadPage: () => void
   centerOnUser: () => void
   centerOnSite: () => void
+  controlPointTimes: ControlPointTimeData[]
 }
 
 export const useGamePlayer = (
@@ -41,6 +43,19 @@ export const useGamePlayer = (
   const controlPointMarkersRef = useRef<any>(null)
   const watchIdRef = useRef<number | null>(null)
   const socketRef = useRef<Socket | null>(null)
+
+  // Use game time hook to get control point times
+  const { controlPointTimes } = useGameTime(currentGame, socketRef.current)
+
+  // Log control point times for debugging
+  useEffect(() => {
+    if (controlPointTimes && controlPointTimes.length > 0) {
+      console.log('[GAME_PLAYER] Control point times from useGameTime:', {
+        count: controlPointTimes.length,
+        data: controlPointTimes
+      });
+    }
+  }, [controlPointTimes]);
 
   // Memoize functions to prevent re-renders
   const memoizedAddToast = useCallback(addToast, [addToast])
@@ -197,6 +212,7 @@ export const useGamePlayer = (
     goBack,
     reloadPage,
     centerOnUser,
-    centerOnSite
+    centerOnSite,
+    controlPointTimes
   }
 }

@@ -27,7 +27,8 @@ const GamePlayer: React.FC = () => {
     goBack,
     reloadPage,
     centerOnUser,
-    centerOnSite
+    centerOnSite,
+    controlPointTimes
   } = useGamePlayer(gameId, navigate, addToast)
 
   if (isLoading) {
@@ -60,6 +61,7 @@ const GamePlayer: React.FC = () => {
           gpsStatus={gpsStatus}
           currentPosition={currentPosition}
           socket={socket}
+          controlPointTimes={controlPointTimes}
         />
         
         <GameOverlay

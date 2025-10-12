@@ -442,15 +442,17 @@ export class TimerManagementService {
             displayTime: this.timerCalculationService.formatTime(timer.currentHoldTime),
           });
         } else {
-          const initialState = await this.getInitialControlPointState(
+          // Always calculate current hold time from game history, even if no timer is active
+          const currentHoldTime = await this.calculateAccumulatedHoldTime(
             controlPoint.id,
             game.instanceId,
           );
+          
           controlPointTimes.push({
             controlPointId: controlPoint.id,
-            currentHoldTime: initialState.currentHoldTime,
-            currentTeam: initialState.currentTeam,
-            displayTime: this.timerCalculationService.formatTime(initialState.currentHoldTime),
+            currentHoldTime: currentHoldTime,
+            currentTeam: controlPoint.ownedByTeam,
+            displayTime: this.timerCalculationService.formatTime(currentHoldTime),
           });
         }
       }

@@ -17,6 +17,28 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
   const positionCircles = useRef<Map<number, L.Circle>>(new Map());
   const pieCharts = useRef<Map<number, L.SVGOverlay>>(new Map());
 
+  // Function to update all control point timer displays
+  const updateAllControlPointTimers = useCallback(() => {
+    if (!game?.controlPoints) return;
+    
+    console.log('[USE_CONTROL_POINTS] Updating all control point timers for', game.controlPoints.length, 'points');
+    
+    game.controlPoints.forEach(controlPoint => {
+      const timerElement = document.getElementById(`timer_${controlPoint.id}`);
+      if (timerElement) {
+        // Show timer only if control point is owned by a team and game is running
+        const shouldShow = game.status === 'running' && controlPoint.ownedByTeam !== null;
+        
+        if (shouldShow) {
+          timerElement.style.display = 'block';
+          // The actual time value will be updated by useControlPointTimers hook
+        } else {
+          timerElement.style.display = 'none';
+        }
+      }
+    });
+  }, [game?.controlPoints, game?.status]);
+
   // Enable drag mode for control points
   const enableDragMode = useCallback((controlPointId: number, markerId: number) => {
     if (!map) return;
@@ -261,7 +283,8 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
   // Update control points when they change
   useEffect(() => {
     renderControlPoints();
-  }, [renderControlPoints]);
+    updateAllControlPointTimers();
+  }, [renderControlPoints, updateAllControlPointTimers]);
 
   // Handle WebSocket events for control points
   useEffect(() => {
@@ -323,7 +346,8 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     handleBombTimeUpdate,
     activateBombAsOwner,
     deactivateBombAsOwner,
-    assignControlPointTeam
+    assignControlPointTeam,
+    updateAllControlPointTimers
   };
 };
 

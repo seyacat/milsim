@@ -5,6 +5,8 @@ import { GameService } from '../services/game'
 import { User, Game, ControlPoint, Toast } from '../types'
 import { io, Socket } from 'socket.io-client'
 import { useControlPoints } from './useControlPoints'
+import { useGameTime, ControlPointTimeData } from './useGameTime'
+import { useControlPointTimers } from './useControlPointTimers'
 
 interface UseGameOwnerReturn {
   currentUser: User | null
@@ -36,7 +38,8 @@ interface UseGameOwnerReturn {
   controlPointMarkers: Map<number, L.Marker>
   positionCircles: Map<number, L.Circle>
   pieCharts: Map<number, L.SVGOverlay>
-  enableDragMode: (controlPointId: number, markerId: number) => void
+  enableDragMode: (controlPointId: number, markerId: number) => void;
+  controlPointTimes: ControlPointTimeData[];
 }
 
 export const useGameOwner = (
@@ -67,14 +70,29 @@ export const useGameOwner = (
     memoizedAddToast({ message, type: type as any });
   }, [memoizedAddToast]);
 
+  // Use game time hook to get control point times
+  const { controlPointTimes } = useGameTime(currentGame, socketRef.current)
+
+  // Use control point timers hook
+  const { updateAllTimerDisplays } = useControlPointTimers(currentGame, socketRef.current, controlPointTimes)
+
   // Use control points hook
-  const { controlPointMarkers, positionCircles, pieCharts, enableDragMode } = useControlPoints({
+  const { controlPointMarkers, positionCircles, pieCharts, enableDragMode, updateAllControlPointTimers } = useControlPoints({
     game: currentGame,
     map: mapInstanceRef.current,
     isOwner: true,
     socket: socketRef.current,
     showToast: showToastWrapper
   })
+
+  // Update control point timers when control point times change
+  useEffect(() => {
+    if (controlPointTimes && controlPointTimes.length > 0) {
+      console.log('[USE_GAME_OWNER] Control point times updated, updating timers:', controlPointTimes.length);
+      updateAllControlPointTimers();
+      updateAllTimerDisplays();
+    }
+  }, [controlPointTimes, updateAllControlPointTimers, updateAllTimerDisplays]);
 
   useEffect(() => {
     let isMounted = true
@@ -550,6 +568,7 @@ export const useGameOwner = (
     controlPointMarkers,
     positionCircles,
     pieCharts,
-    enableDragMode
+    enableDragMode,
+    controlPointTimes
   }
 }

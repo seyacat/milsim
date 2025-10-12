@@ -14,44 +14,53 @@ export interface UseControlPointTimersReturn {
   updateAllTimerDisplays: () => void;
 }
 
-export const useControlPointTimers = (currentGame: Game | null, socket: Socket | null): UseControlPointTimersReturn => {
+export const useControlPointTimers = (
+  currentGame: Game | null,
+  socket: Socket | null,
+  controlPointTimesFromGameTime: ControlPointTimeData[]
+): UseControlPointTimersReturn => {
+  console.log('[CONTROL_POINT_TIMER] Hook initialized with:', {
+    hasCurrentGame: !!currentGame,
+    hasSocket: !!socket,
+    controlPointTimesFromGameTimeLength: controlPointTimesFromGameTime?.length || 0
+  });
+
   const [controlPointTimes, setControlPointTimes] = useState<Record<number, ControlPointTimeData>>({});
   const localTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Handle control point time updates from server
-  const handleControlPointTimeUpdate = (data: ControlPointTimeData) => {
-    console.log('[CONTROL_POINT_TIMER] WebSocket: Received controlPointTimeUpdate for CP:', data.controlPointId, 'hold time:', data.currentHoldTime, 'team:', data.currentTeam);
-    
-    setControlPointTimes(prev => ({
-      ...prev,
-      [data.controlPointId]: data
-    }));
-
-    // Update timer display immediately
-    updateControlPointTimerDisplay(data.controlPointId);
-  };
-
-  // Handle initial control point times data
-  const handleControlPointTimes = (data: ControlPointTimeData[]) => {
-    console.log('[CONTROL_POINT_TIMER] WebSocket: Received controlPointTimes for', data.length, 'control points');
-    
-    const timesMap: Record<number, ControlPointTimeData> = {};
-    data.forEach(cpTime => {
-      timesMap[cpTime.controlPointId] = cpTime;
-      console.log('[CONTROL_POINT_TIMER] WebSocket: CP', cpTime.controlPointId, 'hold time:', cpTime.currentHoldTime, 'team:', cpTime.currentTeam);
+  // Update control point times when they come from useGameTime
+  useEffect(() => {
+    console.log('[CONTROL_POINT_TIMER] useEffect triggered with controlPointTimesFromGameTime:', {
+      hasData: !!controlPointTimesFromGameTime,
+      length: controlPointTimesFromGameTime?.length || 0,
+      currentGameStatus: currentGame?.status
     });
-    
-    setControlPointTimes(timesMap);
 
-    // Update all timer displays immediately
-    updateAllTimerDisplays();
+    if (controlPointTimesFromGameTime && controlPointTimesFromGameTime.length > 0) {
+      console.log('[CONTROL_POINT_TIMER] Received control point times from game time hook:', {
+        count: controlPointTimesFromGameTime.length,
+        data: controlPointTimesFromGameTime
+      });
 
-    // Start local timer interval if game is running
-    if (currentGame?.status === 'running' && !localTimerRef.current) {
-      console.log('[CONTROL_POINT_TIMER] Starting local timer interval');
-      startControlPointTimerInterval();
+      const timesMap: Record<number, ControlPointTimeData> = {};
+      controlPointTimesFromGameTime.forEach(cpTime => {
+        timesMap[cpTime.controlPointId] = cpTime;
+      });
+      
+      setControlPointTimes(timesMap);
+
+      // Update all timer displays immediately
+      updateAllTimerDisplays();
+
+      // Start local timer interval if game is running
+      if (currentGame?.status === 'running' && !localTimerRef.current) {
+        console.log('[CONTROL_POINT_TIMER] Starting local timer interval');
+        startControlPointTimerInterval();
+      }
+    } else {
+      console.log('[CONTROL_POINT_TIMER] No control point times received from game time hook');
     }
-  };
+  }, [controlPointTimesFromGameTime, currentGame?.status]);
 
   // Update timer display for a specific control point
   const updateControlPointTimerDisplay = (controlPointId: number) => {
@@ -59,12 +68,12 @@ export const useControlPointTimers = (currentGame: Game | null, socket: Socket |
     const timeData = controlPointTimes[controlPointId];
     
     if (!timerElement) {
-      console.log('[CONTROL_POINT_TIMER] Timer element not found for CP:', controlPointId);
+      console.log(`[CONTROL_POINT_TIMER] Timer element not found for control point ${controlPointId}`);
       return;
     }
     
     if (!timeData) {
-      console.log('[CONTROL_POINT_TIMER] No time data for CP:', controlPointId);
+      console.log(`[CONTROL_POINT_TIMER] No time data for control point ${controlPointId}`);
       timerElement.style.display = 'none';
       return;
     }
@@ -72,19 +81,18 @@ export const useControlPointTimers = (currentGame: Game | null, socket: Socket |
     // Show timer only if game is running and control point is owned
     const shouldShow = currentGame?.status === 'running' && timeData.currentTeam !== null;
     
-    console.log('[CONTROL_POINT_TIMER] Updating display for CP:', controlPointId, 'shouldShow:', shouldShow, 'holdTime:', timeData.currentHoldTime, 'team:', timeData.currentTeam);
-    
     if (shouldShow) {
       // Format time as MM:SS
       const minutes = Math.floor(timeData.currentHoldTime / 60);
       const seconds = timeData.currentHoldTime % 60;
       const timeText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
       
-      console.log('[CONTROL_POINT_TIMER] Setting timer text for CP:', controlPointId, 'to:', timeText);
+      console.log(`[CONTROL_POINT_TIMER] Updating timer for control point ${controlPointId}: ${timeText} (team: ${timeData.currentTeam})`);
+      
       timerElement.textContent = timeText;
       timerElement.style.display = 'block';
     } else {
-      console.log('[CONTROL_POINT_TIMER] Hiding timer for CP:', controlPointId);
+      console.log(`[CONTROL_POINT_TIMER] Hiding timer for control point ${controlPointId} (game running: ${currentGame?.status === 'running'}, team: ${timeData.currentTeam})`);
       timerElement.style.display = 'none';
     }
   };
@@ -92,6 +100,8 @@ export const useControlPointTimers = (currentGame: Game | null, socket: Socket |
   // Update all timer displays
   const updateAllTimerDisplays = () => {
     if (!currentGame?.controlPoints) return;
+    
+    console.log('[CONTROL_POINT_TIMER] Updating all timer displays for control points:', currentGame.controlPoints.length);
     
     currentGame.controlPoints.forEach(controlPoint => {
       updateControlPointTimerDisplay(controlPoint.id);
@@ -104,13 +114,11 @@ export const useControlPointTimers = (currentGame: Game | null, socket: Socket |
       clearInterval(localTimerRef.current);
     }
 
-    console.log('[CONTROL_POINT_TIMER] Starting local timer interval');
     localTimerRef.current = setInterval(() => {
       if (currentGame?.status === 'running') {
         // Increment all active control point timers by 1 second
         setControlPointTimes(prev => {
           const updated: Record<number, ControlPointTimeData> = {};
-          let hasActiveTimers = false;
           
           Object.entries(prev).forEach(([controlPointId, timeData]) => {
             // Only increment timers for control points that are owned
@@ -120,14 +128,11 @@ export const useControlPointTimers = (currentGame: Game | null, socket: Socket |
                 ...timeData,
                 currentHoldTime: newHoldTime
               };
-              hasActiveTimers = true;
-              console.log('[CONTROL_POINT_TIMER] Local timer tick - CP:', controlPointId, 'new hold time:', newHoldTime);
             } else {
               updated[Number(controlPointId)] = timeData;
             }
           });
           
-          console.log('[CONTROL_POINT_TIMER] Local timer tick - active timers:', hasActiveTimers);
           return updated;
         });
 
@@ -145,35 +150,9 @@ export const useControlPointTimers = (currentGame: Game | null, socket: Socket |
     }
   };
 
-  // Set up WebSocket listeners
-  useEffect(() => {
-    if (!socket) return;
-
-    console.log('[CONTROL_POINT_TIMER] WebSocket: Setting up listeners for controlPointTimeUpdate and controlPointTimes');
-
-    socket.on('controlPointTimeUpdate', handleControlPointTimeUpdate);
-    socket.on('controlPointTimes', handleControlPointTimes);
-
-    return () => {
-      console.log('[CONTROL_POINT_TIMER] WebSocket: Cleaning up listeners');
-      socket.off('controlPointTimeUpdate', handleControlPointTimeUpdate);
-      socket.off('controlPointTimes', handleControlPointTimes);
-    };
-  }, [socket]);
-
-  // Request control point times when game is loaded
-  useEffect(() => {
-    if (socket && currentGame) {
-      console.log('[CONTROL_POINT_TIMER] WebSocket: Requesting getControlPointTimes for game:', currentGame.id);
-      socket.emit('getControlPointTimes', { gameId: currentGame.id });
-    }
-  }, [socket, currentGame]);
-
   // Handle game state changes
   useEffect(() => {
     if (!currentGame) return;
-
-    console.log('[CONTROL_POINT_TIMER] Game state changed to:', currentGame.status);
 
     if (currentGame.status === 'running') {
       // Start timer when game starts running

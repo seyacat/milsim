@@ -1356,7 +1356,14 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     try {
       const timeData = await this.gamesService.getGameTime(gameId);
-      client.emit('gameTime', timeData);
+      const controlPointTimes = await this.gamesService.getControlPointTimes(gameId);
+      
+      console.log(`[GET_GAME_TIME] Sending game time for game ${gameId} with ${controlPointTimes.length} control point times`);
+      
+      client.emit('gameTime', {
+        ...timeData,
+        controlPointTimes
+      });
     } catch (error: any) {
       client.emit('gameTimeError', { message: 'Failed to get game time' });
     }
@@ -1397,7 +1404,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   // Method to broadcast time updates to all connected clients in a game
-  broadcastTimeUpdate(
+  async broadcastTimeUpdate(
     gameId: number,
     timeData: {
       remainingTime: number | null;
@@ -1405,7 +1412,28 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       totalTime: number | null;
     },
   ) {
-    this.server.to(`game_${gameId}`).emit('timeUpdate', timeData);
+    try {
+      // Get control point times for this game
+      const controlPointTimes = await this.gamesService.getControlPointTimes(gameId);
+      
+      console.log(`[BROADCAST_TIME_UPDATE] Broadcasting time update for game ${gameId} with ${controlPointTimes.length} control point times`);
+      if (controlPointTimes.length > 0) {
+        console.log(`[BROADCAST_TIME_UPDATE] Control point times data:`, controlPointTimes);
+      }
+      
+      // Broadcast combined time update with control point times
+      this.server.to(`game_${gameId}`).emit('timeUpdate', {
+        ...timeData,
+        controlPointTimes
+      });
+    } catch (error) {
+      console.error(`[BROADCAST_TIME_UPDATE] Error broadcasting time update for game ${gameId}:`, error);
+      // Fallback: broadcast without control point times
+      this.server.to(`game_${gameId}`).emit('timeUpdate', {
+        ...timeData,
+        controlPointTimes: []
+      });
+    }
   }
 
   // Method to broadcast control point time updates to all connected clients in a game
