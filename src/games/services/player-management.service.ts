@@ -14,7 +14,6 @@ export class PlayerManagementService {
   ) {}
 
   async joinGame(gameId: number, userId: number): Promise<Player> {
-    console.log(`[JOIN_GAME] Attempting to join game ${gameId} with user ${userId}`);
 
     // Check if game exists
     const game = await this.gamesRepository.findOne({
@@ -26,16 +25,12 @@ export class PlayerManagementService {
       throw new NotFoundException('Game not found');
     }
 
-    console.log(
-      `[JOIN_GAME] Game found: ${game.name}, players: ${game.players?.length || 0}/${game.maxPlayers}`,
-    );
 
     // Check if user is already in the game
     const existingPlayer = await this.playersRepository.findOne({
       where: { game: { id: gameId }, user: { id: userId } },
     });
     if (existingPlayer) {
-      console.log(`[JOIN_GAME] User ${userId} is already in game ${gameId}, allowing reconnection`);
       // User is already in the game, return the existing player (allow reconnection)
       return existingPlayer;
     }
@@ -54,15 +49,12 @@ export class PlayerManagementService {
       user: { id: userId },
     });
 
-    console.log(`[JOIN_GAME] Creating new player entry for user ${userId} in game ${gameId}`);
     const savedPlayer = await this.playersRepository.save(player);
-    console.log(`[JOIN_GAME] Player ${savedPlayer.id} created successfully`);
 
     return savedPlayer;
   }
 
   async leaveGame(gameId: number, userId: number): Promise<void> {
-    console.log(`[LEAVE_GAME] Attempting to leave game ${gameId} with user ${userId}`);
 
     // Find the player entry
     const player = await this.playersRepository.findOne({
@@ -70,13 +62,10 @@ export class PlayerManagementService {
     });
 
     if (!player) {
-      console.log(`[LEAVE_GAME] User ${userId} is not in game ${gameId}`);
       return; // User is not in the game, nothing to do
     }
 
-    console.log(`[LEAVE_GAME] Removing player ${player.id} from game ${gameId}`);
     await this.playersRepository.remove(player);
-    console.log(`[LEAVE_GAME] Player ${player.id} removed successfully`);
   }
 
   async getPlayerGames(userId: number): Promise<Game[]> {

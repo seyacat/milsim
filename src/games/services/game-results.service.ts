@@ -47,7 +47,6 @@ export class GameResultsService {
       teamTotals: { [team: string]: number };
     };
   }> {
-    console.log(`[GAME_RESULTS] Generating results report for game ${gameId}`);
 
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
@@ -55,7 +54,6 @@ export class GameResultsService {
     });
 
     if (!game || !game.instanceId) {
-      console.log(`[GAME_RESULTS] Game ${gameId} not found or no instance ID`);
       return {
         controlPoints: [],
         teamTotals: {},
@@ -75,30 +73,17 @@ export class GameResultsService {
       relations: ['user'],
     });
 
-    console.log(
-      `[GAME_RESULTS] All players:`,
-      players.map(p => ({
-        id: p.id,
-        userId: p.user?.id,
-        team: p.team,
-        name: p.user?.name,
-      })),
-    );
 
     // Get teams from players that have been assigned to teams
     const teamsFromPlayers = [
       ...new Set(players.map(p => p.team).filter(team => team && team !== 'none')),
     ];
 
-    console.log(`[GAME_RESULTS] Teams from players: ${teamsFromPlayers.join(', ')}`);
-    console.log(`[GAME_RESULTS] Game team count: ${game.teamCount}`);
 
     // Always use the configured team count to generate teams, even if some teams have no players
     const defaultTeams = ['blue', 'red', 'green', 'yellow'].slice(0, game.teamCount || 2);
     const teams = defaultTeams;
 
-    console.log(`[GAME_RESULTS] Using teams: ${teams.join(', ')}`);
-    console.log(`[GAME_RESULTS] Found ${game.controlPoints?.length || 0} control points`);
 
     const controlPointsReport: Array<{
       id: number;
@@ -109,7 +94,6 @@ export class GameResultsService {
     // Calculate team times for each control point
     if (game.controlPoints) {
       for (const controlPoint of game.controlPoints) {
-        console.log(`[GAME_RESULTS] Calculating times for control point: ${controlPoint.name}`);
 
         const teamTimes: { [team: string]: number } = {};
         // Initialize all teams with 0 time
@@ -129,7 +113,6 @@ export class GameResultsService {
           teamTimes,
         });
 
-        console.log(`[GAME_RESULTS] Control point ${controlPoint.name} times:`, teamTimes);
       }
     }
 
@@ -142,24 +125,17 @@ export class GameResultsService {
       );
     }
 
-    console.log(`[GAME_RESULTS] Team totals:`, teamTotals);
-    console.log(
-      `[GAME_RESULTS] Final report generated with ${controlPointsReport.length} control points`,
-    );
 
     // Calculate total game duration from game history
     const gameDuration = await this.timerCalculationService.calculateElapsedTimeFromEvents(
       game.instanceId,
     );
-    console.log(`[GAME_RESULTS] Game duration: ${gameDuration}s`);
 
     // Get player capture statistics
     const playerCaptureStats = await this.getPlayerCaptureStats(game.instanceId);
-    console.log(`[GAME_RESULTS] Player capture stats:`, playerCaptureStats.players);
 
     // Get position challenge statistics
     const positionChallengeStats = await this.positionChallengeService.getPositionChallengeStats(game.instanceId);
-    console.log(`[GAME_RESULTS] Position challenge stats:`, positionChallengeStats);
 
     return {
       controlPoints: controlPointsReport,
@@ -182,7 +158,6 @@ export class GameResultsService {
       bombExplosionCount: number;
     }>;
   }> {
-    console.log(`[PLAYER_CAPTURE_STATS] Getting capture stats for game instance ${gameInstanceId}`);
 
     // Get all game history events
     const history = await this.gameHistoryRepository.find({
@@ -192,7 +167,6 @@ export class GameResultsService {
       order: { timestamp: 'ASC' },
     });
 
-    console.log(`[PLAYER_CAPTURE_STATS] Found ${history.length} history events`);
 
     // Filter for control point capture events by players (not owners)
     const captureEvents = history.filter(
@@ -203,7 +177,6 @@ export class GameResultsService {
         !event.data.assignedByOwner, // Not assigned by owner
     );
 
-    console.log(`[PLAYER_CAPTURE_STATS] Found ${captureEvents.length} player capture events`);
 
     // Get all players in the game
     const game = await this.gamesRepository.findOne({
@@ -212,11 +185,9 @@ export class GameResultsService {
     });
 
     if (!game) {
-      console.log(`[PLAYER_CAPTURE_STATS] Game not found for instance ${gameInstanceId}`);
       return { players: [] };
     }
 
-    console.log(`[PLAYER_CAPTURE_STATS] Found ${game.players?.length || 0} players in game`);
 
     // Initialize player stats
     const playerStats = new Map<
@@ -247,17 +218,12 @@ export class GameResultsService {
       }
     }
 
-    console.log(`[PLAYER_CAPTURE_STATS] Initialized ${playerStats.size} player stats`);
 
     // Count captures per player - count ALL captures regardless of team change
     for (const event of captureEvents) {
       const { userId, team, controlPointId } = event.data;
 
       if (!userId || !team) {
-        console.log(
-          `[PLAYER_CAPTURE_STATS] Skipping event with missing userId or team:`,
-          event.data,
-        );
         continue;
       }
 
@@ -265,9 +231,6 @@ export class GameResultsService {
       const player = playerStats.get(userId);
       if (player) {
         player.captureCount++;
-        console.log(
-          `[PLAYER_CAPTURE_STATS] Player ${player.userName} captured control point ${controlPointId}, count: ${player.captureCount}`,
-        );
       } else {
         console.log(`[PLAYER_CAPTURE_STATS] Player ${userId} not found in player stats`);
       }
@@ -282,9 +245,6 @@ export class GameResultsService {
         event.data.isOpposingTeamDeactivation === true,
     );
 
-    console.log(
-      `[PLAYER_CAPTURE_STATS] Found ${bombDeactivationEvents.length} bomb deactivation events by opposing teams`,
-    );
 
     for (const event of bombDeactivationEvents) {
       const {
@@ -296,23 +256,13 @@ export class GameResultsService {
       } = event.data;
 
       if (!deactivatedByUserId || !deactivatedByTeam) {
-        console.log(
-          `[PLAYER_CAPTURE_STATS] Skipping bomb deactivation event with missing userId or team:`,
-          event.data,
-        );
         continue;
       }
 
       const player = playerStats.get(deactivatedByUserId);
       if (player) {
         player.bombDeactivationCount++;
-        console.log(
-          `[PLAYER_CAPTURE_STATS] Player ${player.userName} deactivated bomb at control point ${controlPointId} (activated by ${activatedByTeam}), count: ${player.bombDeactivationCount}`,
-        );
       } else {
-        console.log(
-          `[PLAYER_CAPTURE_STATS] Player ${deactivatedByUserId} not found in player stats for bomb deactivation`,
-        );
       }
     }
 
@@ -324,9 +274,6 @@ export class GameResultsService {
         event.data.activatedByUserId,
     );
 
-    console.log(
-      `[PLAYER_CAPTURE_STATS] Found ${bombExplosionEvents.length} bomb explosion events`,
-    );
 
     for (const event of bombExplosionEvents) {
       const {
@@ -337,28 +284,17 @@ export class GameResultsService {
       } = event.data;
 
       if (!activatedByUserId || !activatedByTeam) {
-        console.log(
-          `[PLAYER_CAPTURE_STATS] Skipping bomb explosion event with missing userId or team:`,
-          event.data,
-        );
         continue;
       }
 
       const player = playerStats.get(activatedByUserId);
       if (player) {
         player.bombExplosionCount++;
-        console.log(
-          `[PLAYER_CAPTURE_STATS] Player ${player.userName} had bomb explode at control point ${controlPointId}, count: ${player.bombExplosionCount}`,
-        );
       } else {
-        console.log(
-          `[PLAYER_CAPTURE_STATS] Player ${activatedByUserId} not found in player stats for bomb explosion`,
-        );
       }
     }
 
     const players = Array.from(playerStats.values());
-    console.log(`[PLAYER_CAPTURE_STATS] Final player stats:`, players);
 
     return { players };
   }

@@ -8,16 +8,10 @@ export class ConnectionTrackerService {
   registerConnection() {
     this.lastConnectionTime = new Date();
     this.activeConnectionsCount++;
-    console.log(
-      `[CONNECTION_TRACKER] Connection registered, count: ${this.activeConnectionsCount}`,
-    );
   }
 
   unregisterConnection() {
     this.activeConnectionsCount = Math.max(0, this.activeConnectionsCount - 1);
-    console.log(
-      `[CONNECTION_TRACKER] Connection unregistered, count: ${this.activeConnectionsCount}`,
-    );
   }
 
   getActiveConnectionsCount(): number {
@@ -36,7 +30,6 @@ export class ConnectionTrackerService {
       );
     }
 
-    console.log(`[CONNECTION_TRACKER] getUptimeInfo called, count: ${this.activeConnectionsCount}`);
 
     return {
       lastConnectionTime: this.lastConnectionTime.toISOString(),

@@ -31,13 +31,6 @@ export const useGameTime = (currentGame: Game | null, socket: Socket | null): Us
 
   // Handle time updates from server
   const handleTimeUpdate = (newTimeData: TimeData) => {
-    console.log('[GAME_TIME] Received time update from server:', {
-      remainingTime: newTimeData.remainingTime,
-      playedTime: newTimeData.playedTime,
-      totalTime: newTimeData.totalTime,
-      controlPointTimes: newTimeData.controlPointTimes,
-      controlPointTimesCount: newTimeData.controlPointTimes?.length || 0
-    });
 
     const timeDataWithTimestamp = {
       ...newTimeData,
@@ -48,7 +41,6 @@ export const useGameTime = (currentGame: Game | null, socket: Socket | null): Us
 
     // Update control point times if provided
     if (newTimeData.controlPointTimes) {
-      console.log('[GAME_TIME] Setting control point times:', newTimeData.controlPointTimes);
       setControlPointTimes(newTimeData.controlPointTimes);
     }
 
@@ -139,7 +131,6 @@ export const useGameTime = (currentGame: Game | null, socket: Socket | null): Us
     };
 
     const handleControlPointTimesEvent = (data: ControlPointTimeData[]) => {
-      console.log('[GAME_TIME] Received control point times directly:', data);
       setControlPointTimes(data);
     };
 

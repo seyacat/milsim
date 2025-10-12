@@ -17,32 +17,25 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    console.log('Login: Iniciando proceso de login...')
 
     const submitLogin = async () => {
       try {
-        console.log('Login: Llamando a AuthService.login...')
         const authResponse = await AuthService.login({ email, password })
-        console.log('Login: AuthService.login exitoso, usuario:', authResponse.user)
         
-        console.log('Login: Llamando a onLogin...')
         onLogin(authResponse.user)
         
-        console.log('Login: Mostrando toast de éxito...')
         addToast({ message: 'Login exitoso', type: 'success' })
         
-        console.log('Login: Navegando a /dashboard...')
         try {
           navigate('/dashboard')
-          console.log('Login: Navegación completada')
         } catch (navError) {
-          console.log('Login: Error en navegación:', navError)
+          console.error('Login: Error en navegación:', navError)
           // Si falla la navegación, intentar redirección forzada
           window.location.href = '/dashboard'
         }
         
       } catch (error) {
-        console.log('Login: Error en login:', error)
+        console.error('Login: Error en login:', error)
         addToast({ message: 'Error en login: ' + (error as Error).message, type: 'error' })
       } finally {
         setLoading(false)

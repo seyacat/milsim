@@ -716,7 +716,6 @@ export class GamesService {
   // Recover active bomb timers on server restart
   private async recoverActiveBombTimers(gameId: number, gameInstanceId: number): Promise<void> {
     try {
-      console.log(`[SERVER_RESTART] Recovering active bomb timers for game ${gameId}`);
 
       // Get all control points for this game
       const game = await this.gamesRepository.findOne({
@@ -738,9 +737,6 @@ export class GamesService {
           );
 
           if (bombTimeData && bombTimeData.isActive) {
-            console.log(
-              `[SERVER_RESTART] Recovering bomb timer for control point ${controlPoint.id}, remaining time: ${bombTimeData.remainingTime}s`,
-            );
 
             // Start periodic broadcast for this bomb timer
             // Note: This would need to be implemented in BombManagementService

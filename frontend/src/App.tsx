@@ -15,16 +15,13 @@ function App() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    console.log('App: useEffect inicial - obteniendo usuario actual')
     const user = AuthService.getCurrentUser()
-    console.log('App: Usuario obtenido:', user)
     setCurrentUser(user)
     setLoading(false)
   }, [])
 
   // Función para actualizar el usuario que se pasa a los componentes
   const handleLogin = (user: User) => {
-    console.log('App: handleLogin llamado con usuario:', user)
     setCurrentUser(user)
   }
 

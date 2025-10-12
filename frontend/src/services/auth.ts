@@ -18,7 +18,6 @@ export class AuthService {
     }
 
     const data = await response.json();
-    console.log('AuthService.login: Respuesta completa:', data);
     
     // El backend devuelve el usuario directamente, no dentro de AuthResponse
     // Extraemos el token del header Authorization
@@ -27,12 +26,10 @@ export class AuthService {
     
     if (authHeader && authHeader.startsWith('Bearer ')) {
       access_token = authHeader.substring(7);
-      console.log('AuthService.login: Token extraído del header:', access_token);
     } else {
       console.log('AuthService.login: No se encontró token en el header');
     }
     
-    console.log('AuthService.login: Usuario recibido:', data);
     this.setToken(access_token);
     this.setUser(data);
     
@@ -94,15 +91,12 @@ export class AuthService {
   static getToken(): string | null {
     // Primero intentar obtener el token del localStorage directo
     let token = localStorage.getItem('token');
-    console.log('AuthService.getToken: Token de localStorage:', token);
     
     // Si no hay token en localStorage, intentar extraerlo del usuario guardado
     if (!token) {
       const user = this.getCurrentUser();
-      console.log('AuthService.getToken: Usuario para extraer token:', user);
       if (user && (user as any).access_token) {
         token = (user as any).access_token;
-        console.log('AuthService.getToken: Token extraído del usuario:', token);
         // Guardar el token en localStorage para futuras consultas
         if (token) {
           this.setToken(token);
@@ -126,33 +120,27 @@ export class AuthService {
   }
 
   static setUser(user: User): void {
-    console.log('AuthService.setUser: Guardando usuario:', user);
     localStorage.setItem('user', JSON.stringify(user));
     // Verificar que se guardó correctamente
     const savedUser = localStorage.getItem('user');
-    console.log('AuthService.setUser: Usuario guardado en localStorage:', savedUser);
   }
 
   static getCurrentUser(): User | null {
     try {
       const userStr = localStorage.getItem('user');
-      console.log('AuthService.getCurrentUser: userStr de localStorage:', userStr);
       if (!userStr || userStr === 'undefined' || userStr === 'null') {
-        console.log('AuthService.getCurrentUser: userStr es inválido, retornando null');
         return null;
       }
       const user = JSON.parse(userStr);
-      console.log('AuthService.getCurrentUser: Usuario parseado:', user);
       return user;
     } catch (error) {
-      console.log('AuthService.getCurrentUser: Error parsing user:', error);
+      console.error('AuthService.getCurrentUser: Error parsing user:', error);
       return null;
     }
   }
 
   static getAuthHeaders(): HeadersInit {
     const token = this.getToken();
-    console.log('AuthService.getAuthHeaders: Token obtenido:', token);
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };
@@ -161,7 +149,6 @@ export class AuthService {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    console.log('AuthService.getAuthHeaders: Headers finales:', headers);
     return headers;
   }
 }

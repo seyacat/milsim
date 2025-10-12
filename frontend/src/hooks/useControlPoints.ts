@@ -21,7 +21,6 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
   const updateAllControlPointTimers = useCallback(() => {
     if (!game?.controlPoints) return;
     
-    console.log('[USE_CONTROL_POINTS] Updating all control point timers for', game.controlPoints.length, 'points');
     
     game.controlPoints.forEach(controlPoint => {
       const timerElement = document.getElementById(`timer_${controlPoint.id}`);
@@ -101,7 +100,6 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
   // Handle position challenge updates
   const updatePositionChallengeBars = useCallback((controlPointId: number, teamPoints: Record<string, number>) => {
     // This would update the position challenge visualization
-    console.log('Update position challenge bars:', controlPointId, teamPoints);
   }, []);
 
   // Handle bomb timer updates
@@ -200,11 +198,9 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     (window as any).enableDragMode = enableDragMode;
     (window as any).updateControlPoint = (controlPointId: number, markerId: number) => {
       // This would handle updating control point properties
-      console.log('Update control point:', controlPointId);
     };
     (window as any).deleteControlPoint = (controlPointId: number, markerId: number) => {
       // This would handle deleting control point
-      console.log('Delete control point:', controlPointId);
     };
     (window as any).activateBombAsOwner = activateBombAsOwner;
     (window as any).deactivateBombAsOwner = deactivateBombAsOwner;

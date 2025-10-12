@@ -190,9 +190,6 @@ export class TimerManagementService {
     });
 
     if (!game || game.status !== 'running') {
-      console.log(
-        `[CONTROL_POINT_TIMER] Not starting timer for control point ${controlPointId} - game is not running`,
-      );
       return;
     }
 
@@ -478,7 +475,6 @@ export class TimerManagementService {
           });
 
           if (!game || game.status !== 'running') {
-            console.log(`[POSITION_CHALLENGE_TIMER] Game ${gameId} is not running, stopping position challenge processing`);
             this.stopPositionChallengeProcessing(gameId);
             return;
           }
@@ -495,7 +491,6 @@ export class TimerManagementService {
     }, 20000); // 20 seconds
 
     this.positionChallengeTimers.set(gameId, interval);
-    console.log(`[POSITION_CHALLENGE_TIMER] Position challenge processing started for game ${gameId} - will run every 20 seconds`);
   }
 
   /**
@@ -506,7 +501,6 @@ export class TimerManagementService {
     if (interval) {
       clearInterval(interval);
       this.positionChallengeTimers.delete(gameId);
-      console.log(`[POSITION_CHALLENGE_TIMER] Position challenge processing stopped for game ${gameId}`);
     }
   }
 }

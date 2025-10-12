@@ -32,11 +32,6 @@ const GamePlayerMap: React.FC<GamePlayerMapProps> = ({
 }) => {
   // Log the control point times received as props
   useEffect(() => {
-    console.log('[GAME_PLAYER_MAP] Received controlPointTimes as props:', {
-      hasData: !!controlPointTimes,
-      length: controlPointTimes?.length || 0,
-      data: controlPointTimes
-    });
   }, [controlPointTimes]);
 
   // Initialize control point timers
@@ -48,7 +43,6 @@ const GamePlayerMap: React.FC<GamePlayerMapProps> = ({
   // Update all timer displays when control point times change
   useEffect(() => {
     if (currentGame && currentGame.controlPoints) {
-      console.log('[GAME_PLAYER_MAP] Updating all timer displays with timer data:', timerData);
       updateAllTimerDisplays();
     }
   }, [timerData, currentGame, updateAllTimerDisplays]);
@@ -169,7 +163,6 @@ const GamePlayerMap: React.FC<GamePlayerMapProps> = ({
     controlPointMarkersRef.current[controlPoint.id] = marker
 
     // Update timer display for this control point
-    console.log(`[GAME_PLAYER_MAP] Created control point marker for ID ${controlPoint.id}, updating timer display`);
     updateControlPointTimerDisplay(controlPoint.id)
     
     // Update bomb timer display for this control point

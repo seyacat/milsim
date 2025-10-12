@@ -34,7 +34,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
 
     // Listen for successful connection
     newSocket.on('connect', () => {
-      console.log('WebSocket connected');
       setIsConnected(true);
       
       // Join game room
@@ -43,7 +42,6 @@ export const useWebSocket = (): UseWebSocketReturn => {
 
     // Listen for disconnection
     newSocket.on('disconnect', (reason) => {
-      console.log('WebSocket disconnected:', reason);
       setIsConnected(false);
       
       if (reason === 'io server disconnect' || reason === 'transport close') {

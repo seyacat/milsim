@@ -20,7 +20,6 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
 
   // Handle bomb time updates from server
   const handleBombTimeUpdate = (data: BombTimerData) => {
-    console.log('[BOMB_TIMER] Received bomb time update:', data);
     
     setActiveBombTimers(prev => {
       const newTimers = new Map(prev);
@@ -45,7 +44,6 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
 
   // Handle active bomb timers response
   const handleActiveBombTimers = (serverBombTimers: BombTimerData[]) => {
-    console.log('[BOMB_TIMER] Received active bomb timers:', serverBombTimers);
     
     const newTimers = new Map<number, BombTimerData>();
     
@@ -75,7 +73,6 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
     const bombTimerData = activeBombTimers.get(controlPointId);
     
     if (!bombTimerElement) {
-      console.log(`[BOMB_TIMER_DISPLAY] Element not found: bomb_timer_${controlPointId}`);
       return;
     }
 
@@ -86,11 +83,9 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
       const seconds = bombTimerData.remainingTime % 60;
       const timeText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
       
-      console.log(`[BOMB_TIMER_DISPLAY] Updating control point ${controlPointId}: ${timeText}`);
       bombTimerElement.textContent = timeText;
       bombTimerElement.style.display = 'block';
     } else {
-      console.log(`[BOMB_TIMER_DISPLAY] Hiding timer for control point ${controlPointId}`);
       bombTimerElement.style.display = 'none';
     }
   };
@@ -99,7 +94,6 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
   const updateAllBombTimerDisplays = () => {
     if (!currentGame?.controlPoints) return;
     
-    console.log(`[BOMB_TIMER_DISPLAY_ALL] Updating ${activeBombTimers.size} bomb timers`);
     
     // Hide all bomb timers first
     currentGame.controlPoints.forEach(controlPoint => {
@@ -133,7 +127,6 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
           prev.forEach((bombTimer, controlPointId) => {
             if (bombTimer.isActive && bombTimer.remainingTime > 0) {
               const newRemainingTime = bombTimer.remainingTime - 1;
-              console.log(`[BOMB_TIMER_SOFT_REFRESH] Control point ${controlPointId}: ${bombTimer.remainingTime}s -> ${newRemainingTime}s`);
               newTimers.set(controlPointId, {
                 ...bombTimer,
                 remainingTime: newRemainingTime
@@ -141,7 +134,6 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
               hasActiveBombs = true;
             } else if (bombTimer.isActive && bombTimer.remainingTime <= 0) {
               // Bomb timer expired - keep it but mark as inactive
-              console.log(`[BOMB_TIMER_SOFT_REFRESH] Control point ${controlPointId} timer expired`);
               newTimers.set(controlPointId, {
                 ...bombTimer,
                 isActive: false
@@ -153,7 +145,6 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
 
           // Stop timer if no more active bombs
           if (!hasActiveBombs && localTimerRef.current) {
-            console.log('[BOMB_TIMER_SOFT_REFRESH] No active bombs, stopping interval');
             stopBombTimerInterval();
           }
 
@@ -178,13 +169,11 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
   useEffect(() => {
     if (!socket) return;
 
-    console.log('[BOMB_TIMER] Setting up WebSocket listeners');
 
     socket.on('bombTimeUpdate', handleBombTimeUpdate);
     socket.on('activeBombTimers', handleActiveBombTimers);
 
     return () => {
-      console.log('[BOMB_TIMER] Cleaning up WebSocket listeners');
       socket.off('bombTimeUpdate', handleBombTimeUpdate);
       socket.off('activeBombTimers', handleActiveBombTimers);
     };
@@ -193,7 +182,6 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
   // Request active bomb timers when game is loaded
   useEffect(() => {
     if (socket && currentGame) {
-      console.log('[BOMB_TIMER] Requesting active bomb timers for game:', currentGame.id);
       socket.emit('getActiveBombTimers', { gameId: currentGame.id });
     }
   }, [socket, currentGame]);
@@ -202,7 +190,6 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
   useEffect(() => {
     if (!currentGame) return;
 
-    console.log('[BOMB_TIMER] Game state changed to:', currentGame.status);
 
     if (currentGame.status === 'running') {
       // Request active bomb timers when game starts running

@@ -5,6 +5,8 @@
  * 1. Borrar todos los console.log
  * 2. Si el console.log está dentro de un catch, cambiarlo por console.error
  * 3. Si el console.log deja un bloque vacío, no borrarlo
+ *
+ * Soporta archivos JavaScript (.js) y TypeScript (.ts, .tsx)
  */
 
 const fs = require('fs');
@@ -20,7 +22,7 @@ class ConsoleLogRemover {
     }
 
     /**
-     * Procesa un archivo JavaScript
+     * Procesa un archivo JavaScript o TypeScript
      */
     processFile(filePath) {
         try {
@@ -31,6 +33,7 @@ class ConsoleLogRemover {
             if (JSON.stringify(originalLines) !== JSON.stringify(processedLines)) {
                 fs.writeFileSync(filePath, processedLines.join('\n'), 'utf8');
                 this.modifiedFiles++;
+                console.log(`Modificado: ${filePath}`);
             } else {
                 console.log(`Sin cambios: ${filePath}`);
             }
@@ -221,10 +224,10 @@ class ConsoleLogRemover {
     }
 
     /**
-     * Encuentra todos los archivos JavaScript en un directorio
+     * Encuentra todos los archivos JavaScript y TypeScript en un directorio
      */
-    findJsFiles(dirPath) {
-        const jsFiles = [];
+    findSourceFiles(dirPath) {
+        const sourceFiles = [];
         
         function traverseDirectory(currentPath) {
             const items = fs.readdirSync(currentPath);
@@ -234,28 +237,37 @@ class ConsoleLogRemover {
                 const stat = fs.statSync(fullPath);
                 
                 if (stat.isDirectory()) {
-                    // Excluir node_modules y .git
-                    if (item !== 'node_modules' && item !== '.git') {
+                    // Excluir node_modules, .git, y directorios de build
+                    if (item !== 'node_modules' && item !== '.git' &&
+                        !item.includes('dist') && !item.includes('build') &&
+                        !item.includes('coverage')) {
                         traverseDirectory(fullPath);
                     }
-                } else if (item.endsWith('.js') && !item.endsWith('.test.js')) {
-                    jsFiles.push(fullPath);
+                } else {
+                    // Incluir archivos JavaScript y TypeScript
+                    if ((item.endsWith('.js') || item.endsWith('.ts') || item.endsWith('.tsx')) &&
+                        !item.endsWith('.test.js') && !item.endsWith('.test.ts') &&
+                        !item.endsWith('.spec.js') && !item.endsWith('.spec.ts') &&
+                        !item.endsWith('.d.ts')) {
+                        sourceFiles.push(fullPath);
+                    }
                 }
             }
         }
         
         traverseDirectory(dirPath);
-        return jsFiles;
+        return sourceFiles;
     }
 
     /**
      * Ejecuta el proceso completo
      */
     run(directory = '.') {
-        const jsFiles = this.findJsFiles(directory);
+        const sourceFiles = this.findSourceFiles(directory);
         
+        console.log(`Encontrados ${sourceFiles.length} archivos fuente (JS/TS/TSX)`);
         
-        for (const file of jsFiles) {
+        for (const file of sourceFiles) {
             this.processFile(file);
         }
         
@@ -266,6 +278,13 @@ class ConsoleLogRemover {
      * Muestra el resumen de cambios
      */
     printSummary() {
+        console.log('\n=== RESUMEN ===');
+        console.log(`Archivos procesados: ${this.processedFiles}`);
+        console.log(`Archivos modificados: ${this.modifiedFiles}`);
+        console.log(`Total console.log encontrados: ${this.totalConsoleLogs}`);
+        console.log(`Convertidos a console.error: ${this.convertedToError}`);
+        console.log(`Bloques vacíos preservados: ${this.preservedEmptyBlocks}`);
+        console.log(`console.log eliminados: ${this.totalConsoleLogs - this.convertedToError - this.preservedEmptyBlocks}`);
     }
 }
 

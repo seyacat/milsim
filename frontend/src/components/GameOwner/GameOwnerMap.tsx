@@ -58,7 +58,6 @@ const GameOwnerMap: React.FC<GameOwnerMapProps> = ({
 
         // Add click handler for creating control points
         mapInstanceRef.current.on('click', (e: any) => {
-          console.log('Map clicked at:', e.latlng)
           handleMapClick(e.latlng)
         })
 

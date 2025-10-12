@@ -92,7 +92,6 @@ export const useGameOwner = (
   // Update control point timers when control point times change
   useEffect(() => {
     if (controlPointTimes && controlPointTimes.length > 0) {
-      console.log('[USE_GAME_OWNER] Control point times updated, updating timers:', controlPointTimes.length);
       updateAllControlPointTimers();
       updateAllTimerDisplays();
       updateAllBombTimerDisplays();
@@ -164,7 +163,6 @@ export const useGameOwner = (
 
       // Listen for successful connection
       socket.on('connect', () => {
-        console.log('WebSocket connected')
         // Join game room
         socket.emit('joinGame', { gameId: parseInt(gameId) })
       })
@@ -209,7 +207,6 @@ export const useGameOwner = (
 
       // Listen for disconnection
       socket.on('disconnect', (reason) => {
-        console.log('WebSocket disconnected:', reason)
         // Don't show toast on every disconnect - only show for unexpected disconnections
         if (reason === 'io server disconnect' || reason === 'transport close') {
           memoizedAddToast({ message: 'Conexión perdida con el servidor', type: 'error' })

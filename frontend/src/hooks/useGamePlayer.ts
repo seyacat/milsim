@@ -50,10 +50,6 @@ export const useGamePlayer = (
   // Log control point times for debugging
   useEffect(() => {
     if (controlPointTimes && controlPointTimes.length > 0) {
-      console.log('[GAME_PLAYER] Control point times from useGameTime:', {
-        count: controlPointTimes.length,
-        data: controlPointTimes
-      });
     }
   }, [controlPointTimes]);
 
@@ -120,7 +116,6 @@ export const useGamePlayer = (
 
       // Listen for successful connection
       socket.on('connect', () => {
-        console.log('WebSocket connected')
         // Join game room
         socket.emit('joinGame', { gameId: parseInt(gameId) })
       })
@@ -158,7 +153,6 @@ export const useGamePlayer = (
 
       // Listen for disconnection
       socket.on('disconnect', (reason) => {
-        console.log('WebSocket disconnected:', reason)
         // Don't show toast on every disconnect - only show for unexpected disconnections
         if (reason === 'io server disconnect' || reason === 'transport close') {
           memoizedAddToast({ message: 'Conexión perdida con el servidor', type: 'error' })

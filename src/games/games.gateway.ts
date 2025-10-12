@@ -52,9 +52,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // Register connection for uptime tracking
       this.connectionTracker.registerConnection();
-      console.log(
-        `[CONNECTION_TRACKER] Connection registered for client ${client.id}, active connections: ${this.connectionTracker.getActiveConnectionsCount()}`,
-      );
     } catch (error) {
       console.error(`Authentication failed for client: ${client.id}`, error.message);
       client.disconnect();
@@ -76,9 +73,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.gamesService
           .updateActiveConnections(gameId, connectionCount)
           .then(() => {
-            console.log(
-              `[DISCONNECT] Active connections updated for game ${gameId}: ${connectionCount}`,
-            );
           })
           .catch(error => {
             console.error(`[DISCONNECT] Error updating connections for game ${gameId}:`, error);
@@ -88,9 +82,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     // Unregister connection for uptime tracking
     this.connectionTracker.unregisterConnection();
-    console.log(
-      `[CONNECTION_TRACKER] Connection unregistered for client ${client.id}, active connections: ${this.connectionTracker.getActiveConnectionsCount()}`,
-    );
   }
 
   @SubscribeMessage('joinGame')
@@ -98,8 +89,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { gameId } = payload;
     const user = this.connectedUsers.get(client.id);
 
-    console.log(`[JOIN_GAME_WS] Client ${client.id} attempting to join game ${gameId}`);
-    console.log(`[JOIN_GAME_WS] User data:`, user);
 
     if (!user) {
       console.error(`[JOIN_GAME_WS] User not authenticated for client ${client.id}`);
@@ -118,9 +107,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // If user is already connected from another device, disconnect the old connection
       if (existingSocketId) {
-        console.log(
-          `[JOIN_GAME_WS] User ${user.id} is already connected from socket ${existingSocketId}, disconnecting...`,
-        );
 
         // Send message to old device to leave the game
         const oldSocket = this.server.sockets.sockets.get(existingSocketId);
@@ -138,7 +124,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // Join the room for this specific game
       client.join(`game_${gameId}`);
-      console.log(`[JOIN_GAME_WS] Client ${client.id} joined room game_${gameId}`);
 
       // Track game connection
       if (!this.gameConnections.has(gameId)) {
@@ -149,33 +134,25 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Update active connections count in the game
       const connectionCount = this.gameConnections.get(gameId)?.size || 0;
       await this.gamesService.updateActiveConnections(gameId, connectionCount);
-      console.log(
-        `[JOIN_GAME_WS] Active connections updated for game ${gameId}: ${connectionCount}`,
-      );
 
       // Get updated game data
       const game = await this.gamesService.findOne(gameId, user.id);
-      console.log(`[JOIN_GAME_WS] Game data retrieved:`, game?.name);
 
       // Join the game via service (this will handle the case where user is already in the game)
       await this.gamesService.joinGame(gameId, user.id);
-      console.log(`[JOIN_GAME_WS] User ${user.id} joined game ${gameId} via service`);
 
       // Get updated game data
       const updatedGame = await this.gamesService.findOne(gameId, user.id);
-      console.log(`[JOIN_GAME_WS] Updated game data:`, updatedGame?.players?.length, 'players');
 
       // Notify all clients in the game room about the updated player list
       this.server.to(`game_${gameId}`).emit('gameUpdate', {
         type: 'playerJoined',
         game: updatedGame,
       });
-      console.log(`[JOIN_GAME_WS] Game update broadcasted to room game_${gameId}`);
 
       // Check if user is owner and send stored positions
       const currentGame = await this.gamesService.findOne(gameId, user.id);
       if (currentGame.owner && currentGame.owner.id === user.id) {
-        console.log(`[JOIN_GAME_WS] User ${user.id} is owner, sending stored positions`);
         // Send all stored positions to the owner
         const positions: Array<{
           userId: number;
@@ -203,7 +180,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
             data: { positions },
             from: 'server',
           });
-          console.log(`[JOIN_GAME_WS] Sent ${positions.length} positions to owner`);
         }
       }
 
@@ -214,8 +190,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         // Send current position challenge data to the user
         try {
           const currentPositionChallengeData = await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
-          console.log(`[JOIN_GAME_WS] Sending current position challenge data to client ${client.id}:`,
-            Array.from(currentPositionChallengeData.entries()).map(([cpId, points]) => `${cpId}: ${JSON.stringify(points)}`));
           
           // Send position challenge data for each control point
           for (const [controlPointId, teamPoints] of currentPositionChallengeData.entries()) {
@@ -223,7 +197,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               controlPointId,
               teamPoints,
             });
-            console.log(`[JOIN_GAME_WS] Sent position challenge data for control point ${controlPointId} to client ${client.id}`);
           }
         } catch (error) {
           console.error(`[JOIN_GAME_WS] Error sending position challenge data to client ${client.id}:`, error);
@@ -234,7 +207,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         message: 'Successfully joined game',
         user: { id: user.id, name: user.name },
       });
-      console.log(`[JOIN_GAME_WS] Join success sent to client ${client.id}`);
     } catch (error: any) {
       console.error('[JOIN_GAME_WS] Error joining game:', error);
       console.error('[JOIN_GAME_WS] Error details:', error.message, error.stack);
@@ -262,9 +234,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Update active connections count in the game
       const connectionCount = this.gameConnections.get(gameId)?.size || 0;
       await this.gamesService.updateActiveConnections(gameId, connectionCount);
-      console.log(
-        `[LEAVE_GAME_WS] Active connections updated for game ${gameId}: ${connectionCount}`,
-      );
 
       // Get updated game data
       const game = await this.gamesService.findOne(gameId, user.id);
@@ -352,19 +321,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
             // Get the complete updated game with all control points AFTER the update
             const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-            console.log('[UPDATE_CONTROL_POINT] Updated control point data:', {
-              id: updatedControlPoint.id,
-              name: updatedControlPoint.name,
-              hasCodeChallenge: updatedControlPoint.hasCodeChallenge,
-              hasBombChallenge: updatedControlPoint.hasBombChallenge,
-              hasPositionChallenge: updatedControlPoint.hasPositionChallenge,
-              // Don't log code values for security
-            });
 
-            console.log('[UPDATE_CONTROL_POINT] Updated game data:', {
-              controlPointsCount: updatedGame.controlPoints?.length,
-              firstControlPoint: updatedGame.controlPoints?.[0],
-            });
 
             // Remove sensitive code data before broadcasting to all clients
             const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
@@ -386,7 +343,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                     controlPointId: safeControlPoint.id,
                     teamPoints,
                   });
-                  console.log(`[CONTROL_POINT_UPDATE] Sent position challenge data for control point ${safeControlPoint.id}:`, teamPoints);
                 }
               } catch (error) {
                 console.error(`[CONTROL_POINT_UPDATE] Error sending position challenge data for control point ${safeControlPoint.id}:`, error);
@@ -419,7 +375,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                   controlPointId,
                   teamPoints,
                 });
-                console.log(`[GAME_UPDATE] Sent position challenge data for control point ${controlPointId}:`, teamPoints);
               }
             } catch (error) {
               console.error(`[GAME_UPDATE] Error sending position challenge data:`, error);
@@ -442,11 +397,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
             // Get the complete updated game with all control points AFTER the update
             const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-            console.log('[UPDATE_CONTROL_POINT_POSITION] Updated control point position:', {
-              controlPointId: data.controlPointId,
-              latitude: data.latitude,
-              longitude: data.longitude,
-            });
 
             // Remove sensitive code data before broadcasting to all clients
             const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
@@ -468,7 +418,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                     controlPointId: safeControlPoint.id,
                     teamPoints,
                   });
-                  console.log(`[CONTROL_POINT_POSITION_UPDATE] Sent position challenge data for control point ${safeControlPoint.id}:`, teamPoints);
                 }
               } catch (error) {
                 console.error(`[CONTROL_POINT_POSITION_UPDATE] Error sending position challenge data for control point ${safeControlPoint.id}:`, error);
@@ -501,7 +450,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                   controlPointId,
                   teamPoints,
                 });
-                console.log(`[GAME_UPDATE_POSITION] Sent position challenge data for control point ${controlPointId}:`, teamPoints);
               }
             } catch (error) {
               console.error(`[GAME_UPDATE_POSITION] Error sending position challenge data:`, error);
@@ -560,7 +508,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               socketId: client.id,
             });
 
-            console.log(`[POSITION_CHALLENGE] Player ${user.id} (${user.name}) sent position update - Lat: ${data.lat}, Lng: ${data.lng}, Accuracy: ${data.accuracy}m`);
 
             // Update position challenge service with the new position
             this.positionChallengeService.updatePlayerPosition(
@@ -613,7 +560,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                       controlPointId: safeControlPoint.id,
                       teamPoints,
                     });
-                    console.log(`[CONTROL_POINT_TAKEN] Sent position challenge data for control point ${safeControlPoint.id}:`, teamPoints);
                   }
                 } catch (error) {
                   console.error(`[CONTROL_POINT_TAKEN] Error sending position challenge data for control point ${safeControlPoint.id}:`, error);
@@ -650,7 +596,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                     controlPointId,
                     teamPoints,
                   });
-                  console.log(`[GAME_UPDATE_TAKEN] Sent position challenge data for control point ${controlPointId}:`, teamPoints);
                 }
               } catch (error) {
                 console.error(`[GAME_UPDATE_TAKEN] Error sending position challenge data:`, error);
@@ -734,7 +679,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                       controlPointId: safeControlPoint.id,
                       teamPoints,
                     });
-                    console.log(`[CONTROL_POINT_TEAM_ASSIGNED] Sent position challenge data for control point ${safeControlPoint.id}:`, teamPoints);
                   }
                 } catch (error) {
                   console.error(`[CONTROL_POINT_TEAM_ASSIGNED] Error sending position challenge data for control point ${safeControlPoint.id}:`, error);
@@ -766,7 +710,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                     controlPointId,
                     teamPoints,
                   });
-                  console.log(`[GAME_UPDATE_TEAM_ASSIGNED] Sent position challenge data for control point ${controlPointId}:`, teamPoints);
                 }
               } catch (error) {
                 console.error(`[GAME_UPDATE_TEAM_ASSIGNED] Error sending position challenge data:`, error);
@@ -1358,7 +1301,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const timeData = await this.gamesService.getGameTime(gameId);
       const controlPointTimes = await this.gamesService.getControlPointTimes(gameId);
       
-      console.log(`[GET_GAME_TIME] Sending game time for game ${gameId} with ${controlPointTimes.length} control point times`);
       
       client.emit('gameTime', {
         ...timeData,
@@ -1416,7 +1358,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Get control point times for this game
       const controlPointTimes = await this.gamesService.getControlPointTimes(gameId);
       
-      console.log(`[BROADCAST_TIME_UPDATE] Broadcasting time update for game ${gameId} with ${controlPointTimes.length} control point times`);
       if (controlPointTimes.length > 0) {
         console.log(`[BROADCAST_TIME_UPDATE] Control point times data:`, controlPointTimes);
       }

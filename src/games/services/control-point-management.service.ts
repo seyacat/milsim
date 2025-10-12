@@ -46,14 +46,10 @@ export class ControlPointManagementService {
       },
     });
 
-    console.log(
-      `[CREATE_CONTROL_POINT] Existing site found: ${!!existingSite}, requested type: ${controlPointData.type}`,
-    );
 
     // If no Site exists, force the new control point to be a Site
     const finalType = existingSite ? controlPointData.type || 'control_point' : 'site';
 
-    console.log(`[CREATE_CONTROL_POINT] Final type determined: ${finalType}`);
 
     // Validate control point type
     const validTypes = ['control_point', 'site', 'bomb'];

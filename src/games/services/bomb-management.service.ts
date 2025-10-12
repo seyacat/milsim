@@ -385,9 +385,6 @@ export class BombManagementService {
     });
 
     if (!game || game.status !== 'running') {
-      console.log(
-        `[BOMB_TIMER] Not starting bomb timer for control point ${controlPointId} - game is not running`,
-      );
       return;
     }
 
@@ -439,9 +436,6 @@ export class BombManagementService {
         const currentTime = bombTimeData.totalTime - bombTimeData.remainingTime;
         if (currentTime - lastBroadcastTime >= 20) {
           if (this.gamesGateway) {
-            console.log(
-              `[BOMB_TIMER] Broadcasting update for control point ${controlPointId} - Remaining: ${bombTimeData.remainingTime}s`,
-            );
             this.gamesGateway.broadcastBombTimeUpdate(controlPointId, {
               remainingTime: bombTimeData.remainingTime,
               totalTime: bombTimeData.totalTime,
@@ -493,7 +487,6 @@ export class BombManagementService {
       });
     }
 
-    console.log(`[BOMB] Bomb exploded at control point ${controlPointId}, activated by: ${activatedByUserName} (${activatedByTeam})`);
   }
 
   // Get current bomb time for a control point
@@ -553,9 +546,6 @@ export class BombManagementService {
       });
     }
 
-    console.log(
-      `[BOMB] Bomb deactivated at control point ${controlPointId} by ${userName} (${team}) - Activated by: ${activatedByTeam} - Opposing team: ${isOpposingTeamDeactivation}`,
-    );
   }
 
   // Get all active bomb timers for a game
