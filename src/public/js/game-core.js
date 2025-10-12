@@ -1364,6 +1364,22 @@ function handleGameAction(data) {
                     window.updateBombTimerDisplay();
                 }, 100);
             }
+            
+            // Update position challenge pie chart if this is a position challenge control point
+            if (data.data.hasPositionChallenge && window.updatePositionChallengeBars) {
+                // Get current team points for this control point
+                const controlPointId = data.data.id;
+                if (window.getCurrentPositionChallengeData) {
+                    window.getCurrentPositionChallengeData().then(teamPointsByControlPoint => {
+                        const teamPoints = teamPointsByControlPoint.get(controlPointId);
+                        if (teamPoints) {
+                            window.updatePositionChallengeBars(controlPointId, teamPoints);
+                        }
+                    }).catch(error => {
+                        console.error('Error getting position challenge data:', error);
+                    });
+                }
+            }
             break;
         case 'controlPointDeleted':
             // Remove marker and position circle
@@ -1380,7 +1396,12 @@ function handleGameAction(data) {
         case 'controlPointTaken':
             // Show notification when a control point is taken
             if (data.data.userId !== currentUser.id) {
-                showInfo(`${data.data.userName} ha tomado un punto de control`);
+                // Check if this is a position challenge control change
+                if (data.data.positionChallenge) {
+                    showInfo(`El equipo ${data.data.team} ha tomado el punto de control`);
+                } else {
+                    showInfo(`${data.data.userName} ha tomado un punto de control`);
+                }
             } else {
                 showSuccess(`¡Has tomado el punto de control!`);
                 // Close control point popup for successful action
@@ -1608,6 +1629,13 @@ function handleGameAction(data) {
                     window.refreshOwnerControlPointMarkers(currentGame.controlPoints);
                 } else if (window.refreshPlayerControlPointMarkers && currentGame.controlPoints) {
                     window.refreshPlayerControlPointMarkers(currentGame.controlPoints);
+                }
+                
+                // Update position challenge pie charts after markers are refreshed
+                if (currentGame.controlPoints && window.updatePositionChallengeBars) {
+                    setTimeout(() => {
+                        updatePositionChallengePieCharts(currentGame.controlPoints);
+                    }, 1000);
                 }
                 
                 // Also update bomb timer display if there are bomb updates
@@ -3028,6 +3056,40 @@ function handlePositionChallengeUpdate(data) {
     
     // Also update the control point popups if they are open
     updateOpenControlPointPopups();
+    
+    // Force map refresh to ensure pie charts are properly displayed
+    setTimeout(() => {
+        if (map) {
+            map.invalidateSize();
+        }
+    }, 100);
+}
+
+// Update position challenge pie charts for all control points
+function updatePositionChallengePieCharts(controlPoints) {
+    if (!controlPoints || !window.updatePositionChallengeBars) return;
+    
+    controlPoints.forEach(controlPoint => {
+        if (controlPoint.hasPositionChallenge) {
+            // Get current team points from stored data or use empty object
+            let teamPoints = {};
+            
+            // Try to get team points from marker data
+            let marker = null;
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker && layer.controlPointData && layer.controlPointData.id === controlPoint.id) {
+                    marker = layer;
+                }
+            });
+            
+            if (marker && marker.pieData && marker.pieData.teamPoints) {
+                teamPoints = marker.pieData.teamPoints;
+            }
+            
+            // Update the pie chart
+            window.updatePositionChallengeBars(controlPoint.id, teamPoints);
+        }
+    });
 }
 
 // Make functions available globally
@@ -3035,3 +3097,4 @@ window.closeControlPointPopup = closeControlPointPopup;
 window.updateOpenControlPointPopups = updateOpenControlPointPopups;
 window.handleControlPointData = handleControlPointData;
 window.handlePositionChallengeUpdate = handlePositionChallengeUpdate;
+window.updatePositionChallengePieCharts = updatePositionChallengePieCharts;

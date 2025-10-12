@@ -13,7 +13,20 @@ function updatePositionChallengeBars(controlPointId, teamPoints) {
   });
 
   if (!marker) {
+    console.log(`[POSITION_CHALLENGE_PIE] Marker not found for control point ${controlPointId}`);
     return;
+  }
+
+  // Check if pie chart exists, if not create it
+  if (!marker.pieElement || !marker.pieSvg) {
+    console.log(`[POSITION_CHALLENGE_PIE] Pie chart not found for control point ${controlPointId}, creating new one`);
+    const controlPoint = getControlPointById(controlPointId);
+    if (controlPoint && controlPoint.hasPositionChallenge && controlPoint.minDistance && marker.positionCircle) {
+      createOwnerPositionChallengePieChart(marker, controlPoint, marker.positionCircle);
+    } else {
+      console.log(`[POSITION_CHALLENGE_PIE] Cannot create pie chart - missing required data for control point ${controlPointId}`);
+      return;
+    }
   }
 
   // Calculate total points to determine percentages

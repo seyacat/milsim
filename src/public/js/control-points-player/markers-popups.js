@@ -45,15 +45,8 @@ function createControlPointPlayerMenu(controlPoint, marker) {
         `;
     }
     
-    // Show position challenge button if position challenge is active
+    // Position challenge is automatic - no button needed
     let positionChallengeSection = '';
-    if (canTakePoint && controlPoint.hasPositionChallenge) {
-        positionChallengeSection = `
-            <div class="position-challenge-section" style="margin-top: 10px;">
-                <button class="submit-position-button" onclick="submitPositionChallenge(${controlPoint.id})" style="width: 100%; padding: 8px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer;">Verificar Posición</button>
-            </div>
-        `;
-    }
     
     // Show bomb challenge inputs and submit button if bomb challenge is active
     let bombChallengeSection = '';
@@ -351,6 +344,10 @@ function refreshControlPointMarkers(controlPoints) {
             // Remove position circle if exists
             if (layer.positionCircle) {
                 map.removeLayer(layer.positionCircle);
+            }
+            // Remove pie chart SVG overlay if exists
+            if (layer.pieSvg) {
+                map.removeLayer(layer.pieSvg);
             }
             map.removeLayer(layer);
             removedCount++;

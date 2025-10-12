@@ -236,6 +236,10 @@ function refreshOwnerControlPointMarkers(controlPoints) {
             if (layer.positionCircle) {
                 map.removeLayer(layer.positionCircle);
             }
+            // Remove pie chart SVG overlay if exists
+            if (layer.pieSvg) {
+                map.removeLayer(layer.pieSvg);
+            }
             map.removeLayer(layer);
             removedCount++;
         }
