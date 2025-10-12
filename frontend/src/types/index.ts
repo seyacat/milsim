@@ -40,9 +40,9 @@ export interface ControlPoint {
   id: number;
   name: string;
   description?: string;
-  lat: number;
-  lng: number;
-  type: 'site' | 'control';
+  latitude: number;
+  longitude: number;
+  type: 'site' | 'control_point';
   ownedByTeam?: TeamColor;
   hasBombChallenge: boolean;
   hasPositionChallenge: boolean;
@@ -51,6 +51,12 @@ export interface ControlPoint {
   currentHoldTime?: number;
   displayTime?: string;
   lastTimeUpdate?: number;
+  minDistance?: number;
+  minAccuracy?: number;
+  code?: string;
+  bombTime?: number;
+  armedCode?: string;
+  disarmedCode?: string;
 }
 
 export interface BombTimer {

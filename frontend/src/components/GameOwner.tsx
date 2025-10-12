@@ -46,7 +46,10 @@ const GameOwner: React.FC = () => {
     centerOnSite,
     openTeamsDialog,
     enableGameNameEdit,
-    handleMapClick
+    handleMapClick,
+    controlPointMarkers,
+    positionCircles,
+    pieCharts
   } = useGameOwner(gameId, navigate, addToast)
 
   if (isLoading) {
@@ -77,6 +80,9 @@ const GameOwner: React.FC = () => {
         playerMarkersRef={playerMarkersRef}
         controlPointMarkersRef={controlPointMarkersRef}
         handleMapClick={handleMapClick}
+        controlPointMarkers={controlPointMarkers}
+        positionCircles={positionCircles}
+        pieCharts={pieCharts}
       />
 
       {/* Game Overlay */}

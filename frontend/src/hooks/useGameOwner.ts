@@ -4,6 +4,7 @@ import { AuthService } from '../services/auth'
 import { GameService } from '../services/game'
 import { User, Game, ControlPoint, Toast } from '../types'
 import { io, Socket } from 'socket.io-client'
+import { useControlPoints } from './useControlPoints'
 
 interface UseGameOwnerReturn {
   currentUser: User | null
@@ -31,6 +32,10 @@ interface UseGameOwnerReturn {
   enableGameNameEdit: () => void
   createControlPoint: (lat: number, lng: number) => void
   handleMapClick: (latlng: { lat: number; lng: number }) => void
+  controlPointMarkers: Map<number, L.Marker>
+  positionCircles: Map<number, L.Circle>
+  pieCharts: Map<number, L.SVGOverlay>
+  enableDragMode: (controlPointId: number, markerId: number) => void
 }
 
 export const useGameOwner = (
@@ -55,6 +60,20 @@ export const useGameOwner = (
   // Memoize functions to prevent re-renders
   const memoizedAddToast = useCallback(addToast, [addToast])
   const memoizedNavigate = useCallback(navigate, [navigate])
+
+  // Create a wrapper for showToast that matches the expected signature
+  const showToastWrapper = useCallback((message: string, type: string) => {
+    memoizedAddToast({ message, type: type as any });
+  }, [memoizedAddToast]);
+
+  // Use control points hook
+  const { controlPointMarkers, positionCircles, pieCharts, enableDragMode } = useControlPoints({
+    game: currentGame,
+    map: mapInstanceRef.current,
+    isOwner: true,
+    socket: socketRef.current,
+    showToast: showToastWrapper
+  })
 
   useEffect(() => {
     let isMounted = true
@@ -433,7 +452,7 @@ export const useGameOwner = (
     if (mapInstanceRef.current && currentGame) {
       const siteControlPoint = currentGame.controlPoints.find(cp => cp.type === 'site')
       if (siteControlPoint) {
-        mapInstanceRef.current.setView([siteControlPoint.lat, siteControlPoint.lng], 16)
+        mapInstanceRef.current.setView([siteControlPoint.latitude, siteControlPoint.longitude], 16)
       }
     }
   }, [currentGame])
@@ -525,6 +544,10 @@ export const useGameOwner = (
     openTeamsDialog,
     enableGameNameEdit,
     createControlPoint,
-    handleMapClick
+    handleMapClick,
+    controlPointMarkers,
+    positionCircles,
+    pieCharts,
+    enableDragMode
   }
 }

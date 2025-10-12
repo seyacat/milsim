@@ -10,6 +10,9 @@ interface GameOwnerMapProps {
   playerMarkersRef: React.MutableRefObject<any>
   controlPointMarkersRef: React.MutableRefObject<any>
   handleMapClick: (latlng: { lat: number; lng: number }) => void
+  controlPointMarkers: Map<number, any>
+  positionCircles: Map<number, any>
+  pieCharts: Map<number, any>
 }
 
 const GameOwnerMap: React.FC<GameOwnerMapProps> = ({
@@ -20,7 +23,10 @@ const GameOwnerMap: React.FC<GameOwnerMapProps> = ({
   userMarkerRef,
   playerMarkersRef,
   controlPointMarkersRef,
-  handleMapClick
+  handleMapClick,
+  controlPointMarkers,
+  positionCircles,
+  pieCharts
 }) => {
   useEffect(() => {
     let isMounted = true
@@ -47,16 +53,8 @@ const GameOwnerMap: React.FC<GameOwnerMapProps> = ({
         playerMarkersRef.current = {}
         controlPointMarkersRef.current = {}
 
-        // Add control points to map
-        currentGame.controlPoints.forEach(controlPoint => {
-          // Verificar que las coordenadas sean válidas
-          if (controlPoint.lat && controlPoint.lng) {
-            const marker = L.marker([controlPoint.lat, controlPoint.lng])
-              .addTo(mapInstanceRef.current)
-            
-            controlPointMarkersRef.current[controlPoint.id] = marker
-          }
-        })
+        // Control points are now handled by the useControlPoints hook
+        // The markers are automatically created and managed by the hook
 
         // Add click handler for creating control points
         mapInstanceRef.current.on('click', (e: any) => {
@@ -65,7 +63,7 @@ const GameOwnerMap: React.FC<GameOwnerMapProps> = ({
         })
 
         // Set initial view to a default location if no control points
-        if (currentGame.controlPoints.length === 0 || !currentGame.controlPoints.some(cp => cp.lat && cp.lng)) {
+        if (currentGame.controlPoints.length === 0 || !currentGame.controlPoints.some(cp => cp.latitude && cp.longitude)) {
           mapInstanceRef.current.setView([0, 0], 2)
         }
 
