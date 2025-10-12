@@ -45,7 +45,8 @@ const GameOwner: React.FC = () => {
     centerOnUser,
     centerOnSite,
     openTeamsDialog,
-    enableGameNameEdit
+    enableGameNameEdit,
+    handleMapClick
   } = useGameOwner(gameId, navigate, addToast)
 
   if (isLoading) {
@@ -67,7 +68,7 @@ const GameOwner: React.FC = () => {
   return (
     <div className="game-owner-container">
       {/* Map */}
-      <GameOwnerMap 
+      <GameOwnerMap
         mapRef={mapRef}
         currentGame={currentGame}
         currentUser={currentUser}
@@ -75,6 +76,7 @@ const GameOwner: React.FC = () => {
         userMarkerRef={userMarkerRef}
         playerMarkersRef={playerMarkersRef}
         controlPointMarkersRef={controlPointMarkersRef}
+        handleMapClick={handleMapClick}
       />
 
       {/* Game Overlay */}

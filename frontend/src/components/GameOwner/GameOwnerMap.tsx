@@ -9,6 +9,7 @@ interface GameOwnerMapProps {
   userMarkerRef: React.MutableRefObject<any>
   playerMarkersRef: React.MutableRefObject<any>
   controlPointMarkersRef: React.MutableRefObject<any>
+  handleMapClick: (latlng: { lat: number; lng: number }) => void
 }
 
 const GameOwnerMap: React.FC<GameOwnerMapProps> = ({
@@ -18,7 +19,8 @@ const GameOwnerMap: React.FC<GameOwnerMapProps> = ({
   mapInstanceRef,
   userMarkerRef,
   playerMarkersRef,
-  controlPointMarkersRef
+  controlPointMarkersRef,
+  handleMapClick
 }) => {
   useEffect(() => {
     let isMounted = true
@@ -59,7 +61,7 @@ const GameOwnerMap: React.FC<GameOwnerMapProps> = ({
         // Add click handler for creating control points
         mapInstanceRef.current.on('click', (e: any) => {
           console.log('Map clicked at:', e.latlng)
-          // TODO: Implement control point creation
+          handleMapClick(e.latlng)
         })
 
         // Set initial view to a default location if no control points
@@ -86,11 +88,11 @@ const GameOwnerMap: React.FC<GameOwnerMapProps> = ({
   }, []) // Empty dependency array to run only once
 
   return (
-    <div 
-      ref={mapRef} 
+    <div
+      ref={mapRef}
       className="map-container"
-      style={{ 
-        width: '100%', 
+      style={{
+        width: '100%',
         height: '100%',
         position: 'absolute',
         top: 0,

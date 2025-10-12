@@ -29,6 +29,8 @@ interface UseGameOwnerReturn {
   centerOnSite: () => void
   openTeamsDialog: () => void
   enableGameNameEdit: () => void
+  createControlPoint: (lat: number, lng: number) => void
+  handleMapClick: (latlng: { lat: number; lng: number }) => void
 }
 
 export const useGameOwner = (
@@ -175,10 +177,126 @@ export const useGameOwner = (
 
     return () => {
       isMounted = false
+      // Clean up GPS watch
+      if (watchIdRef.current) {
+        navigator.geolocation.clearWatch(watchIdRef.current)
+        watchIdRef.current = null
+      }
       // Don't disconnect WebSocket - let it be persistent
       // The WebSocket will be cleaned up when the component unmounts naturally
     }
   }, [gameId, memoizedNavigate, memoizedAddToast])
+
+  // Start GPS tracking when component mounts
+  useEffect(() => {
+    let isMounted = true
+
+    const startGPS = () => {
+      if (!navigator.geolocation) {
+        setGpsStatus('GPS no soportado')
+        return
+      }
+
+      setGpsStatus('Activando...')
+
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (position) => {
+          if (!isMounted) return
+
+          const lat = position.coords.latitude
+          const lng = position.coords.longitude
+          const accuracy = position.coords.accuracy
+
+          setCurrentPosition({ lat, lng, accuracy })
+          setGpsStatus('Activo')
+
+          // Update user marker on map
+          if (!userMarkerRef.current && mapInstanceRef.current) {
+            createUserMarker(lat, lng)
+            
+            // Set view to user's location when GPS is first available (like in original code)
+            mapInstanceRef.current.setView([lat, lng], 16)
+          } else if (userMarkerRef.current) {
+            userMarkerRef.current.setLatLng([lat, lng])
+          }
+
+          // Send position update via WebSocket
+          if (socketRef.current && currentGame) {
+            socketRef.current.emit('gameAction', {
+              gameId: currentGame.id,
+              action: 'positionUpdate',
+              data: { lat, lng, accuracy }
+            })
+          }
+        },
+        (error) => {
+          if (!isMounted) return
+          
+          console.error('GPS error:', error)
+          let message = 'Error de GPS'
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              message = 'Permiso denegado'
+              break
+            case error.POSITION_UNAVAILABLE:
+              message = 'Ubicación no disponible'
+              break
+            case error.TIMEOUT:
+              message = 'Tiempo agotado'
+              break
+          }
+          setGpsStatus(message)
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0  // Force fresh GPS updates every time
+        }
+      )
+    }
+
+    const createUserMarker = (lat: number, lng: number) => {
+      if (!mapInstanceRef.current) return
+
+      // Remove existing marker if it exists
+      if (userMarkerRef.current) {
+        mapInstanceRef.current.removeLayer(userMarkerRef.current)
+        userMarkerRef.current = null
+      }
+
+      // Import Leaflet dynamically
+      import('leaflet').then(L => {
+        if (!isMounted || !mapInstanceRef.current) return
+
+        const teamClass = currentUser?.team || 'none'
+        
+        userMarkerRef.current = L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: `user-marker ${teamClass}`,
+            iconSize: [24, 24],
+          })
+        }).addTo(mapInstanceRef.current)
+        
+        // Create popup with custom class for positioning
+        const popup = L.popup({
+          className: 'user-marker-popup'
+        }).setContent('<strong>Tú.</strong>')
+        
+        userMarkerRef.current.bindPopup(popup).openPopup()
+      })
+    }
+
+    // Start GPS tracking
+    startGPS()
+
+    return () => {
+      isMounted = false
+      if (watchIdRef.current) {
+        navigator.geolocation.clearWatch(watchIdRef.current)
+        watchIdRef.current = null
+      }
+    }
+  }, [currentGame, currentUser])
 
   const startGame = useCallback(() => {
     if (!currentGame || !socketRef.current) return
@@ -328,6 +446,60 @@ export const useGameOwner = (
     memoizedAddToast({ message: 'Funcionalidad de edición de nombre no implementada aún', type: 'info' })
   }, [memoizedAddToast])
 
+  const createControlPoint = useCallback((lat: number, lng: number) => {
+    if (!socketRef.current || !currentGame) return
+
+    const name = `Punto ${Math.round(lat * 10000)}-${Math.round(lng * 10000)}`
+    
+    socketRef.current.emit('gameAction', {
+      gameId: currentGame.id,
+      action: 'createControlPoint',
+      data: {
+        name,
+        description: '',
+        latitude: lat,
+        longitude: lng,
+        gameId: currentGame.id
+      }
+    })
+
+    memoizedAddToast({ message: 'Punto de control creado', type: 'success' })
+  }, [currentGame, memoizedAddToast])
+
+  const handleMapClick = useCallback((latlng: { lat: number; lng: number }) => {
+    if (!mapInstanceRef.current) return;
+    
+    // Remove any existing popup first
+    mapInstanceRef.current.closePopup();
+
+    // Create menu content similar to original implementation
+    const menuContent = `
+      <div id="controlPointMenu">
+        <div style="display: flex; justify-content: center;">
+          <button onclick="window.createControlPoint(${latlng.lat}, ${latlng.lng})" style="padding: 8px 16px; margin: 0 10px 0 5px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Crear Punto de Control</button>
+        </div>
+      </div>
+    `;
+
+    // Import Leaflet dynamically and create popup
+    import('leaflet').then(L => {
+      if (!mapInstanceRef.current) return;
+
+      // Create Leaflet popup that sticks to the map
+      const popup = L.popup()
+        .setLatLng([latlng.lat, latlng.lng])
+        .setContent(menuContent)
+        .openOn(mapInstanceRef.current);
+
+      // Add global function for the button
+      (window as any).createControlPoint = (lat: number, lng: number) => {
+        createControlPoint(lat, lng);
+        mapInstanceRef.current?.closePopup();
+      };
+    });
+  }, [createControlPoint])
+
+
   return {
     currentUser,
     currentGame,
@@ -351,6 +523,8 @@ export const useGameOwner = (
     centerOnUser,
     centerOnSite,
     openTeamsDialog,
-    enableGameNameEdit
+    enableGameNameEdit,
+    createControlPoint,
+    handleMapClick
   }
 }
