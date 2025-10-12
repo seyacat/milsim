@@ -14,7 +14,6 @@ export class PlayerManagementService {
   ) {}
 
   async joinGame(gameId: number, userId: number): Promise<Player> {
-
     // Check if game exists
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
@@ -24,7 +23,6 @@ export class PlayerManagementService {
       console.error(`[JOIN_GAME] Game ${gameId} not found`);
       throw new NotFoundException('Game not found');
     }
-
 
     // Check if user is already in the game
     const existingPlayer = await this.playersRepository.findOne({
@@ -55,7 +53,6 @@ export class PlayerManagementService {
   }
 
   async leaveGame(gameId: number, userId: number): Promise<void> {
-
     // Find the player entry
     const player = await this.playersRepository.findOne({
       where: { game: { id: gameId }, user: { id: userId } },

@@ -1,4 +1,3 @@
-
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -54,7 +53,9 @@ export class BombManagementService {
 
     // Check if game is running
     if (controlPoint.game.status !== 'running') {
-      throw new ConflictException('Solo se puede activar la bomba cuando el juego está en ejecución');
+      throw new ConflictException(
+        'Solo se puede activar la bomba cuando el juego está en ejecución',
+      );
     }
 
     // Check if bomb challenge is active
@@ -139,7 +140,9 @@ export class BombManagementService {
 
     // Check if game is running
     if (controlPoint.game.status !== 'running') {
-      throw new ConflictException('Solo se puede desactivar la bomba cuando el juego está en ejecución');
+      throw new ConflictException(
+        'Solo se puede desactivar la bomba cuando el juego está en ejecución',
+      );
     }
 
     // Check if bomb challenge is active
@@ -224,7 +227,9 @@ export class BombManagementService {
 
     // Check if game is running
     if (controlPoint.game.status !== 'running') {
-      throw new ConflictException('Solo se puede activar la bomba cuando el juego está en ejecución');
+      throw new ConflictException(
+        'Solo se puede activar la bomba cuando el juego está en ejecución',
+      );
     }
 
     // Check if bomb challenge is active
@@ -303,7 +308,9 @@ export class BombManagementService {
 
     // Check if game is running
     if (controlPoint.game.status !== 'running') {
-      throw new ConflictException('Solo se puede desactivar la bomba cuando el juego está en ejecución');
+      throw new ConflictException(
+        'Solo se puede desactivar la bomba cuando el juego está en ejecución',
+      );
     }
 
     // Check if bomb challenge is active
@@ -424,7 +431,10 @@ export class BombManagementService {
 
     const intervalId = setInterval(() => {
       void (async () => {
-        const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(controlPointId, gameInstanceId);
+        const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(
+          controlPointId,
+          gameInstanceId,
+        );
 
         if (!bombTimeData || !bombTimeData.isActive) {
           // Bomb is no longer active, stop broadcasting
@@ -463,7 +473,10 @@ export class BombManagementService {
     this.stopBombTimer(controlPointId);
 
     // Get the bomb activation data from history to determine who activated it
-    const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(controlPointId, gameInstanceId);
+    const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(
+      controlPointId,
+      gameInstanceId,
+    );
     const activatedByUserId = bombTimeData?.activatedByUserId;
     const activatedByUserName = bombTimeData?.activatedByUserName;
     const activatedByTeam = bombTimeData?.activatedByTeam;
@@ -486,7 +499,6 @@ export class BombManagementService {
         exploded: true,
       });
     }
-
   }
 
   // Get current bomb time for a control point
@@ -508,7 +520,10 @@ export class BombManagementService {
       return null;
     }
 
-    return this.timerCalculationService.calculateRemainingBombTime(controlPointId, controlPoint.game.instanceId);
+    return this.timerCalculationService.calculateRemainingBombTime(
+      controlPointId,
+      controlPoint.game.instanceId,
+    );
   }
 
   // Deactivate bomb timer
@@ -520,7 +535,10 @@ export class BombManagementService {
     team: string,
   ): Promise<void> {
     // Get the bomb activation data from history to check who activated it
-    const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(controlPointId, gameInstanceId);
+    const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(
+      controlPointId,
+      gameInstanceId,
+    );
     const activatedByTeam = bombTimeData?.activatedByTeam;
 
     // Check if this is a deactivation by opposing team (only count points for opposing team deactivations)
@@ -545,7 +563,6 @@ export class BombManagementService {
         isActive: false,
       });
     }
-
   }
 
   // Get all active bomb timers for a game

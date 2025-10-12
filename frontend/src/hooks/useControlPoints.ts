@@ -193,22 +193,150 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     }
   }, [socket, game, showToast]);
 
+  // Update control point properties
+  const updateControlPoint = useCallback((controlPointId: number, markerId: number) => {
+    if (!socket || !game) return;
+
+    // Get form values using the same IDs as the original code
+    const typeSelect = document.getElementById(`controlPointType_${controlPointId}`) as HTMLSelectElement;
+    const nameInput = document.getElementById(`controlPointEditName_${controlPointId}`) as HTMLInputElement;
+    const positionChallengeCheckbox = document.getElementById(`positionChallenge_${controlPointId}`) as HTMLInputElement;
+    const minDistanceSelect = document.getElementById(`controlPointMinDistance_${controlPointId}`) as HTMLSelectElement;
+    const minAccuracySelect = document.getElementById(`controlPointMinAccuracy_${controlPointId}`) as HTMLSelectElement;
+    const codeChallengeCheckbox = document.getElementById(`codeChallenge_${controlPointId}`) as HTMLInputElement;
+    const codeInput = document.getElementById(`controlPointCode_${controlPointId}`) as HTMLInputElement;
+    const bombChallengeCheckbox = document.getElementById(`bombChallenge_${controlPointId}`) as HTMLInputElement;
+    const bombTimeSelect = document.getElementById(`controlPointBombTime_${controlPointId}`) as HTMLSelectElement;
+    const armedCodeInput = document.getElementById(`controlPointArmedCode_${controlPointId}`) as HTMLInputElement;
+    const disarmedCodeInput = document.getElementById(`controlPointDisarmedCode_${controlPointId}`) as HTMLInputElement;
+
+    // Validate required fields
+    if (!nameInput?.value.trim()) {
+      if (showToast) {
+        showToast('Por favor ingresa un nombre para el punto', 'warning');
+      }
+      return;
+    }
+
+    // Prepare update data following the original structure
+    const updateData = {
+      controlPointId: controlPointId,
+      name: nameInput.value.trim(),
+      type: typeSelect?.value || 'control_point',
+      hasPositionChallenge: positionChallengeCheckbox?.checked || false,
+      hasCodeChallenge: codeChallengeCheckbox?.checked || false,
+      hasBombChallenge: bombChallengeCheckbox?.checked || false
+    };
+
+    // Add position challenge values
+    const minDistance = minDistanceSelect?.value || '';
+    const minAccuracy = minAccuracySelect?.value || '';
+    
+    // Validate position challenge if checked
+    if (positionChallengeCheckbox?.checked) {
+      if (!minDistance || !minAccuracy) {
+        if (showToast) {
+          showToast('Para position challenge, debes seleccionar tanto la distancia mínima como el accuracy mínimo', 'warning');
+        }
+        return;
+      }
+    }
+    
+    // Always send position values (they will be null if not selected)
+    (updateData as any).minDistance = minDistance ? parseInt(minDistance) : null;
+    (updateData as any).minAccuracy = minAccuracy ? parseInt(minAccuracy) : null;
+
+    // Add code challenge values
+    const code = codeInput?.value.trim() || '';
+    
+    // Validate code challenge if checked
+    if (codeChallengeCheckbox?.checked) {
+      if (!code) {
+        if (showToast) {
+          showToast('Para code challenge, debes ingresar un código', 'warning');
+        }
+        return;
+      }
+    }
+    
+    // Always send code value (it will be null if empty)
+    (updateData as any).code = code || null;
+
+    // Add bomb challenge values
+    const bombTime = bombTimeSelect?.value || '';
+    const armedCode = armedCodeInput?.value.trim() || '';
+    const disarmedCode = disarmedCodeInput?.value.trim() || '';
+    
+    // Validate bomb challenge if checked
+    if (bombChallengeCheckbox?.checked) {
+      if (!armedCode || !disarmedCode) {
+        if (showToast) {
+          showToast('Para bomb challenge, debes ingresar tanto el código para armar como el código para desarmar', 'warning');
+        }
+        return;
+      }
+    }
+    
+    // Always send bomb values (they will be null if not selected)
+    (updateData as any).bombTime = bombTime ? parseInt(bombTime) : null;
+    (updateData as any).armedCode = armedCode || null;
+    (updateData as any).disarmedCode = disarmedCode || null;
+
+    // Send update via WebSocket following the original structure
+    socket.emit('gameAction', {
+      gameId: game.id,
+      action: 'updateControlPoint',
+      data: updateData
+    });
+
+    if (showToast) {
+      showToast('Punto actualizado exitosamente', 'success');
+    }
+
+    // Close the popup
+    const marker = controlPointMarkers.current.get(controlPointId);
+    if (marker) {
+      marker.closePopup();
+    }
+  }, [socket, game, showToast]);
+
+  // Delete control point
+  const deleteControlPoint = useCallback((controlPointId: number, markerId: number) => {
+    if (!socket || !game) return;
+
+    if (confirm('¿Estás seguro de que quieres eliminar este punto?')) {
+      socket.emit('gameAction', {
+        gameId: game.id,
+        action: 'deleteControlPoint',
+        data: {
+          controlPointId: controlPointId
+        }
+      });
+
+      if (showToast) {
+        showToast('Punto eliminado exitosamente', 'success');
+      }
+
+      // Close the popup
+      const marker = controlPointMarkers.current.get(controlPointId);
+      if (marker) {
+        marker.closePopup();
+      }
+    }
+  }, [socket, game, showToast]);
+
   // Make functions available globally for popup buttons
   useEffect(() => {
     (window as any).enableDragMode = enableDragMode;
-    (window as any).updateControlPoint = (controlPointId: number, markerId: number) => {
-      // This would handle updating control point properties
-    };
-    (window as any).deleteControlPoint = (controlPointId: number, markerId: number) => {
-      // This would handle deleting control point
-    };
+    (window as any).updateControlPoint = updateControlPoint;
+    (window as any).deleteControlPoint = deleteControlPoint;
     (window as any).activateBombAsOwner = activateBombAsOwner;
     (window as any).deactivateBombAsOwner = deactivateBombAsOwner;
     (window as any).assignControlPointTeam = assignControlPointTeam;
     (window as any).togglePositionInputs = togglePositionInputs;
     (window as any).toggleCodeInputs = toggleCodeInputs;
     (window as any).toggleBombInputs = toggleBombInputs;
-  }, [enableDragMode, activateBombAsOwner, deactivateBombAsOwner, assignControlPointTeam]);
+  }, [enableDragMode, updateControlPoint, deleteControlPoint, activateBombAsOwner, deactivateBombAsOwner, assignControlPointTeam]);
 
   // Listen for WebSocket events related to challenges
   useEffect(() => {
@@ -513,21 +641,21 @@ const createPositionCircle = (controlPoint: ControlPoint, map: L.Map): L.Circle 
 
 // Toggle functions for challenge inputs
 const togglePositionInputs = (controlPointId: number) => {
-  const positionInputs = document.getElementById(`position_inputs_${controlPointId}`);
+  const positionInputs = document.getElementById(`positionInputs_${controlPointId}`);
   if (positionInputs) {
     positionInputs.style.display = positionInputs.style.display === 'none' ? 'block' : 'none';
   }
 };
 
 const toggleCodeInputs = (controlPointId: number) => {
-  const codeInputs = document.getElementById(`code_inputs_${controlPointId}`);
+  const codeInputs = document.getElementById(`codeInputs_${controlPointId}`);
   if (codeInputs) {
     codeInputs.style.display = codeInputs.style.display === 'none' ? 'block' : 'none';
   }
 };
 
 const toggleBombInputs = (controlPointId: number) => {
-  const bombInputs = document.getElementById(`bomb_inputs_${controlPointId}`);
+  const bombInputs = document.getElementById(`bombInputs_${controlPointId}`);
   if (bombInputs) {
     bombInputs.style.display = bombInputs.style.display === 'none' ? 'block' : 'none';
   }
@@ -594,22 +722,30 @@ const createOwnerPopupContent = (controlPoint: ControlPoint, marker: L.Marker): 
         <!-- Position Challenge -->
         <div class="challenge-item" style="margin-bottom: 10px;">
           <label style="display: flex; align-items: center; cursor: pointer;">
-            <input type="checkbox" id="position_challenge_${controlPoint.id}" ${controlPoint.hasPositionChallenge ? 'checked' : ''}
+            <input type="checkbox" id="positionChallenge_${controlPoint.id}" ${controlPoint.hasPositionChallenge ? 'checked' : ''}
                    onchange="window.togglePositionInputs(${controlPoint.id})" style="margin-right: 8px;">
             <span style="font-size: 13px;">Desafío de Posición</span>
           </label>
-          <div id="position_inputs_${controlPoint.id}" style="margin-top: 5px; margin-left: 20px; display: ${controlPoint.hasPositionChallenge ? 'block' : 'none'}">
-            <div style="display: flex; gap: 5px; align-items: center;">
-              <label style="font-size: 12px; min-width: 80px;">Distancia mínima:</label>
-              <input type="number" id="min_distance_${controlPoint.id}" value="${controlPoint.minDistance || 50}"
-                     class="form-input" style="width: 80px; font-size: 12px; padding: 2px 5px;" min="1" max="1000">
-              <span style="font-size: 12px;">metros</span>
+          <div id="positionInputs_${controlPoint.id}" style="margin-top: 5px; margin-left: 20px; display: ${controlPoint.hasPositionChallenge ? 'block' : 'none'}">
+            <div class="form-group">
+              <label class="form-label">Distancia Mínima:</label>
+              <select id="controlPointMinDistance_${controlPoint.id}" class="form-input">
+                <option value="5" ${controlPoint.minDistance === 5 ? 'selected' : ''}>5m (Muy cercano)</option>
+                <option value="10" ${controlPoint.minDistance === 10 ? 'selected' : ''}>10m (Cercano)</option>
+                <option value="25" ${controlPoint.minDistance === 25 ? 'selected' : ''}>25m (Medio)</option>
+                <option value="50" ${controlPoint.minDistance === 50 ? 'selected' : ''}>50m (Lejano)</option>
+                <option value="100" ${controlPoint.minDistance === 100 ? 'selected' : ''}>100m (Muy lejano)</option>
+              </select>
             </div>
-            <div style="display: flex; gap: 5px; align-items: center; margin-top: 5px;">
-              <label style="font-size: 12px; min-width: 80px;">Precisión mínima:</label>
-              <input type="number" id="min_accuracy_${controlPoint.id}" value="${controlPoint.minAccuracy || 10}"
-                     class="form-input" style="width: 80px; font-size: 12px; padding: 2px 5px;" min="1" max="100">
-              <span style="font-size: 12px;">metros</span>
+            <div class="form-group">
+              <label class="form-label">Accuracy Mínimo:</label>
+              <select id="controlPointMinAccuracy_${controlPoint.id}" class="form-input">
+                <option value="5" ${controlPoint.minAccuracy === 5 ? 'selected' : ''}>5m (Alta precisión)</option>
+                <option value="10" ${controlPoint.minAccuracy === 10 ? 'selected' : ''}>10m (Buena precisión)</option>
+                <option value="20" ${controlPoint.minAccuracy === 20 ? 'selected' : ''}>20m (Precisión media)</option>
+                <option value="50" ${controlPoint.minAccuracy === 50 ? 'selected' : ''}>50m (Baja precisión)</option>
+                <option value="100" ${controlPoint.minAccuracy === 100 ? 'selected' : ''}>100m (Muy baja precisión)</option>
+              </select>
             </div>
           </div>
         </div>
@@ -617,15 +753,14 @@ const createOwnerPopupContent = (controlPoint: ControlPoint, marker: L.Marker): 
         <!-- Code Challenge -->
         <div class="challenge-item" style="margin-bottom: 10px;">
           <label style="display: flex; align-items: center; cursor: pointer;">
-            <input type="checkbox" id="code_challenge_${controlPoint.id}" ${controlPoint.hasCodeChallenge ? 'checked' : ''}
+            <input type="checkbox" id="codeChallenge_${controlPoint.id}" ${controlPoint.hasCodeChallenge ? 'checked' : ''}
                    onchange="window.toggleCodeInputs(${controlPoint.id})" style="margin-right: 8px;">
             <span style="font-size: 13px;">Desafío de Código</span>
           </label>
-          <div id="code_inputs_${controlPoint.id}" style="margin-top: 5px; margin-left: 20px; display: ${controlPoint.hasCodeChallenge ? 'block' : 'none'}">
-            <div style="display: flex; gap: 5px; align-items: center;">
-              <label style="font-size: 12px; min-width: 80px;">Código:</label>
-              <input type="text" id="code_${controlPoint.id}" value="${controlPoint.code || ''}"
-                     class="form-input" style="width: 120px; font-size: 12px; padding: 2px 5px;" placeholder="Ej: 1234">
+          <div id="codeInputs_${controlPoint.id}" style="margin-top: 5px; margin-left: 20px; display: ${controlPoint.hasCodeChallenge ? 'block' : 'none'}">
+            <div class="form-group">
+              <label class="form-label">Code:</label>
+              <input type="text" id="controlPointCode_${controlPoint.id}" value="${controlPoint.code || ''}" class="form-input" placeholder="Código para tomar">
             </div>
           </div>
         </div>
@@ -633,26 +768,29 @@ const createOwnerPopupContent = (controlPoint: ControlPoint, marker: L.Marker): 
         <!-- Bomb Challenge -->
         <div class="challenge-item" style="margin-bottom: 10px;">
           <label style="display: flex; align-items: center; cursor: pointer;">
-            <input type="checkbox" id="bomb_challenge_${controlPoint.id}" ${controlPoint.hasBombChallenge ? 'checked' : ''}
+            <input type="checkbox" id="bombChallenge_${controlPoint.id}" ${controlPoint.hasBombChallenge ? 'checked' : ''}
                    onchange="window.toggleBombInputs(${controlPoint.id})" style="margin-right: 8px;">
             <span style="font-size: 13px;">Desafío de Bomba</span>
           </label>
-          <div id="bomb_inputs_${controlPoint.id}" style="margin-top: 5px; margin-left: 20px; display: ${controlPoint.hasBombChallenge ? 'block' : 'none'}">
-            <div style="display: flex; gap: 5px; align-items: center;">
-              <label style="font-size: 12px; min-width: 80px;">Tiempo:</label>
-              <input type="number" id="bomb_time_${controlPoint.id}" value="${controlPoint.bombTime || 300}"
-                     class="form-input" style="width: 80px; font-size: 12px; padding: 2px 5px;" min="30" max="3600">
-              <span style="font-size: 12px;">segundos</span>
+          <div id="bombInputs_${controlPoint.id}" style="margin-top: 5px; margin-left: 20px; display: ${controlPoint.hasBombChallenge ? 'block' : 'none'}">
+            <div class="form-group">
+              <label class="form-label">Bomb Time:</label>
+              <select id="controlPointBombTime_${controlPoint.id}" class="form-input">
+                <option value="60" ${controlPoint.bombTime === 60 ? 'selected' : ''}>1 minuto</option>
+                <option value="120" ${controlPoint.bombTime === 120 ? 'selected' : ''}>2 minutos</option>
+                <option value="180" ${controlPoint.bombTime === 180 ? 'selected' : ''}>3 minutos</option>
+                <option value="300" ${controlPoint.bombTime === 300 ? 'selected' : ''}>5 minutos</option>
+                <option value="600" ${controlPoint.bombTime === 600 ? 'selected' : ''}>10 minutos</option>
+                <option value="900" ${controlPoint.bombTime === 900 ? 'selected' : ''}>15 minutos</option>
+              </select>
             </div>
-            <div style="display: flex; gap: 5px; align-items: center; margin-top: 5px;">
-              <label style="font-size: 12px; min-width: 80px;">Código armar:</label>
-              <input type="text" id="armed_code_${controlPoint.id}" value="${controlPoint.armedCode || ''}"
-                     class="form-input" style="width: 120px; font-size: 12px; padding: 2px 5px;" placeholder="Código para armar">
+            <div class="form-group">
+              <label class="form-label">Armed Code:</label>
+              <input type="text" id="controlPointArmedCode_${controlPoint.id}" value="${controlPoint.armedCode || ''}" class="form-input" placeholder="Código para armar">
             </div>
-            <div style="display: flex; gap: 5px; align-items: center; margin-top: 5px;">
-              <label style="font-size: 12px; min-width: 80px;">Código desarmar:</label>
-              <input type="text" id="disarmed_code_${controlPoint.id}" value="${controlPoint.disarmedCode || ''}"
-                     class="form-input" style="width: 120px; font-size: 12px; padding: 2px 5px;" placeholder="Código para desarmar">
+            <div class="form-group">
+              <label class="form-label">Disarmed Code:</label>
+              <input type="text" id="controlPointDisarmedCode_${controlPoint.id}" value="${controlPoint.disarmedCode || ''}" class="form-input" placeholder="Código para desarmar">
             </div>
             ${controlPoint.hasBombChallenge ? `
               <div style="margin-top: 10px; display: flex; gap: 5px;">

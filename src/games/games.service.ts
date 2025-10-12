@@ -1,4 +1,3 @@
-
 import {
   Injectable,
   NotFoundException,
@@ -701,7 +700,11 @@ export class GamesService {
 
           if (gameInstance && gameInstance.gameStartTime) {
             // Restart the timer with the existing game instance
-            void this.timerManagementService.startGameTimer(game.id, game.totalTime, game.instanceId);
+            void this.timerManagementService.startGameTimer(
+              game.id,
+              game.totalTime,
+              game.instanceId,
+            );
           }
 
           // Recover active bomb timers for this game
@@ -716,7 +719,6 @@ export class GamesService {
   // Recover active bomb timers on server restart
   private async recoverActiveBombTimers(gameId: number, gameInstanceId: number): Promise<void> {
     try {
-
       // Get all control points for this game
       const game = await this.gamesRepository.findOne({
         where: { id: gameId },
@@ -737,7 +739,6 @@ export class GamesService {
           );
 
           if (bombTimeData && bombTimeData.isActive) {
-
             // Start periodic broadcast for this bomb timer
             // Note: This would need to be implemented in BombManagementService
           }

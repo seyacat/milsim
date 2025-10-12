@@ -63,10 +63,10 @@ export class TimerCalculationService {
     });
 
     const savedHistory = await this.gameHistoryRepository.save(gameHistory);
-    
+
     // Update cache
     this.updateCache(gameInstanceId, savedHistory);
-    
+
     return savedHistory;
   }
 

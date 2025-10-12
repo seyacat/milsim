@@ -81,10 +81,19 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
       // Format time as MM:SS
       const minutes = Math.floor(bombTimerData.remainingTime / 60);
       const seconds = bombTimerData.remainingTime % 60;
-      const timeText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
       
       bombTimerElement.textContent = timeText;
       bombTimerElement.style.display = 'block';
+      
+      // Show warning colors when time is running low
+      if (bombTimerData.remainingTime <= 60) {
+        bombTimerElement.style.background = 'rgba(244, 67, 54, 0.9)';
+      } else if (bombTimerData.remainingTime <= 180) {
+        bombTimerElement.style.background = 'rgba(255, 152, 0, 0.9)';
+      } else {
+        bombTimerElement.style.background = 'rgba(255, 87, 34, 0.9)';
+      }
     } else {
       bombTimerElement.style.display = 'none';
     }
@@ -132,12 +141,22 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
                 remainingTime: newRemainingTime
               });
               hasActiveBombs = true;
+              
+              // Update display immediately for this timer
+              setTimeout(() => {
+                updateBombTimerDisplay(controlPointId);
+              }, 0);
             } else if (bombTimer.isActive && bombTimer.remainingTime <= 0) {
               // Bomb timer expired - keep it but mark as inactive
               newTimers.set(controlPointId, {
                 ...bombTimer,
                 isActive: false
               });
+              
+              // Hide display for expired timer
+              setTimeout(() => {
+                updateBombTimerDisplay(controlPointId);
+              }, 0);
             } else {
               newTimers.set(controlPointId, bombTimer);
             }
@@ -150,9 +169,6 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
 
           return newTimers;
         });
-
-        // Update all bomb timer displays
-        updateAllBombTimerDisplays();
       }
     }, 1000);
   };

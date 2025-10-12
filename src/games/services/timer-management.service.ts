@@ -59,7 +59,8 @@ export class TimerManagementService {
     this.stopGameTimer(gameId);
 
     // Calculate elapsed time from game history events
-    const elapsedTime = await this.timerCalculationService.calculateElapsedTimeFromEvents(gameInstanceId);
+    const elapsedTime =
+      await this.timerCalculationService.calculateElapsedTimeFromEvents(gameInstanceId);
 
     const timer: GameTimer = {
       gameId,
@@ -144,7 +145,7 @@ export class TimerManagementService {
       clearInterval(timer.intervalId);
       this.gameTimers.delete(gameId);
     }
-    
+
     // Stop position challenge processing
     this.stopPositionChallengeProcessing(gameId);
   }
@@ -177,10 +178,7 @@ export class TimerManagementService {
   }
 
   // Control Point Timer management methods
-  async startControlPointTimer(
-    controlPointId: number,
-    gameInstanceId: number,
-  ): Promise<void> {
+  async startControlPointTimer(controlPointId: number, gameInstanceId: number): Promise<void> {
     // Stop existing timer if any
     this.stopControlPointTimer(controlPointId);
 
@@ -444,7 +442,7 @@ export class TimerManagementService {
             controlPoint.id,
             game.instanceId,
           );
-          
+
           controlPointTimes.push({
             controlPointId: controlPoint.id,
             currentHoldTime: currentHoldTime,
@@ -485,7 +483,10 @@ export class TimerManagementService {
             await this.gamesGateway.processPositionChallenge(gameId);
           }
         } catch (error) {
-          console.error(`[POSITION_CHALLENGE_TIMER] Error in position challenge processing for game ${gameId}:`, error);
+          console.error(
+            `[POSITION_CHALLENGE_TIMER] Error in position challenge processing for game ${gameId}:`,
+            error,
+          );
         }
       })();
     }, 20000); // 20 seconds

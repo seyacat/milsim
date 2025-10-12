@@ -64,8 +64,10 @@ export class PositionChallengeService {
     const dLng = this.deg2rad(lng2 - lng1);
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(this.deg2rad(lat1)) * Math.cos(this.deg2rad(lat2)) *
-      Math.sin(dLng / 2) * Math.sin(dLng / 2);
+      Math.cos(this.deg2rad(lat1)) *
+        Math.cos(this.deg2rad(lat2)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     const distance = R * c * 1000; // Convert to meters
     return distance;
@@ -122,7 +124,6 @@ export class PositionChallengeService {
       relations: ['user', 'game'],
     });
 
-
     for (const player of players) {
       const position = playerPositions.get(player.user.id);
       if (!position) {
@@ -139,7 +140,6 @@ export class PositionChallengeService {
         controlPoint.latitude,
         controlPoint.longitude,
       );
-
 
       if (isInRadius && hasValidAccuracy) {
         playersInControlPoint.push({ player, position });
@@ -166,7 +166,6 @@ export class PositionChallengeService {
     if (playersInControlPoint.length === 0) {
       return result;
     }
-
 
     // Calculate points: 20 points divided by number of players in the CP
     const pointsPerPlayer = 20 / playersInControlPoint.length;
@@ -197,7 +196,10 @@ export class PositionChallengeService {
   /**
    * Process position challenge for all control points in a game
    */
-  async processPositionChallenge(gameId: number, playerPositions: Map<number, PlayerPosition>): Promise<{
+  async processPositionChallenge(
+    gameId: number,
+    playerPositions: Map<number, PlayerPosition>,
+  ): Promise<{
     results: PositionChallengeResult[];
     teamPointsByControlPoint: Map<number, Record<string, number>>;
   }> {
@@ -210,10 +212,12 @@ export class PositionChallengeService {
       relations: ['game'],
     });
 
-
     for (const controlPoint of controlPoints) {
-      const playersInControlPoint = await this.getPlayersInControlPoint(controlPoint, playerPositions);
-      
+      const playersInControlPoint = await this.getPlayersInControlPoint(
+        controlPoint,
+        playerPositions,
+      );
+
       if (playersInControlPoint.length > 0) {
         const result = this.calculatePointsForControlPoint(controlPoint, playersInControlPoint);
         results.push(result);
@@ -235,8 +239,13 @@ export class PositionChallengeService {
   /**
    * Update player position for position challenge calculations
    */
-  updatePlayerPosition(gameId: number, userId: number, lat: number, lng: number, accuracy: number): void {
-    
+  updatePlayerPosition(
+    gameId: number,
+    userId: number,
+    lat: number,
+    lng: number,
+    accuracy: number,
+  ): void {
     if (!this.playerPositions.has(gameId)) {
       this.playerPositions.set(gameId, new Map<number, PlayerPosition>());
     }
@@ -249,7 +258,6 @@ export class PositionChallengeService {
       accuracy,
       socketId: '', // Not needed for position challenge calculations
     });
-
   }
 
   /**
@@ -263,8 +271,10 @@ export class PositionChallengeService {
    * Start position challenge processing for a game
    * This should be called when the game starts and player positions are available
    */
-  startPositionChallengeProcessing(gameId: number, playerPositions: Map<number, PlayerPosition>): void {
-    
+  startPositionChallengeProcessing(
+    gameId: number,
+    playerPositions: Map<number, PlayerPosition>,
+  ): void {
     // Initialize player positions for this game
     if (!this.playerPositions.has(gameId)) {
       this.playerPositions.set(gameId, new Map<number, PlayerPosition>());
@@ -275,7 +285,6 @@ export class PositionChallengeService {
     playerPositions.forEach((position, userId) => {
       gamePositions.set(userId, position);
     });
-
   }
 
   /**
@@ -293,39 +302,49 @@ export class PositionChallengeService {
   async processPositionChallengeForGame(gameId: number): Promise<void> {
     try {
       const currentPlayerPositions = this.getPlayerPositionsForGame(gameId);
-      
+
       if (currentPlayerPositions.size === 0) {
         return;
       }
-      
-          const { results, teamPointsByControlPoint } = await this.processPositionChallengeWithAccumulation(gameId, currentPlayerPositions);
-          
-          
-          // Create events for Timer Calculation Service
-          for (const result of results) {
-            if (result.players.length > 0) {
-              for (const player of result.players) {
-                console.log(`[POSITION_CHALLENGE]   Player ${player.userName} (${player.team}): ${player.points.toFixed(1)} points`);
-              }
-              await this.createPositionChallengeEvent(gameId, result);
-            } else {
-              console.log(`[POSITION_CHALLENGE] Control point ${result.controlPointName} has no players in result, skipping event creation`);
-            }
-          }
 
-          // Broadcast position challenge updates to frontend
-          for (const [controlPointId, teamPoints] of teamPointsByControlPoint.entries()) {
-            this.gamesGateway.broadcastPositionChallengeUpdate(gameId, controlPointId, teamPoints);
+      const { results, teamPointsByControlPoint } =
+        await this.processPositionChallengeWithAccumulation(gameId, currentPlayerPositions);
+
+      // Create events for Timer Calculation Service
+      for (const result of results) {
+        if (result.players.length > 0) {
+          for (const player of result.players) {
+            console.log(
+              `[POSITION_CHALLENGE]   Player ${player.userName} (${player.team}): ${player.points.toFixed(1)} points`,
+            );
           }
-        } catch (error) {
-          console.error(`[POSITION_CHALLENGE] Error processing position challenge for game ${gameId}:`, error);
+          await this.createPositionChallengeEvent(gameId, result);
+        } else {
+          console.log(
+            `[POSITION_CHALLENGE] Control point ${result.controlPointName} has no players in result, skipping event creation`,
+          );
         }
+      }
+
+      // Broadcast position challenge updates to frontend
+      for (const [controlPointId, teamPoints] of teamPointsByControlPoint.entries()) {
+        this.gamesGateway.broadcastPositionChallengeUpdate(gameId, controlPointId, teamPoints);
+      }
+    } catch (error) {
+      console.error(
+        `[POSITION_CHALLENGE] Error processing position challenge for game ${gameId}:`,
+        error,
+      );
+    }
   }
 
   /**
    * Create position challenge event for Timer Calculation Service
    */
-  private async createPositionChallengeEvent(gameId: number, result: PositionChallengeResult): Promise<void> {
+  private async createPositionChallengeEvent(
+    gameId: number,
+    result: PositionChallengeResult,
+  ): Promise<void> {
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
     });
@@ -334,15 +353,17 @@ export class PositionChallengeService {
       return;
     }
 
-    
-    await this.timerCalculationService.addGameHistory(game.instanceId, 'position_challenge_scored', {
-      controlPointId: result.controlPointId,
-      controlPointName: result.controlPointName,
-      players: result.players,
-      totalPoints: result.totalPoints,
-      timestamp: new Date(),
-    });
-
+    await this.timerCalculationService.addGameHistory(
+      game.instanceId,
+      'position_challenge_scored',
+      {
+        controlPointId: result.controlPointId,
+        controlPointName: result.controlPointName,
+        players: result.players,
+        totalPoints: result.totalPoints,
+        timestamp: new Date(),
+      },
+    );
   }
 
   /**
@@ -357,7 +378,7 @@ export class PositionChallengeService {
     teamTotals: { [team: string]: number };
   }> {
     const history = await this.timerCalculationService.getGameHistoryWithCache(gameInstanceId);
-    
+
     const positionChallengeEvents = history.filter(
       event => event.eventType === 'position_challenge_scored' && event.data,
     );
@@ -400,16 +421,17 @@ export class PositionChallengeService {
    * Get current position challenge data for a game
    * This is used when a user joins or refreshes the page
    */
-  async getCurrentPositionChallengeData(gameId: number): Promise<Map<number, Record<string, number>>> {
+  async getCurrentPositionChallengeData(
+    gameId: number,
+  ): Promise<Map<number, Record<string, number>>> {
     const teamPointsByControlPoint = new Map<number, Record<string, number>>();
-    
+
     try {
       // Get all control points with position challenge enabled for this game
       const controlPoints = await this.controlPointsRepository.find({
         where: { game: { id: gameId }, hasPositionChallenge: true },
         relations: ['game'],
       });
-
 
       // Get game instance for point calculation
       const game = await this.gamesRepository.findOne({ where: { id: gameId } });
@@ -419,30 +441,37 @@ export class PositionChallengeService {
 
       // Calculate team points since last reset for each control point (same calculation as control logic)
       for (const controlPoint of controlPoints) {
-        const teamPointsSinceReset = await this.calculateTeamPointsSinceReset(game.instanceId, controlPoint.id);
-        
+        const teamPointsSinceReset = await this.calculateTeamPointsSinceReset(
+          game.instanceId,
+          controlPoint.id,
+        );
+
         // If there are no position_challenge_scored events but the control point is owned by a team,
         // broadcast 60 points for that team to show the pie chart correctly
         if (Object.keys(teamPointsSinceReset).length === 0 && controlPoint.ownedByTeam) {
           teamPointsSinceReset[controlPoint.ownedByTeam] = 60;
         }
-        
+
         teamPointsByControlPoint.set(controlPoint.id, teamPointsSinceReset);
       }
 
-
       return teamPointsByControlPoint;
     } catch (error) {
-      console.error(`[POSITION_CHALLENGE] Error getting current position challenge data for game ${gameId}:`, error);
+      console.error(
+        `[POSITION_CHALLENGE] Error getting current position challenge data for game ${gameId}:`,
+        error,
+      );
       return teamPointsByControlPoint;
     }
-  
   }
 
   /**
    * Calculate accumulated points from Timer Calculation Service history
    */
-  private async calculateAccumulatedPoints(gameId: number, controlPointId: number): Promise<ControlPointAccumulatedPoints> {
+  private async calculateAccumulatedPoints(
+    gameId: number,
+    controlPointId: number,
+  ): Promise<ControlPointAccumulatedPoints> {
     try {
       // Get game to access history
       const game = await this.gamesRepository.findOne({
@@ -476,18 +505,16 @@ export class PositionChallengeService {
         return eventData.controlPointId === controlPointId;
       });
 
-
       // Calculate accumulated points from all events
       const teamPoints = new Map<string, number>();
       for (const event of relevantEvents) {
         const { players } = event.data;
-        
+
         for (const player of players) {
           const currentPoints = teamPoints.get(player.team) || 0;
           teamPoints.set(player.team, currentPoints + player.points);
         }
       }
-
 
       return {
         controlPointId,
@@ -496,7 +523,10 @@ export class PositionChallengeService {
         lastControlChange: null, // Control changes are now handled by the timer-calculation service
       };
     } catch (error) {
-      console.error(`[POSITION_CHALLENGE] Error calculating accumulated points for control point ${controlPointId}:`, error);
+      console.error(
+        `[POSITION_CHALLENGE] Error calculating accumulated points for control point ${controlPointId}:`,
+        error,
+      );
       return {
         controlPointId,
         controlPointName: `Control Point ${controlPointId}`,
@@ -511,9 +541,13 @@ export class PositionChallengeService {
    * New algorithm: Count points from most recent position_challenge_scored event backwards
    * until we find a control_point_taken or game_started event
    */
-  private async checkControlPointControl(gameId: number, controlPointId: number, accumulatedPoints: ControlPointAccumulatedPoints): Promise<string | null> {
+  private async checkControlPointControl(
+    gameId: number,
+    controlPointId: number,
+    accumulatedPoints: ControlPointAccumulatedPoints,
+  ): Promise<string | null> {
     const THRESHOLD = 60; // Points threshold to take control
-    
+
     try {
       // Get game to access history
       const game = await this.gamesRepository.findOne({
@@ -526,15 +560,25 @@ export class PositionChallengeService {
 
       // Get game history
       const history = await this.timerCalculationService.getGameHistoryWithCache(game.instanceId);
-      
+
       // Find all position_challenge_scored events for this control point, sorted by newest first
       const positionChallengeEvents = history
-        .filter(event => event.eventType === 'position_challenge_scored' && event.data && event.data.controlPointId === controlPointId)
+        .filter(
+          event =>
+            event.eventType === 'position_challenge_scored' &&
+            event.data &&
+            event.data.controlPointId === controlPointId,
+        )
         .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Newest first
 
       // Find the most recent control_point_taken event for this control point
       const controlTakenEvents = history
-        .filter(event => event.eventType === 'control_point_taken' && event.data && event.data.controlPointId === controlPointId)
+        .filter(
+          event =>
+            event.eventType === 'control_point_taken' &&
+            event.data &&
+            event.data.controlPointId === controlPointId,
+        )
         .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Newest first
 
       // Find game start event
@@ -542,7 +586,7 @@ export class PositionChallengeService {
 
       // Determine the reset timestamp - use the most recent control change or game start
       let resetTimestamp: Date | null = null;
-      
+
       if (controlTakenEvents.length > 0) {
         // Use the most recent control_point_taken event (when control last changed)
         resetTimestamp = controlTakenEvents[0].timestamp;
@@ -562,7 +606,7 @@ export class PositionChallengeService {
       // Count points from most recent event backwards until we reach reset timestamp
       const teamPointsTracker = new Map<string, number>();
       let winningTeam: string | null = null;
-      
+
       // Process events from newest to oldest, stopping when we reach reset timestamp
       for (const event of positionChallengeEvents) {
         // Stop if we reach the reset timestamp
@@ -574,10 +618,10 @@ export class PositionChallengeService {
         for (const player of event.data.players) {
           const currentPoints = teamPointsTracker.get(player.team) || 0;
           const newPoints = currentPoints + player.points;
-          
+
           // Always add points to track progress
           teamPointsTracker.set(player.team, newPoints);
-          
+
           // Check if this team just reached 60 points
           if (newPoints >= THRESHOLD && currentPoints < THRESHOLD && !winningTeam) {
             winningTeam = player.team;
@@ -590,20 +634,24 @@ export class PositionChallengeService {
         }
       }
 
-
       // Check if we have a team that reached 60 points
       if (winningTeam) {
         // Check if the team that reached 60 points already owns the control point
         if (currentControlPoint && currentControlPoint.ownedByTeam === winningTeam) {
-          
           // Still broadcast the points update to show the pie chart with 60 points
-          const teamPointsSinceReset = await this.calculateTeamPointsSinceReset(game.instanceId, controlPointId);
-          this.gamesGateway.broadcastPositionChallengeUpdate(gameId, controlPointId, teamPointsSinceReset);
-          
+          const teamPointsSinceReset = await this.calculateTeamPointsSinceReset(
+            game.instanceId,
+            controlPointId,
+          );
+          this.gamesGateway.broadcastPositionChallengeUpdate(
+            gameId,
+            controlPointId,
+            teamPointsSinceReset,
+          );
+
           return winningTeam;
         }
 
-        
         // Update control point ownership
         const updateResult = await this.controlPointsRepository.update(controlPointId, {
           ownedByTeam: winningTeam,
@@ -631,7 +679,6 @@ export class PositionChallengeService {
             from: 'system',
           });
 
-
           // Also broadcast a controlPointUpdated event to ensure the control point markers are refreshed
           // This ensures the marker colors update immediately
           this.gamesGateway.server.to(`game_${gameId}`).emit('gameAction', {
@@ -642,26 +689,35 @@ export class PositionChallengeService {
         }
 
         // Create control change event using control_point_taken (same as code challenge)
-        const historyEvent = await this.timerCalculationService.addGameHistory(game.instanceId, 'control_point_taken', {
-          controlPointId,
-          controlPointName: accumulatedPoints.controlPointName,
-          team: winningTeam,
-          points: THRESHOLD,
-          timestamp: new Date(),
-          positionChallenge: true, // Mark as position challenge control change
-        });
+        const historyEvent = await this.timerCalculationService.addGameHistory(
+          game.instanceId,
+          'control_point_taken',
+          {
+            controlPointId,
+            controlPointName: accumulatedPoints.controlPointName,
+            team: winningTeam,
+            points: THRESHOLD,
+            timestamp: new Date(),
+            positionChallenge: true, // Mark as position challenge control change
+          },
+        );
 
         return winningTeam;
       } else {
         const currentMaxPoints = Math.max(...Array.from(teamPointsTracker.values()), 0);
         if (currentMaxPoints > 0) {
-          console.log(`[POSITION_CHALLENGE] No team reached threshold for control point ${controlPointId} - max points since reset: ${currentMaxPoints}`);
+          console.log(
+            `[POSITION_CHALLENGE] No team reached threshold for control point ${controlPointId} - max points since reset: ${currentMaxPoints}`,
+          );
         }
       }
 
       return null;
     } catch (error) {
-      console.error(`[POSITION_CHALLENGE] Error checking control point control for ${controlPointId}:`, error);
+      console.error(
+        `[POSITION_CHALLENGE] Error checking control point control for ${controlPointId}:`,
+        error,
+      );
       return null;
     }
   }
@@ -672,13 +728,21 @@ export class PositionChallengeService {
    * Stop counting when a team reaches 60 points
    * If no events to count, return 60 points for current owner
    */
-  private async calculateTeamPointsSinceReset(gameInstanceId: number, controlPointId: number): Promise<Record<string, number>> {
+  private async calculateTeamPointsSinceReset(
+    gameInstanceId: number,
+    controlPointId: number,
+  ): Promise<Record<string, number>> {
     try {
       const history = await this.timerCalculationService.getGameHistoryWithCache(gameInstanceId);
-      
+
       // Find the most recent control_point_taken event for this control point
       const controlTakenEvents = history
-        .filter(event => event.eventType === 'control_point_taken' && event.data && event.data.controlPointId === controlPointId)
+        .filter(
+          event =>
+            event.eventType === 'control_point_taken' &&
+            event.data &&
+            event.data.controlPointId === controlPointId,
+        )
         .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Newest first
 
       // Find game start event
@@ -686,7 +750,7 @@ export class PositionChallengeService {
 
       // Determine the reset timestamp
       let resetTimestamp: Date | null = null;
-      
+
       if (controlTakenEvents.length > 0) {
         // Use the most recent control_point_taken event
         resetTimestamp = controlTakenEvents[0].timestamp;
@@ -698,18 +762,23 @@ export class PositionChallengeService {
         const controlPoint = await this.controlPointsRepository.findOne({
           where: { id: controlPointId },
         });
-        
+
         // If control point has an owner, return 60 points for that team
         if (controlPoint && controlPoint.ownedByTeam) {
           return { [controlPoint.ownedByTeam]: 60 };
         }
-        
+
         return {};
       }
 
       // Get position challenge events for this control point, sorted by newest first
       const positionChallengeEvents = history
-        .filter(event => event.eventType === 'position_challenge_scored' && event.data && event.data.controlPointId === controlPointId)
+        .filter(
+          event =>
+            event.eventType === 'position_challenge_scored' &&
+            event.data &&
+            event.data.controlPointId === controlPointId,
+        )
         .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Newest first
 
       // Track points for each team, but stop counting when a team reaches 60
@@ -732,10 +801,10 @@ export class PositionChallengeService {
         for (const player of event.data.players) {
           const currentPoints = teamPointsSinceReset.get(player.team) || 0;
           const newPoints = currentPoints + player.points;
-          
+
           // Always add points to track progress
           teamPointsSinceReset.set(player.team, newPoints);
-          
+
           // Check if this team just reached 60 points
           if (newPoints >= 60 && currentPoints < 60 && !winningTeam) {
             winningTeam = player.team;
@@ -748,7 +817,7 @@ export class PositionChallengeService {
         const controlPoint = await this.controlPointsRepository.findOne({
           where: { id: controlPointId },
         });
-        
+
         if (controlPoint && controlPoint.ownedByTeam) {
           return { [controlPoint.ownedByTeam]: 60 };
         }
@@ -756,22 +825,30 @@ export class PositionChallengeService {
 
       return Object.fromEntries(teamPointsSinceReset);
     } catch (error) {
-      console.error(`[POSITION_CHALLENGE] Error calculating team points since reset for control point ${controlPointId}:`, error);
-      
+      console.error(
+        `[POSITION_CHALLENGE] Error calculating team points since reset for control point ${controlPointId}:`,
+        error,
+      );
+
       // Fallback: check if control point has an owner and return 60 points
       try {
         const controlPoint = await this.controlPointsRepository.findOne({
           where: { id: controlPointId },
         });
-        
+
         if (controlPoint && controlPoint.ownedByTeam) {
-          console.error(`[POSITION_CHALLENGE] Error occurred, but control point ${controlPointId} is owned by team ${controlPoint.ownedByTeam}. Returning 60 points.`);
+          console.error(
+            `[POSITION_CHALLENGE] Error occurred, but control point ${controlPointId} is owned by team ${controlPoint.ownedByTeam}. Returning 60 points.`,
+          );
           return { [controlPoint.ownedByTeam]: 60 };
         }
       } catch (fallbackError) {
-        console.error(`[POSITION_CHALLENGE] Error in fallback logic for control point ${controlPointId}:`, fallbackError);
+        console.error(
+          `[POSITION_CHALLENGE] Error in fallback logic for control point ${controlPointId}:`,
+          fallbackError,
+        );
       }
-      
+
       return {};
     }
   }
@@ -779,7 +856,10 @@ export class PositionChallengeService {
   /**
    * Process position challenge with accumulated points logic
    */
-  async processPositionChallengeWithAccumulation(gameId: number, playerPositions: Map<number, PlayerPosition>): Promise<{
+  async processPositionChallengeWithAccumulation(
+    gameId: number,
+    playerPositions: Map<number, PlayerPosition>,
+  ): Promise<{
     results: PositionChallengeResult[];
     teamPointsByControlPoint: Map<number, Record<string, number>>;
   }> {
@@ -792,10 +872,12 @@ export class PositionChallengeService {
       relations: ['game'],
     });
 
-
     for (const controlPoint of controlPoints) {
-      const playersInControlPoint = await this.getPlayersInControlPoint(controlPoint, playerPositions);
-      
+      const playersInControlPoint = await this.getPlayersInControlPoint(
+        controlPoint,
+        playerPositions,
+      );
+
       if (playersInControlPoint.length > 0) {
         const result = this.calculatePointsForControlPoint(controlPoint, playersInControlPoint);
         results.push(result);
@@ -805,33 +887,46 @@ export class PositionChallengeService {
 
         // Calculate accumulated points
         const accumulatedPoints = await this.calculateAccumulatedPoints(gameId, controlPoint.id);
-        
+
         // Check if a team should take control
-        const controllingTeam = await this.checkControlPointControl(gameId, controlPoint.id, accumulatedPoints);
+        const controllingTeam = await this.checkControlPointControl(
+          gameId,
+          controlPoint.id,
+          accumulatedPoints,
+        );
 
         // Get game instance for point calculation
         const game = await this.gamesRepository.findOne({ where: { id: gameId } });
         if (game && game.instanceId) {
           // Calculate team points since last reset for pie chart (same calculation as control logic)
-          const teamPointsSinceReset = await this.calculateTeamPointsSinceReset(game.instanceId, controlPoint.id);
+          const teamPointsSinceReset = await this.calculateTeamPointsSinceReset(
+            game.instanceId,
+            controlPoint.id,
+          );
           teamPointsByControlPoint.set(controlPoint.id, teamPointsSinceReset);
         } else {
           // Fallback to accumulated points if no instance
-          const teamPoints: Record<string, number> = Object.fromEntries(accumulatedPoints.teamPoints);
+          const teamPoints: Record<string, number> = Object.fromEntries(
+            accumulatedPoints.teamPoints,
+          );
           teamPointsByControlPoint.set(controlPoint.id, teamPoints);
         }
       } else {
-        
         // Get game instance for point calculation
         const game = await this.gamesRepository.findOne({ where: { id: gameId } });
         if (game && game.instanceId) {
           // Calculate team points since last reset for pie chart (same calculation as control logic)
-          const teamPointsSinceReset = await this.calculateTeamPointsSinceReset(game.instanceId, controlPoint.id);
+          const teamPointsSinceReset = await this.calculateTeamPointsSinceReset(
+            game.instanceId,
+            controlPoint.id,
+          );
           teamPointsByControlPoint.set(controlPoint.id, teamPointsSinceReset);
         } else {
           // Fallback to accumulated points if no instance
           const accumulatedPoints = await this.calculateAccumulatedPoints(gameId, controlPoint.id);
-          const teamPoints: Record<string, number> = Object.fromEntries(accumulatedPoints.teamPoints);
+          const teamPoints: Record<string, number> = Object.fromEntries(
+            accumulatedPoints.teamPoints,
+          );
           teamPointsByControlPoint.set(controlPoint.id, teamPoints);
         }
       }

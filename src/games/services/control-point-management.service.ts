@@ -46,10 +46,8 @@ export class ControlPointManagementService {
       },
     });
 
-
     // If no Site exists, force the new control point to be a Site
     const finalType = existingSite ? controlPointData.type || 'control_point' : 'site';
-
 
     // Validate control point type
     const validTypes = ['control_point', 'site', 'bomb'];
@@ -162,14 +160,18 @@ export class ControlPointManagementService {
 
     // Log ownership changes to game history
     if (ownershipChanged && updatedControlPoint.game?.instanceId) {
-      await this.gameManagementService.addGameHistory(updatedControlPoint.game.instanceId, 'control_point_taken', {
-        controlPointId: id,
-        controlPointName: updatedControlPoint.name,
-        team: newTeam,
-        userId: null, // System/owner action
-        assignedByOwner: true,
-        timestamp: new Date(),
-      });
+      await this.gameManagementService.addGameHistory(
+        updatedControlPoint.game.instanceId,
+        'control_point_taken',
+        {
+          controlPointId: id,
+          controlPointName: updatedControlPoint.name,
+          team: newTeam,
+          userId: null, // System/owner action
+          assignedByOwner: true,
+          timestamp: new Date(),
+        },
+      );
 
       // Update control point timer with new ownership
       // Note: This will be handled by the timer management service
@@ -235,14 +237,18 @@ export class ControlPointManagementService {
 
     // Add to game history
     if (controlPoint.game.instanceId) {
-      await this.gameManagementService.addGameHistory(controlPoint.game.instanceId, 'control_point_taken', {
-        controlPointId: controlPoint.id,
-        controlPointName: controlPoint.name,
-        team: player.team,
-        userId: userId,
-        userName: player.user?.name || 'Unknown Player',
-        timestamp: new Date(),
-      });
+      await this.gameManagementService.addGameHistory(
+        controlPoint.game.instanceId,
+        'control_point_taken',
+        {
+          controlPointId: controlPoint.id,
+          controlPointName: controlPoint.name,
+          team: player.team,
+          userId: userId,
+          userName: player.user?.name || 'Unknown Player',
+          timestamp: new Date(),
+        },
+      );
 
       // Update control point timer with new ownership
       // Note: This will be handled by the timer management service

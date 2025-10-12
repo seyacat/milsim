@@ -30,7 +30,6 @@ export class ConnectionTrackerService {
       );
     }
 
-
     return {
       lastConnectionTime: this.lastConnectionTime.toISOString(),
       timeWithoutConnections: timeWithoutConnections,

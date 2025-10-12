@@ -47,7 +47,6 @@ export class GameResultsService {
       teamTotals: { [team: string]: number };
     };
   }> {
-
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
       relations: ['controlPoints'],
@@ -73,17 +72,14 @@ export class GameResultsService {
       relations: ['user'],
     });
 
-
     // Get teams from players that have been assigned to teams
     const teamsFromPlayers = [
       ...new Set(players.map(p => p.team).filter(team => team && team !== 'none')),
     ];
 
-
     // Always use the configured team count to generate teams, even if some teams have no players
     const defaultTeams = ['blue', 'red', 'green', 'yellow'].slice(0, game.teamCount || 2);
     const teams = defaultTeams;
-
 
     const controlPointsReport: Array<{
       id: number;
@@ -94,7 +90,6 @@ export class GameResultsService {
     // Calculate team times for each control point
     if (game.controlPoints) {
       for (const controlPoint of game.controlPoints) {
-
         const teamTimes: { [team: string]: number } = {};
         // Initialize all teams with 0 time
         for (const team of teams) {
@@ -103,7 +98,11 @@ export class GameResultsService {
 
         // Calculate time for each team from game history
         for (const team of teams) {
-          const teamTime = await this.timerCalculationService.calculateTeamHoldTime(controlPoint.id, game.instanceId, team);
+          const teamTime = await this.timerCalculationService.calculateTeamHoldTime(
+            controlPoint.id,
+            game.instanceId,
+            team,
+          );
           teamTimes[team] = teamTime;
         }
 
@@ -112,7 +111,6 @@ export class GameResultsService {
           name: controlPoint.name,
           teamTimes,
         });
-
       }
     }
 
@@ -125,7 +123,6 @@ export class GameResultsService {
       );
     }
 
-
     // Calculate total game duration from game history
     const gameDuration = await this.timerCalculationService.calculateElapsedTimeFromEvents(
       game.instanceId,
@@ -135,7 +132,9 @@ export class GameResultsService {
     const playerCaptureStats = await this.getPlayerCaptureStats(game.instanceId);
 
     // Get position challenge statistics
-    const positionChallengeStats = await this.positionChallengeService.getPositionChallengeStats(game.instanceId);
+    const positionChallengeStats = await this.positionChallengeService.getPositionChallengeStats(
+      game.instanceId,
+    );
 
     return {
       controlPoints: controlPointsReport,
@@ -158,7 +157,6 @@ export class GameResultsService {
       bombExplosionCount: number;
     }>;
   }> {
-
     // Get all game history events
     const history = await this.gameHistoryRepository.find({
       where: {
@@ -166,7 +164,6 @@ export class GameResultsService {
       },
       order: { timestamp: 'ASC' },
     });
-
 
     // Filter for control point capture events by players (not owners)
     const captureEvents = history.filter(
@@ -177,7 +174,6 @@ export class GameResultsService {
         !event.data.assignedByOwner, // Not assigned by owner
     );
 
-
     // Get all players in the game
     const game = await this.gamesRepository.findOne({
       where: { instanceId: gameInstanceId },
@@ -187,7 +183,6 @@ export class GameResultsService {
     if (!game) {
       return { players: [] };
     }
-
 
     // Initialize player stats
     const playerStats = new Map<
@@ -218,7 +213,6 @@ export class GameResultsService {
       }
     }
 
-
     // Count captures per player - count ALL captures regardless of team change
     for (const event of captureEvents) {
       const { userId, team, controlPointId } = event.data;
@@ -245,7 +239,6 @@ export class GameResultsService {
         event.data.isOpposingTeamDeactivation === true,
     );
 
-
     for (const event of bombDeactivationEvents) {
       const {
         deactivatedByUserId,
@@ -268,20 +261,12 @@ export class GameResultsService {
 
     // Count bomb explosions per player - count explosions for the player who activated the bomb
     const bombExplosionEvents = history.filter(
-      event =>
-        event.eventType === 'bomb_exploded' &&
-        event.data &&
-        event.data.activatedByUserId,
+      event => event.eventType === 'bomb_exploded' && event.data && event.data.activatedByUserId,
     );
 
-
     for (const event of bombExplosionEvents) {
-      const {
-        activatedByUserId,
-        activatedByUserName,
-        activatedByTeam,
-        controlPointId,
-      } = event.data;
+      const { activatedByUserId, activatedByUserName, activatedByTeam, controlPointId } =
+        event.data;
 
       if (!activatedByUserId || !activatedByTeam) {
         continue;
