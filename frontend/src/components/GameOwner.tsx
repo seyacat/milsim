@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useToast } from '../contexts/ToastContext'
 import GameOwnerMap from './GameOwner/GameOwnerMap'
@@ -6,6 +6,7 @@ import GameOverlay from './GameOwner/GameOverlay'
 import LocationInfo from './GameOwner/LocationInfo'
 import ControlPanel from './GameOwner/ControlPanel'
 import MapControls from './GameOwner/MapControls'
+import PlayersDialog from './GameOwner/PlayersDialog'
 import { useGameOwner } from '../hooks/useGameOwner'
 import '../styles/game-owner.css'
 
@@ -13,6 +14,7 @@ const GameOwner: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>()
   const navigate = useNavigate()
   const { addToast: originalAddToast } = useToast()
+  const [isTeamsDialogOpen, setIsTeamsDialogOpen] = useState(false)
   
   // Create a wrapper that matches the expected type
   const addToast = useCallback((toast: { message: string; type?: string }) => {
@@ -21,6 +23,14 @@ const GameOwner: React.FC = () => {
       type: toast.type as any
     })
   }, [originalAddToast])
+
+  const handleOpenTeamsDialog = useCallback(() => {
+    setIsTeamsDialogOpen(true)
+  }, [])
+
+  const handleCloseTeamsDialog = useCallback(() => {
+    setIsTeamsDialogOpen(false)
+  }, [])
   
   const {
     currentUser,
@@ -50,8 +60,13 @@ const GameOwner: React.FC = () => {
     handleMapClick,
     controlPointMarkers,
     positionCircles,
-    pieCharts
+    pieCharts,
+    updateTeamCount
   } = useGameOwner(gameId, navigate, addToast)
+
+  const handleTeamCountChange = useCallback((count: number) => {
+    updateTeamCount(count)
+  }, [updateTeamCount])
 
   if (isLoading) {
     return (
@@ -96,31 +111,53 @@ const GameOwner: React.FC = () => {
       />
 
       {/* Location Info */}
-      <LocationInfo 
+      <LocationInfo
         currentPosition={currentPosition}
         currentGame={currentGame}
-        addTime={addTime}
-        updateGameTime={updateGameTime}
+        updateGameTime={async (timeInSeconds: number) => {
+          await updateGameTime(timeInSeconds)
+        }}
         openTeamsDialog={openTeamsDialog}
       />
 
       {/* Control Panel */}
-      <ControlPanel 
+      <ControlPanel
         currentGame={currentGame}
-        startGame={startGame}
-        pauseGame={pauseGame}
-        resumeGame={resumeGame}
-        endGame={endGame}
-        restartGame={restartGame}
-        addTime={addTime}
+        startGame={async () => {
+          await startGame()
+        }}
+        pauseGame={async () => {
+          await pauseGame()
+        }}
+        resumeGame={async () => {
+          await resumeGame()
+        }}
+        endGame={async () => {
+          await endGame()
+        }}
+        restartGame={async () => {
+          await restartGame()
+        }}
       />
 
       {/* Map Controls */}
-      <MapControls 
+      <MapControls
         goBack={goBack}
         reloadPage={reloadPage}
         centerOnUser={centerOnUser}
         centerOnSite={centerOnSite}
+        openTeamsDialog={handleOpenTeamsDialog}
+      />
+
+      {/* Players Dialog */}
+      <PlayersDialog
+        isOpen={isTeamsDialogOpen}
+        onClose={handleCloseTeamsDialog}
+        players={currentGame.players}
+        currentGameId={currentGame.id}
+        socket={socket}
+        teamCount={currentGame.teamCount}
+        onTeamCountChange={handleTeamCountChange}
       />
     </div>
   )

@@ -252,3 +252,184 @@
   font-style: italic;
   padding: 20px;
 }
+
+/* Teams Dialog Styles */
+.teams-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.teams-dialog {
+  background: rgba(0, 0, 0, 0.9);
+  border-radius: 12px;
+  padding: 20px;
+  color: white;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.teams-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 10px;
+}
+
+.teams-dialog-header h3 {
+  margin: 0;
+  color: #4CAF50;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s ease;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.team-count-selector {
+  margin-bottom: 20px;
+}
+
+.team-count-selector h4 {
+  margin: 0 0 10px 0;
+  color: #4CAF50;
+}
+
+.team-count-buttons {
+  display: flex;
+  gap: 10px;
+}
+
+.team-count-btn {
+  padding: 8px 16px;
+  border: 1px solid #666;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.team-count-btn.active {
+  background: #4CAF50;
+  border-color: #4CAF50;
+}
+
+.team-count-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.players-list-section h4 {
+  margin: 0 0 10px 0;
+  color: #4CAF50;
+}
+
+.players-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.player-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background 0.2s ease;
+}
+
+.player-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.player-name {
+  flex: 1;
+  font-weight: bold;
+}
+
+.player-teams {
+  display: flex;
+  gap: 5px;
+}
+
+.team-btn {
+  padding: 6px 12px;
+  border: 1px solid #666;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.2s ease;
+  min-width: 50px;
+}
+
+.team-btn.active {
+  font-weight: bold;
+  transform: scale(1.05);
+}
+
+.team-btn.blue.active {
+  background: #2196F3;
+  border-color: #2196F3;
+}
+
+.team-btn.red.active {
+  background: #f44336;
+  border-color: #f44336;
+}
+
+.team-btn.green.active {
+  background: #4CAF50;
+  border-color: #4CAF50;
+}
+
+.team-btn.yellow.active {
+  background: #FFC107;
+  border-color: #FFC107;
+  color: #333;
+}
+
+.team-btn.none.active {
+  background: #666;
+  border-color: #666;
+}
+
+.team-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.no-players {
+  text-align: center;
+  color: #ccc;
+  font-style: italic;
+  padding: 20px;
+}

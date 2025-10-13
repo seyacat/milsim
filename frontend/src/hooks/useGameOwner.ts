@@ -42,6 +42,7 @@ interface UseGameOwnerReturn {
   pieCharts: Map<number, L.SVGOverlay>
   enableDragMode: (controlPointId: number, markerId: number) => void;
   controlPointTimes: ControlPointTimeData[];
+  updateTeamCount: (count: number) => void;
 }
 
 export const useGameOwner = (
@@ -196,13 +197,27 @@ export const useGameOwner = (
         console.error(`Game action error (${data.action}):`, data.error)
         memoizedAddToast({ message: `Error: ${data.error}`, type: 'error' })
       })
-
+  
+      // Listen for player team updates
+      socket.on('gameAction', (data: { action: string; data: any }) => {
+        if (data.action === 'playerTeamUpdated') {
+          handlePlayerTeamUpdate(data.data)
+        }
+      })
+  
+      // Listen for team count updates
+      socket.on('gameAction', (data: { action: string; data: any }) => {
+        if (data.action === 'teamCountUpdated') {
+          handleTeamCountUpdate(data.data)
+        }
+      })
+  
       // Listen for connection errors
       socket.on('connect_error', (error: Error) => {
         console.error('WebSocket connection error:', error)
         // Don't show toast on every connection error - only show once
       })
-
+  
       // Listen for disconnection
       socket.on('disconnect', (reason) => {
         // Don't show toast on every disconnect - only show for unexpected disconnections
@@ -413,8 +428,45 @@ export const useGameOwner = (
   }, [currentGame])
 
   const openTeamsDialog = useCallback(() => {
-    memoizedAddToast({ message: 'Funcionalidad de equipos no implementada aún', type: 'info' })
-  }, [memoizedAddToast])
+    // This function is now handled by the GameOwner component state
+    // The actual dialog opening is managed in the component
+  }, [])
+
+  const updateTeamCount = useCallback((count: number) => {
+    if (!currentGame || !socketRef.current) return
+    
+    socketRef.current.emit('gameAction', {
+      gameId: currentGame.id,
+      action: 'updateTeamCount',
+      data: {
+        teamCount: count
+      }
+    })
+  }, [currentGame])
+
+  const handlePlayerTeamUpdate = useCallback((data: any) => {
+    // Update the affected player's data in currentGame
+    if (currentGame && currentGame.players) {
+      const playerIndex = currentGame.players.findIndex(p => p && p.id === data.playerId)
+      if (playerIndex !== -1) {
+        currentGame.players[playerIndex].team = data.team
+      }
+    }
+
+    // Show notification
+    if (data.userId !== currentUser?.id) {
+      memoizedAddToast({ message: `${data.userName} ha sido asignado al equipo ${data.team || 'none'}`, type: 'info' })
+    } else {
+      memoizedAddToast({ message: `Has sido asignado al equipo ${data.team || 'none'}`, type: 'success' })
+    }
+  }, [currentGame, currentUser, memoizedAddToast])
+
+  const handleTeamCountUpdate = useCallback((data: any) => {
+    // Update game data and refresh team selection
+    if (data && data.game) {
+      setCurrentGame(data.game)
+    }
+  }, [])
 
   const enableGameNameEdit = useCallback(() => {
     memoizedAddToast({ message: 'Funcionalidad de edición de nombre no implementada aún', type: 'info' })
@@ -505,6 +557,7 @@ export const useGameOwner = (
     positionCircles,
     pieCharts,
     enableDragMode,
-    controlPointTimes
+    controlPointTimes,
+    updateTeamCount
   }
 }
