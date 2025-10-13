@@ -17,13 +17,16 @@ export interface UseBombTimersReturn {
 export const useBombTimers = (currentGame: Game | null, socket: Socket | null): UseBombTimersReturn => {
   const [activeBombTimers, setActiveBombTimers] = useState<Map<number, BombTimerData>>(new Map());
   const localTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const currentGameRef = useRef<Game | null>(currentGame);
 
   // Handle bomb time updates from server
   const handleBombTimeUpdate = (data: BombTimerData) => {
+    console.log(`[BOMB_TIMER] Server update received for CP ${data.controlPointId}:`, data);
     
     setActiveBombTimers(prev => {
       const newTimers = new Map(prev);
       newTimers.set(data.controlPointId, data);
+      console.log(`[BOMB_TIMER] Updated state for CP ${data.controlPointId}, total active timers: ${Array.from(newTimers.values()).filter(t => t.isActive).length}`);
       return newTimers;
     });
 
@@ -32,18 +35,25 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
 
     // Start or stop local timer based on active bombs
     if (data.isActive && !localTimerRef.current) {
+      console.log('[BOMB_TIMER] Starting local timer interval (server update)');
       startBombTimerInterval();
     } else if (!data.isActive) {
       // Check if there are any active bombs after this update
-      const hasActiveBombs = Array.from(activeBombTimers.values()).some(timer => timer.isActive);
-      if (!hasActiveBombs && localTimerRef.current) {
-        stopBombTimerInterval();
-      }
+      // Use a timeout to ensure we check the updated state
+      setTimeout(() => {
+        const hasActiveBombs = Array.from(activeBombTimers.values()).some(timer => timer.isActive);
+        console.log(`[BOMB_TIMER] Checking active bombs after update: ${hasActiveBombs}`);
+        if (!hasActiveBombs && localTimerRef.current) {
+          console.log('[BOMB_TIMER] Stopping local timer interval (no active bombs)');
+          stopBombTimerInterval();
+        }
+      }, 0);
     }
   };
 
   // Handle active bomb timers response
   const handleActiveBombTimers = (serverBombTimers: BombTimerData[]) => {
+    console.log('[BOMB_TIMER] Active bomb timers received from server:', serverBombTimers);
     
     const newTimers = new Map<number, BombTimerData>();
     
@@ -60,9 +70,13 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
 
     // Start or stop local timer based on active bombs
     const hasActiveBombs = Array.from(newTimers.values()).some(timer => timer.isActive);
+    console.log(`[BOMB_TIMER] Has active bombs: ${hasActiveBombs}, local timer running: ${!!localTimerRef.current}`);
+    
     if (hasActiveBombs && !localTimerRef.current) {
+      console.log('[BOMB_TIMER] Starting local timer interval (active timers)');
       startBombTimerInterval();
     } else if (!hasActiveBombs && localTimerRef.current) {
+      console.log('[BOMB_TIMER] Stopping local timer interval (no active timers)');
       stopBombTimerInterval();
     }
   };
@@ -73,6 +87,7 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
     const bombTimerData = activeBombTimers.get(controlPointId);
     
     if (!bombTimerElement) {
+      console.log(`[BOMB_TIMER] Element not found for CP ${controlPointId}`);
       return;
     }
 
@@ -83,6 +98,7 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
       const seconds = bombTimerData.remainingTime % 60;
       const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
       
+      console.log(`[BOMB_TIMER] Updating display for CP ${controlPointId}: ${timeText}`);
       bombTimerElement.textContent = timeText;
       bombTimerElement.style.display = 'block';
       
@@ -95,6 +111,7 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
         bombTimerElement.style.background = 'rgba(255, 87, 34, 0.9)';
       }
     } else {
+      console.log(`[BOMB_TIMER] Hiding display for CP ${controlPointId} (not active)`);
       bombTimerElement.style.display = 'none';
     }
   };
@@ -122,41 +139,39 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
 
   // Start local timer interval for smooth countdown
   const startBombTimerInterval = () => {
+    console.log('[BOMB_TIMER] Starting bomb timer interval');
     if (localTimerRef.current) {
       clearInterval(localTimerRef.current);
     }
 
     localTimerRef.current = setInterval(() => {
-      if (currentGame?.status === 'running') {
+      console.log('[BOMB_TIMER] Interval callback executed');
+      
+      if (currentGameRef.current?.status === 'running') {
+        console.log('[BOMB_TIMER] Local interval running, decrementing timers by 1 second');
+        
         // Decrement all active bomb timers by 1 second
         setActiveBombTimers(prev => {
+          console.log('[BOMB_TIMER] setActiveBombTimers callback, prev size:', prev.size);
           const newTimers = new Map<number, BombTimerData>();
           let hasActiveBombs = false;
 
           prev.forEach((bombTimer, controlPointId) => {
             if (bombTimer.isActive && bombTimer.remainingTime > 0) {
               const newRemainingTime = bombTimer.remainingTime - 1;
+              console.log(`[BOMB_TIMER] Decrementing timer for CP ${controlPointId}: ${bombTimer.remainingTime} -> ${newRemainingTime}`);
               newTimers.set(controlPointId, {
                 ...bombTimer,
                 remainingTime: newRemainingTime
               });
               hasActiveBombs = true;
-              
-              // Update display immediately for this timer
-              setTimeout(() => {
-                updateBombTimerDisplay(controlPointId);
-              }, 0);
             } else if (bombTimer.isActive && bombTimer.remainingTime <= 0) {
               // Bomb timer expired - keep it but mark as inactive
+              console.log(`[BOMB_TIMER] Timer expired for CP ${controlPointId}`);
               newTimers.set(controlPointId, {
                 ...bombTimer,
                 isActive: false
               });
-              
-              // Hide display for expired timer
-              setTimeout(() => {
-                updateBombTimerDisplay(controlPointId);
-              }, 0);
             } else {
               newTimers.set(controlPointId, bombTimer);
             }
@@ -164,11 +179,19 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
 
           // Stop timer if no more active bombs
           if (!hasActiveBombs && localTimerRef.current) {
+            console.log('[BOMB_TIMER] No active bombs, stopping interval');
             stopBombTimerInterval();
           }
 
+          console.log('[BOMB_TIMER] New timers size:', newTimers.size);
           return newTimers;
         });
+
+        // Update all bomb timer displays after state update (same pattern as control point timers)
+        console.log('[BOMB_TIMER] Updating all bomb timer displays');
+        updateAllBombTimerDisplays();
+      } else {
+        console.log('[BOMB_TIMER] Game not running, skipping decrement');
       }
     }, 1000);
   };
@@ -202,18 +225,33 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
     }
   }, [socket, currentGame]);
 
+  // Update currentGame ref when currentGame changes
+  useEffect(() => {
+    currentGameRef.current = currentGame;
+  }, [currentGame]);
+
   // Handle game state changes
   useEffect(() => {
     if (!currentGame) return;
 
+    console.log(`[BOMB_TIMER] Game state changed to: ${currentGame.status}, local timer running: ${!!localTimerRef.current}`);
 
     if (currentGame.status === 'running') {
       // Request active bomb timers when game starts running
       if (socket) {
+        console.log('[BOMB_TIMER] Requesting active bomb timers (game running)');
         socket.emit('getActiveBombTimers', { gameId: currentGame.id });
+      }
+      
+      // Check if we need to start the local timer
+      const hasActiveBombs = Array.from(activeBombTimers.values()).some(timer => timer.isActive);
+      if (hasActiveBombs && !localTimerRef.current) {
+        console.log('[BOMB_TIMER] Starting local timer interval (game state change)');
+        startBombTimerInterval();
       }
     } else {
       // Stop timer when game is not running
+      console.log('[BOMB_TIMER] Stopping local timer (game not running)');
       stopBombTimerInterval();
       
       // Hide all bomb timers when game is not running
