@@ -8,6 +8,7 @@ import { useControlPoints } from './useControlPoints'
 import { useGameTime, ControlPointTimeData } from './useGameTime'
 import { useControlPointTimers } from './useControlPointTimers'
 import { useBombTimers } from './useBombTimers'
+import { useGPSTracking } from './useGPSTracking'
 
 interface UseGameOwnerReturn {
   currentUser: User | null
@@ -51,15 +52,12 @@ export const useGameOwner = (
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [currentGame, setCurrentGame] = useState<Game | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [gpsStatus, setGpsStatus] = useState('Desconectado')
-  const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number; accuracy: number } | null>(null)
 
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const userMarkerRef = useRef<any>(null)
   const playerMarkersRef = useRef<any>(null)
   const controlPointMarkersRef = useRef<any>(null)
-  const watchIdRef = useRef<number | null>(null)
   const socketRef = useRef<Socket | null>(null)
 
   // Memoize functions to prevent re-renders
@@ -217,126 +215,62 @@ export const useGameOwner = (
 
     return () => {
       isMounted = false
-      // Clean up GPS watch
-      if (watchIdRef.current) {
-        navigator.geolocation.clearWatch(watchIdRef.current)
-        watchIdRef.current = null
-      }
       // Don't disconnect WebSocket - let it be persistent
       // The WebSocket will be cleaned up when the component unmounts naturally
     }
   }, [gameId, memoizedNavigate, memoizedAddToast])
 
-  // Start GPS tracking when component mounts
+  // Use GPS tracking hook
+  const {
+    gpsStatus,
+    currentPosition
+  } = useGPSTracking(currentGame, socketRef.current)
+
+  // Update user marker when position changes
   useEffect(() => {
-    let isMounted = true
-
-    const startGPS = () => {
-      if (!navigator.geolocation) {
-        setGpsStatus('GPS no soportado')
-        return
+    if (currentPosition && mapInstanceRef.current) {
+      // Update user marker on map
+      if (!userMarkerRef.current) {
+        createUserMarker(currentPosition.lat, currentPosition.lng)
+        
+        // Set view to user's location when GPS is first available (like in original code)
+        mapInstanceRef.current.setView([currentPosition.lat, currentPosition.lng], 16)
+      } else if (userMarkerRef.current) {
+        userMarkerRef.current.setLatLng([currentPosition.lat, currentPosition.lng])
       }
+    }
+  }, [currentPosition])
 
-      setGpsStatus('Activando...')
+  const createUserMarker = useCallback((lat: number, lng: number) => {
+    if (!mapInstanceRef.current) return
 
-      watchIdRef.current = navigator.geolocation.watchPosition(
-        (position) => {
-          if (!isMounted) return
-
-          const lat = position.coords.latitude
-          const lng = position.coords.longitude
-          const accuracy = position.coords.accuracy
-
-          setCurrentPosition({ lat, lng, accuracy })
-          setGpsStatus('Activo')
-
-          // Update user marker on map
-          if (!userMarkerRef.current && mapInstanceRef.current) {
-            createUserMarker(lat, lng)
-            
-            // Set view to user's location when GPS is first available (like in original code)
-            mapInstanceRef.current.setView([lat, lng], 16)
-          } else if (userMarkerRef.current) {
-            userMarkerRef.current.setLatLng([lat, lng])
-          }
-
-          // Send position update via WebSocket
-          if (socketRef.current && currentGame) {
-            socketRef.current.emit('gameAction', {
-              gameId: currentGame.id,
-              action: 'positionUpdate',
-              data: { lat, lng, accuracy }
-            })
-          }
-        },
-        (error) => {
-          if (!isMounted) return
-          
-          console.error('GPS error:', error)
-          let message = 'Error de GPS'
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              message = 'Permiso denegado'
-              break
-            case error.POSITION_UNAVAILABLE:
-              message = 'Ubicación no disponible'
-              break
-            case error.TIMEOUT:
-              message = 'Tiempo agotado'
-              break
-          }
-          setGpsStatus(message)
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 5000,
-          maximumAge: 0  // Force fresh GPS updates every time
-        }
-      )
+    // Remove existing marker if it exists
+    if (userMarkerRef.current) {
+      mapInstanceRef.current.removeLayer(userMarkerRef.current)
+      userMarkerRef.current = null
     }
 
-    const createUserMarker = (lat: number, lng: number) => {
+    // Import Leaflet dynamically
+    import('leaflet').then(L => {
       if (!mapInstanceRef.current) return
 
-      // Remove existing marker if it exists
-      if (userMarkerRef.current) {
-        mapInstanceRef.current.removeLayer(userMarkerRef.current)
-        userMarkerRef.current = null
-      }
-
-      // Import Leaflet dynamically
-      import('leaflet').then(L => {
-        if (!isMounted || !mapInstanceRef.current) return
-
-        const teamClass = currentUser?.team || 'none'
-        
-        userMarkerRef.current = L.marker([lat, lng], {
-          icon: L.divIcon({
-            className: `user-marker ${teamClass}`,
-            iconSize: [24, 24],
-          })
-        }).addTo(mapInstanceRef.current)
-        
-        // Create popup with custom class for positioning
-        const popup = L.popup({
-          className: 'user-marker-popup'
-        }).setContent('<strong>Tú.</strong>')
-        
-        userMarkerRef.current.bindPopup(popup).openPopup()
-      })
-    }
-
-    // Start GPS tracking
-    startGPS()
-
-    return () => {
-      isMounted = false
-      if (watchIdRef.current) {
-        navigator.geolocation.clearWatch(watchIdRef.current)
-        watchIdRef.current = null
-      }
-    }
-  }, [currentGame, currentUser])
+      const teamClass = currentUser?.team || 'none'
+      
+      userMarkerRef.current = L.marker([lat, lng], {
+        icon: L.divIcon({
+          className: `user-marker ${teamClass}`,
+          iconSize: [24, 24],
+        })
+      }).addTo(mapInstanceRef.current)
+      
+      // Create popup with custom class for positioning
+      const popup = L.popup({
+        className: 'user-marker-popup'
+      }).setContent('<strong>Tú.</strong>')
+      
+      userMarkerRef.current.bindPopup(popup).openPopup()
+    })
+  }, [currentUser])
 
   const startGame = useCallback(() => {
     if (!currentGame || !socketRef.current) return

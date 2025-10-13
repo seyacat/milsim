@@ -5,6 +5,7 @@ import { GameService } from '../services/game'
 import { User, Game, ControlPoint, Toast } from '../types'
 import { io, Socket } from 'socket.io-client'
 import { useGameTime, ControlPointTimeData } from './useGameTime'
+import { useGPSTracking } from './useGPSTracking'
 
 interface UseGamePlayerReturn {
   currentUser: User | null
@@ -33,16 +34,16 @@ export const useGamePlayer = (
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [currentGame, setCurrentGame] = useState<Game | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [gpsStatus, setGpsStatus] = useState('Desconectado')
-  const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number; accuracy: number } | null>(null)
 
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const userMarkerRef = useRef<any>(null)
   const playerMarkersRef = useRef<any>(null)
   const controlPointMarkersRef = useRef<any>(null)
-  const watchIdRef = useRef<number | null>(null)
   const socketRef = useRef<Socket | null>(null)
+
+  // Use GPS tracking hook
+  const { gpsStatus, currentPosition, startGPSTracking, stopGPSTracking } = useGPSTracking(currentGame, socketRef.current)
 
   // Use game time hook to get control point times
   const { controlPointTimes } = useGameTime(currentGame, socketRef.current)

@@ -515,9 +515,302 @@ body {
   font-family: 'Courier New', monospace;
 }
 
+/* GPS Tracking Styles */
+.location-info {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: var(--surface-light);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  max-width: 300px;
+  color: var(--text-primary);
+}
+
+.location-header {
+  margin-bottom: var(--spacing-sm);
+}
+
+.location-header h3 {
+  font-size: var(--font-size-lg);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.location-details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.gps-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius);
+  font-weight: 500;
+}
+
+.gps-status.status-active {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.gps-status.status-inactive {
+  background: var(--warning-light);
+  color: var(--warning);
+}
+
+.gps-status.status-error {
+  background: var(--danger-light);
+  color: var(--danger);
+}
+
+.gps-status.status-connecting {
+  background: var(--info-light);
+  color: var(--info);
+}
+
+.coordinates, .accuracy {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--font-size-sm);
+}
+
+.coordinates .label, .accuracy .label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.coordinates .value, .accuracy .value {
+  color: var(--text-primary);
+  font-family: 'Courier New', monospace;
+}
+
+.tracking-info {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--border);
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--font-size-xs);
+  margin-bottom: 2px;
+}
+
+.info-item .label {
+  color: var(--text-muted);
+}
+
+.info-item .value {
+  color: var(--text-secondary);
+  font-size: 10px;
+}
+
+.no-position {
+  text-align: center;
+  padding: var(--spacing-md);
+  color: var(--text-muted);
+}
+
+.help-text {
+  font-size: var(--font-size-xs);
+  margin-top: var(--spacing-xs);
+  opacity: 0.8;
+}
+
+/* Player markers - Stick figures with team colors and background circles */
+.player-marker {
+  background: transparent !important;
+  border: none !important;
+  width: 24px !important;
+  height: 24px !important;
+  text-align: center;
+  font-size: 16px;
+  line-height: 24px;
+  margin-left: -12px !important;
+  margin-top: -24px !important;
+  position: relative;
+}
+
+.player-marker::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(128, 128, 128, 0.5);
+  z-index: 1;
+}
+
+.player-marker::after {
+  content: "🧍‍♂️";
+  display: block;
+  filter: brightness(0.8) saturate(0.8);
+  position: relative;
+  z-index: 2;
+  transform: translateX(1px);
+}
+
+/* Team colors for player markers */
+.player-marker.blue::before {
+  background: rgba(52, 152, 219, 0.5) !important;
+}
+
+.player-marker.red::before {
+  background: rgba(231, 76, 60, 0.5) !important;
+}
+
+.player-marker.green::before {
+  background: rgba(39, 174, 96, 0.5) !important;
+}
+
+.player-marker.yellow::before {
+  background: rgba(241, 196, 15, 0.5) !important;
+}
+
+.player-marker.none::before {
+  background: rgba(149, 165, 166, 0.5) !important;
+}
+
+/* Current user marker - same as player but with black border */
+.user-marker {
+  background: transparent !important;
+  border: none !important;
+  width: 24px !important;
+  height: 24px !important;
+  text-align: center;
+  font-size: 16px;
+  line-height: 24px;
+  margin-left: -12px !important;
+  margin-top: -24px !important;
+  position: relative;
+}
+
+/* Custom popup positioning for user marker - move the entire popup higher */
+.user-marker-popup {
+  bottom: 17px !important;
+  text-align: center;
+}
+
+/* Center content inside user marker popup */
+.user-marker-popup .leaflet-popup-content {
+  text-align: center !important;
+  margin: 6px 10px !important;
+}
+
+.user-marker::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(128, 128, 128, 0.5);
+  border: 2px solid black;
+  z-index: 1;
+}
+
+.user-marker::after {
+  content: "🧍‍♂️";
+  display: block;
+  filter: drop-shadow(0 0 2px black) drop-shadow(0 0 1px black);
+  position: relative;
+  z-index: 2;
+  transform: translate(2px, 2px);
+}
+
+/* Team colors for current user marker */
+.user-marker.blue::before {
+  background: rgba(52, 152, 219, 0.5) !important;
+  border: 2px solid black;
+}
+
+.user-marker.red::before {
+  background: rgba(231, 76, 60, 0.5) !important;
+  border: 2px solid black;
+}
+
+.user-marker.green::before {
+  background: rgba(39, 174, 96, 0.5) !important;
+  border: 2px solid black;
+}
+
+.user-marker.yellow::before {
+  background: rgba(241, 196, 15, 0.5) !important;
+  border: 2px solid black;
+}
+
+.user-marker.none::before {
+  background: rgba(149, 165, 166, 0.5) !important;
+  border: 2px solid black;
+}
+
+/* Accuracy circles - 50% opacity team colors, no border */
+.accuracy-circle {
+  stroke: none !important;
+  fill-opacity: 0.5 !important;
+}
+
+.accuracy-circle.blue {
+  fill: #3498db !important;
+}
+
+.accuracy-circle.red {
+  fill: #e74c3c !important;
+}
+
+.accuracy-circle.green {
+  fill: #27ae60 !important;
+}
+
+.accuracy-circle.yellow {
+  fill: #f1c40f !important;
+}
+
+.accuracy-circle.none {
+  fill: #95a5a6 !important;
+}
+
+/* Success and Warning Light Colors */
+.success-light {
+  background: rgba(39, 174, 96, 0.2);
+}
+
+.warning-light {
+  background: rgba(243, 156, 18, 0.2);
+}
+
+.danger-light {
+  background: rgba(231, 76, 60, 0.2);
+}
+
+.info-light {
+  background: rgba(52, 152, 219, 0.2);
+}
+
 @media (max-width: 768px) {
   .game-time-display {
     flex-direction: column;
     gap: 10px;
+  }
+
+  .location-info {
+    position: relative;
+    top: auto;
+    right: auto;
+    margin: 10px;
+    max-width: none;
   }
 }

@@ -90,6 +90,11 @@ const GamePlayerMap: React.FC<GamePlayerMapProps> = ({
         // Load control points
         loadControlPoints(map, currentGame, L)
 
+        // Create user marker if position is available
+        if (currentPosition) {
+          createUserMarker(map, currentPosition, L)
+        }
+
       } catch (error) {
         console.error('Error initializing map:', error)
       }
@@ -105,6 +110,15 @@ const GamePlayerMap: React.FC<GamePlayerMapProps> = ({
       }
     }
   }, [mapRef, mapInstanceRef, playerMarkersRef, controlPointMarkersRef, currentGame, currentPosition])
+
+  // Update user marker when position changes
+  useEffect(() => {
+    if (mapInstanceRef.current && currentPosition && userMarkerRef.current) {
+      updateUserMarker(currentPosition)
+    } else if (mapInstanceRef.current && currentPosition && !userMarkerRef.current) {
+      createUserMarker(mapInstanceRef.current, currentPosition, null)
+    }
+  }, [currentPosition])
 
   const loadControlPoints = (map: any, game: Game, L: any) => {
     if (!game.controlPoints || !Array.isArray(game.controlPoints)) return
@@ -189,6 +203,45 @@ const GamePlayerMap: React.FC<GamePlayerMapProps> = ({
         </div>
       </div>
     `
+  }
+
+  // Create user marker
+  const createUserMarker = (map: any, position: { lat: number; lng: number; accuracy: number }, L: any) => {
+    if (!L) return
+
+    // Remove existing user marker
+    if (userMarkerRef.current) {
+      map.removeLayer(userMarkerRef.current)
+    }
+
+    // Get current player's team
+    const currentPlayer = currentGame?.players?.find(p => p.user?.id === currentUser.id)
+    const teamClass = currentPlayer?.team && currentPlayer.team !== 'none' ? currentPlayer.team : 'none'
+
+    // Create user marker
+    const userMarker = L.marker([position.lat, position.lng], {
+      icon: L.divIcon({
+        className: `user-marker ${teamClass}`,
+        iconSize: [24, 24],
+      })
+    }).addTo(map)
+
+    // Create popup
+    const popup = L.popup({
+      className: 'user-marker-popup'
+    }).setContent('<strong>Tú</strong>')
+
+    userMarker.bindPopup(popup).openPopup()
+
+    // Store reference
+    userMarkerRef.current = userMarker
+  }
+
+  // Update user marker position
+  const updateUserMarker = (position: { lat: number; lng: number; accuracy: number }) => {
+    if (userMarkerRef.current) {
+      userMarkerRef.current.setLatLng([position.lat, position.lng])
+    }
   }
 
   return (
