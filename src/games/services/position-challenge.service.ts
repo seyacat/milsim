@@ -314,15 +314,9 @@ export class PositionChallengeService {
       for (const result of results) {
         if (result.players.length > 0) {
           for (const player of result.players) {
-            console.log(
-              `[POSITION_CHALLENGE]   Player ${player.userName} (${player.team}): ${player.points.toFixed(1)} points`,
-            );
           }
           await this.createPositionChallengeEvent(gameId, result);
         } else {
-          console.log(
-            `[POSITION_CHALLENGE] Control point ${result.controlPointName} has no players in result, skipping event creation`,
-          );
         }
       }
 
@@ -706,9 +700,6 @@ export class PositionChallengeService {
       } else {
         const currentMaxPoints = Math.max(...Array.from(teamPointsTracker.values()), 0);
         if (currentMaxPoints > 0) {
-          console.log(
-            `[POSITION_CHALLENGE] No team reached threshold for control point ${controlPointId} - max points since reset: ${currentMaxPoints}`,
-          );
         }
       }
 

@@ -33,7 +33,6 @@ class ConsoleLogRemover {
             if (JSON.stringify(originalLines) !== JSON.stringify(processedLines)) {
                 fs.writeFileSync(filePath, processedLines.join('\n'), 'utf8');
                 this.modifiedFiles++;
-                console.log(`Modificado: ${filePath}`);
             } else {
                 console.log(`Sin cambios: ${filePath}`);
             }
@@ -265,7 +264,6 @@ class ConsoleLogRemover {
     run(directory = '.') {
         const sourceFiles = this.findSourceFiles(directory);
         
-        console.log(`Encontrados ${sourceFiles.length} archivos fuente (JS/TS/TSX)`);
         
         for (const file of sourceFiles) {
             this.processFile(file);
@@ -278,13 +276,6 @@ class ConsoleLogRemover {
      * Muestra el resumen de cambios
      */
     printSummary() {
-        console.log('\n=== RESUMEN ===');
-        console.log(`Archivos procesados: ${this.processedFiles}`);
-        console.log(`Archivos modificados: ${this.modifiedFiles}`);
-        console.log(`Total console.log encontrados: ${this.totalConsoleLogs}`);
-        console.log(`Convertidos a console.error: ${this.convertedToError}`);
-        console.log(`Bloques vacíos preservados: ${this.preservedEmptyBlocks}`);
-        console.log(`console.log eliminados: ${this.totalConsoleLogs - this.convertedToError - this.preservedEmptyBlocks}`);
     }
 }
 

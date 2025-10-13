@@ -42,8 +42,6 @@ export const useControlPointTimers = (
       if (currentGame?.status === 'running' && !localTimerRef.current) {
         startControlPointTimerInterval();
       }
-    } else {
-      console.log('[CONTROL_POINT_TIMER] No control point times received from game time hook');
     }
   }, [controlPointTimesFromGameTime, currentGame?.status]);
 
