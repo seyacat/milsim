@@ -442,6 +442,14 @@ export class BombManagementService {
           return;
         }
 
+        // Check if bomb time's up FIRST - this is critical
+        if (bombTimeData.remainingTime <= 0) {
+          // Bomb exploded - handle explosion logic
+          await this.handleBombExplosion(controlPointId, gameInstanceId);
+          clearInterval(intervalId);
+          return;
+        }
+
         // Broadcast bomb time update ONLY every 20 seconds
         const currentTime = bombTimeData.totalTime - bombTimeData.remainingTime;
         if (currentTime - lastBroadcastTime >= 20) {
@@ -456,13 +464,6 @@ export class BombManagementService {
             });
           }
           lastBroadcastTime = currentTime;
-        }
-
-        // Check if bomb time's up
-        if (bombTimeData.remainingTime <= 0) {
-          // Bomb exploded - handle explosion logic
-          await this.handleBombExplosion(controlPointId, gameInstanceId);
-          clearInterval(intervalId);
         }
       })();
     }, 1000); // 1 second interval for calculation, 20 seconds for broadcast
