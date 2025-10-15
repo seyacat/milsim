@@ -77,7 +77,7 @@ export const useGamePlayer = (
   })
 
   // Use player markers hook
-  const { playerMarkers, userMarker, updatePlayerMarkers, updateUserMarkerTeam } = usePlayerMarkers({
+  const { updatePlayerMarkers } = usePlayerMarkers({
     game: currentGame,
     map: mapInstanceRef.current,
     currentUser,
@@ -250,12 +250,25 @@ export const useGamePlayer = (
       import('leaflet').then(L => {
         if (!mapInstanceRef.current) return
   
-        const teamClass = currentUser?.team || 'none'
+        // Find the current player in the game to get the correct team
+        const currentPlayer = currentGame?.players?.find(p => p.user?.id === currentUser?.id);
+        const teamClass = currentPlayer?.team || currentUser?.team || 'none';
+        console.log(`Creating user marker - User: ${currentUser?.id}, Team from currentUser: ${currentUser?.team}, Team from game: ${currentPlayer?.team}, Final team: ${teamClass}`);
+        const teamColors: Record<string, string> = {
+          'blue': '#2196F3',
+          'red': '#F44336',
+          'green': '#4CAF50',
+          'yellow': '#FFEB3B',
+          'none': '#9E9E9E'
+        };
+        const color = teamColors[teamClass] || '#9E9E9E';
         
         userMarkerRef.current = L.marker([lat, lng], {
           icon: L.divIcon({
             className: `user-marker ${teamClass}`,
+            html: '',
             iconSize: [24, 24],
+            iconAnchor: [12, 12]
           })
         }).addTo(mapInstanceRef.current)
         

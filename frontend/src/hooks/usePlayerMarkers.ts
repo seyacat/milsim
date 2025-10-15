@@ -11,6 +11,7 @@ interface UsePlayerMarkersProps {
 }
 
 export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: UsePlayerMarkersProps) => {
+  console.log('usePlayerMarkers hook initialized - Game:', game?.id, 'Map:', !!map, 'Socket:', !!socket, 'User:', currentUser?.id);
   
   const [playerMarkers, setPlayerMarkers] = useState<Map<number, L.Marker>>(new Map());
   const [userMarker, setUserMarker] = useState<L.Marker | null>(null);
@@ -18,35 +19,13 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
 
   // Create player marker icon
   const createPlayerMarkerIcon = useCallback((team: TeamColor, isUser: boolean = false) => {
-    const teamColors: Record<TeamColor, string> = {
-      'blue': '#2196F3',
-      'red': '#F44336',
-      'green': '#4CAF50',
-      'yellow': '#FFEB3B',
-      'none': '#9E9E9E'
-    };
-
-    const color = teamColors[team] || '#9E9E9E';
     const className = isUser ? 'user-marker' : 'player-marker';
+
+    console.log(`Creating player marker icon - Team: ${team}, IsUser: ${isUser}`);
 
     return L.divIcon({
       className: `${className} ${team}`,
-      html: `
-        <div style="
-          width: 24px;
-          height: 24px;
-          background: ${color};
-          border-radius: 50%;
-          border: 2px solid white;
-          box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 12px;
-          color: white;
-          font-weight: bold;
-        ">${isUser ? 'Tú' : '👤'}</div>
-      `,
+      html: '', // Empty HTML - CSS will handle the styling
       iconSize: [24, 24],
       iconAnchor: [12, 12]
     });
@@ -63,6 +42,8 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
 
     const currentPlayer = game?.players?.find(p => p.user?.id === currentUser?.id);
     const team = currentPlayer?.team || 'none';
+    console.log(`Creating user marker - Player: ${currentUser?.id}, Team: ${team}, Position: ${lat}, ${lng}`);
+    
     const icon = createPlayerMarkerIcon(team, true);
 
     const marker = L.marker([lat, lng], { icon }).addTo(map);
@@ -72,7 +53,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       className: 'user-marker-popup'
     }).setContent('<strong>Tú.</strong>');
     
-    marker.bindPopup(popup).openPopup();
+    marker.bindPopup(popup);
     
     setUserMarker(marker);
     return marker;
@@ -81,6 +62,8 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
   // Update player markers
   const updatePlayerMarkers = useCallback(() => {
     if (!map || !game || !currentUser) return;
+
+    console.log(`Updating player markers - Game: ${game.id}, Players: ${game.players?.length || 0}, Current user: ${currentUser.id}`);
 
     // Clear existing markers (except user's own marker)
     playerMarkersRef.current.forEach((marker, playerId) => {
@@ -103,6 +86,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
 
     // Check if we have valid game and players data
     if (!game.players || !Array.isArray(game.players)) {
+      console.log('No valid players data found');
       return;
     }
 
@@ -132,6 +116,8 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       // Create initial marker at default position (will be updated when position data arrives)
       const targetIsOwner = game.owner && player.user && player.user.id === game.owner.id;
       const team = player.team || 'none';
+      console.log(`Creating player marker - Player: ${player.user.id}, Name: ${player.user.name}, Team: ${team}`);
+      
       const icon = createPlayerMarkerIcon(team, false);
       
       const marker = L.marker([0, 0], { icon }).addTo(map);
@@ -150,6 +136,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     });
 
     setPlayerMarkers(new Map(playerMarkersRef.current));
+    console.log(`Player markers updated - Total markers: ${playerMarkersRef.current.size}`);
   }, [map, game, currentUser, isOwner, createPlayerMarkerIcon]);
 
   // Update individual player marker with real position data

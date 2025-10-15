@@ -627,7 +627,7 @@ body {
   opacity: 0.8;
 }
 
-/* Player markers - Stick figures with team colors and background circles */
+/* Player markers - circle with team color fill and person emoji */
 .player-marker {
   background: transparent !important;
   border: none !important;
@@ -637,7 +637,7 @@ body {
   font-size: 16px;
   line-height: 24px;
   margin-left: -12px !important;
-  margin-top: -24px !important;
+  margin-top: -12px !important;
   position: relative;
 }
 
@@ -656,10 +656,11 @@ body {
 .player-marker::after {
   content: "🧍‍♂️";
   display: block;
-  filter: brightness(0.8) saturate(0.8);
   position: relative;
   z-index: 2;
-  transform: translateX(1px);
+  font-size: 14px;
+  line-height: 24px;
+  text-align: center;
 }
 
 /* Team colors for player markers */
@@ -683,7 +684,7 @@ body {
   background: rgba(149, 165, 166, 0.5) !important;
 }
 
-/* Current user marker - same as player but with black border */
+/* Current user marker - circle with black border, team color fill, and person emoji */
 .user-marker {
   background: transparent !important;
   border: none !important;
@@ -693,7 +694,7 @@ body {
   font-size: 16px;
   line-height: 24px;
   margin-left: -12px !important;
-  margin-top: -24px !important;
+  margin-top: -12px !important;
   position: relative;
 }
 
@@ -725,10 +726,11 @@ body {
 .user-marker::after {
   content: "🧍‍♂️";
   display: block;
-  filter: drop-shadow(0 0 2px black) drop-shadow(0 0 1px black);
   position: relative;
   z-index: 2;
-  transform: translate(2px, 2px);
+  font-size: 14px;
+  line-height: 24px;
+  text-align: center;
 }
 
 /* Team colors for current user marker */

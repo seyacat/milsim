@@ -222,7 +222,9 @@ const GamePlayerMap: React.FC<GamePlayerMapProps> = ({
     const userMarker = L.marker([position.lat, position.lng], {
       icon: L.divIcon({
         className: `user-marker ${teamClass}`,
+        html: '', // Empty HTML - CSS will handle the styling
         iconSize: [24, 24],
+        iconAnchor: [12, 12]
       })
     }).addTo(map)
 
@@ -231,7 +233,7 @@ const GamePlayerMap: React.FC<GamePlayerMapProps> = ({
       className: 'user-marker-popup'
     }).setContent('<strong>Tú</strong>')
 
-    userMarker.bindPopup(popup).openPopup()
+    userMarker.bindPopup(popup)
 
     // Store reference
     userMarkerRef.current = userMarker
