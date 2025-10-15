@@ -11,6 +11,7 @@ interface UsePlayerMarkersProps {
 }
 
 export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: UsePlayerMarkersProps) => {
+  
   const [playerMarkers, setPlayerMarkers] = useState<Map<number, L.Marker>>(new Map());
   const [userMarker, setUserMarker] = useState<L.Marker | null>(null);
   const playerMarkersRef = useRef<Map<number, L.Marker>>(new Map());
@@ -130,12 +131,12 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
 
       // Create initial marker at default position (will be updated when position data arrives)
       const targetIsOwner = game.owner && player.user && player.user.id === game.owner.id;
-      const teamClass = player.team && player.team !== 'none' ? player.team : 'none';
-      const icon = createPlayerMarkerIcon(player.team || 'none', false);
+      const team = player.team || 'none';
+      const icon = createPlayerMarkerIcon(team, false);
       
       const marker = L.marker([0, 0], { icon }).addTo(map);
       
-      const teamInfo = player.team && player.team !== 'none' ? `<br>Equipo: ${player.team.toUpperCase()}` : '';
+      const teamInfo = team && team !== 'none' ? `<br>Equipo: ${team.toUpperCase()}` : '';
       
       marker.bindPopup(`
         <strong>${player.user?.name || 'Jugador'}</strong><br>
@@ -198,7 +199,8 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     if (!marker) {
       // Create new marker if it doesn't exist
       const targetIsOwner = game.owner && userId === game.owner.id;
-      const icon = createPlayerMarkerIcon(targetPlayer?.team || 'none', false);
+      const team = targetPlayer?.team || 'none';
+      const icon = createPlayerMarkerIcon(team, false);
       
       marker = L.marker([lat, lng], { icon }).addTo(map);
       playerMarkersRef.current.set(userId, marker);
@@ -233,6 +235,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
 
   // Update player marker with new team
   const updatePlayerMarkerTeam = useCallback((playerId: number, team: TeamColor) => {
+    
     // Find the player by playerId to get the userId
     const targetPlayer = game?.players?.find(p => p.id === playerId);
     if (!targetPlayer) {
@@ -258,7 +261,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       
       // Update popup with current info
       const targetIsOwner = game?.owner && userId === game.owner.id;
-      const teamInfo = targetPlayer?.team && targetPlayer.team !== 'none' ? `<br>Equipo: ${targetPlayer.team.toUpperCase()}` : '';
+      const teamInfo = team && team !== 'none' ? `<br>Equipo: ${team.toUpperCase()}` : '';
       
       newMarker.bindPopup(`
         <strong>${targetPlayer?.user?.name || 'Jugador'}</strong><br>
@@ -268,6 +271,8 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       
       playerMarkersRef.current.set(userId, newMarker);
       setPlayerMarkers(new Map(playerMarkersRef.current));
+    } else {
+      // No existing marker found for this user
     }
   }, [map, game, createPlayerMarkerIcon]);
 
@@ -287,14 +292,24 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       }
     };
 
+    // Listen for game updates that might include player team changes
+    const handleGameUpdate = (data: any) => {
+      if (data.game && data.game.players) {
+        // Update all player markers when game data changes
+        updatePlayerMarkers();
+      }
+    };
+
     socket.on('gameAction', handlePositionUpdate);
     socket.on('gameAction', handlePlayerTeamUpdated);
+    socket.on('gameUpdate', handleGameUpdate);
 
     return () => {
       socket.off('gameAction', handlePositionUpdate);
       socket.off('gameAction', handlePlayerTeamUpdated);
+      socket.off('gameUpdate', handleGameUpdate);
     };
-  }, [socket, currentUser, updatePlayerMarker, updatePlayerMarkerTeam]);
+  }, [socket, currentUser, updatePlayerMarker, updatePlayerMarkerTeam, updatePlayerMarkers]);
 
   // Update markers when game changes
   useEffect(() => {

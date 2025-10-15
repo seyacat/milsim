@@ -39,10 +39,6 @@ const LocationInfo: React.FC<LocationInfoProps> = ({
       <div>Precisión: <span>{currentPosition ? currentPosition.accuracy.toFixed(1) + 'm' : '-'}</span></div>
       
       
-      <button className="btn btn-secondary" onClick={openTeamsDialog} style={{ marginTop: '10px', width: '100%' }}>
-        JUGADORES
-      </button>
-      
       <div style={{ marginTop: '10px' }}>
         <label style={{ color: 'white', fontSize: '12px', display: 'block', marginBottom: '5px' }}>Tiempo:</label>
         <select

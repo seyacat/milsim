@@ -6,6 +6,10 @@ import { User, Game, ControlPoint, Toast } from '../types'
 import { io, Socket } from 'socket.io-client'
 import { useGameTime, ControlPointTimeData } from './useGameTime'
 import { useGPSTracking } from './useGPSTracking'
+import { useControlPoints } from './useControlPoints'
+import { useControlPointTimers } from './useControlPointTimers'
+import { useBombTimers } from './useBombTimers'
+import { usePlayerMarkers } from './usePlayerMarkers'
 
 interface UseGamePlayerReturn {
   currentUser: User | null
@@ -24,6 +28,9 @@ interface UseGamePlayerReturn {
   centerOnUser: () => void
   centerOnSite: () => void
   controlPointTimes: ControlPointTimeData[]
+  controlPointMarkers: Map<number, any>
+  positionCircles: Map<number, any>
+  pieCharts: Map<number, any>
 }
 
 export const useGamePlayer = (
@@ -42,21 +49,57 @@ export const useGamePlayer = (
   const controlPointMarkersRef = useRef<any>(null)
   const socketRef = useRef<Socket | null>(null)
 
-  // Use GPS tracking hook
-  const { gpsStatus, currentPosition, startGPSTracking, stopGPSTracking } = useGPSTracking(currentGame, socketRef.current)
+  // Memoize functions to prevent re-renders
+  const memoizedAddToast = useCallback(addToast, [addToast])
+  const memoizedNavigate = useCallback(navigate, [navigate])
+
+  // Create a wrapper for showToast that matches the expected signature
+  const showToastWrapper = useCallback((message: string, type: string) => {
+    memoizedAddToast({ message, type: type as any });
+  }, [memoizedAddToast]);
 
   // Use game time hook to get control point times
   const { controlPointTimes } = useGameTime(currentGame, socketRef.current)
 
-  // Log control point times for debugging
+  // Use control point timers hook
+  const { updateAllTimerDisplays } = useControlPointTimers(currentGame, socketRef.current, controlPointTimes)
+
+  // Use bomb timers hook
+  const { updateAllBombTimerDisplays } = useBombTimers(currentGame, socketRef.current)
+
+  // Use control points hook
+  const { controlPointMarkers, positionCircles, pieCharts, updateAllControlPointTimers } = useControlPoints({
+    game: currentGame,
+    map: mapInstanceRef.current,
+    isOwner: false,
+    socket: socketRef.current,
+    showToast: showToastWrapper
+  })
+
+  // Use player markers hook
+  const { playerMarkers, userMarker, updatePlayerMarkers, updateUserMarkerTeam } = usePlayerMarkers({
+    game: currentGame,
+    map: mapInstanceRef.current,
+    currentUser,
+    socket: socketRef.current,
+    isOwner: false
+  })
+
+  // Log initialization
+  useEffect(() => {
+  }, [currentGame, currentUser]);
+
+  // Update control point timers when control point times change
   useEffect(() => {
     if (controlPointTimes && controlPointTimes.length > 0) {
+      updateAllControlPointTimers();
+      updateAllTimerDisplays();
+      updateAllBombTimerDisplays();
     }
-  }, [controlPointTimes]);
+  }, [controlPointTimes, updateAllControlPointTimers, updateAllTimerDisplays, updateAllBombTimerDisplays]);
 
-  // Memoize functions to prevent re-renders
-  const memoizedAddToast = useCallback(addToast, [addToast])
-  const memoizedNavigate = useCallback(navigate, [navigate])
+  // Use GPS tracking hook
+  const { gpsStatus, currentPosition } = useGPSTracking(currentGame, socketRef.current)
 
   useEffect(() => {
     let isMounted = true
@@ -121,6 +164,16 @@ export const useGamePlayer = (
         socket.emit('joinGame', { gameId: parseInt(gameId) })
       })
 
+      // Log all WebSocket events for debugging
+      socket.onAny((event: string, ...args: any[]) => {
+      });
+
+      // Log WebSocket emits
+      const originalEmit = socket.emit.bind(socket);
+      socket.emit = (event: string, ...args: any[]) => {
+        return originalEmit(event, ...args);
+      };
+
       // Listen for game updates
       socket.on('gameUpdate', (data: { game: Game; type?: string }) => {
         if (data.game) {
@@ -168,6 +221,52 @@ export const useGamePlayer = (
       // The WebSocket will be cleaned up when the component unmounts naturally
     }
   }, [gameId, memoizedNavigate, memoizedAddToast])
+  
+    // Update user marker when position changes
+    useEffect(() => {
+      if (currentPosition && mapInstanceRef.current) {
+        // Update user marker on map
+        if (!userMarkerRef.current) {
+          createUserMarker(currentPosition.lat, currentPosition.lng)
+          
+          // Set view to user's location when GPS is first available (like in original code)
+          mapInstanceRef.current.setView([currentPosition.lat, currentPosition.lng], 16)
+        } else if (userMarkerRef.current) {
+          userMarkerRef.current.setLatLng([currentPosition.lat, currentPosition.lng])
+        }
+      }
+    }, [currentPosition])
+  
+    const createUserMarker = useCallback((lat: number, lng: number) => {
+      if (!mapInstanceRef.current) return
+  
+      // Remove existing marker if it exists
+      if (userMarkerRef.current) {
+        mapInstanceRef.current.removeLayer(userMarkerRef.current)
+        userMarkerRef.current = null
+      }
+  
+      // Import Leaflet dynamically
+      import('leaflet').then(L => {
+        if (!mapInstanceRef.current) return
+  
+        const teamClass = currentUser?.team || 'none'
+        
+        userMarkerRef.current = L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: `user-marker ${teamClass}`,
+            iconSize: [24, 24],
+          })
+        }).addTo(mapInstanceRef.current)
+        
+        // Create popup with custom class for positioning
+        const popup = L.popup({
+          className: 'user-marker-popup'
+        }).setContent('<strong>Tú.</strong>')
+        
+        userMarkerRef.current.bindPopup(popup).openPopup()
+      })
+    }, [currentUser])
 
   const goBack = useCallback(() => {
     memoizedNavigate('/dashboard')
@@ -208,6 +307,9 @@ export const useGamePlayer = (
     reloadPage,
     centerOnUser,
     centerOnSite,
-    controlPointTimes
+    controlPointTimes,
+    controlPointMarkers,
+    positionCircles,
+    pieCharts
   }
 }

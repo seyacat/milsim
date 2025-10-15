@@ -12,6 +12,7 @@ interface UseControlPointsProps {
 }
 
 export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseControlPointsProps) => {
+  
   const [controlPoints, setControlPoints] = useState<ControlPoint[]>([]);
   const controlPointMarkers = useRef<Map<number, L.Marker>>(new Map());
   const positionCircles = useRef<Map<number, L.Circle>>(new Map());
@@ -410,18 +411,66 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     updateAllControlPointTimers();
   }, [renderControlPoints, updateAllControlPointTimers]);
 
+  // Update single control point marker (for team color changes)
+  const updateSingleControlPointMarker = useCallback((controlPoint: ControlPoint) => {
+    if (!map) return;
+
+
+    // Find and remove existing marker
+    const existingMarker = controlPointMarkers.current.get(controlPoint.id);
+    if (existingMarker) {
+      map.removeLayer(existingMarker);
+      controlPointMarkers.current.delete(controlPoint.id);
+    }
+
+    // Remove position circle if exists
+    const existingCircle = positionCircles.current.get(controlPoint.id);
+    if (existingCircle) {
+      map.removeLayer(existingCircle);
+      positionCircles.current.delete(controlPoint.id);
+    }
+
+    // Remove pie chart if exists
+    const existingPieChart = pieCharts.current.get(controlPoint.id);
+    if (existingPieChart) {
+      map.removeLayer(existingPieChart);
+      pieCharts.current.delete(controlPoint.id);
+    }
+
+    // Create new marker with updated data
+    const newMarker = createControlPointMarker(controlPoint, map, isOwner);
+    if (newMarker) {
+      controlPointMarkers.current.set(controlPoint.id, newMarker);
+    }
+
+    // Add position circle if position challenge is active
+    if (controlPoint.hasPositionChallenge && controlPoint.minDistance) {
+      const circle = createPositionCircle(controlPoint, map);
+      if (circle) {
+        positionCircles.current.set(controlPoint.id, circle);
+      }
+    }
+  }, [map, isOwner]);
+
   // Handle WebSocket events for control points
   useEffect(() => {
-    if (!socket) return;
+    if (!socket) {
+      return;
+    }
+
 
     const handleControlPointCreated = (data: { controlPoint: ControlPoint }) => {
       setControlPoints(prev => [...prev, data.controlPoint]);
     };
 
     const handleControlPointUpdated = (data: { controlPoint: ControlPoint }) => {
-      setControlPoints(prev => 
+      
+      setControlPoints(prev =>
         prev.map(cp => cp.id === data.controlPoint.id ? data.controlPoint : cp)
       );
+      
+      // Force update the marker for this control point to reflect color changes
+      updateSingleControlPointMarker(data.controlPoint);
     };
 
     const handleControlPointDeleted = (data: { controlPointId: number }) => {
@@ -453,12 +502,13 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     socket.on('controlPointUpdated', handleControlPointUpdated);
     socket.on('controlPointDeleted', handleControlPointDeleted);
 
+
     return () => {
       socket.off('controlPointCreated', handleControlPointCreated);
       socket.off('controlPointUpdated', handleControlPointUpdated);
       socket.off('controlPointDeleted', handleControlPointDeleted);
     };
-  }, [socket, map]);
+  }, [socket, map, updateSingleControlPointMarker]);
 
   return {
     controlPoints,
@@ -471,7 +521,8 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     activateBombAsOwner,
     deactivateBombAsOwner,
     assignControlPointTeam,
-    updateAllControlPointTimers
+    updateAllControlPointTimers,
+    updateSingleControlPointMarker
   };
 };
 
@@ -566,9 +617,17 @@ const createControlPointMarker = (controlPoint: ControlPoint, map: L.Map, isOwne
   // Store control point data on marker
   (marker as any).controlPointData = controlPoint;
 
-  // Add popup for owners
+  // Add popup for owners or players
   if (isOwner) {
     const popupContent = createOwnerPopupContent(controlPoint, marker);
+    marker.bindPopup(popupContent, {
+      closeOnClick: false,
+      autoClose: false,
+      closeButton: true
+    });
+  } else {
+    // For players, create interactive popup
+    const popupContent = createPlayerPopupContent(controlPoint, marker);
     marker.bindPopup(popupContent, {
       closeOnClick: false,
       autoClose: false,
@@ -583,6 +642,7 @@ const createControlPointMarker = (controlPoint: ControlPoint, map: L.Map, isOwne
 const getControlPointIcon = (controlPoint: ControlPoint) => {
   let iconColor = '#2196F3'; // Default for control_point
   let iconEmoji = '🚩'; // Default for control_point
+
 
   // Check ownership first - override color based on team
   if (controlPoint.ownedByTeam) {
@@ -811,4 +871,117 @@ const createOwnerPopupContent = (controlPoint: ControlPoint, marker: L.Marker): 
   `;
 
   return popup;
+};
+
+// Create player popup content
+const createPlayerPopupContent = (controlPoint: ControlPoint, marker: L.Marker): HTMLElement => {
+  const popup = document.createElement('div');
+  popup.className = 'control-point-popup player';
+  
+  // Show ownership status and hold time
+  let ownershipStatus = '';
+  if (controlPoint.ownedByTeam) {
+    const teamColors: Record<string, string> = {
+      'blue': 'Azul',
+      'red': 'Rojo',
+      'green': 'Verde',
+      'yellow': 'Amarillo'
+    };
+    const holdTime = controlPoint.displayTime || '00:00';
+    ownershipStatus = `
+      <div class="ownership-status" style="color: ${controlPoint.ownedByTeam}; font-weight: bold;">
+        Controlado por: ${teamColors[controlPoint.ownedByTeam] || controlPoint.ownedByTeam}
+      </div>
+      <div class="hold-time" style="font-size: 12px; color: #666; margin-top: 5px;">
+        Tiempo: ${holdTime}
+      </div>
+    `;
+  }
+  
+  // Only show challenge buttons when game is running
+  const isGameRunning = true; // This should come from game state
+  const canTakePoint = isGameRunning;
+  
+  // Show code challenge input and submit button if code challenge is active
+  let codeChallengeSection = '';
+  if (canTakePoint && controlPoint.hasCodeChallenge) {
+    codeChallengeSection = `
+      <div class="code-challenge-section" style="margin-top: 10px;">
+        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Código:</label>
+        <input type="text" id="codeInput_${controlPoint.id}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="Ingresa el código">
+        <button class="submit-code-button" onclick="window.submitCodeChallenge(${controlPoint.id})" style="width: 100%; margin-top: 8px; padding: 8px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Enviar Código</button>
+      </div>
+    `;
+  }
+  
+  // Show bomb challenge inputs and submit button if bomb challenge is active
+  let bombChallengeSection = '';
+  if (canTakePoint && controlPoint.hasBombChallenge) {
+    // Check if bomb is already active
+    let isBombActive = false;
+    
+    // This would need to check active bomb timers from state
+    if (controlPoint.bombTimer && controlPoint.bombTimer.isActive) {
+      isBombActive = true;
+    }
+    
+    if (isBombActive) {
+      // Bomb is active - show disarmed code input and deactivation button
+      bombChallengeSection = `
+        <div class="bomb-challenge-section" style="margin-top: 10px;">
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Código Desactivación:</label>
+          <input type="text" id="disarmedCodeInput_${controlPoint.id}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="Ingresa el código de desactivación">
+          <button class="submit-bomb-button" onclick="window.submitBombDeactivation(${controlPoint.id})" style="width: 100%; margin-top: 8px; padding: 8px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Desactivar Bomba</button>
+        </div>
+      `;
+    } else {
+      // Bomb is not active - show armed code input and activation button
+      bombChallengeSection = `
+        <div class="bomb-challenge-section" style="margin-top: 10px;">
+          <label style="display: block; margin-bottom: 5px; font-weight: bold;">Código Armado:</label>
+          <input type="text" id="armedCodeInput_${controlPoint.id}" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="Ingresa el código armado">
+          <button class="submit-bomb-button" onclick="window.submitBombChallenge(${controlPoint.id})" style="width: 100%; margin-top: 8px; padding: 8px; background: #FF5722; color: white; border: none; border-radius: 4px; cursor: pointer;">Activar Bomba</button>
+        </div>
+      `;
+    }
+  }
+  
+  popup.innerHTML = `
+    <div class="point-name" style="font-weight: bold; font-size: 16px; margin-bottom: 10px;">${controlPoint.name}</div>
+    ${ownershipStatus}
+    ${codeChallengeSection}
+    ${bombChallengeSection}
+    ${canTakePoint ? `
+      <div class="take-point-section" style="margin-top: 15px;">
+        <button class="btn btn-primary" onclick="window.takeControlPoint(${controlPoint.id})" style="width: 100%; padding: 10px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+          Tomar Punto
+        </button>
+      </div>
+    ` : ''}
+  `;
+  
+  return popup;
+};
+
+// Global functions for player interactions (to be implemented)
+(window as any).takeControlPoint = (controlPointId: number) => {
+  // This would need to be implemented with WebSocket communication
+};
+
+(window as any).submitCodeChallenge = (controlPointId: number) => {
+  const codeInput = document.getElementById(`codeInput_${controlPointId}`) as HTMLInputElement;
+  const code = codeInput?.value;
+  // This would need to be implemented with WebSocket communication
+};
+
+(window as any).submitBombChallenge = (controlPointId: number) => {
+  const armedCodeInput = document.getElementById(`armedCodeInput_${controlPointId}`) as HTMLInputElement;
+  const armedCode = armedCodeInput?.value;
+  // This would need to be implemented with WebSocket communication
+};
+
+(window as any).submitBombDeactivation = (controlPointId: number) => {
+  const disarmedCodeInput = document.getElementById(`disarmedCodeInput_${controlPointId}`) as HTMLInputElement;
+  const disarmedCode = disarmedCodeInput?.value;
+  // This would need to be implemented with WebSocket communication
 };

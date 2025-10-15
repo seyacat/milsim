@@ -1,16 +1,25 @@
-import React from 'react'
+import React, { useCallback, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useToast } from '../contexts/ToastContext'
+import GamePlayerMap from './GamePlayer/GamePlayerMap'
+import GameOverlay from './GamePlayer/GameOverlay'
+import LocationInfo from './GamePlayer/LocationInfo'
+import MapControls from './GamePlayer/MapControls'
 import { useGamePlayer } from '../hooks/useGamePlayer'
-import { useToast } from '../hooks/useToast'
-import GamePlayerMap from './GamePlayerMap'
-import GameOverlay from './GameOverlay'
-import LocationInfo from './LocationInfo'
-import MapControls from './MapControls'
+import '../styles/game-player.css'
 
 const GamePlayer: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>()
   const navigate = useNavigate()
-  const { addToast } = useToast()
+  const { addToast: originalAddToast } = useToast()
+  
+  // Create a wrapper that matches the expected type
+  const addToast = useCallback((toast: { message: string; type?: string }) => {
+    originalAddToast({
+      message: toast.message,
+      type: toast.type as any
+    })
+  }, [originalAddToast])
 
   const {
     currentUser,
@@ -28,64 +37,65 @@ const GamePlayer: React.FC = () => {
     reloadPage,
     centerOnUser,
     centerOnSite,
-    controlPointTimes
+    controlPointTimes,
+    controlPointMarkers,
+    positionCircles,
+    pieCharts
   } = useGamePlayer(gameId, navigate, addToast)
 
   if (isLoading) {
     return (
-      <div className="game-player">
-        <div className="loading">Cargando juego...</div>
+      <div className="loading">
+        Cargando juego...
       </div>
     )
   }
 
-  if (!currentUser || !currentGame) {
+  if (!currentGame || !currentUser) {
     return (
-      <div className="game-player">
-        <div className="error">Error al cargar el juego</div>
+      <div className="loading">
+        Error al cargar el juego
       </div>
     )
   }
 
   return (
-    <div className="game-player">
-      <div className="game-container">
-        <GamePlayerMap
-          currentUser={currentUser}
-          currentGame={currentGame}
-          mapRef={mapRef}
-          mapInstanceRef={mapInstanceRef}
-          userMarkerRef={userMarkerRef}
-          playerMarkersRef={playerMarkersRef}
-          controlPointMarkersRef={controlPointMarkersRef}
-          gpsStatus={gpsStatus}
-          currentPosition={currentPosition}
-          socket={socket}
-          controlPointTimes={controlPointTimes}
-        />
-        
-        <GameOverlay
-          currentUser={currentUser}
-          currentGame={currentGame}
-          isOwner={false}
-          goBack={goBack}
-          socket={socket}
-        />
-        
-        <LocationInfo
-          currentUser={currentUser}
-          currentGame={currentGame}
-          gpsStatus={gpsStatus}
-          currentPosition={currentPosition}
-          isOwner={false}
-        />
-        
-        <MapControls
-          reloadPage={reloadPage}
-          centerOnUser={centerOnUser}
-          centerOnSite={centerOnSite}
-        />
-      </div>
+    <div className="game-owner-container">
+      {/* Map */}
+      <GamePlayerMap
+        mapRef={mapRef}
+        currentGame={currentGame}
+        currentUser={currentUser}
+        mapInstanceRef={mapInstanceRef}
+        userMarkerRef={userMarkerRef}
+        playerMarkersRef={playerMarkersRef}
+        controlPointMarkersRef={controlPointMarkersRef}
+        controlPointMarkers={controlPointMarkers}
+        positionCircles={positionCircles}
+        pieCharts={pieCharts}
+      />
+
+      {/* Game Overlay */}
+      <GameOverlay
+        currentUser={currentUser}
+        currentGame={currentGame}
+        gpsStatus={gpsStatus}
+        socket={socket}
+      />
+
+      {/* Location Info */}
+      <LocationInfo
+        currentPosition={currentPosition}
+        currentGame={currentGame}
+      />
+
+      {/* Map Controls */}
+      <MapControls
+        goBack={goBack}
+        reloadPage={reloadPage}
+        centerOnUser={centerOnUser}
+        centerOnSite={centerOnSite}
+      />
     </div>
   )
 }
