@@ -204,9 +204,6 @@ export const useGameOwner = (
       // Listen for player team updates
       socket.on('gameAction', (data: { action: string; data: any }) => {
         if (data.action === 'playerTeamUpdated') {
-          console.log('Owner: Player team updated event received:', data);
-          console.log('Owner: Current user ID from ref:', currentUserRef.current?.id);
-          console.log('Owner: Event user ID:', data.data.userId);
           
           handlePlayerTeamUpdate(data.data);
           
@@ -301,7 +298,6 @@ export const useGameOwner = (
       // Find the current player in the game to get the correct team
       const currentPlayer = currentGame?.players?.find(p => p.user?.id === currentUser?.id);
       const teamClass = currentPlayer?.team || currentUser?.team || 'none';
-      console.log(`Creating owner user marker - User: ${currentUser?.id}, Team from currentUser: ${currentUser?.team}, Team from game: ${currentPlayer?.team}, Final team: ${teamClass}`);
       
       // If marker exists, just update the icon instead of recreating
       if (userMarkerRef.current) {

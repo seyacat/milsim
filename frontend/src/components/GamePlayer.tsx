@@ -40,8 +40,14 @@ const GamePlayer: React.FC = () => {
     controlPointTimes,
     controlPointMarkers,
     positionCircles,
-    pieCharts
+    pieCharts,
+    activeBombTimers
   } = useGamePlayer(gameId, navigate, addToast)
+
+  // Expose active bomb timers globally for popup access
+  React.useEffect(() => {
+    ;(window as any).activeBombTimers = activeBombTimers;
+  }, [activeBombTimers]);
 
   if (isLoading) {
     return (

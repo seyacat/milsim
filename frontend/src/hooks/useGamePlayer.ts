@@ -31,6 +31,7 @@ interface UseGamePlayerReturn {
   controlPointMarkers: Map<number, any>
   positionCircles: Map<number, any>
   pieCharts: Map<number, any>
+  activeBombTimers: Map<number, any>
 }
 
 export const useGamePlayer = (
@@ -66,7 +67,7 @@ export const useGamePlayer = (
   const { updateAllTimerDisplays } = useControlPointTimers(currentGame, socketRef.current, controlPointTimes)
 
   // Use bomb timers hook
-  const { updateAllBombTimerDisplays } = useBombTimers(currentGame, socketRef.current)
+  const { activeBombTimers, updateAllBombTimerDisplays } = useBombTimers(currentGame, socketRef.current)
 
   // Use control points hook
   const { controlPointMarkers, positionCircles, pieCharts, updateAllControlPointTimers } = useControlPoints({
@@ -98,6 +99,11 @@ export const useGamePlayer = (
       updateAllBombTimerDisplays();
     }
   }, [controlPointTimes, updateAllControlPointTimers, updateAllTimerDisplays, updateAllBombTimerDisplays]);
+
+  // Update global active bomb timers reference when they change
+  useEffect(() => {
+    ;(window as any).activeBombTimers = activeBombTimers;
+  }, [activeBombTimers]);
 
   // Use GPS tracking hook
   const { gpsStatus, currentPosition } = useGPSTracking(currentGame, socketRef.current)
@@ -165,6 +171,9 @@ export const useGamePlayer = (
       
       // Expose socket and game globally for control point interactions
       ;(window as any).currentSocket = socket
+      
+      // Expose active bomb timers globally for popup access
+      ;(window as any).activeBombTimers = activeBombTimers
 
       // Listen for successful connection
       socket.on('connect', () => {
@@ -205,9 +214,6 @@ export const useGamePlayer = (
       // Listen for player team updates
       socket.on('gameAction', (data: { action: string; data: any }) => {
         if (data.action === 'playerTeamUpdated') {
-          console.log('Player team updated event received:', data);
-          console.log('Current user ID from ref:', currentUserRef.current?.id);
-          console.log('Event user ID:', data.data.userId);
           
           // Update the current game state to reflect the team change
           setCurrentGame(prevGame => {
@@ -229,13 +235,10 @@ export const useGamePlayer = (
           const playerName = targetPlayer?.user?.name || data.data.userName || 'Un jugador';
           const teamName = data.data.team && data.data.team !== 'none' ? data.data.team.toUpperCase() : 'sin equipo';
           
-          console.log('Toast comparison - Current user ID from ref:', currentUserRef.current?.id, 'Event user ID:', data.data.userId, 'Match:', data.data.userId === currentUserRef.current?.id);
           
           if (data.data.userId === currentUserRef.current?.id) {
-            console.log('Showing toast for own team change');
             memoizedAddToast({ message: `Haz cambiado de equipo`, type: 'info' });
           } else {
-            console.log('Showing toast for other player team change:', playerName);
             memoizedAddToast({ message: `${playerName} ha cambiado al equipo ${teamName}`, type: 'info' });
           }
 
@@ -419,6 +422,7 @@ export const useGamePlayer = (
     controlPointTimes,
     controlPointMarkers,
     positionCircles,
-    pieCharts
+    pieCharts,
+    activeBombTimers
   }
 }

@@ -1027,12 +1027,16 @@ const createPlayerPopupContent = (controlPoint: ControlPoint, marker: L.Marker):
   // Show bomb challenge inputs and submit button if bomb challenge is active
   let bombChallengeSection = '';
   if (canTakePoint && controlPoint.hasBombChallenge) {
-    // Check if bomb is already active
+    // Check if bomb is already active by looking at active bomb timers
     let isBombActive = false;
     
-    // This would need to check active bomb timers from state
-    if (controlPoint.bombTimer && controlPoint.bombTimer.isActive) {
-      isBombActive = true;
+    // Check if there's an active bomb timer for this control point
+    const activeBombTimers = (window as any).activeBombTimers;
+    if (activeBombTimers && activeBombTimers instanceof Map) {
+      const bombTimer = activeBombTimers.get(controlPoint.id);
+      if (bombTimer && bombTimer.isActive) {
+        isBombActive = true;
+      }
     }
     
     if (isBombActive) {
