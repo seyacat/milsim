@@ -133,6 +133,9 @@ export const useGamePlayer = (
         setCurrentUser(user)
         currentUserRef.current = user
         setCurrentGame(game)
+        
+        // Expose game globally for control point interactions
+        ;(window as any).currentGame = game
       } catch (error) {
         if (!isMounted) return
         console.error('Error initializing game:', error)
@@ -159,6 +162,9 @@ export const useGamePlayer = (
         }
       })
       socketRef.current = socket
+      
+      // Expose socket and game globally for control point interactions
+      ;(window as any).currentSocket = socket
 
       // Listen for successful connection
       socket.on('connect', () => {
@@ -251,6 +257,31 @@ export const useGamePlayer = (
           }
         }
       });
+
+      // Listen for challenge responses
+      socket.on('codeChallengeResult', (data: { success: boolean; message: string }) => {
+        if (data.success) {
+          memoizedAddToast({ message: data.message, type: 'success' })
+        } else {
+          memoizedAddToast({ message: data.message, type: 'error' })
+        }
+      })
+
+      socket.on('bombChallengeResult', (data: { success: boolean; message: string }) => {
+        if (data.success) {
+          memoizedAddToast({ message: data.message, type: 'success' })
+        } else {
+          memoizedAddToast({ message: data.message, type: 'error' })
+        }
+      })
+
+      socket.on('bombDeactivationResult', (data: { success: boolean; message: string }) => {
+        if (data.success) {
+          memoizedAddToast({ message: data.message, type: 'success' })
+        } else {
+          memoizedAddToast({ message: data.message, type: 'error' })
+        }
+      })
 
       // Listen for game errors
       socket.on('gameActionError', (data: { action: string; error: string }) => {
