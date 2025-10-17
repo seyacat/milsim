@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ControlPoint } from '../entities/control-point.entity';
 import { Game } from '../entities/game.entity';
 import { Player } from '../entities/player.entity';
 import { GameManagementService } from './game-management.service';
+import { TimerManagementService } from './timer-management.service';
 
 @Injectable()
 export class ControlPointManagementService {
@@ -16,6 +17,8 @@ export class ControlPointManagementService {
     @InjectRepository(Player)
     private playersRepository: Repository<Player>,
     private gameManagementService: GameManagementService,
+    @Inject(forwardRef(() => TimerManagementService))
+    private timerManagementService: TimerManagementService,
   ) {}
 
   async createControlPoint(controlPointData: {
@@ -174,7 +177,10 @@ export class ControlPointManagementService {
       );
 
       // Update control point timer with new ownership
-      // Note: This will be handled by the timer management service
+      await this.timerManagementService.updateControlPointTimer(
+        id,
+        updatedControlPoint.game.instanceId,
+      );
     }
 
     return updatedControlPoint;
@@ -251,7 +257,10 @@ export class ControlPointManagementService {
       );
 
       // Update control point timer with new ownership
-      // Note: This will be handled by the timer management service
+      await this.timerManagementService.updateControlPointTimer(
+        controlPointId,
+        controlPoint.game.instanceId,
+      );
     }
 
     return { controlPoint: updatedControlPoint };

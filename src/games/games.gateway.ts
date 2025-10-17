@@ -538,6 +538,14 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 data.code,
               );
 
+              // Update control point timer with new ownership
+              if (result.controlPoint.game?.instanceId) {
+                await this.timerManagementService.updateControlPointTimer(
+                  data.controlPointId,
+                  result.controlPoint.game.instanceId,
+                );
+              }
+
               // Remove sensitive code data before broadcasting to all clients
               const { code, armedCode, disarmedCode, ...safeControlPoint } = result.controlPoint;
 
