@@ -774,6 +774,26 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 },
                 from: client.id,
               });
+
+              // Recalculate and broadcast position challenge data for all control points
+              // This ensures the pie charts and scores update immediately when teams change
+              try {
+                const currentPositionChallengeData =
+                  await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
+                
+                // Broadcast updated position challenge data for all control points
+                for (const [controlPointId, teamPoints] of currentPositionChallengeData.entries()) {
+                  this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
+                    controlPointId,
+                    teamPoints,
+                  });
+                }
+              } catch (positionChallengeError) {
+                console.error(
+                  `[UPDATE_PLAYER_TEAM] Error recalculating position challenge data for game ${gameId}:`,
+                  positionChallengeError,
+                );
+              }
             } catch (error: any) {
               client.emit('gameActionError', {
                 action: 'updatePlayerTeam',

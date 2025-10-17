@@ -11,7 +11,6 @@ interface UsePlayerMarkersProps {
 }
 
 export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: UsePlayerMarkersProps) => {
-  console.log('usePlayerMarkers hook initialized - Game:', game?.id, 'Map:', !!map, 'Socket:', !!socket, 'User:', currentUser?.id);
   
   const [playerMarkers, setPlayerMarkers] = useState<Map<number, L.Marker>>(new Map());
   const [userMarker, setUserMarker] = useState<L.Marker | null>(null);
@@ -21,7 +20,6 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
   const createPlayerMarkerIcon = useCallback((team: TeamColor, isUser: boolean = false) => {
     const className = isUser ? 'user-marker' : 'player-marker';
 
-    console.log(`Creating player marker icon - Team: ${team}, IsUser: ${isUser}`);
 
     return L.divIcon({
       className: `${className} ${team}`,
@@ -42,7 +40,6 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
 
     const currentPlayer = game?.players?.find(p => p.user?.id === currentUser?.id);
     const team = currentPlayer?.team || 'none';
-    console.log(`Creating user marker - Player: ${currentUser?.id}, Team: ${team}, Position: ${lat}, ${lng}`);
     
     const icon = createPlayerMarkerIcon(team, true);
 
@@ -63,7 +60,6 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
   const updatePlayerMarkers = useCallback(() => {
     if (!map || !game || !currentUser) return;
 
-    console.log(`Updating player markers - Game: ${game.id}, Players: ${game.players?.length || 0}, Current user: ${currentUser.id}`);
 
     // Clear existing markers (except user's own marker)
     playerMarkersRef.current.forEach((marker, playerId) => {
@@ -86,7 +82,6 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
 
     // Check if we have valid game and players data
     if (!game.players || !Array.isArray(game.players)) {
-      console.log('No valid players data found');
       return;
     }
 
@@ -116,7 +111,6 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       // Create initial marker at default position (will be updated when position data arrives)
       const targetIsOwner = game.owner && player.user && player.user.id === game.owner.id;
       const team = player.team || 'none';
-      console.log(`Creating player marker - Player: ${player.user.id}, Name: ${player.user.name}, Team: ${team}`);
       
       const icon = createPlayerMarkerIcon(team, false);
       
@@ -136,7 +130,6 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     });
 
     setPlayerMarkers(new Map(playerMarkersRef.current));
-    console.log(`Player markers updated - Total markers: ${playerMarkersRef.current.size}`);
   }, [map, game, currentUser, isOwner, createPlayerMarkerIcon]);
 
   // Update individual player marker with real position data
@@ -226,7 +219,12 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     // Find the player by playerId to get the userId
     const targetPlayer = game?.players?.find(p => p.id === playerId);
     if (!targetPlayer) {
-      return;
+      // Also try to find by userId if playerId doesn't match
+      const playerByUserId = game?.players?.find(p => p.user?.id === playerId);
+      if (!playerByUserId) {
+        return;
+      }
+      return updatePlayerMarkerTeamByUserId(playerByUserId.user.id, team);
     }
     
     const userId = targetPlayer?.user?.id;
@@ -234,29 +232,29 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       return;
     }
 
+    updatePlayerMarkerTeamByUserId(userId, team);
+  }, [map, game, createPlayerMarkerIcon]);
+
+  // Update player marker with new team by userId
+  const updatePlayerMarkerTeamByUserId = useCallback((userId: number, team: TeamColor) => {
     const marker = playerMarkersRef.current.get(userId);
     if (marker) {
-      const currentPosition = marker.getLatLng();
-      const currentAccuracy = (marker as any).accuracy || 0;
-      
-      // Remove existing marker
-      map?.removeLayer(marker);
-      
-      // Create new marker with updated team class
-      const icon = createPlayerMarkerIcon(team, false);
-      const newMarker = L.marker(currentPosition, { icon }).addTo(map!);
+      // Update the existing marker's icon instead of recreating it
+      const newIcon = createPlayerMarkerIcon(team, false);
+      marker.setIcon(newIcon);
       
       // Update popup with current info
+      const targetPlayer = game?.players?.find(p => p.user?.id === userId);
       const targetIsOwner = game?.owner && userId === game.owner.id;
       const teamInfo = team && team !== 'none' ? `<br>Equipo: ${team.toUpperCase()}` : '';
+      const currentAccuracy = (marker as any).accuracy || 0;
       
-      newMarker.bindPopup(`
+      marker.bindPopup(`
         <strong>${targetPlayer?.user?.name || 'Jugador'}</strong><br>
         ${targetIsOwner ? 'Propietario' : 'Jugador'}${teamInfo}<br>
         <small>Precisión: ${Math.round(currentAccuracy)}m</small>
       `);
       
-      playerMarkersRef.current.set(userId, newMarker);
       setPlayerMarkers(new Map(playerMarkersRef.current));
     } else {
       // No existing marker found for this user
@@ -301,7 +299,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
   // Update markers when game changes
   useEffect(() => {
     updatePlayerMarkers();
-  }, [updatePlayerMarkers]);
+  }, [game, currentUser, updatePlayerMarkers]);
 
   return {
     playerMarkers: playerMarkersRef.current,
@@ -310,6 +308,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     updatePlayerMarker,
     updateUserMarkerTeam,
     updatePlayerMarkerTeam,
+    updatePlayerMarkerTeamByUserId,
     createUserMarker
   };
 };

@@ -60,6 +60,7 @@ export const useGameOwner = (
   const playerMarkersRef = useRef<any>(null)
   const controlPointMarkersRef = useRef<any>(null)
   const socketRef = useRef<Socket | null>(null)
+  const currentUserRef = useRef<User | null>(null)
 
   // Memoize functions to prevent re-renders
   const memoizedAddToast = useCallback(addToast, [addToast])
@@ -132,6 +133,7 @@ export const useGameOwner = (
         }
 
         setCurrentUser(user)
+        currentUserRef.current = user
         setCurrentGame(game)
       } catch (error) {
         if (!isMounted) return
@@ -189,6 +191,7 @@ export const useGameOwner = (
       socket.on('joinSuccess', (data: { user: User }) => {
         if (data.user) {
           setCurrentUser(data.user)
+          currentUserRef.current = data.user
         }
       })
 
@@ -201,7 +204,31 @@ export const useGameOwner = (
       // Listen for player team updates
       socket.on('gameAction', (data: { action: string; data: any }) => {
         if (data.action === 'playerTeamUpdated') {
-          handlePlayerTeamUpdate(data.data)
+          console.log('Owner: Player team updated event received:', data);
+          console.log('Owner: Current user ID from ref:', currentUserRef.current?.id);
+          console.log('Owner: Event user ID:', data.data.userId);
+          
+          handlePlayerTeamUpdate(data.data);
+          
+          // Also update the game state to reflect the team change
+          setCurrentGame(prevGame => {
+            if (!prevGame) return prevGame;
+            
+            // Update the player's team in the game state
+            const updatedPlayers = prevGame.players?.map(player => {
+              if (player.user?.id === data.data.userId) {
+                return { ...player, team: data.data.team };
+              }
+              return player;
+            }) || [];
+            
+            return { ...prevGame, players: updatedPlayers };
+          });
+
+          // Update user's own marker if they changed their own team
+          if (data.data.userId === currentUserRef.current?.id && currentPosition) {
+            createUserMarker(currentPosition.lat, currentPosition.lng);
+          }
         }
       })
   
@@ -256,36 +283,56 @@ export const useGameOwner = (
     }
   }, [currentPosition])
 
+  // Update user marker when game state changes (including team changes)
+  useEffect(() => {
+    if (currentPosition && mapInstanceRef.current && userMarkerRef.current) {
+      // Recreate user marker with updated team
+      createUserMarker(currentPosition.lat, currentPosition.lng);
+    }
+  }, [currentGame])
+
   const createUserMarker = useCallback((lat: number, lng: number) => {
     if (!mapInstanceRef.current) return
-
-    // Remove existing marker if it exists
-    if (userMarkerRef.current) {
-      mapInstanceRef.current.removeLayer(userMarkerRef.current)
-      userMarkerRef.current = null
-    }
 
     // Import Leaflet dynamically
     import('leaflet').then(L => {
       if (!mapInstanceRef.current) return
 
-      const teamClass = currentUser?.team || 'none'
+      // Find the current player in the game to get the correct team
+      const currentPlayer = currentGame?.players?.find(p => p.user?.id === currentUser?.id);
+      const teamClass = currentPlayer?.team || currentUser?.team || 'none';
+      console.log(`Creating owner user marker - User: ${currentUser?.id}, Team from currentUser: ${currentUser?.team}, Team from game: ${currentPlayer?.team}, Final team: ${teamClass}`);
       
-      userMarkerRef.current = L.marker([lat, lng], {
-        icon: L.divIcon({
+      // If marker exists, just update the icon instead of recreating
+      if (userMarkerRef.current) {
+        const currentPosition = userMarkerRef.current.getLatLng();
+        const newIcon = L.divIcon({
           className: `user-marker ${teamClass}`,
+          html: '',
           iconSize: [24, 24],
-        })
-      }).addTo(mapInstanceRef.current)
-      
-      // Create popup with custom class for positioning
-      const popup = L.popup({
-        className: 'user-marker-popup'
-      }).setContent('<strong>Tú.</strong>')
-      
-      userMarkerRef.current.bindPopup(popup).openPopup()
+          iconAnchor: [12, 12]
+        });
+        userMarkerRef.current.setIcon(newIcon);
+      } else {
+        // Create new marker if it doesn't exist
+        userMarkerRef.current = L.marker([lat, lng], {
+          icon: L.divIcon({
+            className: `user-marker ${teamClass}`,
+            html: '',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+          })
+        }).addTo(mapInstanceRef.current)
+        
+        // Create popup with custom class for positioning
+        const popup = L.popup({
+          className: 'user-marker-popup'
+        }).setContent('<strong>Tú.</strong>')
+        
+        userMarkerRef.current.bindPopup(popup).openPopup()
+      }
     })
-  }, [currentUser])
+  }, [currentUser, currentGame])
 
   const startGame = useCallback(() => {
     if (!currentGame || !socketRef.current) return

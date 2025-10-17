@@ -48,6 +48,7 @@ export const useGamePlayer = (
   const playerMarkersRef = useRef<any>(null)
   const controlPointMarkersRef = useRef<any>(null)
   const socketRef = useRef<Socket | null>(null)
+  const currentUserRef = useRef<User | null>(null)
 
   // Memoize functions to prevent re-renders
   const memoizedAddToast = useCallback(addToast, [addToast])
@@ -77,7 +78,7 @@ export const useGamePlayer = (
   })
 
   // Use player markers hook
-  const { updatePlayerMarkers } = usePlayerMarkers({
+  const { updatePlayerMarkers, updatePlayerMarkerTeam, updatePlayerMarkerTeamByUserId } = usePlayerMarkers({
     game: currentGame,
     map: mapInstanceRef.current,
     currentUser,
@@ -130,6 +131,7 @@ export const useGamePlayer = (
         }
 
         setCurrentUser(user)
+        currentUserRef.current = user
         setCurrentGame(game)
       } catch (error) {
         if (!isMounted) return
@@ -190,8 +192,65 @@ export const useGamePlayer = (
       socket.on('joinSuccess', (data: { user: User }) => {
         if (data.user) {
           setCurrentUser(data.user)
+          currentUserRef.current = data.user
         }
       })
+
+      // Listen for player team updates
+      socket.on('gameAction', (data: { action: string; data: any }) => {
+        if (data.action === 'playerTeamUpdated') {
+          console.log('Player team updated event received:', data);
+          console.log('Current user ID from ref:', currentUserRef.current?.id);
+          console.log('Event user ID:', data.data.userId);
+          
+          // Update the current game state to reflect the team change
+          setCurrentGame(prevGame => {
+            if (!prevGame) return prevGame;
+            
+            // Update the player's team in the game state
+            const updatedPlayers = prevGame.players?.map(player => {
+              if (player.user?.id === data.data.userId) {
+                return { ...player, team: data.data.team };
+              }
+              return player;
+            }) || [];
+            
+            return { ...prevGame, players: updatedPlayers };
+          });
+
+          // Show toast notification for team change
+          const targetPlayer = currentGame?.players?.find(p => p.user?.id === data.data.userId);
+          const playerName = targetPlayer?.user?.name || data.data.userName || 'Un jugador';
+          const teamName = data.data.team && data.data.team !== 'none' ? data.data.team.toUpperCase() : 'sin equipo';
+          
+          console.log('Toast comparison - Current user ID from ref:', currentUserRef.current?.id, 'Event user ID:', data.data.userId, 'Match:', data.data.userId === currentUserRef.current?.id);
+          
+          if (data.data.userId === currentUserRef.current?.id) {
+            console.log('Showing toast for own team change');
+            memoizedAddToast({ message: `Haz cambiado de equipo`, type: 'info' });
+          } else {
+            console.log('Showing toast for other player team change:', playerName);
+            memoizedAddToast({ message: `${playerName} ha cambiado al equipo ${teamName}`, type: 'info' });
+          }
+
+          // Force update player markers to reflect team changes
+          if (updatePlayerMarkers) {
+            updatePlayerMarkers();
+          }
+          
+          // Also update individual player marker if it exists
+          if (updatePlayerMarkerTeamByUserId && data.data.userId) {
+            updatePlayerMarkerTeamByUserId(data.data.userId, data.data.team);
+          } else if (updatePlayerMarkerTeam && data.data.playerId) {
+            updatePlayerMarkerTeam(data.data.playerId, data.data.team);
+          }
+
+          // Update user's own marker if they changed their own team
+          if (data.data.userId === currentUserRef.current?.id && currentPosition) {
+            createUserMarker(currentPosition.lat, currentPosition.lng);
+          }
+        }
+      });
 
       // Listen for game errors
       socket.on('gameActionError', (data: { action: string; error: string }) => {
@@ -236,15 +295,17 @@ export const useGamePlayer = (
         }
       }
     }, [currentPosition])
+
+    // Update user marker when game state changes (including team changes)
+    useEffect(() => {
+      if (currentPosition && mapInstanceRef.current && userMarkerRef.current) {
+        // Recreate user marker with updated team
+        createUserMarker(currentPosition.lat, currentPosition.lng);
+      }
+    }, [currentGame])
   
     const createUserMarker = useCallback((lat: number, lng: number) => {
       if (!mapInstanceRef.current) return
-  
-      // Remove existing marker if it exists
-      if (userMarkerRef.current) {
-        mapInstanceRef.current.removeLayer(userMarkerRef.current)
-        userMarkerRef.current = null
-      }
   
       // Import Leaflet dynamically
       import('leaflet').then(L => {
@@ -253,33 +314,37 @@ export const useGamePlayer = (
         // Find the current player in the game to get the correct team
         const currentPlayer = currentGame?.players?.find(p => p.user?.id === currentUser?.id);
         const teamClass = currentPlayer?.team || currentUser?.team || 'none';
-        console.log(`Creating user marker - User: ${currentUser?.id}, Team from currentUser: ${currentUser?.team}, Team from game: ${currentPlayer?.team}, Final team: ${teamClass}`);
-        const teamColors: Record<string, string> = {
-          'blue': '#2196F3',
-          'red': '#F44336',
-          'green': '#4CAF50',
-          'yellow': '#FFEB3B',
-          'none': '#9E9E9E'
-        };
-        const color = teamColors[teamClass] || '#9E9E9E';
         
-        userMarkerRef.current = L.marker([lat, lng], {
-          icon: L.divIcon({
+        // If marker exists, just update the icon instead of recreating
+        if (userMarkerRef.current) {
+          const currentPosition = userMarkerRef.current.getLatLng();
+          const newIcon = L.divIcon({
             className: `user-marker ${teamClass}`,
             html: '',
             iconSize: [24, 24],
             iconAnchor: [12, 12]
-          })
-        }).addTo(mapInstanceRef.current)
-        
-        // Create popup with custom class for positioning
-        const popup = L.popup({
-          className: 'user-marker-popup'
-        }).setContent('<strong>Tú.</strong>')
-        
-        userMarkerRef.current.bindPopup(popup).openPopup()
+          });
+          userMarkerRef.current.setIcon(newIcon);
+        } else {
+          // Create new marker if it doesn't exist
+          userMarkerRef.current = L.marker([lat, lng], {
+            icon: L.divIcon({
+              className: `user-marker ${teamClass}`,
+              html: '',
+              iconSize: [24, 24],
+              iconAnchor: [12, 12]
+            })
+          }).addTo(mapInstanceRef.current)
+          
+          // Create popup with custom class for positioning
+          const popup = L.popup({
+            className: 'user-marker-popup'
+          }).setContent('<strong>Tú.</strong>')
+          
+          userMarkerRef.current.bindPopup(popup).openPopup()
+        }
       })
-    }, [currentUser])
+    }, [currentUser, currentGame])
 
   const goBack = useCallback(() => {
     memoizedNavigate('/dashboard')
