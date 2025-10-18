@@ -7,8 +7,10 @@ interface GameResults {
   controlPoints: Array<{
     name: string
     teamTimes: Record<string, number>
+    teamCaptures: Record<string, number>
   }>
   teamTotals: Record<string, number>
+  teamCaptureTotals: Record<string, number>
   playerCaptureStats: Array<{
     userName: string
     team: string
@@ -155,14 +157,22 @@ const GameResultsDialog: React.FC<GameResultsDialogProps> = ({
                     <table className="game-results-table">
                       <thead>
                         <tr>
-                          <th>Punto de Control</th>
+                          <th rowSpan={2}>Punto de Control</th>
                           {results.teams.map(team => (
-                            <th key={team}>
+                            <th key={team} colSpan={2}>
                               <div className="game-results-team">
                                 <div className={`team-color ${team}`}></div>
                                 {team.toUpperCase()}
                               </div>
                             </th>
+                          ))}
+                        </tr>
+                        <tr>
+                          {results.teams.map(team => (
+                            <React.Fragment key={team}>
+                              <th>Tiempo</th>
+                              <th>Tomados</th>
+                            </React.Fragment>
                           ))}
                         </tr>
                       </thead>
@@ -171,18 +181,20 @@ const GameResultsDialog: React.FC<GameResultsDialogProps> = ({
                           <tr key={cp.name}>
                             <td>{cp.name}</td>
                             {results.teams.map(team => (
-                              <td key={team}>
-                                {formatTime(cp.teamTimes?.[team] || 0)}
-                              </td>
+                              <React.Fragment key={team}>
+                                <td>{formatTime(cp.teamTimes?.[team] || 0)}</td>
+                                <td>{cp.teamCaptures?.[team] || 0}</td>
+                              </React.Fragment>
                             ))}
                           </tr>
                         ))}
                         <tr className="totals-row">
                           <td><strong>TOTAL</strong></td>
                           {results.teams.map(team => (
-                            <td key={team}>
-                              <strong>{formatTime(results.teamTotals?.[team] || 0)}</strong>
-                            </td>
+                            <React.Fragment key={team}>
+                              <td><strong>{formatTime(results.teamTotals?.[team] || 0)}</strong></td>
+                              <td><strong>{results.teamCaptureTotals?.[team] || 0}</strong></td>
+                            </React.Fragment>
                           ))}
                         </tr>
                       </tbody>

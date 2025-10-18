@@ -29,8 +29,10 @@ export class GameResultsService {
       id: number;
       name: string;
       teamTimes: { [team: string]: number };
+      teamCaptures: { [team: string]: number };
     }>;
     teamTotals: { [team: string]: number };
+    teamCaptureTotals: { [team: string]: number };
     teams: string[];
     gameDuration: number; // Total game duration in seconds
     playerCaptureStats: Array<{
@@ -59,6 +61,7 @@ export class GameResultsService {
       return {
         controlPoints: [],
         teamTotals: {},
+        teamCaptureTotals: {},
         teams: [],
         gameDuration: 0,
         playerCaptureStats: [],
@@ -88,15 +91,27 @@ export class GameResultsService {
       id: number;
       name: string;
       teamTimes: { [team: string]: number };
+      teamCaptures: { [team: string]: number };
     }> = [];
 
-    // Calculate team times for each control point
+    // Get all game history events for capture counting
+    const history = await this.gameHistoryRepository.find({
+      where: {
+        gameInstance: { id: game.instanceId },
+      },
+      order: { timestamp: 'ASC' },
+    });
+
+    // Calculate team times and captures for each control point
     if (game.controlPoints) {
       for (const controlPoint of game.controlPoints) {
         const teamTimes: { [team: string]: number } = {};
-        // Initialize all teams with 0 time
+        const teamCaptures: { [team: string]: number } = {};
+        
+        // Initialize all teams with 0 time and 0 captures
         for (const team of teams) {
           teamTimes[team] = 0;
+          teamCaptures[team] = 0;
         }
 
         // Calculate time for each team from game history
@@ -109,19 +124,48 @@ export class GameResultsService {
           teamTimes[team] = teamTime;
         }
 
+        // Calculate captures for each team
+        const controlPointEvents = history.filter(
+          event => event.eventType === 'control_point_taken' &&
+                   event.data?.controlPointId === controlPoint.id
+        );
+
+        // Track previous team for each control point
+        let previousTeam: string | null = null;
+        
+        for (const event of controlPointEvents) {
+          const currentTeam = event.data?.team;
+          if (!currentTeam) continue;
+
+          // Count as capture if:
+          // 1. Previous team was different, OR
+          // 2. It's the first event after game start (initialState: true)
+          if (previousTeam !== currentTeam || event.data?.initialState) {
+            teamCaptures[currentTeam] = (teamCaptures[currentTeam] || 0) + 1;
+          }
+          
+          previousTeam = currentTeam;
+        }
+
         controlPointsReport.push({
           id: controlPoint.id,
           name: controlPoint.name,
           teamTimes,
+          teamCaptures,
         });
       }
     }
 
     // Calculate team totals
     const teamTotals: { [team: string]: number } = {};
+    const teamCaptureTotals: { [team: string]: number } = {};
     for (const team of teams) {
       teamTotals[team] = controlPointsReport.reduce(
         (total, cp) => total + (cp.teamTimes[team] || 0),
+        0,
+      );
+      teamCaptureTotals[team] = controlPointsReport.reduce(
+        (total, cp) => total + (cp.teamCaptures[team] || 0),
         0,
       );
     }
@@ -142,6 +186,7 @@ export class GameResultsService {
     return {
       controlPoints: controlPointsReport,
       teamTotals,
+      teamCaptureTotals,
       teams,
       gameDuration,
       playerCaptureStats: playerCaptureStats.players,
@@ -259,6 +304,7 @@ export class GameResultsService {
       if (player) {
         player.bombDeactivationCount++;
       } else {
+        // Player not found in stats, skip
       }
     }
 
@@ -279,6 +325,7 @@ export class GameResultsService {
       if (player) {
         player.bombExplosionCount++;
       } else {
+        // Player not found in stats, skip
       }
     }
 
