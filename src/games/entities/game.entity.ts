@@ -11,6 +11,7 @@ import {
 import { User } from '../../auth/entities/user.entity';
 import { ControlPoint } from './control-point.entity';
 import { GameInstance } from './game-instance.entity';
+import { Player } from './player.entity';
 
 @Entity('games')
 export class Game {
@@ -57,4 +58,7 @@ export class Game {
 
   @OneToMany(() => GameInstance, gameInstance => gameInstance.game)
   instances: GameInstance[];
+
+  // Virtual property for players from the active game instance
+  players?: Player[];
 }

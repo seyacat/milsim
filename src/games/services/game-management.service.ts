@@ -49,6 +49,19 @@ export class GameManagementService {
       throw new NotFoundException('Game not found');
     }
 
+    // Load players from the active game instance if it exists
+    if (game.instanceId) {
+      const gameInstance = await this.gameInstancesRepository.findOne({
+        where: { id: game.instanceId },
+        relations: ['players', 'players.user'],
+      });
+      if (gameInstance && gameInstance.players) {
+        game.players = gameInstance.players;
+      }
+    } else {
+      game.players = [];
+    }
+
     // Remove sensitive code data from control points only for non-owner users
     if (game.controlPoints && (!userId || game.owner.id !== userId)) {
       game.controlPoints = game.controlPoints.map(cp => {
