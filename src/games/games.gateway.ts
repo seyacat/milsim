@@ -142,8 +142,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Get updated game data
       const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-      // Notify all clients in the game room about the updated player list
-      this.server.to(`game_${gameId}`).emit('gameUpdate', {
+      // Notify only the joining client about the updated player list
+      // Removed broadcast to all players to prevent PIE chart disappearance
+      client.emit('gameUpdate', {
         type: 'playerJoined',
         game: updatedGame,
       });
@@ -244,8 +245,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Get updated game data
       const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-      // Notify all clients in the game room about the updated player list
-      this.server.to(`game_${gameId}`).emit('gameUpdate', {
+      // Notify only the leaving client about the updated player list
+      // Removed broadcast to all players to prevent PIE chart disappearance
+      client.emit('gameUpdate', {
         type: 'playerLeft',
         game: updatedGame,
       });
