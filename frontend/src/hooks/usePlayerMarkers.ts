@@ -266,9 +266,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     if (!socket) return;
 
     const handlePositionUpdate = (data: any) => {
-      console.log(`[PLAYER_MARKERS] Received position update: ${data.action} for user ${data.data.userId}`);
       if (data.action === 'positionUpdate' && data.data.userId !== currentUser?.id) {
-        console.log(`[PLAYER_MARKERS] Updating marker for player ${data.data.userId} at ${data.data.lat}, ${data.data.lng}`);
         updatePlayerMarker(data.data);
       }
     };
@@ -290,7 +288,6 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     // Listen for player positions response (for owner view)
     const handlePlayerPositionsResponse = (data: any) => {
       if (data.action === 'playerPositionsResponse' && data.data.positions) {
-        console.log(`[PLAYER_MARKERS] Received player positions response with ${data.data.positions.length} positions`);
         data.data.positions.forEach((position: any) => {
           updatePlayerMarker(position);
         });
@@ -300,7 +297,6 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     // Handle player inactive notifications
     const handlePlayerInactive = (data: any) => {
       if (data.action === 'playerInactive') {
-        console.log(`[PLAYER_MARKERS] Player ${data.data.userId} marked as inactive`);
         removePlayerMarker(data.data.userId);
       }
     };

@@ -112,7 +112,6 @@ export const useGameOwner = (
 
     const handlePlayerPositionsResponse = (data: any) => {
       if (data.action === 'playerPositionsResponse' && data.data.positions) {
-        console.log(`[OWNER] Received player positions response with ${data.data.positions.length} positions`);
         data.data.positions.forEach((position: any) => {
           playerMarkersResult.updatePlayerMarker(position);
         });
@@ -121,7 +120,6 @@ export const useGameOwner = (
 
     // Request current player positions when joining as owner
     if (currentGame.owner && currentGame.owner.id === currentUser.id) {
-      console.log(`[OWNER] Requesting current player positions for game ${currentGame.id}`);
       socketRef.current.emit('gameAction', {
         gameId: currentGame.id,
         action: 'requestPlayerPositions'
@@ -250,7 +248,6 @@ export const useGameOwner = (
       // Listen for player position updates
       socket.on('gameAction', (data: { action: string; data: any }) => {
         if (data.action === 'positionUpdate') {
-          console.log(`[OWNER] Received position update for player ${data.data.userId}: ${data.data.lat}, ${data.data.lng}`);
           // Update player markers with position data
           playerMarkersResult.updatePlayerMarker(data.data);
         }
@@ -259,7 +256,6 @@ export const useGameOwner = (
       // Listen for player inactive notifications
       socket.on('gameAction', (data: { action: string; data: any }) => {
         if (data.action === 'playerInactive') {
-          console.log(`[OWNER] Player ${data.data.userId} marked as inactive`);
           // Remove player marker from map
           playerMarkersResult.removePlayerMarker(data.data.userId);
         }

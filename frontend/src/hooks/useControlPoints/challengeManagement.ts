@@ -72,6 +72,14 @@ export const createPositionChallengePieChart = (marker: L.Marker, controlPoint: 
   const map = (marker as any)._map;
   if (!map) return;
 
+  // Remove existing pie chart if it exists
+  if ((marker as any).pieSvg) {
+    map.removeLayer((marker as any).pieSvg);
+    (marker as any).pieSvg = null;
+    (marker as any).pieElement = null;
+    (marker as any).pieData = null;
+  }
+
   // Get circle bounds and center
   const bounds = positionCircle.getBounds();
   const centerLatLng = positionCircle.getLatLng();

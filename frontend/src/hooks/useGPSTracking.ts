@@ -39,7 +39,6 @@ export const useGPSTracking = (
   // Notificar posición al backend
   const notifyPositionToBackend = useCallback((position: { lat: number; lng: number; accuracy: number }) => {
     if (socket && currentGame) {
-      console.log(`[GPS] Enviando positionUpdate al backend para juego ${currentGame.id}: ${position.lat}, ${position.lng}, accuracy: ${position.accuracy}`);
       socket.emit('gameAction', {
         gameId: currentGame.id,
         action: 'positionUpdate',
@@ -113,7 +112,6 @@ export const useGPSTracking = (
     
     if (positionToSend && socket && currentGame) {
       const isLastKnown = !currentPosition;
-      console.log(`[GPS] Enviando positionUpdate periódico al backend: ${positionToSend.lat}, ${positionToSend.lng}, accuracy: ${positionToSend.accuracy}, isLastKnown: ${isLastKnown}`);
       socket.emit('gameAction', {
         gameId: currentGame.id,
         action: 'positionUpdate',
@@ -130,7 +128,6 @@ export const useGPSTracking = (
   const startGPSTracking = useCallback(() => {
     // Verificar si ya hay un seguimiento activo
     if (watchIdRef.current !== null) {
-      console.log('[GPS] Seguimiento GPS ya está activo, no se inicia uno nuevo');
       return;
     }
 
@@ -180,7 +177,6 @@ export const useGPSTracking = (
       options
     );
 
-    console.log('[GPS] Seguimiento GPS iniciado correctamente');
   }, [handlePositionUpdate, handlePositionError, sendPeriodicPositionNotification, notifyPositionToBackend]);
 
   // Detener seguimiento GPS
@@ -206,7 +202,6 @@ export const useGPSTracking = (
     lastKnownPositionRef.current = null;
     isSendingPeriodicUpdatesRef.current = false;
 
-    console.log('[GPS] Seguimiento GPS detenido correctamente');
   }, []);
 
   // Limpiar recursos al desmontar

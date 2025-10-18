@@ -58,6 +58,15 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
       return;
     }
 
+    // Remove PIE chart if it exists
+    const markerWithPie = targetMarker as any;
+    if (markerWithPie.pieSvg) {
+      map.removeLayer(markerWithPie.pieSvg);
+      markerWithPie.pieSvg = null;
+      markerWithPie.pieElement = null;
+      markerWithPie.pieData = null;
+    }
+
     // Close the popup menu
     targetMarker.closePopup();
 
@@ -71,6 +80,9 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
   const updatePositionChallengeBars = useCallback((controlPointId: number, teamPoints: Record<string, number>) => {
     if (!map) return;
 
+    // Log position challenge update
+    console.log(`[POSITION_CHALLENGE] Actualización PIE recibida para punto ${controlPointId}:`, teamPoints);
+    
     // Find the control point marker
     const marker = controlPointMarkers.current.get(controlPointId);
     if (!marker) return;
@@ -405,8 +417,69 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     }
   }, [socket, game, showToast]);
 
+  // Update single control point marker (for team color changes)
+  const updateSingleControlPointMarker = useCallback((controlPoint: ControlPoint) => {
+    if (!map) return;
+
+    // Find and remove existing marker
+    const existingMarker = controlPointMarkers.current.get(controlPoint.id);
+    if (existingMarker) {
+      map.removeLayer(existingMarker);
+      controlPointMarkers.current.delete(controlPoint.id);
+    }
+
+    // Remove position circle if exists
+    const existingCircle = positionCircles.current.get(controlPoint.id);
+    if (existingCircle) {
+      map.removeLayer(existingCircle);
+      positionCircles.current.delete(controlPoint.id);
+    }
+
+    // Remove pie chart if exists
+    const existingPieChart = pieCharts.current.get(controlPoint.id);
+    if (existingPieChart) {
+      map.removeLayer(existingPieChart);
+      pieCharts.current.delete(controlPoint.id);
+    }
+
+    // Create new marker with updated data
+    const newMarker = createControlPointMarker(controlPoint, map, isOwner, isDragModeEnabled);
+    if (newMarker) {
+      controlPointMarkers.current.set(controlPoint.id, newMarker);
+    }
+
+    // Add position circle and PIE chart if position challenge is active
+    if (controlPoint.hasPositionChallenge && controlPoint.minDistance) {
+      const circle = createPositionCircle(controlPoint, map);
+      if (circle) {
+        positionCircles.current.set(controlPoint.id, circle);
+        
+        // Always create PIE chart if position challenge is active
+        if (newMarker) {
+          createPositionChallengePieChart(newMarker, controlPoint, circle);
+        }
+      }
+    }
+  }, [map, isOwner]);
+
   // Function to update control point position after drag
   const updateControlPointPosition = useCallback((controlPointId: number, latitude: number, longitude: number) => {
+    
+    // Update control point position locally first
+    setControlPoints(prev =>
+      prev.map(cp =>
+        cp.id === controlPointId
+          ? { ...cp, latitude, longitude }
+          : cp
+      )
+    );
+    
+    // Find the updated control point and refresh its marker with PIE chart
+    const updatedControlPoint = controlPoints.find(cp => cp.id === controlPointId);
+    if (updatedControlPoint) {
+      const controlPointWithNewPosition = { ...updatedControlPoint, latitude, longitude };
+      updateSingleControlPointMarker(controlPointWithNewPosition);
+    }
     
     // Update control point position via WebSocket
     if (socket && game) {
@@ -423,7 +496,7 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     
     // Disable drag mode after drop
     setIsDragModeEnabled(false);
-  }, [socket, game]);
+  }, [socket, game, controlPoints, updateSingleControlPointMarker]);
 
   // Function to disable drag mode (called when popup is closed)
   const disableDragMode = useCallback(() => {
@@ -541,45 +614,6 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     });
   }, [map, isDragModeEnabled]);
 
-  // Update single control point marker (for team color changes)
-  const updateSingleControlPointMarker = useCallback((controlPoint: ControlPoint) => {
-    if (!map) return;
-
-    // Find and remove existing marker
-    const existingMarker = controlPointMarkers.current.get(controlPoint.id);
-    if (existingMarker) {
-      map.removeLayer(existingMarker);
-      controlPointMarkers.current.delete(controlPoint.id);
-    }
-
-    // Remove position circle if exists
-    const existingCircle = positionCircles.current.get(controlPoint.id);
-    if (existingCircle) {
-      map.removeLayer(existingCircle);
-      positionCircles.current.delete(controlPoint.id);
-    }
-
-    // Remove pie chart if exists
-    const existingPieChart = pieCharts.current.get(controlPoint.id);
-    if (existingPieChart) {
-      map.removeLayer(existingPieChart);
-      pieCharts.current.delete(controlPoint.id);
-    }
-
-    // Create new marker with updated data
-    const newMarker = createControlPointMarker(controlPoint, map, isOwner, isDragModeEnabled);
-    if (newMarker) {
-      controlPointMarkers.current.set(controlPoint.id, newMarker);
-    }
-
-    // Add position circle if position challenge is active
-    if (controlPoint.hasPositionChallenge && controlPoint.minDistance) {
-      const circle = createPositionCircle(controlPoint, map);
-      if (circle) {
-        positionCircles.current.set(controlPoint.id, circle);
-      }
-    }
-  }, [map, isOwner]);
 
   // Handle WebSocket events for control points
   useEffect(() => {
