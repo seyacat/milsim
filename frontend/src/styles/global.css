@@ -147,7 +147,8 @@ body {
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: var(--danger-dark);
+  background: var(--danger);
+  color: white;
 }
 
 .btn-secondary {

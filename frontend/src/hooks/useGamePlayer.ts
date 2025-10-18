@@ -286,6 +286,34 @@ export const useGamePlayer = (
         if (data.action === 'updateGameStatus') {
           // This handles when the owner changes the game status
           // The game state should be updated via gameUpdate or gameState events
+        } else if (data.action === 'gameStateChanged' && data.data.game) {
+          // Handle game state changes from owner actions
+          console.log('gameStateChanged received in gameAction:', data);
+          setCurrentGame(data.data.game);
+          
+          // Handle specific status changes
+          if (data.data.game.status === 'finished') {
+            setTimeout(() => {
+              setIsGameResultsDialogOpen(true);
+            }, 1000);
+          } else if (data.data.game.status === 'stopped') {
+            setIsGameResultsDialogOpen(false);
+            memoizedAddToast({ message: 'El juego ha sido detenido. Puedes seleccionar tu equipo.', type: 'info' });
+          }
+        } else if (data.action === 'teamCountUpdated' && data.data.game) {
+          // Handle team count updates from owner
+          console.log('teamCountUpdated received:', data);
+          setCurrentGame(data.data.game);
+        } else if (data.action === 'timeAdded' && data.data.game) {
+          // Handle time added by owner
+          console.log('timeAdded received:', data);
+          setCurrentGame(data.data.game);
+          memoizedAddToast({ message: 'Se ha agregado tiempo al juego', type: 'info' });
+        } else if (data.action === 'gameTimeUpdated' && data.data.game) {
+          // Handle game time updates from owner
+          console.log('gameTimeUpdated received:', data);
+          setCurrentGame(data.data.game);
+          memoizedAddToast({ message: 'El tiempo del juego ha sido actualizado', type: 'info' });
         }
       })
 

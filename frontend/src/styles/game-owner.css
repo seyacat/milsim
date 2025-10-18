@@ -94,6 +94,11 @@
   color: white;
 }
 
+.btn-danger:hover {
+  background: #bd2a20;
+  color: white;
+}
+
 .btn-secondary {
   background: #666;
   color: white;
@@ -105,8 +110,8 @@
 }
 
 .btn:hover {
-  opacity: 0.8;
-  transform: translateY(-1px);
+  opacity: 1;
+  transform: none;
 }
 
 /* Map Control Buttons */
@@ -130,7 +135,7 @@
 
 .map-controls-panel .btn:hover {
   background: rgba(0, 0, 0, 0.9);
-  transform: translateY(-1px);
+  transform: none;
 }
 
 /* Time Controls */
