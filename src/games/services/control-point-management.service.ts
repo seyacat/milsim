@@ -232,7 +232,7 @@ export class ControlPointManagementService {
     // Get the player to determine their team
     const player = await this.playersRepository.findOne({
       where: {
-        game: { id: controlPoint.game.id },
+        gameInstance: { id: controlPoint.game.id },
         user: { id: userId },
       },
       relations: ['user'], // Ensure user relation is loaded

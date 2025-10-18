@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Game } from './game.entity';
 import { GameHistory } from './game-history.entity';
+import { Player } from './player.entity';
 
 @Entity('game_instances')
 export class GameInstance {
@@ -49,4 +50,7 @@ export class GameInstance {
 
   @OneToMany(() => GameHistory, gameHistory => gameHistory.gameInstance)
   history: GameHistory[];
+
+  @OneToMany(() => Player, player => player.gameInstance)
+  players: Player[];
 }

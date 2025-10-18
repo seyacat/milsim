@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Game } from '../entities/game.entity';
 import { Player } from '../entities/player.entity';
 import { GameHistory } from '../entities/game-history.entity';
+import { GameInstance } from '../entities/game-instance.entity';
 import { TimerCalculationService } from './timer-calculation.service';
 import { PositionChallengeService } from './position-challenge.service';
 
@@ -16,6 +17,8 @@ export class GameResultsService {
     private playersRepository: Repository<Player>,
     @InjectRepository(GameHistory)
     private gameHistoryRepository: Repository<GameHistory>,
+    @InjectRepository(GameInstance)
+    private gameInstanceRepository: Repository<GameInstance>,
     private timerCalculationService: TimerCalculationService,
     private positionChallengeService: PositionChallengeService,
   ) {}
@@ -66,9 +69,9 @@ export class GameResultsService {
       };
     }
 
-    // Get all teams in the game
+    // Get all teams in the game instance
     const players = await this.playersRepository.find({
-      where: { game: { id: gameId } },
+      where: { gameInstance: { id: gameId } },
       relations: ['user'],
     });
 
@@ -174,15 +177,17 @@ export class GameResultsService {
         !event.data.assignedByOwner, // Not assigned by owner
     );
 
-    // Get all players in the game
-    const game = await this.gamesRepository.findOne({
-      where: { instanceId: gameInstanceId },
+    // Get all players in the game instance
+    const gameInstance = await this.gameInstanceRepository.findOne({
+      where: { id: gameInstanceId },
       relations: ['players', 'players.user'],
     });
 
-    if (!game) {
+    if (!gameInstance) {
       return { players: [] };
     }
+
+    const gamePlayers = gameInstance.players || [];
 
     // Initialize player stats
     const playerStats = new Map<
@@ -198,18 +203,16 @@ export class GameResultsService {
     >();
 
     // Initialize all players with 0 captures, 0 bomb deactivations, and 0 bomb explosions
-    if (game.players) {
-      for (const player of game.players) {
-        if (player.user && player.team && player.team !== 'none') {
-          playerStats.set(player.user.id, {
-            userId: player.user.id,
-            userName: player.user.name,
-            team: player.team,
-            captureCount: 0,
-            bombDeactivationCount: 0,
-            bombExplosionCount: 0,
-          });
-        }
+    for (const player of gamePlayers) {
+      if (player.user && player.team && player.team !== 'none') {
+        playerStats.set(player.user.id, {
+          userId: player.user.id,
+          userName: player.user.name,
+          team: player.team,
+          captureCount: 0,
+          bombDeactivationCount: 0,
+          bombExplosionCount: 0,
+        });
       }
     }
 
@@ -279,8 +282,8 @@ export class GameResultsService {
       }
     }
 
-    const players = Array.from(playerStats.values());
+    const playerStatsArray = Array.from(playerStats.values());
 
-    return { players };
+    return { players: playerStatsArray };
   }
 }

@@ -8,7 +8,6 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { Player } from './player.entity';
 import { User } from '../../auth/entities/user.entity';
 import { ControlPoint } from './control-point.entity';
 import { GameInstance } from './game-instance.entity';
@@ -52,8 +51,6 @@ export class Game {
   @JoinColumn({ name: 'ownerId' })
   owner: User;
 
-  @OneToMany(() => Player, player => player.game)
-  players: Player[];
 
   @OneToMany(() => ControlPoint, controlPoint => controlPoint.game)
   controlPoints: ControlPoint[];

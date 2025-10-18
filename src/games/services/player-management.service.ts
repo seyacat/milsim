@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Player } from '../entities/player.entity';
 import { Game } from '../entities/game.entity';
+import { GameInstance } from '../entities/game-instance.entity';
 
 @Injectable()
 export class PlayerManagementService {
@@ -11,13 +12,15 @@ export class PlayerManagementService {
     private playersRepository: Repository<Player>,
     @InjectRepository(Game)
     private gamesRepository: Repository<Game>,
+    @InjectRepository(GameInstance)
+    private gameInstanceRepository: Repository<GameInstance>,
   ) {}
 
   async joinGame(gameId: number, userId: number): Promise<Player> {
     // Check if game exists
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
-      relations: ['owner', 'players'],
+      relations: ['owner'],
     });
     if (!game) {
       console.error(`[JOIN_GAME] Game ${gameId} not found`);
@@ -26,24 +29,27 @@ export class PlayerManagementService {
 
     // Check if user is already in the game
     const existingPlayer = await this.playersRepository.findOne({
-      where: { game: { id: gameId }, user: { id: userId } },
+      where: { gameInstance: { id: gameId }, user: { id: userId } },
     });
     if (existingPlayer) {
       // User is already in the game, return the existing player (allow reconnection)
       return existingPlayer;
     }
 
-    // Check if game is full
-    if (game.players.length >= game.maxPlayers) {
+    // Check if game is full by counting players in the game instance
+    const playerCount = await this.playersRepository.count({
+      where: { gameInstance: { id: gameId } },
+    });
+    if (playerCount >= game.maxPlayers) {
       console.error(
-        `[JOIN_GAME] Game ${gameId} is full: ${game.players.length}/${game.maxPlayers}`,
+        `[JOIN_GAME] Game ${gameId} is full: ${playerCount}/${game.maxPlayers}`,
       );
       throw new ConflictException('Game is full');
     }
 
     // Create player entry
     const player = this.playersRepository.create({
-      game: { id: gameId },
+      gameInstance: { id: gameId },
       user: { id: userId },
     });
 
@@ -55,7 +61,7 @@ export class PlayerManagementService {
   async leaveGame(gameId: number, userId: number): Promise<void> {
     // Find the player entry
     const player = await this.playersRepository.findOne({
-      where: { game: { id: gameId }, user: { id: userId } },
+      where: { gameInstance: { id: gameId }, user: { id: userId } },
     });
 
     if (!player) {
@@ -68,9 +74,9 @@ export class PlayerManagementService {
   async getPlayerGames(userId: number): Promise<Game[]> {
     const players = await this.playersRepository.find({
       where: { user: { id: userId } },
-      relations: ['game', 'game.owner', 'game.players', 'game.players.user'],
+      relations: ['gameInstance', 'gameInstance.game', 'gameInstance.game.owner'],
     });
-    return players.map(player => player.game);
+    return players.map(player => player.gameInstance.game);
   }
 
   async updatePlayerTeam(playerId: number, team: string): Promise<Player> {
@@ -95,7 +101,7 @@ export class PlayerManagementService {
 
   async getPlayersByGame(gameId: number): Promise<Player[]> {
     return this.playersRepository.find({
-      where: { game: { id: gameId } },
+      where: { gameInstance: { id: gameId } },
       relations: ['user'],
       order: { joinedAt: 'ASC' },
     });

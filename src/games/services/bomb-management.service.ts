@@ -84,7 +84,7 @@ export class BombManagementService {
     // Get user info for bomb activation
     const user = await this.playersRepository.findOne({
       where: {
-        game: { id: controlPoint.game.id },
+        gameInstance: { id: controlPoint.game.id },
         user: { id: userId },
       },
       relations: ['user'],
@@ -173,7 +173,7 @@ export class BombManagementService {
     // Get user info for bomb deactivation
     const user = await this.playersRepository.findOne({
       where: {
-        game: { id: controlPoint.game.id },
+        gameInstance: { id: controlPoint.game.id },
         user: { id: userId },
       },
       relations: ['user'],
@@ -253,7 +253,7 @@ export class BombManagementService {
     // Get user info for bomb activation
     const user = await this.playersRepository.findOne({
       where: {
-        game: { id: controlPoint.game.id },
+        gameInstance: { id: controlPoint.game.id },
         user: { id: userId },
       },
       relations: ['user'],
@@ -336,7 +336,7 @@ export class BombManagementService {
     // Get user info for bomb deactivation
     const user = await this.playersRepository.findOne({
       where: {
-        game: { id: controlPoint.game.id },
+        gameInstance: { id: controlPoint.game.id },
         user: { id: userId },
       },
       relations: ['user'],

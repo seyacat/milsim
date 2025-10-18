@@ -35,7 +35,7 @@ export class GameManagementService {
 
   async findAll(): Promise<Game[]> {
     return this.gamesRepository.find({
-      relations: ['owner', 'players', 'players.user'],
+      relations: ['owner'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -43,7 +43,7 @@ export class GameManagementService {
   async findOne(id: number, userId?: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
       where: { id },
-      relations: ['owner', 'players', 'players.user', 'controlPoints'],
+      relations: ['owner', 'controlPoints'],
     });
     if (!game) {
       throw new NotFoundException('Game not found');
@@ -76,7 +76,7 @@ export class GameManagementService {
   async deleteGame(gameId: number, userId: number): Promise<void> {
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
-      relations: ['players', 'controlPoints', 'owner'],
+      relations: ['controlPoints', 'owner'],
     });
 
     if (!game) {
@@ -88,9 +88,14 @@ export class GameManagementService {
       throw new ConflictException('Solo el propietario del juego puede eliminarlo');
     }
 
-    // Delete related players
-    if (game.players && game.players.length > 0) {
-      await this.playersRepository.remove(game.players);
+    // Delete related players from game instance
+    const gameInstance = await this.gameInstancesRepository.findOne({
+      where: { game: { id: gameId } },
+      relations: ['players'],
+    });
+    
+    if (gameInstance && gameInstance.players && gameInstance.players.length > 0) {
+      await this.playersRepository.remove(gameInstance.players);
     }
 
     // Delete related control points

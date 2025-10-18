@@ -28,7 +28,7 @@ import { GameHistory } from './games/entities/game-history.entity';
         password: configService.get('DB_PASSWORD'),
         database: configService.get('DB_DATABASE'),
         entities: [User, Game, Player, ControlPoint, GameInstance, GameHistory],
-        synchronize: false,
+        synchronize: true,
       }),
       inject: [ConfigService],
     }),

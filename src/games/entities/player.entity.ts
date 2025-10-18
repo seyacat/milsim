@@ -6,7 +6,7 @@ import {
   JoinColumn,
   Column,
 } from 'typeorm';
-import { Game } from './game.entity';
+import { GameInstance } from './game-instance.entity';
 import { User } from '../../auth/entities/user.entity';
 
 @Entity('players')
@@ -14,11 +14,11 @@ export class Player {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => Game, game => game.players, {
+  @ManyToOne(() => GameInstance, gameInstance => gameInstance.players, {
     onDelete: 'CASCADE',
   })
-  @JoinColumn({ name: 'gameId' })
-  game: Game;
+  @JoinColumn({ name: 'gameInstanceId' })
+  gameInstance: GameInstance;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'userId' })
