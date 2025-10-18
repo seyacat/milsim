@@ -5,6 +5,7 @@ import GamePlayerMap from './GamePlayer/GamePlayerMap'
 import GameOverlay from './GamePlayer/GameOverlay'
 import LocationInfo from './GamePlayer/LocationInfo'
 import MapControls from './GamePlayer/MapControls'
+import GameResultsDialog from './GameResultsDialog'
 import { useGamePlayer } from '../hooks/useGamePlayer'
 import '../styles/game-player.css'
 
@@ -41,7 +42,9 @@ const GamePlayer: React.FC = () => {
     controlPointMarkers,
     positionCircles,
     pieCharts,
-    activeBombTimers
+    activeBombTimers,
+    isGameResultsDialogOpen,
+    closeGameResultsDialog
   } = useGamePlayer(gameId, navigate, addToast)
 
   // Expose active bomb timers globally for popup access
@@ -101,6 +104,13 @@ const GamePlayer: React.FC = () => {
         reloadPage={reloadPage}
         centerOnUser={centerOnUser}
         centerOnSite={centerOnSite}
+      />
+      {/* Game Results Dialog */}
+      <GameResultsDialog
+        isOpen={isGameResultsDialogOpen}
+        onClose={closeGameResultsDialog}
+        currentGame={currentGame}
+        gameId={gameId}
       />
     </div>
   )

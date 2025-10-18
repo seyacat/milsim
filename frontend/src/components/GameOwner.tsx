@@ -7,6 +7,7 @@ import LocationInfo from './GameOwner/LocationInfo'
 import ControlPanel from './GameOwner/ControlPanel'
 import MapControls from './GameOwner/MapControls'
 import PlayersDialog from './GameOwner/PlayersDialog'
+import GameResultsDialog from './GameResultsDialog'
 import { useGameOwner } from '../hooks/useGameOwner'
 import '../styles/game-owner.css'
 
@@ -62,7 +63,9 @@ const GameOwner: React.FC = () => {
     positionCircles,
     pieCharts,
     updateTeamCount,
-    playerMarkers
+    playerMarkers,
+    isGameResultsDialogOpen,
+    closeGameResultsDialog
   } = useGameOwner(gameId, navigate, addToast)
 
   const handleTeamCountChange = useCallback((count: number) => {
@@ -160,6 +163,13 @@ const GameOwner: React.FC = () => {
         socket={socket}
         teamCount={currentGame.teamCount}
         onTeamCountChange={handleTeamCountChange}
+      />
+      {/* Game Results Dialog */}
+      <GameResultsDialog
+        isOpen={isGameResultsDialogOpen}
+        onClose={closeGameResultsDialog}
+        currentGame={currentGame}
+        gameId={gameId}
       />
     </div>
   )

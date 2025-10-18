@@ -45,6 +45,9 @@ interface UseGameOwnerReturn {
   controlPointTimes: ControlPointTimeData[];
   updateTeamCount: (count: number) => void;
   playerMarkers: Map<number, L.Marker>;
+  isGameResultsDialogOpen: boolean
+  openGameResultsDialog: () => void
+  closeGameResultsDialog: () => void
 }
 
 export const useGameOwner = (
@@ -55,6 +58,7 @@ export const useGameOwner = (
   const [currentUser, setCurrentUser] = useState<User | null>(null)
   const [currentGame, setCurrentGame] = useState<Game | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isGameResultsDialogOpen, setIsGameResultsDialogOpen] = useState(false)
 
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
@@ -597,6 +601,34 @@ export const useGameOwner = (
   }, [createControlPoint])
 
 
+  const openGameResultsDialog = useCallback(() => {
+    setIsGameResultsDialogOpen(true)
+  }, [])
+
+  const closeGameResultsDialog = useCallback(() => {
+    setIsGameResultsDialogOpen(false)
+  }, [])
+
+  // Automatically open game results dialog when game enters finished state
+  useEffect(() => {
+    if (currentGame?.status === 'finished') {
+      // Small delay to ensure DOM is ready (like in original code)
+      setTimeout(() => {
+        openGameResultsDialog()
+      }, 1000)
+    }
+  }, [currentGame?.status, openGameResultsDialog])
+
+  // Check game status on initial load and show results if already finished
+  useEffect(() => {
+    if (currentGame?.status === 'finished' && !isLoading) {
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        openGameResultsDialog()
+      }, 1500)
+    }
+  }, [currentGame?.status, isLoading, openGameResultsDialog])
+
   return {
     currentUser,
     currentGame,
@@ -630,6 +662,9 @@ export const useGameOwner = (
     enableDragMode,
     controlPointTimes,
     updateTeamCount,
-    playerMarkers: playerMarkersResult.playerMarkers
+    playerMarkers: playerMarkersResult.playerMarkers,
+    isGameResultsDialogOpen,
+    openGameResultsDialog,
+    closeGameResultsDialog
   }
 }
