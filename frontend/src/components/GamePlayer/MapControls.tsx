@@ -6,6 +6,7 @@ interface MapControlsProps {
   centerOnUser: () => void
   centerOnSite: () => void
   openResultsDialog?: () => void
+  showTeamSelection?: () => void
 }
 
 const MapControls: React.FC<MapControlsProps> = ({
@@ -13,7 +14,8 @@ const MapControls: React.FC<MapControlsProps> = ({
   reloadPage,
   centerOnUser,
   centerOnSite,
-  openResultsDialog
+  openResultsDialog,
+  showTeamSelection
 }) => {
   return (
     <div className="map-controls-panel">
@@ -21,6 +23,9 @@ const MapControls: React.FC<MapControlsProps> = ({
       <button className="btn btn-secondary" onClick={reloadPage} title="Recargar página">⟳</button>
       <button className="btn btn-secondary" onClick={centerOnUser} title="Centrar en usuario">📍</button>
       <button className="btn btn-secondary" onClick={centerOnSite} title="Centrar en Site">🏠</button>
+      {showTeamSelection && (
+        <button className="btn btn-secondary" onClick={showTeamSelection} title="Seleccionar equipo">⚔️</button>
+      )}
       {openResultsDialog && (
         <button className="btn btn-secondary" onClick={openResultsDialog} title="Ver resultados">📊</button>
       )}

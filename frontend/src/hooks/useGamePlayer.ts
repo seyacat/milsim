@@ -35,6 +35,9 @@ interface UseGamePlayerReturn {
   isGameResultsDialogOpen: boolean
   openGameResultsDialog: () => void
   closeGameResultsDialog: () => void
+  showTeamSelection: boolean
+  hideTeamSelection: () => void
+  showTeamSelectionManual: () => void
 }
 
 export const useGamePlayer = (
@@ -46,6 +49,9 @@ export const useGamePlayer = (
   const [currentGame, setCurrentGame] = useState<Game | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isGameResultsDialogOpen, setIsGameResultsDialogOpen] = useState(false)
+  const [showTeamSelection, setShowTeamSelection] = useState(false)
+  const [shouldShowTeamSelection, setShouldShowTeamSelection] = useState(false)
+  const [hasAutoShownTeamSelection, setHasAutoShownTeamSelection] = useState(false)
 
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
@@ -192,6 +198,7 @@ export const useGamePlayer = (
 
       // Log all WebSocket events for debugging
       socket.onAny((event: string, ...args: any[]) => {
+        console.log('WebSocket event received:', event, args);
       });
 
       // Log WebSocket emits
@@ -200,16 +207,86 @@ export const useGamePlayer = (
         return originalEmit(event, ...args);
       };
 
-      // Listen for game updates
+      // Listen for game updates - this should be the main event for game state changes
       socket.on('gameUpdate', (data: { game: Game; type?: string }) => {
+        console.log('gameUpdate received:', data);
         if (data.game) {
           setCurrentGame(data.game)
+          // Handle specific status changes
+          if (data.game.status === 'finished') {
+            setTimeout(() => {
+              setIsGameResultsDialogOpen(true)
+            }, 1000)
+          } else if (data.game.status === 'stopped') {
+            setIsGameResultsDialogOpen(false)
+            memoizedAddToast({ message: 'El juego ha sido detenido. Puedes seleccionar tu equipo.', type: 'info' })
+          }
         }
       })
 
       // Listen for game state events
       socket.on('gameState', (game: Game) => {
-        setCurrentGame(game)
+        console.log('gameState received:', game);
+        if (game) {
+          setCurrentGame(game)
+          // Handle specific status changes
+          if (game.status === 'finished') {
+            setTimeout(() => {
+              setIsGameResultsDialogOpen(true)
+            }, 1000)
+          } else if (game.status === 'stopped') {
+            setIsGameResultsDialogOpen(false)
+            memoizedAddToast({ message: 'El juego ha sido detenido. Puedes seleccionar tu equipo.', type: 'info' })
+          }
+        }
+      })
+
+      // Listen for game status changes
+      socket.on('gameStatusChanged', (data: { game: Game; previousStatus: string; newStatus: string }) => {
+        console.log('gameStatusChanged received:', data);
+        if (data.game) {
+          setCurrentGame(data.game)
+          
+          // Handle specific status transitions
+          if (data.newStatus === 'finished') {
+            setTimeout(() => {
+              setIsGameResultsDialogOpen(true)
+            }, 1000)
+          } else if (data.newStatus === 'stopped') {
+            setIsGameResultsDialogOpen(false)
+            memoizedAddToast({ message: 'El juego ha sido detenido. Puedes seleccionar tu equipo.', type: 'info' })
+          }
+        }
+      })
+
+      // Listen for game finish events specifically
+      socket.on('gameFinished', (data: { game: Game }) => {
+        console.log('gameFinished received:', data);
+        if (data.game) {
+          setCurrentGame(data.game)
+          setTimeout(() => {
+            setIsGameResultsDialogOpen(true)
+          }, 1000)
+        }
+      })
+
+      // Listen for game stopped events specifically
+      socket.on('gameStopped', (data: { game: Game }) => {
+        console.log('gameStopped received:', data);
+        if (data.game) {
+          setCurrentGame(data.game)
+          setIsGameResultsDialogOpen(false)
+          memoizedAddToast({ message: 'El juego ha sido detenido. Puedes seleccionar tu equipo.', type: 'info' })
+        }
+      })
+
+      // Listen for any game action that might change the game state
+      socket.on('gameAction', (data: { action: string; data: any }) => {
+        console.log('gameAction received:', data);
+        if (data.action === 'updateGameStatus') {
+          // This handles when the owner changes the game status
+          // The game state should be updated via gameUpdate or gameState events
+        }
       })
 
       // Listen for join success
@@ -440,6 +517,82 @@ export const useGamePlayer = (
     }
   }, [currentGame?.status, isLoading, openGameResultsDialog])
 
+  // Show team selection when game is stopped and shouldShowTeamSelection is true
+  useEffect(() => {
+    if (!currentGame || !currentUser || isLoading) return
+
+    const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id
+    const isStopped = currentGame.status === 'stopped'
+
+    // Only show team selection for non-owners when game is stopped and shouldShowTeamSelection is true
+    if (!isOwner && isStopped && shouldShowTeamSelection) {
+      setShowTeamSelection(true)
+    } else {
+      setShowTeamSelection(false)
+    }
+  }, [currentGame, currentUser, isLoading, shouldShowTeamSelection])
+
+  // Automatically show team selection only in specific cases
+  useEffect(() => {
+    if (!currentGame || !currentUser || isLoading) return
+
+    const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id
+    const isStopped = currentGame.status === 'stopped'
+    
+    // Find current player
+    const currentPlayer = currentGame.players?.find((p: any) => p?.user?.id === currentUser.id)
+    const hasTeam = currentPlayer?.team && currentPlayer.team !== 'none'
+
+    // Only show automatically for non-owners when game is stopped
+    if (!isOwner && isStopped && !hasAutoShownTeamSelection) {
+      // Case 1: Page load/refresh and player doesn't have a team
+      if (!hasTeam) {
+        setShouldShowTeamSelection(true)
+        setHasAutoShownTeamSelection(true)
+      }
+      // Case 2: Game status changed from 'finished' to 'stopped'
+      // This will be handled by the game status change effect below
+    }
+  }, [currentGame, currentUser, isLoading, hasAutoShownTeamSelection])
+
+  // Reset auto-show flag when game status changes to prevent unwanted popups
+  useEffect(() => {
+    if (currentGame?.status !== 'stopped') {
+      setHasAutoShownTeamSelection(false)
+    }
+  }, [currentGame?.status])
+
+  // Handle game status changes (specifically from 'finished' to 'stopped')
+  useEffect(() => {
+    if (!currentGame || !currentUser || isLoading) return
+
+    const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id
+    const isStopped = currentGame.status === 'stopped'
+
+    // When game changes from 'finished' to 'stopped', show team selection for non-owners
+    if (!isOwner && isStopped && !hasAutoShownTeamSelection) {
+      setShouldShowTeamSelection(true)
+      setHasAutoShownTeamSelection(true)
+    }
+  }, [currentGame?.status, currentUser, isLoading, hasAutoShownTeamSelection])
+
+  const hideTeamSelection = useCallback(() => {
+    setShouldShowTeamSelection(false)
+    setShowTeamSelection(false)
+  }, [])
+
+  const showTeamSelectionManual = useCallback(() => {
+    if (!currentGame || !currentUser) return
+    
+    const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id
+    const isStopped = currentGame.status === 'stopped'
+    
+    // Only allow manual team selection for non-owners when game is stopped
+    if (!isOwner && isStopped) {
+      setShouldShowTeamSelection(true)
+    }
+  }, [currentGame, currentUser])
+
   return {
     currentUser,
     currentGame,
@@ -463,6 +616,9 @@ export const useGamePlayer = (
     activeBombTimers,
     isGameResultsDialogOpen,
     openGameResultsDialog,
-    closeGameResultsDialog
+    closeGameResultsDialog,
+    showTeamSelection,
+    hideTeamSelection,
+    showTeamSelectionManual
   }
 }

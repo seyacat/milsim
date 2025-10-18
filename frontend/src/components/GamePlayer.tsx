@@ -6,6 +6,7 @@ import GameOverlay from './GamePlayer/GameOverlay'
 import LocationInfo from './GamePlayer/LocationInfo'
 import MapControls from './GamePlayer/MapControls'
 import GameResultsDialog from './GameResultsDialog'
+import TeamSelection from './TeamSelection'
 import { useGamePlayer } from '../hooks/useGamePlayer'
 import '../styles/game-player.css'
 
@@ -45,7 +46,10 @@ const GamePlayer: React.FC = () => {
     activeBombTimers,
     isGameResultsDialogOpen,
     openGameResultsDialog,
-    closeGameResultsDialog
+    closeGameResultsDialog,
+    showTeamSelection,
+    hideTeamSelection,
+    showTeamSelectionManual
   } = useGamePlayer(gameId, navigate, addToast)
 
   // Expose active bomb timers globally for popup access
@@ -106,6 +110,7 @@ const GamePlayer: React.FC = () => {
         centerOnUser={centerOnUser}
         centerOnSite={centerOnSite}
         openResultsDialog={openGameResultsDialog}
+        showTeamSelection={showTeamSelectionManual}
       />
       {/* Game Results Dialog */}
       <GameResultsDialog
@@ -114,6 +119,16 @@ const GamePlayer: React.FC = () => {
         currentGame={currentGame}
         gameId={gameId}
       />
+
+      {/* Team Selection */}
+      {showTeamSelection && currentGame && currentUser && socket && (
+        <TeamSelection
+          currentGame={currentGame}
+          currentUser={currentUser}
+          socket={socket}
+          onTeamSelected={hideTeamSelection}
+        />
+      )}
     </div>
   )
 }
