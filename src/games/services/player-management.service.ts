@@ -17,7 +17,7 @@ export class PlayerManagementService {
   ) {}
 
   async joinGame(gameId: number, userId: number): Promise<Player> {
-    // Check if game exists
+    // Check if game exists and get the active game instance
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
       relations: ['owner'],
@@ -27,9 +27,23 @@ export class PlayerManagementService {
       throw new NotFoundException('Game not found');
     }
 
+    // Get the active game instance
+    if (!game.instanceId) {
+      console.error(`[JOIN_GAME] Game ${gameId} has no active instance`);
+      throw new NotFoundException('Game has no active instance');
+    }
+
+    const gameInstance = await this.gameInstanceRepository.findOne({
+      where: { id: game.instanceId },
+    });
+    if (!gameInstance) {
+      console.error(`[JOIN_GAME] Game instance ${game.instanceId} not found`);
+      throw new NotFoundException('Game instance not found');
+    }
+
     // Check if user is already in the game
     const existingPlayer = await this.playersRepository.findOne({
-      where: { gameInstance: { id: gameId }, user: { id: userId } },
+      where: { gameInstance: { id: gameInstance.id }, user: { id: userId } },
     });
     if (existingPlayer) {
       // User is already in the game, return the existing player (allow reconnection)
@@ -38,18 +52,18 @@ export class PlayerManagementService {
 
     // Check if game is full by counting players in the game instance
     const playerCount = await this.playersRepository.count({
-      where: { gameInstance: { id: gameId } },
+      where: { gameInstance: { id: gameInstance.id } },
     });
     if (playerCount >= game.maxPlayers) {
       console.error(
-        `[JOIN_GAME] Game ${gameId} is full: ${playerCount}/${game.maxPlayers}`,
+        `[JOIN_GAME] Game instance ${gameInstance.id} is full: ${playerCount}/${game.maxPlayers}`,
       );
       throw new ConflictException('Game is full');
     }
 
     // Create player entry
     const player = this.playersRepository.create({
-      gameInstance: { id: gameId },
+      gameInstance: { id: gameInstance.id },
       user: { id: userId },
     });
 
@@ -59,9 +73,17 @@ export class PlayerManagementService {
   }
 
   async leaveGame(gameId: number, userId: number): Promise<void> {
+    // Get the game to find the active instance
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+    });
+    if (!game || !game.instanceId) {
+      return; // Game or instance not found, nothing to do
+    }
+
     // Find the player entry
     const player = await this.playersRepository.findOne({
-      where: { gameInstance: { id: gameId }, user: { id: userId } },
+      where: { gameInstance: { id: game.instanceId }, user: { id: userId } },
     });
 
     if (!player) {
@@ -100,8 +122,16 @@ export class PlayerManagementService {
   }
 
   async getPlayersByGame(gameId: number): Promise<Player[]> {
+    // Get the game to find the active instance
+    const game = await this.gamesRepository.findOne({
+      where: { id: gameId },
+    });
+    if (!game || !game.instanceId) {
+      return []; // Game or instance not found, return empty array
+    }
+
     return this.playersRepository.find({
-      where: { gameInstance: { id: gameId } },
+      where: { gameInstance: { id: game.instanceId } },
       relations: ['user'],
       order: { joinedAt: 'ASC' },
     });

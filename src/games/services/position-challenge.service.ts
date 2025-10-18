@@ -119,8 +119,15 @@ export class PositionChallengeService {
     const playersInControlPoint: Array<{ player: Player; position: PlayerPosition }> = [];
 
     // Get all players in the game instance
+    const game = await this.gamesRepository.findOne({
+      where: { id: controlPoint.gameId },
+    });
+    if (!game || !game.instanceId) {
+      return [];
+    }
+
     const players = await this.playersRepository.find({
-      where: { gameInstance: { id: controlPoint.gameId } },
+      where: { gameInstance: { id: game.instanceId } },
       relations: ['user', 'gameInstance'],
     });
 

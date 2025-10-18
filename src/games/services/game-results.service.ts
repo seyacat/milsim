@@ -71,7 +71,7 @@ export class GameResultsService {
 
     // Get all teams in the game instance
     const players = await this.playersRepository.find({
-      where: { gameInstance: { id: gameId } },
+      where: { gameInstance: { id: game.instanceId } },
       relations: ['user'],
     });
 

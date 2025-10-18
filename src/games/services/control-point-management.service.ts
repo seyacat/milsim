@@ -230,9 +230,16 @@ export class ControlPointManagementService {
     }
 
     // Get the player to determine their team
+    const game = await this.gamesRepository.findOne({
+      where: { id: controlPoint.game.id },
+    });
+    if (!game || !game.instanceId) {
+      throw new NotFoundException('Game instance not found');
+    }
+
     const player = await this.playersRepository.findOne({
       where: {
-        gameInstance: { id: controlPoint.game.id },
+        gameInstance: { id: game.instanceId },
         user: { id: userId },
       },
       relations: ['user'], // Ensure user relation is loaded

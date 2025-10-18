@@ -82,9 +82,16 @@ export class BombManagementService {
     }
 
     // Get user info for bomb activation
+    const game = await this.gamesRepository.findOne({
+      where: { id: controlPoint.game.id },
+    });
+    if (!game || !game.instanceId) {
+      throw new NotFoundException('Game instance not found');
+    }
+
     const user = await this.playersRepository.findOne({
       where: {
-        gameInstance: { id: controlPoint.game.id },
+        gameInstance: { id: game.instanceId },
         user: { id: userId },
       },
       relations: ['user'],
@@ -171,9 +178,16 @@ export class BombManagementService {
     }
 
     // Get user info for bomb deactivation
+    const game = await this.gamesRepository.findOne({
+      where: { id: controlPoint.game.id },
+    });
+    if (!game || !game.instanceId) {
+      throw new NotFoundException('Game instance not found');
+    }
+
     const user = await this.playersRepository.findOne({
       where: {
-        gameInstance: { id: controlPoint.game.id },
+        gameInstance: { id: game.instanceId },
         user: { id: userId },
       },
       relations: ['user'],
@@ -251,9 +265,16 @@ export class BombManagementService {
     }
 
     // Get user info for bomb activation
+    const game = await this.gamesRepository.findOne({
+      where: { id: controlPoint.game.id },
+    });
+    if (!game || !game.instanceId) {
+      throw new NotFoundException('Game instance not found');
+    }
+
     const user = await this.playersRepository.findOne({
       where: {
-        gameInstance: { id: controlPoint.game.id },
+        gameInstance: { id: game.instanceId },
         user: { id: userId },
       },
       relations: ['user'],
@@ -334,9 +355,16 @@ export class BombManagementService {
     }
 
     // Get user info for bomb deactivation
+    const game = await this.gamesRepository.findOne({
+      where: { id: controlPoint.game.id },
+    });
+    if (!game || !game.instanceId) {
+      throw new NotFoundException('Game instance not found');
+    }
+
     const user = await this.playersRepository.findOne({
       where: {
-        gameInstance: { id: controlPoint.game.id },
+        gameInstance: { id: game.instanceId },
         user: { id: userId },
       },
       relations: ['user'],
