@@ -1,7 +1,7 @@
 import { ControlPoint } from '../../types';
 import * as L from 'leaflet';
 import { getControlPointIcon } from './utils';
-import { createOwnerPopupContent, createPlayerPopupContent } from './popupContent';
+import { createPopupContent } from '../../components/ControlPoints/PopupComponents';
 
 // Create control point marker
 export const createControlPointMarker = (controlPoint: ControlPoint, map: L.Map, isOwner: boolean): L.Marker | null => {
@@ -95,22 +95,75 @@ export const createControlPointMarker = (controlPoint: ControlPoint, map: L.Map,
   (marker as any).controlPointData = controlPoint;
 
   // Add popup for owners or players
-  if (isOwner) {
-    const popupContent = createOwnerPopupContent(controlPoint, marker);
-    marker.bindPopup(popupContent, {
-      closeOnClick: false,
-      autoClose: false,
-      closeButton: true
-    });
-  } else {
-    // For players, create interactive popup
-    const popupContent = createPlayerPopupContent(controlPoint, marker);
-    marker.bindPopup(popupContent, {
-      closeOnClick: false,
-      autoClose: false,
-      closeButton: true
-    });
-  }
+  const popupContent = createPopupContent(controlPoint, (marker as any)._leaflet_id, isOwner, {
+    onUpdate: (controlPointId: number, markerId: number) => {
+      // This will be handled by the global functions
+      if ((window as any).updateControlPoint) {
+        (window as any).updateControlPoint(controlPointId, markerId);
+      }
+    },
+    onDelete: (controlPointId: number, markerId: number) => {
+      if ((window as any).deleteControlPoint) {
+        (window as any).deleteControlPoint(controlPointId, markerId);
+      }
+    },
+    onMove: (controlPointId: number, markerId: number) => {
+      if ((window as any).enableDragMode) {
+        (window as any).enableDragMode(controlPointId, markerId);
+      }
+    },
+    onAssignTeam: (controlPointId: number, team: string) => {
+      if ((window as any).assignControlPointTeam) {
+        (window as any).assignControlPointTeam(controlPointId, team);
+      }
+    },
+    onTogglePositionChallenge: (controlPointId: number) => {
+      if ((window as any).togglePositionInputs) {
+        (window as any).togglePositionInputs(controlPointId);
+      }
+    },
+    onToggleCodeChallenge: (controlPointId: number) => {
+      if ((window as any).toggleCodeInputs) {
+        (window as any).toggleCodeInputs(controlPointId);
+      }
+    },
+    onToggleBombChallenge: (controlPointId: number) => {
+      if ((window as any).toggleBombInputs) {
+        (window as any).toggleBombInputs(controlPointId);
+      }
+    },
+    onActivateBomb: (controlPointId: number) => {
+      if ((window as any).activateBombAsOwner) {
+        (window as any).activateBombAsOwner(controlPointId);
+      }
+    },
+    onDeactivateBomb: (controlPointId: number) => {
+      if ((window as any).deactivateBombAsOwner) {
+        (window as any).deactivateBombAsOwner(controlPointId);
+      }
+    },
+    onSubmitCode: (controlPointId: number, code: string) => {
+      if ((window as any).submitCodeChallenge) {
+        (window as any).submitCodeChallenge(controlPointId, code);
+      }
+    },
+    onSubmitBombChallenge: (controlPointId: number, armedCode: string) => {
+      if ((window as any).submitBombChallenge) {
+        (window as any).submitBombChallenge(controlPointId, armedCode);
+      }
+    },
+    onSubmitBombDeactivation: (controlPointId: number, disarmedCode: string) => {
+      if ((window as any).submitBombDeactivation) {
+        (window as any).submitBombDeactivation(controlPointId, disarmedCode);
+      }
+    }
+  });
+  
+  marker.bindPopup(popupContent, {
+    closeOnClick: false,
+    autoClose: false,
+    closeButton: true
+  });
 
   return marker;
 };
