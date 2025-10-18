@@ -666,7 +666,8 @@ export class GamesService {
       userId: number;
       userName: string;
       team: string;
-      captureCount: number;
+      codeCaptureCount: number;
+      positionCaptureCount: number;
       bombDeactivationCount: number;
       bombExplosionCount: number;
     }>;

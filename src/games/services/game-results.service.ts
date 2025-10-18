@@ -39,7 +39,8 @@ export class GameResultsService {
       userId: number;
       userName: string;
       team: string;
-      captureCount: number;
+      codeCaptureCount: number;
+      positionCaptureCount: number;
       bombDeactivationCount: number;
       bombExplosionCount: number;
     }>;
@@ -200,7 +201,8 @@ export class GameResultsService {
       userId: number;
       userName: string;
       team: string;
-      captureCount: number;
+      codeCaptureCount: number;
+      positionCaptureCount: number;
       bombDeactivationCount: number;
       bombExplosionCount: number;
     }>;
@@ -218,8 +220,8 @@ export class GameResultsService {
       event =>
         event.eventType === 'control_point_taken' &&
         event.data &&
-        event.data.userId && // Has a userId (player action)
-        !event.data.assignedByOwner, // Not assigned by owner
+        !event.data.assignedByOwner && // Not assigned by owner
+        (event.data.userId || event.data.positionChallenge || event.data.userName || event.data.team), // Has userId, userName, positionChallenge, or team
     );
 
     // Get all players in the game instance
@@ -241,7 +243,8 @@ export class GameResultsService {
         userId: number;
         userName: string;
         team: string;
-        captureCount: number;
+        codeCaptureCount: number;
+        positionCaptureCount: number;
         bombDeactivationCount: number;
         bombExplosionCount: number;
       }
@@ -254,27 +257,43 @@ export class GameResultsService {
           userId: player.user.id,
           userName: player.user.name,
           team: player.team,
-          captureCount: 0,
+          codeCaptureCount: 0,
+          positionCaptureCount: 0,
           bombDeactivationCount: 0,
           bombExplosionCount: 0,
         });
       }
     }
 
-    // Count captures per player - count ALL captures regardless of team change
+    // Count captures per player - separate code and position challenge captures
     for (const event of captureEvents) {
-      const { userId, team, controlPointId } = event.data;
+      const { userId, team, controlPointId, positionChallenge, playerIds, userName } = event.data;
 
-      if (!userId || !team) {
+      if (!team) {
         continue;
       }
 
-      // Count ALL captures by players, regardless of team change
-      const player = playerStats.get(userId);
-      if (player) {
-        player.captureCount++;
-      } else {
-        console.log(`[PLAYER_CAPTURE_STATS] Player ${userId} not found in player stats`);
+      // For position challenge captures, use the playerIds array from the event
+      if (positionChallenge && playerIds && Array.isArray(playerIds)) {
+        // Count each player in the position challenge as capturing the point
+        for (const playerId of playerIds) {
+          const player = playerStats.get(playerId);
+          if (player && player.team === team) {
+            player.positionCaptureCount++;
+          }
+        }
+      } else if (userId) {
+        // Regular code challenge capture with userId
+        const player = playerStats.get(userId);
+        if (player) {
+          player.codeCaptureCount++;
+        }
+      } else if (userName) {
+        // Code challenge capture with userName but no userId - try to find player by name
+        const player = Array.from(playerStats.values()).find(p => p.userName === userName);
+        if (player) {
+          player.codeCaptureCount++;
+        }
       }
     }
 

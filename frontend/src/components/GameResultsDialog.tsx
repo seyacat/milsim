@@ -14,7 +14,8 @@ interface GameResults {
   playerCaptureStats: Array<{
     userName: string
     team: string
-    captureCount: number
+    codeCaptureCount: number
+    positionCaptureCount: number
     bombDeactivationCount: number
     bombExplosionCount: number
   }>
@@ -210,32 +211,34 @@ const GameResultsDialog: React.FC<GameResultsDialogProps> = ({
                   <div className="game-results-table-container">
                     <table className="game-results-table">
                       <thead>
-                        <tr>
-                          <th>Jugador</th>
-                          <th>Equipo</th>
-                          <th>Puntos Tomados</th>
-                          <th>Desactivaciones</th>
-                          <th>Explosiones</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {results.playerCaptureStats
-                          .sort((a, b) => b.captureCount - a.captureCount)
-                          .map(player => (
-                            <tr key={player.userName}>
-                              <td>{player.userName}</td>
-                              <td>
-                                <div className="game-results-team">
-                                  <div className={`team-color ${player.team}`}></div>
-                                  {player.team.toUpperCase()}
-                                </div>
-                              </td>
-                              <td>{player.captureCount}</td>
-                              <td>{player.bombDeactivationCount || 0}</td>
-                              <td>{player.bombExplosionCount || 0}</td>
-                            </tr>
-                          ))}
-                      </tbody>
+                         <tr>
+                           <th>Jugador</th>
+                           <th>Equipo</th>
+                           <th>Código</th>
+                           <th>Presencia</th>
+                           <th>Desactivaciones</th>
+                           <th>Explosiones</th>
+                         </tr>
+                       </thead>
+                       <tbody>
+                         {results.playerCaptureStats
+                           .sort((a, b) => (b.codeCaptureCount + b.positionCaptureCount) - (a.codeCaptureCount + a.positionCaptureCount))
+                           .map(player => (
+                             <tr key={player.userName}>
+                               <td>{player.userName}</td>
+                               <td>
+                                 <div className="game-results-team">
+                                   <div className={`team-color ${player.team}`}></div>
+                                   {player.team.toUpperCase()}
+                                 </div>
+                               </td>
+                               <td>{player.codeCaptureCount}</td>
+                               <td>{player.positionCaptureCount}</td>
+                               <td>{player.bombDeactivationCount || 0}</td>
+                               <td>{player.bombExplosionCount || 0}</td>
+                             </tr>
+                           ))}
+                       </tbody>
                     </table>
                   </div>
                 </div>

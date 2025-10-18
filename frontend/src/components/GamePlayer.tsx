@@ -44,6 +44,7 @@ const GamePlayer: React.FC = () => {
     pieCharts,
     activeBombTimers,
     isGameResultsDialogOpen,
+    openGameResultsDialog,
     closeGameResultsDialog
   } = useGamePlayer(gameId, navigate, addToast)
 
@@ -104,6 +105,7 @@ const GamePlayer: React.FC = () => {
         reloadPage={reloadPage}
         centerOnUser={centerOnUser}
         centerOnSite={centerOnSite}
+        openResultsDialog={openGameResultsDialog}
       />
       {/* Game Results Dialog */}
       <GameResultsDialog

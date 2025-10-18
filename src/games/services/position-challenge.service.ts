@@ -668,6 +668,26 @@ export class PositionChallengeService {
         }
 
         // Create control change event using control_point_taken (same as code challenge)
+        // Get the most recent position_challenge_scored event to get the players involved
+        const history = await this.timerCalculationService.getGameHistoryWithCache(game.instanceId);
+        const recentPositionEvents = history
+          .filter(
+            event =>
+              event.eventType === 'position_challenge_scored' &&
+              event.data &&
+              event.data.controlPointId === controlPointId,
+          )
+          .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Newest first
+
+        let playerIdsInvolved = [];
+        if (recentPositionEvents.length > 0) {
+          // Get only user IDs from players of the same team that captured the point
+          const recentPlayers = recentPositionEvents[0].data.players || [];
+          playerIdsInvolved = recentPlayers
+            .filter(player => player.team === winningTeam)
+            .map(player => player.userId);
+        }
+
         const historyEvent = await this.timerCalculationService.addGameHistory(
           game.instanceId,
           'control_point_taken',
@@ -678,6 +698,7 @@ export class PositionChallengeService {
             points: THRESHOLD,
             timestamp: new Date(),
             positionChallenge: true, // Mark as position challenge control change
+            playerIds: playerIdsInvolved, // Include only user IDs of players from the same team
           },
         );
 

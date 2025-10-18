@@ -65,6 +65,7 @@ const GameOwner: React.FC = () => {
     updateTeamCount,
     playerMarkers,
     isGameResultsDialogOpen,
+    openGameResultsDialog,
     closeGameResultsDialog
   } = useGameOwner(gameId, navigate, addToast)
 
@@ -152,6 +153,7 @@ const GameOwner: React.FC = () => {
         centerOnUser={centerOnUser}
         centerOnSite={centerOnSite}
         openTeamsDialog={handleOpenTeamsDialog}
+        openResultsDialog={openGameResultsDialog}
       />
 
       {/* Players Dialog */}

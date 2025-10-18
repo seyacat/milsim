@@ -91,7 +91,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
             onClick={handleRestartGame}
             style={{ display: 'block', width: '100%' }}
           >
-            Reiniciar
+            Nuevo Juego
           </button>
         )
       default:
