@@ -194,7 +194,7 @@ const GameResultsDialog: React.FC<GameResultsDialogProps> = ({
               {/* Player Capture Statistics */}
               {results.playerCaptureStats && results.playerCaptureStats.length > 0 && (
                 <div className="game-results-section">
-                  <h4 className="game-results-section-title">Puntos Tomados por Jugador</h4>
+                  <h4 className="game-results-section-title">Resultados por Jugador</h4>
                   <div className="game-results-table-container">
                     <table className="game-results-table">
                       <thead>

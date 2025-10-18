@@ -2288,7 +2288,7 @@ function displayGameResults(results) {
     // Add player capture statistics table
     if (results.playerCaptureStats && results.playerCaptureStats.length > 0) {
         const playerStatsTitle = document.createElement('h4');
-        playerStatsTitle.textContent = 'Puntos Tomados por Jugador';
+        playerStatsTitle.textContent = 'Resultados por Jugador';
         playerStatsTitle.style.cssText = 'text-align: center; margin: 30px 0 15px 0; color: white;';
         resultsContainer.appendChild(playerStatsTitle);
         
