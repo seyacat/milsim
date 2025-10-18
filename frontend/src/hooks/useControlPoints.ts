@@ -50,7 +50,6 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
 
     // Set drag mode flag to true
     setIsDragModeEnabled(true);
-    console.log('Drag mode enabled for control point', controlPointId);
 
     // Find the marker
     const targetMarker = controlPointMarkers.current.get(controlPointId);
@@ -408,7 +407,6 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
 
   // Function to update control point position after drag
   const updateControlPointPosition = useCallback((controlPointId: number, latitude: number, longitude: number) => {
-    console.log('Updating control point position', controlPointId, latitude, longitude);
     
     // Update control point position via WebSocket
     if (socket && game) {
@@ -425,12 +423,10 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     
     // Disable drag mode after drop
     setIsDragModeEnabled(false);
-    console.log('Drag mode disabled after drop');
   }, [socket, game]);
 
   // Function to disable drag mode (called when popup is closed)
   const disableDragMode = useCallback(() => {
-    console.log('Disable drag mode called');
     setIsDragModeEnabled(false);
   }, []);
 
@@ -522,7 +518,6 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
   useEffect(() => {
     // Don't update if drag mode is enabled to avoid interrupting drag
     if (isDragModeEnabled) {
-      console.log('Skipping control point render because drag mode is enabled');
       return;
     }
     
@@ -534,7 +529,6 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
   useEffect(() => {
     if (!map) return;
     
-    console.log('Updating draggable state for all markers to:', isDragModeEnabled);
     
     controlPointMarkers.current.forEach((marker, controlPointId) => {
       if (marker.dragging) {
@@ -600,7 +594,6 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     const handleControlPointUpdated = (data: { controlPoint: ControlPoint }) => {
       // Don't update if drag mode is enabled to avoid interrupting drag
       if (isDragModeEnabled) {
-        console.log('Skipping control point update because drag mode is enabled');
         return;
       }
       
@@ -615,7 +608,6 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     const handleControlPointDeleted = (data: { controlPointId: number }) => {
       // Don't update if drag mode is enabled to avoid interrupting drag
       if (isDragModeEnabled) {
-        console.log('Skipping control point deletion because drag mode is enabled');
         return;
       }
       

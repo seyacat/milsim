@@ -13,6 +13,7 @@ interface GameOwnerMapProps {
   controlPointMarkers: Map<number, any>
   positionCircles: Map<number, any>
   pieCharts: Map<number, any>
+  playerMarkers: Map<number, any>
 }
 
 const GameOwnerMap: React.FC<GameOwnerMapProps> = ({
@@ -26,7 +27,8 @@ const GameOwnerMap: React.FC<GameOwnerMapProps> = ({
   handleMapClick,
   controlPointMarkers,
   positionCircles,
-  pieCharts
+  pieCharts,
+  playerMarkers
 }) => {
   useEffect(() => {
     let isMounted = true

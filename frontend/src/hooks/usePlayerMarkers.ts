@@ -266,7 +266,9 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     if (!socket) return;
 
     const handlePositionUpdate = (data: any) => {
+      console.log(`[PLAYER_MARKERS] Received position update: ${data.action} for user ${data.data.userId}`);
       if (data.action === 'positionUpdate' && data.data.userId !== currentUser?.id) {
+        console.log(`[PLAYER_MARKERS] Updating marker for player ${data.data.userId} at ${data.data.lat}, ${data.data.lng}`);
         updatePlayerMarker(data.data);
       }
     };
@@ -285,14 +287,26 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       }
     };
 
+    // Listen for player positions response (for owner view)
+    const handlePlayerPositionsResponse = (data: any) => {
+      if (data.action === 'playerPositionsResponse' && data.data.positions) {
+        console.log(`[PLAYER_MARKERS] Received player positions response with ${data.data.positions.length} positions`);
+        data.data.positions.forEach((position: any) => {
+          updatePlayerMarker(position);
+        });
+      }
+    };
+
     socket.on('gameAction', handlePositionUpdate);
     socket.on('gameAction', handlePlayerTeamUpdated);
     socket.on('gameUpdate', handleGameUpdate);
+    socket.on('gameAction', handlePlayerPositionsResponse);
 
     return () => {
       socket.off('gameAction', handlePositionUpdate);
       socket.off('gameAction', handlePlayerTeamUpdated);
       socket.off('gameUpdate', handleGameUpdate);
+      socket.off('gameAction', handlePlayerPositionsResponse);
     };
   }, [socket, currentUser, updatePlayerMarker, updatePlayerMarkerTeam, updatePlayerMarkers]);
 

@@ -61,7 +61,8 @@ const GameOwner: React.FC = () => {
     controlPointMarkers,
     positionCircles,
     pieCharts,
-    updateTeamCount
+    updateTeamCount,
+    playerMarkers
   } = useGameOwner(gameId, navigate, addToast)
 
   const handleTeamCountChange = useCallback((count: number) => {
@@ -99,6 +100,7 @@ const GameOwner: React.FC = () => {
         controlPointMarkers={controlPointMarkers}
         positionCircles={positionCircles}
         pieCharts={pieCharts}
+        playerMarkers={playerMarkers}
       />
 
       {/* Game Overlay */}

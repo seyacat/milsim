@@ -26,17 +26,20 @@ export const useGPSTracking = (
   const lastDetectionRef = useRef<number | null>(null);
   const periodicNotificationRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastKnownPositionRef = useRef<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const isSendingPeriodicUpdatesRef = useRef<boolean>(true);
 
   // Configuración del seguimiento GPS
   const config: GPSTrackingConfig = {
     detectionInterval: 10000, // 10 segundos
     periodicNotificationInterval: 10000, // 10 segundos
-    timeoutDuration: 180000, // 3 minutos
+    timeoutDuration: 60000, // 1 minuto (cambiado de 3 minutos)
   };
 
   // Notificar posición al backend
   const notifyPositionToBackend = useCallback((position: { lat: number; lng: number; accuracy: number }) => {
     if (socket && currentGame) {
+      console.log(`[GPS] Enviando positionUpdate al backend para juego ${currentGame.id}: ${position.lat}, ${position.lng}, accuracy: ${position.accuracy}`);
       socket.emit('gameAction', {
         gameId: currentGame.id,
         action: 'positionUpdate',
@@ -46,24 +49,11 @@ export const useGPSTracking = (
           accuracy: position.accuracy
         }
       });
+    } else {
+      console.log(`[GPS] No se puede enviar positionUpdate: socket=${!!socket}, currentGame=${!!currentGame}`);
     }
   }, [socket, currentGame]);
 
-  // Notificar detección GPS al backend
-  const notifyGPSDetection = useCallback((position: { lat: number; lng: number; accuracy: number }) => {
-    if (socket && currentGame) {
-      socket.emit('gameAction', {
-        gameId: currentGame.id,
-        action: 'gpsDetection',
-        data: {
-          lat: position.lat,
-          lng: position.lng,
-          accuracy: position.accuracy,
-          timestamp: Date.now()
-        }
-      });
-    }
-  }, [socket, currentGame]);
 
   // Manejar actualización de posición GPS
   const handlePositionUpdate = useCallback((position: GeolocationPosition) => {
@@ -74,14 +64,13 @@ export const useGPSTracking = (
     };
 
     setCurrentPosition(newPosition);
+    lastKnownPositionRef.current = newPosition; // Almacenar última posición conocida
     setGpsStatus('Activo');
 
-    const now = Date.now();
-
-    // Notificar detección GPS si ha pasado el intervalo
-    if (!lastDetectionRef.current || (now - lastDetectionRef.current >= config.detectionInterval)) {
-      notifyGPSDetection(newPosition);
-      lastDetectionRef.current = now;
+    // Reanudar envío periódico si estaba detenido
+    if (!isSendingPeriodicUpdatesRef.current) {
+      isSendingPeriodicUpdatesRef.current = true;
+      setGpsStatus('Activo - Reanudando envío');
     }
 
     // Reiniciar el timeout de inactividad
@@ -90,10 +79,10 @@ export const useGPSTracking = (
     }
 
     timeoutRef.current = setTimeout(() => {
-      setGpsStatus('Inactivo - Sin detecciones recientes');
-      // No detenemos el seguimiento, solo cambiamos el estado
+      setGpsStatus('Inactivo - Sin señal GPS por 1 minuto');
+      isSendingPeriodicUpdatesRef.current = false; // Detener envío periódico al backend
     }, config.timeoutDuration);
-  }, [notifyGPSDetection, config.detectionInterval, config.timeoutDuration]);
+  }, [config.timeoutDuration]);
 
   // Manejar errores de GPS
   const handlePositionError = useCallback((error: GeolocationPositionError) => {
@@ -114,16 +103,24 @@ export const useGPSTracking = (
 
   // Notificación periódica de posición
   const sendPeriodicPositionNotification = useCallback(() => {
-    if (currentPosition && socket && currentGame) {
+    // Verificar si debemos enviar actualizaciones periódicas
+    if (!isSendingPeriodicUpdatesRef.current) {
+      return; // No enviar si el GPS está inactivo por más de 1 minuto
+    }
+
+    // Usar la posición actual o la última posición conocida
+    const positionToSend = currentPosition || lastKnownPositionRef.current;
+    
+    if (positionToSend && socket && currentGame) {
+      const isLastKnown = !currentPosition;
+      console.log(`[GPS] Enviando positionUpdate periódico al backend: ${positionToSend.lat}, ${positionToSend.lng}, accuracy: ${positionToSend.accuracy}, isLastKnown: ${isLastKnown}`);
       socket.emit('gameAction', {
         gameId: currentGame.id,
-        action: 'periodicPositionUpdate',
+        action: 'positionUpdate',
         data: {
-          lat: currentPosition.lat,
-          lng: currentPosition.lng,
-          accuracy: currentPosition.accuracy,
-          timestamp: Date.now(),
-          type: 'periodic'
+          lat: positionToSend.lat,
+          lng: positionToSend.lng,
+          accuracy: positionToSend.accuracy
         }
       });
     }
@@ -131,12 +128,19 @@ export const useGPSTracking = (
 
   // Iniciar seguimiento GPS
   const startGPSTracking = useCallback(() => {
+    // Verificar si ya hay un seguimiento activo
+    if (watchIdRef.current !== null) {
+      console.log('[GPS] Seguimiento GPS ya está activo, no se inicia uno nuevo');
+      return;
+    }
+
     if (!navigator.geolocation) {
       setGpsStatus('GPS no soportado');
       return;
     }
 
     setGpsStatus('Activando...');
+    isSendingPeriodicUpdatesRef.current = true; // Asegurar que el envío periódico esté activo
 
     // Configuración de alta precisión para GPS
     const options: PositionOptions = {
@@ -170,13 +174,14 @@ export const useGPSTracking = (
             accuracy: position.coords.accuracy
           };
           notifyPositionToBackend(initialPosition);
-          notifyGPSDetection(initialPosition);
         }
       },
       handlePositionError,
       options
     );
-  }, [handlePositionUpdate, handlePositionError, sendPeriodicPositionNotification, notifyPositionToBackend, notifyGPSDetection]);
+
+    console.log('[GPS] Seguimiento GPS iniciado correctamente');
+  }, [handlePositionUpdate, handlePositionError, sendPeriodicPositionNotification, notifyPositionToBackend]);
 
   // Detener seguimiento GPS
   const stopGPSTracking = useCallback(() => {
@@ -198,6 +203,10 @@ export const useGPSTracking = (
     setGpsStatus('Detenido');
     setCurrentPosition(null);
     lastDetectionRef.current = null;
+    lastKnownPositionRef.current = null;
+    isSendingPeriodicUpdatesRef.current = false;
+
+    console.log('[GPS] Seguimiento GPS detenido correctamente');
   }, []);
 
   // Limpiar recursos al desmontar
@@ -209,7 +218,7 @@ export const useGPSTracking = (
 
   // Iniciar automáticamente el seguimiento cuando el juego esté disponible
   useEffect(() => {
-    if (currentGame && socket) {
+    if (currentGame && socket && !watchIdRef.current) {
       startGPSTracking();
     }
   }, [currentGame, socket, startGPSTracking]);

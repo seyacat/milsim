@@ -92,11 +92,9 @@ export const createControlPointMarker = (controlPoint: ControlPoint, map: L.Map,
     draggable: isDragModeEnabled
   }).addTo(map);
   
-  console.log(`Marker created for control point ${controlPoint.id}, draggable: ${isDragModeEnabled}`);
 
   // Add dragend event listener to update position when dragging stops
   marker.on('dragend', function(event) {
-    console.log('Dragend event triggered for control point', controlPoint.id);
     const marker = event.target;
     const newPosition = marker.getLatLng();
     

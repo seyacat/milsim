@@ -9,6 +9,7 @@ import { useGameTime, ControlPointTimeData } from './useGameTime'
 import { useControlPointTimers } from './useControlPointTimers'
 import { useBombTimers } from './useBombTimers'
 import { useGPSTracking } from './useGPSTracking'
+import { usePlayerMarkers } from './usePlayerMarkers'
 
 interface UseGameOwnerReturn {
   currentUser: User | null
@@ -43,6 +44,7 @@ interface UseGameOwnerReturn {
   enableDragMode: (controlPointId: number, markerId: number) => void;
   controlPointTimes: ControlPointTimeData[];
   updateTeamCount: (count: number) => void;
+  playerMarkers: Map<number, L.Marker>;
 }
 
 export const useGameOwner = (
@@ -94,6 +96,44 @@ export const useGameOwner = (
   const pieCharts = controlPointsResult?.pieCharts || new Map();
   const enableDragMode = controlPointsResult?.enableDragMode || (() => {});
   const updateAllControlPointTimers = controlPointsResult?.updateAllControlPointTimers || (() => {});
+
+  // Use player markers hook
+  const playerMarkersResult = usePlayerMarkers({
+    game: currentGame,
+    map: mapInstanceRef.current,
+    currentUser: currentUser,
+    socket: socketRef.current,
+    isOwner: true
+  })
+
+  // Listen for player positions when joining as owner
+  useEffect(() => {
+    if (!socketRef.current || !currentUser || !currentGame) return;
+
+    const handlePlayerPositionsResponse = (data: any) => {
+      if (data.action === 'playerPositionsResponse' && data.data.positions) {
+        console.log(`[OWNER] Received player positions response with ${data.data.positions.length} positions`);
+        data.data.positions.forEach((position: any) => {
+          playerMarkersResult.updatePlayerMarker(position);
+        });
+      }
+    };
+
+    // Request current player positions when joining as owner
+    if (currentGame.owner && currentGame.owner.id === currentUser.id) {
+      console.log(`[OWNER] Requesting current player positions for game ${currentGame.id}`);
+      socketRef.current.emit('gameAction', {
+        gameId: currentGame.id,
+        action: 'requestPlayerPositions'
+      });
+    }
+
+    socketRef.current.on('gameAction', handlePlayerPositionsResponse);
+
+    return () => {
+      socketRef.current?.off('gameAction', handlePlayerPositionsResponse);
+    };
+  }, [socketRef.current, currentUser, currentGame, playerMarkersResult.updatePlayerMarker]);
 
   // Update control point timers when control point times change
   useEffect(() => {
@@ -207,6 +247,15 @@ export const useGameOwner = (
         memoizedAddToast({ message: `Error: ${data.error}`, type: 'error' })
       })
   
+      // Listen for player position updates
+      socket.on('gameAction', (data: { action: string; data: any }) => {
+        if (data.action === 'positionUpdate') {
+          console.log(`[OWNER] Received position update for player ${data.data.userId}: ${data.data.lat}, ${data.data.lng}`);
+          // Update player markers with position data
+          playerMarkersResult.updatePlayerMarker(data.data);
+        }
+      })
+
       // Listen for player team updates
       socket.on('gameAction', (data: { action: string; data: any }) => {
         if (data.action === 'playerTeamUpdated') {
@@ -297,44 +346,12 @@ export const useGameOwner = (
   const createUserMarker = useCallback((lat: number, lng: number) => {
     if (!mapInstanceRef.current) return
 
-    // Import Leaflet dynamically
-    import('leaflet').then(L => {
-      if (!mapInstanceRef.current) return
-
-      // Find the current player in the game to get the correct team
-      const currentPlayer = currentGame?.players?.find(p => p.user?.id === currentUser?.id);
-      const teamClass = currentPlayer?.team || currentUser?.team || 'none';
-      
-      // If marker exists, just update the icon instead of recreating
-      if (userMarkerRef.current) {
-        const currentPosition = userMarkerRef.current.getLatLng();
-        const newIcon = L.divIcon({
-          className: `user-marker ${teamClass}`,
-          html: '',
-          iconSize: [24, 24],
-          iconAnchor: [12, 12]
-        });
-        userMarkerRef.current.setIcon(newIcon);
-      } else {
-        // Create new marker if it doesn't exist
-        userMarkerRef.current = L.marker([lat, lng], {
-          icon: L.divIcon({
-            className: `user-marker ${teamClass}`,
-            html: '',
-            iconSize: [24, 24],
-            iconAnchor: [12, 12]
-          })
-        }).addTo(mapInstanceRef.current)
-        
-        // Create popup with custom class for positioning
-        const popup = L.popup({
-          className: 'user-marker-popup'
-        }).setContent('<strong>Tú.</strong>')
-        
-        userMarkerRef.current.bindPopup(popup).openPopup()
-      }
-    })
-  }, [currentUser, currentGame])
+    // Use the player markers hook to create user marker
+    const marker = playerMarkersResult.createUserMarker(lat, lng);
+    if (marker) {
+      userMarkerRef.current = marker;
+    }
+  }, [playerMarkersResult])
 
   const startGame = useCallback(() => {
     if (!currentGame || !socketRef.current) return
@@ -607,6 +624,7 @@ export const useGameOwner = (
     pieCharts,
     enableDragMode,
     controlPointTimes,
-    updateTeamCount
+    updateTeamCount,
+    playerMarkers: playerMarkersResult.playerMarkers
   }
 }
