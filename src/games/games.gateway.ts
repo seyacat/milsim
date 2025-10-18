@@ -520,14 +520,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               lastUpdate: new Date(),
             });
 
-            // Update position challenge service with the new position
-            this.positionChallengeService.updatePlayerPosition(
-              gameId,
-              user.id,
-              data.lat,
-              data.lng,
-              data.accuracy,
-            );
           }
           break;
         }
@@ -1534,6 +1526,13 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   /**
+   * Get current player positions for position challenge processing
+   */
+  getCurrentPlayerPositions(): Map<number, any> {
+    return this.playerPositions;
+  }
+
+  /**
    * Process position challenge for a game
    * This is called by the timer management service every 20 seconds
    */
@@ -1550,9 +1549,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           socketId: position.socketId,
         });
       });
-
-      // Start position challenge processing with current player positions
-      this.positionChallengeService.startPositionChallengeProcessing(gameId, playerPositions);
 
       // Process position challenge for the game
       await this.positionChallengeService.processPositionChallengeForGame(gameId);
@@ -1580,16 +1576,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     });
 
-    // Start position challenge processing with current player positions
-    this.positionChallengeService.startPositionChallengeProcessing(gameId, playerPositions);
   }
 
-  /**
-   * Stop position challenge processing for a game
-   */
-  private stopPositionChallengeInterval(gameId: number): void {
-    this.positionChallengeService.stopPositionChallengeProcessing(gameId);
-  }
 
   /**
    * Check for inactive players and notify frontend
