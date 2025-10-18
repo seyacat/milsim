@@ -23,6 +23,7 @@ interface PopupRendererProps {
   onSubmitCode?: (controlPointId: number, code: string) => void;
   onSubmitBombChallenge?: (controlPointId: number, armedCode: string) => void;
   onSubmitBombDeactivation?: (controlPointId: number, disarmedCode: string) => void;
+  onClose?: () => void;
 }
 
 export const PopupRenderer: React.FC<PopupRendererProps> = ({
@@ -43,7 +44,8 @@ export const PopupRenderer: React.FC<PopupRendererProps> = ({
   onDeactivateBomb,
   onSubmitCode,
   onSubmitBombChallenge,
-  onSubmitBombDeactivation
+  onSubmitBombDeactivation,
+  onClose
 }) => {
   if (isOwner) {
     return (
@@ -62,6 +64,7 @@ export const PopupRenderer: React.FC<PopupRendererProps> = ({
         onUpdateBombChallenge={onUpdateBombChallenge || (() => {})}
         onActivateBomb={onActivateBomb || (() => {})}
         onDeactivateBomb={onDeactivateBomb || (() => {})}
+        onClose={onClose || (() => {})}
       />
     );
   } else {
@@ -71,6 +74,7 @@ export const PopupRenderer: React.FC<PopupRendererProps> = ({
         onSubmitCode={onSubmitCode || (() => {})}
         onSubmitBombChallenge={onSubmitBombChallenge || (() => {})}
         onSubmitBombDeactivation={onSubmitBombDeactivation || (() => {})}
+        onClose={onClose || (() => {})}
       />
     );
   }
@@ -97,6 +101,7 @@ export const createPopupContent = (
     onSubmitCode?: (controlPointId: number, code: string) => void;
     onSubmitBombChallenge?: (controlPointId: number, armedCode: string) => void;
     onSubmitBombDeactivation?: (controlPointId: number, disarmedCode: string) => void;
+    onClose?: () => void;
   }
 ): HTMLElement => {
   const container = document.createElement('div');

@@ -19,6 +19,7 @@ interface OwnerPopupProps {
   onUpdateBombChallenge: (controlPointId: number, bombTime: number, armedCode: string, disarmedCode: string) => void;
   onActivateBomb: (controlPointId: number) => void;
   onDeactivateBomb: (controlPointId: number) => void;
+  onClose?: () => void;
 }
 
 export const OwnerPopup: React.FC<OwnerPopupProps> = ({

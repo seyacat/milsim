@@ -18,6 +18,7 @@ interface UseControlPointsProps {
 export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseControlPointsProps) => {
   
   const [controlPoints, setControlPoints] = useState<ControlPoint[]>([]);
+  const [isDragModeEnabled, setIsDragModeEnabled] = useState(false);
   const controlPointMarkers = useRef<Map<number, L.Marker>>(new Map());
   const positionCircles = useRef<Map<number, L.Circle>>(new Map());
   const pieCharts = useRef<Map<number, L.SVGOverlay>>(new Map());
@@ -47,6 +48,10 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
   const enableDragMode = useCallback((controlPointId: number, markerId: number) => {
     if (!map) return;
 
+    // Set drag mode flag to true
+    setIsDragModeEnabled(true);
+    console.log('Drag mode enabled for control point', controlPointId);
+
     // Find the marker
     const targetMarker = controlPointMarkers.current.get(controlPointId);
     if (!targetMarker) {
@@ -57,50 +62,11 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     // Close the popup menu
     targetMarker.closePopup();
 
-    // Make marker draggable
-    if (targetMarker.dragging) {
-      targetMarker.dragging.enable();
-    }
-
-    // Change cursor to indicate drag mode
-    const markerElement = targetMarker.getElement();
-    if (markerElement) {
-      markerElement.style.cursor = 'move';
-    }
-
-    // Add dragend event listener to update position when dragging stops
-    targetMarker.on('dragend', function(event) {
-      const marker = event.target;
-      const newPosition = marker.getLatLng();
-      
-      // Update control point position via WebSocket
-      if (socket && game) {
-        socket.emit('gameAction', {
-          gameId: game.id,
-          action: 'updateControlPointPosition',
-          data: {
-            controlPointId: controlPointId,
-            latitude: newPosition.lat,
-            longitude: newPosition.lng
-          }
-        });
-      }
-      
-      // Disable dragging after placement
-      if (marker.dragging) {
-        marker.dragging.disable();
-      }
-      const markerElement = marker.getElement();
-      if (markerElement) {
-        markerElement.style.cursor = '';
-      }
-    });
-
     // Show instruction message
     if (showToast) {
       showToast('Arrastra el punto a la nueva ubicación y haz clic para colocarlo', 'success');
     }
-  }, [map, socket, game, showToast]);
+  }, [map, showToast]);
 
   // Handle position challenge updates
   const updatePositionChallengeBars = useCallback((controlPointId: number, teamPoints: Record<string, number>) => {
@@ -440,10 +406,40 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     }
   }, [socket, game, showToast]);
 
+  // Function to update control point position after drag
+  const updateControlPointPosition = useCallback((controlPointId: number, latitude: number, longitude: number) => {
+    console.log('Updating control point position', controlPointId, latitude, longitude);
+    
+    // Update control point position via WebSocket
+    if (socket && game) {
+      socket.emit('gameAction', {
+        gameId: game.id,
+        action: 'updateControlPointPosition',
+        data: {
+          controlPointId: controlPointId,
+          latitude: latitude,
+          longitude: longitude
+        }
+      });
+    }
+    
+    // Disable drag mode after drop
+    setIsDragModeEnabled(false);
+    console.log('Drag mode disabled after drop');
+  }, [socket, game]);
+
+  // Function to disable drag mode (called when popup is closed)
+  const disableDragMode = useCallback(() => {
+    console.log('Disable drag mode called');
+    setIsDragModeEnabled(false);
+  }, []);
+
   // Make functions available globally for popup buttons
   useEffect(() => {
     (window as any).enableDragMode = enableDragMode;
+    (window as any).disableDragMode = disableDragMode;
     (window as any).updateControlPoint = updateControlPoint;
+    (window as any).updateControlPointPosition = updateControlPointPosition;
     (window as any).deleteControlPoint = deleteControlPoint;
     (window as any).activateBombAsOwner = activateBombAsOwner;
     (window as any).deactivateBombAsOwner = deactivateBombAsOwner;
@@ -454,7 +450,7 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
 
     // Setup global player functions
     setupGlobalPlayerFunctions();
-  }, [enableDragMode, updateControlPoint, deleteControlPoint, activateBombAsOwner, deactivateBombAsOwner, assignControlPointTeam]);
+  }, [enableDragMode, disableDragMode, updateControlPoint, updateControlPointPosition, deleteControlPoint, activateBombAsOwner, deactivateBombAsOwner, assignControlPointTeam]);
 
   // Listen for WebSocket events related to challenges
   useEffect(() => {
@@ -480,10 +476,10 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
 
   // Initialize control points from game data
   useEffect(() => {
-    if (game?.controlPoints) {
+    if (game?.controlPoints && !isDragModeEnabled) {
       setControlPoints(game.controlPoints);
     }
-  }, [game?.controlPoints]);
+  }, [game?.controlPoints, isDragModeEnabled]);
 
   // Render control points on map
   const renderControlPoints = useCallback(() => {
@@ -507,7 +503,7 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
 
     // Create new markers
     controlPoints.forEach((controlPoint) => {
-      const marker = createControlPointMarker(controlPoint, map, isOwner);
+      const marker = createControlPointMarker(controlPoint, map, isOwner, isDragModeEnabled);
       if (marker) {
         controlPointMarkers.current.set(controlPoint.id, marker);
       }
@@ -524,9 +520,32 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
 
   // Update control points when they change
   useEffect(() => {
+    // Don't update if drag mode is enabled to avoid interrupting drag
+    if (isDragModeEnabled) {
+      console.log('Skipping control point render because drag mode is enabled');
+      return;
+    }
+    
     renderControlPoints();
     updateAllControlPointTimers();
-  }, [renderControlPoints, updateAllControlPointTimers]);
+  }, [renderControlPoints, updateAllControlPointTimers, isDragModeEnabled]);
+
+  // Update draggable state of existing markers without recreating them
+  useEffect(() => {
+    if (!map) return;
+    
+    console.log('Updating draggable state for all markers to:', isDragModeEnabled);
+    
+    controlPointMarkers.current.forEach((marker, controlPointId) => {
+      if (marker.dragging) {
+        if (isDragModeEnabled) {
+          marker.dragging.enable();
+        } else {
+          marker.dragging.disable();
+        }
+      }
+    });
+  }, [map, isDragModeEnabled]);
 
   // Update single control point marker (for team color changes)
   const updateSingleControlPointMarker = useCallback((controlPoint: ControlPoint) => {
@@ -554,7 +573,7 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     }
 
     // Create new marker with updated data
-    const newMarker = createControlPointMarker(controlPoint, map, isOwner);
+    const newMarker = createControlPointMarker(controlPoint, map, isOwner, isDragModeEnabled);
     if (newMarker) {
       controlPointMarkers.current.set(controlPoint.id, newMarker);
     }
@@ -579,6 +598,11 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     };
 
     const handleControlPointUpdated = (data: { controlPoint: ControlPoint }) => {
+      // Don't update if drag mode is enabled to avoid interrupting drag
+      if (isDragModeEnabled) {
+        console.log('Skipping control point update because drag mode is enabled');
+        return;
+      }
       
       setControlPoints(prev =>
         prev.map(cp => cp.id === data.controlPoint.id ? data.controlPoint : cp)
@@ -589,6 +613,12 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     };
 
     const handleControlPointDeleted = (data: { controlPointId: number }) => {
+      // Don't update if drag mode is enabled to avoid interrupting drag
+      if (isDragModeEnabled) {
+        console.log('Skipping control point deletion because drag mode is enabled');
+        return;
+      }
+      
       setControlPoints(prev => prev.filter(cp => cp.id !== data.controlPointId));
       
       // Remove marker from map
@@ -622,7 +652,8 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
       socket.off('controlPointUpdated', handleControlPointUpdated);
       socket.off('controlPointDeleted', handleControlPointDeleted);
     };
-  }, [socket, map, updateSingleControlPointMarker]);
+  }, [socket, map, updateSingleControlPointMarker, isDragModeEnabled]);
+
 
   return {
     controlPoints,
@@ -630,6 +661,7 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     positionCircles: positionCircles.current,
     pieCharts: pieCharts.current,
     enableDragMode,
+    disableDragMode,
     updatePositionChallengeBars,
     handleBombTimeUpdate,
     activateBombAsOwner,

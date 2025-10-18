@@ -4,7 +4,7 @@ import { getControlPointIcon } from './utils';
 import { createPopupContent } from '../../components/ControlPoints/PopupComponents';
 
 // Create control point marker
-export const createControlPointMarker = (controlPoint: ControlPoint, map: L.Map, isOwner: boolean): L.Marker | null => {
+export const createControlPointMarker = (controlPoint: ControlPoint, map: L.Map, isOwner: boolean, isDragModeEnabled: boolean = false): L.Marker | null => {
   const { iconColor, iconEmoji } = getControlPointIcon(controlPoint);
 
   const controlPointIcon = L.divIcon({
@@ -88,8 +88,24 @@ export const createControlPointMarker = (controlPoint: ControlPoint, map: L.Map,
   });
 
   const marker = L.marker([controlPoint.latitude, controlPoint.longitude], {
-    icon: controlPointIcon
+    icon: controlPointIcon,
+    draggable: isDragModeEnabled
   }).addTo(map);
+  
+  console.log(`Marker created for control point ${controlPoint.id}, draggable: ${isDragModeEnabled}`);
+
+  // Add dragend event listener to update position when dragging stops
+  marker.on('dragend', function(event) {
+    console.log('Dragend event triggered for control point', controlPoint.id);
+    const marker = event.target;
+    const newPosition = marker.getLatLng();
+    
+    // Update control point position via WebSocket
+    // This will be handled by the global functions
+    if ((window as any).updateControlPointPosition) {
+      (window as any).updateControlPointPosition(controlPoint.id, newPosition.lat, newPosition.lng);
+    }
+  });
 
   // Store control point data on marker
   (marker as any).controlPointData = controlPoint;
@@ -155,6 +171,11 @@ export const createControlPointMarker = (controlPoint: ControlPoint, map: L.Map,
     onSubmitBombDeactivation: (controlPointId: number, disarmedCode: string) => {
       if ((window as any).submitBombDeactivation) {
         (window as any).submitBombDeactivation(controlPointId, disarmedCode);
+      }
+    },
+    onClose: () => {
+      if ((window as any).disableDragMode) {
+        (window as any).disableDragMode();
       }
     }
   });
