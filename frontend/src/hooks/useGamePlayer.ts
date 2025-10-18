@@ -70,13 +70,18 @@ export const useGamePlayer = (
   const { activeBombTimers, updateAllBombTimerDisplays } = useBombTimers(currentGame, socketRef.current)
 
   // Use control points hook
-  const { controlPointMarkers, positionCircles, pieCharts, updateAllControlPointTimers } = useControlPoints({
+  const controlPointsResult = useControlPoints({
     game: currentGame,
     map: mapInstanceRef.current,
     isOwner: false,
     socket: socketRef.current,
     showToast: showToastWrapper
   })
+  
+  const controlPointMarkers = controlPointsResult?.controlPointMarkers || new Map();
+  const positionCircles = controlPointsResult?.positionCircles || new Map();
+  const pieCharts = controlPointsResult?.pieCharts || new Map();
+  const updateAllControlPointTimers = controlPointsResult?.updateAllControlPointTimers || (() => {});
 
   // Use player markers hook
   const { updatePlayerMarkers, updatePlayerMarkerTeam, updatePlayerMarkerTeamByUserId } = usePlayerMarkers({

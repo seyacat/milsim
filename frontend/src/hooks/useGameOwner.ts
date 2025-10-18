@@ -81,13 +81,19 @@ export const useGameOwner = (
   const { updateAllBombTimerDisplays } = useBombTimers(currentGame, socketRef.current)
 
   // Use control points hook
-  const { controlPointMarkers, positionCircles, pieCharts, enableDragMode, updateAllControlPointTimers } = useControlPoints({
+  const controlPointsResult = useControlPoints({
     game: currentGame,
     map: mapInstanceRef.current,
     isOwner: true,
     socket: socketRef.current,
     showToast: showToastWrapper
   })
+  
+  const controlPointMarkers = controlPointsResult?.controlPointMarkers || new Map();
+  const positionCircles = controlPointsResult?.positionCircles || new Map();
+  const pieCharts = controlPointsResult?.pieCharts || new Map();
+  const enableDragMode = controlPointsResult?.enableDragMode || (() => {});
+  const updateAllControlPointTimers = controlPointsResult?.updateAllControlPointTimers || (() => {});
 
   // Update control point timers when control point times change
   useEffect(() => {
