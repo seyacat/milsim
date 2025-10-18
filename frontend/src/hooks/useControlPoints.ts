@@ -668,16 +668,43 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
       }
     };
 
+    // Handle gameAction events for control point updates
+    const handleGameAction = (data: { action: string; data: any }) => {
+      if (data.action === 'controlPointTaken' || data.action === 'controlPointTeamAssigned') {
+        // Update control point when taken by a team
+        const controlPoint = data.data.controlPoint;
+        if (controlPoint) {
+          handleControlPointUpdated({ controlPoint });
+          
+          // Show toast notification for control point taken
+          if (showToast) {
+            const teamName = data.data.team || controlPoint.ownedByTeam;
+            const actionType = data.action === 'controlPointTaken' ? 'tomado' : 'asignado';
+            const byPlayer = data.data.userName ? ` por ${data.data.userName}` : '';
+            showToast(`Punto ${controlPoint.name} ${actionType} por equipo ${teamName}${byPlayer}`, 'success');
+          }
+        }
+      } else if (data.action === 'controlPointUpdated') {
+        // Handle direct control point updates
+        const controlPoint = data.data;
+        if (controlPoint) {
+          handleControlPointUpdated({ controlPoint });
+        }
+      }
+    };
+
     socket.on('controlPointCreated', handleControlPointCreated);
     socket.on('controlPointUpdated', handleControlPointUpdated);
     socket.on('controlPointDeleted', handleControlPointDeleted);
+    socket.on('gameAction', handleGameAction);
 
     return () => {
       socket.off('controlPointCreated', handleControlPointCreated);
       socket.off('controlPointUpdated', handleControlPointUpdated);
       socket.off('controlPointDeleted', handleControlPointDeleted);
+      socket.off('gameAction', handleGameAction);
     };
-  }, [socket, map, updateSingleControlPointMarker, isDragModeEnabled]);
+  }, [socket, map, updateSingleControlPointMarker, isDragModeEnabled, showToast]);
 
 
   return {
