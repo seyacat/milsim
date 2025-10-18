@@ -62,10 +62,17 @@ export class GamesService {
   async create(gameData: Partial<Game>, ownerId: number): Promise<Game> {
     const savedGame = await this.gameManagementService.create(gameData, ownerId);
 
-    // Auto-join the owner to their own game
-    await this.playerManagementService.joinGame(savedGame.id, ownerId);
+    // Create game instance immediately when creating a new game
+    const gameInstance = await this.gameManagementService.createGameInstance(savedGame.id);
 
-    return savedGame;
+    // Update the game with the instance ID
+    savedGame.instanceId = gameInstance.id;
+    const updatedGame = await this.gamesRepository.save(savedGame);
+
+    // Auto-join the owner to their own game
+    await this.playerManagementService.joinGame(updatedGame.id, ownerId);
+
+    return updatedGame;
   }
 
   async deleteGame(gameId: number, userId: number): Promise<void> {
@@ -176,16 +183,32 @@ export class GamesService {
       throw new ConflictException('Solo el propietario del juego puede iniciarlo');
     }
 
-    // Create game instance when game starts
-    const gameInstance = await this.gameManagementService.createGameInstance(gameId);
+    let gameInstance: GameInstance;
+
+    // Check if game already has an instance (from restart)
+    if (game.instanceId) {
+      // Use existing game instance
+      const existingInstance = await this.gameInstancesRepository.findOne({
+        where: { id: game.instanceId },
+      });
+      if (!existingInstance) {
+        throw new NotFoundException('Game instance not found');
+      }
+      gameInstance = existingInstance;
+    } else {
+      // Create new game instance when starting from scratch
+      gameInstance = await this.gameManagementService.createGameInstance(gameId);
+    }
 
     // Update game instance with start time
     gameInstance.gameStartTime = new Date();
     await this.gameInstancesRepository.save(gameInstance);
 
-    // Update game status and set instanceId
+    // Update game status and set instanceId (if not already set)
     game.status = 'running';
-    game.instanceId = gameInstance.id;
+    if (!game.instanceId) {
+      game.instanceId = gameInstance.id;
+    }
     const updatedGame = await this.gamesRepository.save(game);
 
     // Add game started event to history
@@ -368,19 +391,20 @@ export class GamesService {
       throw new ConflictException('Solo se puede reiniciar un juego que ha finalizado');
     }
 
-    // Update game status to stopped and clear instanceId
+    // Create new game instance and assign it to the game
+    const gameInstance = await this.gameManagementService.createGameInstance(gameId);
+
+    // Update game status to stopped and set new instanceId
     game.status = 'stopped';
-    game.instanceId = null;
+    game.instanceId = gameInstance.id;
     const updatedGame = await this.gamesRepository.save(game);
 
     // Add game restarted event to history
-    if (game.instanceId) {
-      await this.gameManagementService.addGameHistory(game.instanceId, 'game_restarted', {
-        gameId,
-        restartedBy: userId,
-        timestamp: new Date(),
-      });
-    }
+    await this.gameManagementService.addGameHistory(gameInstance.id, 'game_restarted', {
+      gameId,
+      restartedBy: userId,
+      timestamp: new Date(),
+    });
 
     return updatedGame;
   }
