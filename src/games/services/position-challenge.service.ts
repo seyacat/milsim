@@ -38,7 +38,7 @@ interface ControlPointAccumulatedPoints {
 
 @Injectable()
 export class PositionChallengeService {
-  private playerPositions = new Map<number, Map<number, PlayerPosition>>(); // gameId -> Map<userId, position>
+  // Removed internal playerPositions map - now using Gateway's positions directly
 
   constructor(
     @InjectRepository(ControlPoint)
@@ -237,62 +237,24 @@ export class PositionChallengeService {
   }
 
   /**
-   * Update player position for position challenge calculations
+   * Get current player positions from Gateway for position challenge calculations
    */
-  updatePlayerPosition(
-    gameId: number,
-    userId: number,
-    lat: number,
-    lng: number,
-    accuracy: number,
-  ): void {
-    if (!this.playerPositions.has(gameId)) {
-      this.playerPositions.set(gameId, new Map<number, PlayerPosition>());
-    }
+  private getCurrentPlayerPositionsFromGateway(gameId: number): Map<number, PlayerPosition> {
+    const gatewayPositions = this.gamesGateway.getCurrentPlayerPositions();
+    const playerPositions = new Map<number, PlayerPosition>();
 
-    const gamePositions = this.playerPositions.get(gameId)!;
-    gamePositions.set(userId, {
-      userId,
-      lat,
-      lng,
-      accuracy,
-      socketId: '', // Not needed for position challenge calculations
+    // Convert Gateway positions to the format expected by Position Challenge Service
+    gatewayPositions.forEach((position, userId) => {
+      playerPositions.set(userId, {
+        userId,
+        lat: position.lat,
+        lng: position.lng,
+        accuracy: position.accuracy,
+        socketId: position.socketId,
+      });
     });
-  }
 
-  /**
-   * Get player positions for a game
-   */
-  private getPlayerPositionsForGame(gameId: number): Map<number, PlayerPosition> {
-    return this.playerPositions.get(gameId) || new Map<number, PlayerPosition>();
-  }
-
-  /**
-   * Start position challenge processing for a game
-   * This should be called when the game starts and player positions are available
-   */
-  startPositionChallengeProcessing(
-    gameId: number,
-    playerPositions: Map<number, PlayerPosition>,
-  ): void {
-    // Initialize player positions for this game
-    if (!this.playerPositions.has(gameId)) {
-      this.playerPositions.set(gameId, new Map<number, PlayerPosition>());
-    }
-
-    // Copy initial positions from gateway
-    const gamePositions = this.playerPositions.get(gameId)!;
-    playerPositions.forEach((position, userId) => {
-      gamePositions.set(userId, position);
-    });
-  }
-
-  /**
-   * Stop position challenge processing for a game
-   */
-  stopPositionChallengeProcessing(gameId: number): void {
-    // Clear player positions for this game
-    this.playerPositions.delete(gameId);
+    return playerPositions;
   }
 
   /**
@@ -301,7 +263,8 @@ export class PositionChallengeService {
    */
   async processPositionChallengeForGame(gameId: number): Promise<void> {
     try {
-      const currentPlayerPositions = this.getPlayerPositionsForGame(gameId);
+      // Get current player positions from the Gateway instead of internal map
+      const currentPlayerPositions = this.getCurrentPlayerPositionsFromGateway(gameId);
 
       if (currentPlayerPositions.size === 0) {
         return;
@@ -313,10 +276,7 @@ export class PositionChallengeService {
       // Create events for Timer Calculation Service
       for (const result of results) {
         if (result.players.length > 0) {
-          for (const player of result.players) {
-          }
           await this.createPositionChallengeEvent(gameId, result);
-        } else {
         }
       }
 
@@ -699,8 +659,7 @@ export class PositionChallengeService {
         return winningTeam;
       } else {
         const currentMaxPoints = Math.max(...Array.from(teamPointsTracker.values()), 0);
-        if (currentMaxPoints > 0) {
-        }
+        // No team has reached threshold yet, continue tracking points
       }
 
       return null;

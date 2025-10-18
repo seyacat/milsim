@@ -1538,19 +1538,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
    */
   async processPositionChallenge(gameId: number): Promise<void> {
     try {
-      // Convert player positions to the expected format
-      const playerPositions = new Map<number, any>();
-      this.playerPositions.forEach((position, userId) => {
-        playerPositions.set(userId, {
-          userId,
-          lat: position.lat,
-          lng: position.lng,
-          accuracy: position.accuracy,
-          socketId: position.socketId,
-        });
-      });
-
-      // Process position challenge for the game
+      // Process position challenge for the game - now the service gets positions directly from Gateway
       await this.positionChallengeService.processPositionChallengeForGame(gameId);
     } catch (error) {
       console.error(
