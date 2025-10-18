@@ -36,8 +36,14 @@ export const PositionChallenge: React.FC<PositionChallengeProps> = ({
         />
         <span style={{ fontSize: '13px' }}>Desafío de Posición</span>
       </label>
-      {showInputs && (
-        <div id={`positionInputs_${controlPoint.id}`} style={{ marginTop: '5px', marginLeft: '20px' }}>
+      <div
+        id={`positionInputs_${controlPoint.id}`}
+        style={{
+          marginTop: '5px',
+          marginLeft: '20px',
+          display: showInputs ? 'block' : 'none'
+        }}
+      >
           <div className="form-group">
             <label className="form-label">Distancia Mínima:</label>
             <select
@@ -67,7 +73,6 @@ export const PositionChallenge: React.FC<PositionChallengeProps> = ({
             </select>
           </div>
         </div>
-      )}
     </div>
   );
 };

@@ -36,20 +36,25 @@ export const CodeChallenge: React.FC<CodeChallengeProps> = ({
         />
         <span style={{ fontSize: '13px' }}>Desafío de Código</span>
       </label>
-      {showInputs && (
-        <div id={`codeInputs_${controlPoint.id}`} style={{ marginTop: '5px', marginLeft: '20px' }}>
-          <div className="form-group">
-            <label className="form-label">Code:</label>
-            <input
-              type="text"
-              id={`controlPointCode_${controlPoint.id}`}
-              defaultValue={controlPoint.code || ''}
-              className="form-input"
-              placeholder="Código para tomar"
-            />
-          </div>
+      <div
+        id={`codeInputs_${controlPoint.id}`}
+        style={{
+          marginTop: '5px',
+          marginLeft: '20px',
+          display: showInputs ? 'block' : 'none'
+        }}
+      >
+        <div className="form-group">
+          <label className="form-label">Code:</label>
+          <input
+            type="text"
+            id={`controlPointCode_${controlPoint.id}`}
+            defaultValue={controlPoint.code || ''}
+            className="form-input"
+            placeholder="Código para tomar"
+          />
         </div>
-      )}
+      </div>
     </div>
   );
 };

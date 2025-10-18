@@ -312,7 +312,7 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
       hasBombChallenge: bombChallengeCheckbox?.checked || false
     };
 
-    // Add position challenge values
+    // Add position challenge values - always read from DOM even if inputs are hidden
     const minDistance = minDistanceSelect?.value || '';
     const minAccuracy = minAccuracySelect?.value || '';
     
@@ -330,7 +330,7 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     (updateData as any).minDistance = minDistance ? parseInt(minDistance) : null;
     (updateData as any).minAccuracy = minAccuracy ? parseInt(minAccuracy) : null;
 
-    // Add code challenge values
+    // Add code challenge values - always read from DOM even if inputs are hidden
     const code = codeInput?.value.trim() || '';
     
     // Validate code challenge if checked
@@ -346,7 +346,7 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     // Always send code value (it will be null if empty)
     (updateData as any).code = code || null;
 
-    // Add bomb challenge values
+    // Add bomb challenge values - always read from DOM even if inputs are hidden
     const bombTime = bombTimeSelect?.value || '';
     const armedCode = armedCodeInput?.value.trim() || '';
     const disarmedCode = disarmedCodeInput?.value.trim() || '';
