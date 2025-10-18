@@ -592,6 +592,15 @@ export class PositionChallengeService {
       if (winningTeam) {
         // Check if the team that reached 60 points already owns the control point
         if (currentControlPoint && currentControlPoint.ownedByTeam === winningTeam) {
+          // Update control point timer to ensure it's running and broadcasting
+          if (currentControlPoint.game?.instanceId) {
+            await this.timerManagementService.updateControlPointTimer(
+              controlPointId,
+              currentControlPoint.game.instanceId,
+              true, // fromPositionChallenge: true
+            );
+          }
+
           // Still broadcast the points update to show the pie chart with 60 points
           const teamPointsSinceReset = await this.calculateTeamPointsSinceReset(
             game.instanceId,
@@ -618,6 +627,15 @@ export class PositionChallengeService {
         });
 
         if (updatedControlPoint) {
+          // Update control point timer with new ownership for position challenge
+          if (updatedControlPoint.game?.instanceId) {
+            await this.timerManagementService.updateControlPointTimer(
+              controlPointId,
+              updatedControlPoint.game.instanceId,
+              true, // fromPositionChallenge: true
+            );
+          }
+
           // Remove sensitive code data before broadcasting to all clients
           const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
 
