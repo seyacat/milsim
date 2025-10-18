@@ -536,11 +536,13 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 data.code,
               );
 
-              // Update control point timer with new ownership
-              if (result.controlPoint.game?.instanceId) {
+              // Update control point timer with new ownership ONLY if it's not from position challenge
+              // Position challenge changes should NOT stop the timer
+              if (result.controlPoint.game?.instanceId && !data.positionChallenge) {
                 await this.timerManagementService.updateControlPointTimer(
                   data.controlPointId,
                   result.controlPoint.game.instanceId,
+                  data.positionChallenge || false, // Pass position challenge flag
                 );
               }
 
@@ -663,10 +665,11 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                   },
                 );
 
-                // Update control point timer with new ownership
+                // Update control point timer with new ownership (owner assignment, not position challenge)
                 await this.timerManagementService.updateControlPointTimer(
                   data.controlPointId,
                   updatedControlPoint.game.instanceId,
+                  false, // Not from position challenge
                 );
               }
 
@@ -1415,9 +1418,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Get control point times for this game
       const controlPointTimes = await this.gamesService.getControlPointTimes(gameId);
 
-      if (controlPointTimes.length > 0) {
-        console.log(`[BROADCAST_TIME_UPDATE] Control point times data:`, controlPointTimes);
-      }
+      
 
       // Broadcast combined time update with control point times
       this.server.to(`game_${gameId}`).emit('timeUpdate', {

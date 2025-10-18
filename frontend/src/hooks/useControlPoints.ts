@@ -81,7 +81,6 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     if (!map) return;
 
     // Log position challenge update
-    console.log(`[POSITION_CHALLENGE] Actualización PIE recibida para punto ${controlPointId}:`, teamPoints);
     
     // Find the control point marker
     const marker = controlPointMarkers.current.get(controlPointId);

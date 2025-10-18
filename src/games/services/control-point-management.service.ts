@@ -191,10 +191,11 @@ export class ControlPointManagementService {
         },
       );
 
-      // Update control point timer with new ownership
+      // Update control point timer with new ownership (owner assignment, not position challenge)
       await this.timerManagementService.updateControlPointTimer(
         id,
         updatedControlPoint.game.instanceId,
+        false, // Not from position challenge
       );
     }
 
@@ -271,10 +272,11 @@ export class ControlPointManagementService {
         },
       );
 
-      // Update control point timer with new ownership
+      // Update control point timer with new ownership (code challenge, not position challenge)
       await this.timerManagementService.updateControlPointTimer(
         controlPointId,
         controlPoint.game.instanceId,
+        false, // Not from position challenge
       );
     }
 

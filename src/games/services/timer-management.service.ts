@@ -323,9 +323,13 @@ export class TimerManagementService {
   }
 
   // Update control point timer when ownership changes
-  async updateControlPointTimer(controlPointId: number, gameInstanceId: number): Promise<void> {
-    // Stop existing timer
-    this.stopControlPointTimer(controlPointId);
+  async updateControlPointTimer(controlPointId: number, gameInstanceId: number, fromPositionChallenge: boolean = false): Promise<void> {
+    // If the change comes from position challenge, DO NOT stop the timer
+    // Position challenge should continue running without interruption
+    if (!fromPositionChallenge) {
+      // Stop existing timer only for non-position-challenge changes
+      this.stopControlPointTimer(controlPointId);
+    }
 
     // Start new timer with updated data
     await this.startControlPointTimer(controlPointId, gameInstanceId);
