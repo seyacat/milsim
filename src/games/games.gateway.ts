@@ -29,9 +29,10 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private connectedUsers = new Map<string, any>(); // socket.id -> user data
   private playerPositions = new Map<
     number,
-    { lat: number; lng: number; accuracy: number; socketId: string }
+    { lat: number; lng: number; accuracy: number; socketId: string; lastUpdate: Date }
   >(); // user.id -> position data
   private gameConnections = new Map<number, Set<string>>(); // gameId -> Set of socket IDs
+  private gameIntervals = new Map<number, NodeJS.Timeout>(); // gameId -> interval ID
 
   constructor(
     @Inject(forwardRef(() => GamesService))
@@ -183,6 +184,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Start position challenge interval if game is running and has position challenges
       if (currentGame.status === 'running') {
         this.startPositionChallengeInterval(gameId);
+        this.startInactivePlayerCheck(gameId);
 
         // Send current position challenge data to the user
         try {
@@ -481,12 +483,13 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         case 'positionUpdate': {
           const user = this.connectedUsers.get(client.id);
           if (user) {
-            // Store the player's position
+            // Store the player's position with timestamp
             this.playerPositions.set(user.id, {
               lat: data.lat,
               lng: data.lng,
               accuracy: data.accuracy,
               socketId: client.id,
+              lastUpdate: new Date(),
             });
 
             // Broadcast position update to all clients in the game
@@ -514,6 +517,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               lng: data.lng,
               accuracy: data.accuracy,
               socketId: client.id,
+              lastUpdate: new Date(),
             });
 
             // Update position challenge service with the new position
@@ -822,6 +826,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 data: { game: startedGame },
                 from: client.id,
               });
+              
+              // Start inactive player checking when game starts
+              this.startInactivePlayerCheck(gameId);
             } catch (error: any) {
               client.emit('gameActionError', {
                 action: 'startGame',
@@ -842,6 +849,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 data: { game: pausedGame },
                 from: client.id,
               });
+              
+              // Stop inactive player checking when game is paused
+              this.stopInactivePlayerCheck(gameId);
             } catch (error: any) {
               client.emit('gameActionError', {
                 action: 'pauseGame',
@@ -862,6 +872,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 data: { game: resumedGame },
                 from: client.id,
               });
+              
+              // Resume inactive player checking when game resumes
+              this.startInactivePlayerCheck(gameId);
             } catch (error: any) {
               client.emit('gameActionError', {
                 action: 'resumeGame',
@@ -882,6 +895,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 data: { game: endedGame },
                 from: client.id,
               });
+              
+              // Stop inactive player checking when game ends
+              this.stopInactivePlayerCheck(gameId);
             } catch (error: any) {
               client.emit('gameActionError', {
                 action: 'endGame',
@@ -1573,5 +1589,58 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
    */
   private stopPositionChallengeInterval(gameId: number): void {
     this.positionChallengeService.stopPositionChallengeProcessing(gameId);
+  }
+
+  /**
+   * Check for inactive players and notify frontend
+   */
+  private checkInactivePlayers(gameId: number): void {
+    const now = new Date();
+    const inactiveThreshold = 20000; // 20 seconds in milliseconds
+
+    this.playerPositions.forEach((position, userId) => {
+      const timeSinceLastUpdate = now.getTime() - position.lastUpdate.getTime();
+      
+      if (timeSinceLastUpdate > inactiveThreshold) {
+        // Player is inactive, notify all clients in the game
+        this.server.to(`game_${gameId}`).emit('gameAction', {
+          action: 'playerInactive',
+          data: {
+            userId: userId,
+            inactiveSince: position.lastUpdate,
+          },
+          from: 'server',
+        });
+
+        // Remove the player's position from tracking
+        this.playerPositions.delete(userId);
+      }
+    });
+  }
+
+  /**
+   * Start inactive player checking interval for a game
+   */
+  private startInactivePlayerCheck(gameId: number): void {
+    // Check for inactive players every 5 seconds
+    const interval = setInterval(() => {
+      this.checkInactivePlayers(gameId);
+    }, 5000);
+
+    // Store the interval ID so we can clear it later
+    if (!this.gameIntervals) {
+      this.gameIntervals = new Map();
+    }
+    this.gameIntervals.set(gameId, interval);
+  }
+
+  /**
+   * Stop inactive player checking for a game
+   */
+  private stopInactivePlayerCheck(gameId: number): void {
+    if (this.gameIntervals && this.gameIntervals.has(gameId)) {
+      clearInterval(this.gameIntervals.get(gameId));
+      this.gameIntervals.delete(gameId);
+    }
   }
 }

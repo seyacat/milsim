@@ -297,16 +297,26 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       }
     };
 
+    // Handle player inactive notifications
+    const handlePlayerInactive = (data: any) => {
+      if (data.action === 'playerInactive') {
+        console.log(`[PLAYER_MARKERS] Player ${data.data.userId} marked as inactive`);
+        removePlayerMarker(data.data.userId);
+      }
+    };
+
     socket.on('gameAction', handlePositionUpdate);
     socket.on('gameAction', handlePlayerTeamUpdated);
     socket.on('gameUpdate', handleGameUpdate);
     socket.on('gameAction', handlePlayerPositionsResponse);
+    socket.on('gameAction', handlePlayerInactive);
 
     return () => {
       socket.off('gameAction', handlePositionUpdate);
       socket.off('gameAction', handlePlayerTeamUpdated);
       socket.off('gameUpdate', handleGameUpdate);
       socket.off('gameAction', handlePlayerPositionsResponse);
+      socket.off('gameAction', handlePlayerInactive);
     };
   }, [socket, currentUser, updatePlayerMarker, updatePlayerMarkerTeam, updatePlayerMarkers]);
 
@@ -314,6 +324,18 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
   useEffect(() => {
     updatePlayerMarkers();
   }, [game, currentUser, updatePlayerMarkers]);
+
+  // Remove player marker from map
+  const removePlayerMarker = useCallback((userId: number) => {
+    if (!map) return;
+    
+    const marker = playerMarkersRef.current.get(userId);
+    if (marker) {
+      map.removeLayer(marker);
+      playerMarkersRef.current.delete(userId);
+      setPlayerMarkers(new Map(playerMarkersRef.current));
+    }
+  }, [map]);
 
   return {
     playerMarkers: playerMarkersRef.current,
@@ -323,6 +345,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     updateUserMarkerTeam,
     updatePlayerMarkerTeam,
     updatePlayerMarkerTeamByUserId,
-    createUserMarker
+    createUserMarker,
+    removePlayerMarker
   };
 };

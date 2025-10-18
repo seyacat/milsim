@@ -256,6 +256,15 @@ export const useGameOwner = (
         }
       })
 
+      // Listen for player inactive notifications
+      socket.on('gameAction', (data: { action: string; data: any }) => {
+        if (data.action === 'playerInactive') {
+          console.log(`[OWNER] Player ${data.data.userId} marked as inactive`);
+          // Remove player marker from map
+          playerMarkersResult.removePlayerMarker(data.data.userId);
+        }
+      })
+
       // Listen for player team updates
       socket.on('gameAction', (data: { action: string; data: any }) => {
         if (data.action === 'playerTeamUpdated') {
