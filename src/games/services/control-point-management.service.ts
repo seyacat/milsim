@@ -112,8 +112,8 @@ export class ControlPointManagementService {
 
     // Track if ownership changed for history logging
     const previousTeam = controlPoint.ownedByTeam;
-    const newTeam = updateData.ownedByTeam;
-    const ownershipChanged = previousTeam !== newTeam;
+    let newTeam = updateData.ownedByTeam;
+    let ownershipChanged = previousTeam !== newTeam;
 
     // Validate control point type
     const validTypes = ['control_point', 'site', 'bomb'];
@@ -146,6 +146,21 @@ export class ControlPointManagementService {
     const controlPointToUpdate = await this.controlPointsRepository.findOne({ where: { id } });
     if (!controlPointToUpdate) {
       throw new NotFoundException('Control point not found');
+    }
+
+    // Check if code challenge is being disabled and control point has a team
+    const isCodeChallengeDisabled =
+      updateData.hasCodeChallenge === false &&
+      controlPointToUpdate.hasCodeChallenge === true;
+    
+    const hasTeam = controlPointToUpdate.ownedByTeam && controlPointToUpdate.ownedByTeam !== 'none';
+    
+    // If code challenge is disabled and control point has a team, automatically remove team ownership
+    if (isCodeChallengeDisabled && hasTeam) {
+      updateData.ownedByTeam = null;
+      // Update ownership tracking for history logging
+      newTeam = null;
+      ownershipChanged = previousTeam !== newTeam;
     }
 
     // Update the entity with new values
