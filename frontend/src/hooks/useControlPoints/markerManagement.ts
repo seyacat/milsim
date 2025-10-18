@@ -1,10 +1,10 @@
-import { ControlPoint } from '../../types';
+import { ControlPoint, Game } from '../../types';
 import * as L from 'leaflet';
 import { getControlPointIcon } from './utils';
 import { createPopupContent } from '../../components/ControlPoints/PopupComponents';
 
 // Create control point marker
-export const createControlPointMarker = (controlPoint: ControlPoint, map: L.Map, isOwner: boolean, isDragModeEnabled: boolean = false): L.Marker | null => {
+export const createControlPointMarker = (controlPoint: ControlPoint, map: L.Map, isOwner: boolean, isDragModeEnabled: boolean = false, game?: Game): L.Marker | null => {
   const { iconColor, iconEmoji } = getControlPointIcon(controlPoint);
 
   const controlPointIcon = L.divIcon({
@@ -176,7 +176,7 @@ export const createControlPointMarker = (controlPoint: ControlPoint, map: L.Map,
         (window as any).disableDragMode();
       }
     }
-  });
+  }, game);
   
   marker.bindPopup(popupContent, {
     closeOnClick: false,

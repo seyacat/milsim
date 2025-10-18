@@ -2,12 +2,13 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { OwnerPopup } from './OwnerPopup';
 import { PlayerPopup } from './PlayerPopup';
-import { ControlPoint } from '../../../types';
+import { ControlPoint, Game } from '../../../types';
 
 interface PopupRendererProps {
   controlPoint: ControlPoint;
   markerId: number;
   isOwner: boolean;
+  game?: Game;
   onUpdate?: (controlPointId: number, markerId: number) => void;
   onDelete?: (controlPointId: number, markerId: number) => void;
   onMove?: (controlPointId: number, markerId: number) => void;
@@ -30,6 +31,7 @@ export const PopupRenderer: React.FC<PopupRendererProps> = ({
   controlPoint,
   markerId,
   isOwner,
+  game,
   onUpdate,
   onDelete,
   onMove,
@@ -52,6 +54,7 @@ export const PopupRenderer: React.FC<PopupRendererProps> = ({
       <OwnerPopup
         controlPoint={controlPoint}
         markerId={markerId}
+        game={game}
         onUpdate={onUpdate || (() => {})}
         onDelete={onDelete || (() => {})}
         onMove={onMove || (() => {})}
@@ -74,7 +77,6 @@ export const PopupRenderer: React.FC<PopupRendererProps> = ({
         onSubmitCode={onSubmitCode || (() => {})}
         onSubmitBombChallenge={onSubmitBombChallenge || (() => {})}
         onSubmitBombDeactivation={onSubmitBombDeactivation || (() => {})}
-        onClose={onClose || (() => {})}
       />
     );
   }
@@ -102,7 +104,8 @@ export const createPopupContent = (
     onSubmitBombChallenge?: (controlPointId: number, armedCode: string) => void;
     onSubmitBombDeactivation?: (controlPointId: number, disarmedCode: string) => void;
     onClose?: () => void;
-  }
+  },
+  game?: Game
 ): HTMLElement => {
   const container = document.createElement('div');
   const root = ReactDOM.createRoot(container);
@@ -112,6 +115,7 @@ export const createPopupContent = (
       controlPoint={controlPoint}
       markerId={markerId}
       isOwner={isOwner}
+      game={game}
       {...callbacks}
     />
   );

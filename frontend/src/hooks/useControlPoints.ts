@@ -436,7 +436,7 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     }
 
     // Create new marker with updated data
-    const newMarker = createControlPointMarker(controlPoint, map, isOwner, isDragModeEnabled);
+    const newMarker = createControlPointMarker(controlPoint, map, isOwner, isDragModeEnabled, game || undefined);
     if (newMarker) {
       controlPointMarkers.current.set(controlPoint.id, newMarker);
     }
@@ -565,7 +565,7 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
 
     // Create new markers
     controlPoints.forEach((controlPoint) => {
-      const marker = createControlPointMarker(controlPoint, map, isOwner, isDragModeEnabled);
+      const marker = createControlPointMarker(controlPoint, map, isOwner, isDragModeEnabled, game || undefined);
       if (marker) {
         controlPointMarkers.current.set(controlPoint.id, marker);
       }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ControlPoint } from '../../../types';
+import { ControlPoint, Game } from '../../../types';
 import { PositionChallenge } from './PositionChallenge';
 import { CodeChallenge } from './CodeChallenge';
 import { BombChallenge } from './BombChallenge';
@@ -7,6 +7,7 @@ import { BombChallenge } from './BombChallenge';
 interface OwnerPopupProps {
   controlPoint: ControlPoint;
   markerId: number;
+  game?: Game;
   onUpdate: (controlPointId: number, markerId: number) => void;
   onDelete: (controlPointId: number, markerId: number) => void;
   onMove: (controlPointId: number, markerId: number) => void;
@@ -25,6 +26,7 @@ interface OwnerPopupProps {
 export const OwnerPopup: React.FC<OwnerPopupProps> = ({
   controlPoint,
   markerId,
+  game,
   onUpdate,
   onDelete,
   onMove,
@@ -39,6 +41,15 @@ export const OwnerPopup: React.FC<OwnerPopupProps> = ({
   onDeactivateBomb
 }) => {
   const hasOtherSite = false; // This would need to be calculated from existing control points
+
+  // Get available teams based on game team count
+  const getAvailableTeams = () => {
+    const teamCount = game?.teamCount || 4; // Default to 4 teams if not specified
+    const allTeams = ['blue', 'red', 'green', 'yellow'] as const;
+    return allTeams.slice(0, teamCount);
+  };
+
+  const availableTeams = getAvailableTeams();
 
   const handleUpdate = () => {
     onUpdate(controlPoint.id, markerId);
@@ -113,35 +124,58 @@ export const OwnerPopup: React.FC<OwnerPopupProps> = ({
         
         <div className="form-group">
           <label className="form-label">Asignar Equipo:</label>
-          <div className="team-buttons" style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
-            <button 
-              onClick={() => handleAssignTeam('blue')} 
-              className="btn btn-blue" 
-              style={{ background: '#2196F3', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '3px', fontSize: '12px' }}
+          <div className="team-buttons" style={{ display: 'flex', gap: '5px', marginTop: '5px', flexWrap: 'wrap' }}>
+            {/* None button to remove team assignment */}
+            <button
+              onClick={() => handleAssignTeam('none')}
+              className="btn btn-none"
+              style={{
+                background: '#9E9E9E',
+                color: 'white',
+                border: 'none',
+                padding: '5px 10px',
+                borderRadius: '3px',
+                fontSize: '12px',
+                opacity: controlPoint.ownedByTeam === 'none' || !controlPoint.ownedByTeam ? 1 : 0.7
+              }}
             >
-              Azul
+              Ninguno
             </button>
-            <button 
-              onClick={() => handleAssignTeam('red')} 
-              className="btn btn-red" 
-              style={{ background: '#F44336', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '3px', fontSize: '12px' }}
-            >
-              Rojo
-            </button>
-            <button 
-              onClick={() => handleAssignTeam('green')} 
-              className="btn btn-green" 
-              style={{ background: '#4CAF50', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '3px', fontSize: '12px' }}
-            >
-              Verde
-            </button>
-            <button 
-              onClick={() => handleAssignTeam('yellow')} 
-              className="btn btn-yellow" 
-              style={{ background: '#FFEB3B', color: 'black', border: 'none', padding: '5px 10px', borderRadius: '3px', fontSize: '12px' }}
-            >
-              Amarillo
-            </button>
+            
+            {/* Dynamic team buttons based on game team count */}
+            {availableTeams.map(team => {
+              const teamColors: Record<string, string> = {
+                'blue': '#2196F3',
+                'red': '#F44336',
+                'green': '#4CAF50',
+                'yellow': '#FFEB3B'
+              };
+              const teamNames: Record<string, string> = {
+                'blue': 'Azul',
+                'red': 'Rojo',
+                'green': 'Verde',
+                'yellow': 'Amarillo'
+              };
+              
+              return (
+                <button
+                  key={team}
+                  onClick={() => handleAssignTeam(team)}
+                  className={`btn btn-${team}`}
+                  style={{
+                    background: teamColors[team],
+                    color: team === 'yellow' ? 'black' : 'white',
+                    border: 'none',
+                    padding: '5px 10px',
+                    borderRadius: '3px',
+                    fontSize: '12px',
+                    opacity: controlPoint.ownedByTeam === team ? 1 : 0.7
+                  }}
+                >
+                  {teamNames[team]}
+                </button>
+              );
+            })}
           </div>
         </div>
         
