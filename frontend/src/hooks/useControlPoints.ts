@@ -4,7 +4,7 @@ import { ControlPoint, Game } from '../types';
 import * as L from 'leaflet';
 import { createControlPointMarker, createPositionCircle } from './useControlPoints/markerManagement';
 import { togglePositionInputs, toggleCodeInputs, toggleBombInputs } from './useControlPoints/utils';
-import { createPositionChallengePieChart } from './useControlPoints/challengeManagement';
+import { createPositionChallengePieChart, cleanControlPointPieCharts } from './useControlPoints/challengeManagement';
 import { setupGlobalPlayerFunctions } from './useControlPoints/websocketHandlers';
 
 interface UseControlPointsProps {
@@ -87,16 +87,9 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     const marker = controlPointMarkers.current.get(controlPointId);
     if (!marker) return;
 
-    // Check if pie chart exists, if not create it
+    // Only update existing pie chart, do not create new ones
     if (!(marker as any).pieElement || !(marker as any).pieSvg) {
-      const controlPoint = controlPoints.find(cp => cp.id === controlPointId);
-      const positionCircle = positionCircles.current.get(controlPointId);
-      
-      if (controlPoint && controlPoint.hasPositionChallenge && controlPoint.minDistance && positionCircle) {
-        createPositionChallengePieChart(marker, controlPoint, positionCircle);
-      } else {
-        return;
-      }
+      return;
     }
 
     // Calculate total points to determine percentages
@@ -421,6 +414,7 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
   const updateSingleControlPointMarker = useCallback((controlPoint: ControlPoint) => {
     if (!map) return;
 
+
     // Find and remove existing marker
     const existingMarker = controlPointMarkers.current.get(controlPoint.id);
     if (existingMarker) {
@@ -577,11 +571,16 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
         controlPointMarkers.current.set(controlPoint.id, marker);
       }
 
-      // Add position circle if position challenge is active
+      // Add position circle and PIE chart if position challenge is active
       if (controlPoint.hasPositionChallenge && controlPoint.minDistance) {
         const circle = createPositionCircle(controlPoint, map);
         if (circle) {
           positionCircles.current.set(controlPoint.id, circle);
+          
+          // Create PIE chart for position challenge
+          if (marker) {
+            createPositionChallengePieChart(marker, controlPoint, circle);
+          }
         }
       }
     });

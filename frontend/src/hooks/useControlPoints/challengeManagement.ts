@@ -67,10 +67,27 @@ export const createPieChartSVG = (teamPoints: Record<string, number>): string =>
   `;
 };
 
+// Clean all pie charts for a specific control point
+export const cleanControlPointPieCharts = (map: L.Map, controlPointId: number) => {
+  // Find all SVG overlay containers with the specific class
+  const pieChartClass = `pie-cp-${controlPointId}`;
+  const containers = map.getPanes()?.overlayPane?.querySelectorAll(`.${pieChartClass}`);
+  
+  if (containers) {
+    containers.forEach(container => {
+      // Remove the container from the DOM
+      container.remove();
+    });
+  }
+};
+
 // Create position challenge pie chart
 export const createPositionChallengePieChart = (marker: L.Marker, controlPoint: ControlPoint, positionCircle: L.Circle) => {
   const map = (marker as any)._map;
   if (!map) return;
+
+  // Clean all existing pie charts for this control point
+  cleanControlPointPieCharts(map, controlPoint.id);
 
   // Remove existing pie chart if it exists
   if ((marker as any).pieSvg) {
@@ -101,7 +118,8 @@ export const createPositionChallengePieChart = (marker: L.Marker, controlPoint: 
   // Create Leaflet SVG overlay that moves with the map
   const svgOverlay = L.svgOverlay(svgElement, bounds, {
     opacity: 0.5,
-    interactive: false
+    interactive: false,
+    className: `pie-cp-${controlPoint.id}`
   }).addTo(map);
   
   // Force the overlay to be on top of other layers
