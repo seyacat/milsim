@@ -229,52 +229,6 @@ const GameResultsDialog: React.FC<GameResultsDialogProps> = ({
                 </div>
               )}
 
-              {/* Position Challenge Statistics */}
-              {results.positionChallengeStats?.controlPoints &&
-               results.positionChallengeStats.controlPoints.length > 0 && (
-                <div className="game-results-section">
-                  <h4 className="game-results-section-title">Puntos de Control por Posición</h4>
-                  <div className="game-results-table-container">
-                    <table className="game-results-table">
-                      <thead>
-                        <tr>
-                          <th>Punto de Control</th>
-                          {results.teams.map(team => (
-                            <th key={team}>
-                              <div className="game-results-team">
-                                <div className={`team-color ${team}`}></div>
-                                {team.toUpperCase()}
-                              </div>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {results.positionChallengeStats.controlPoints.map(cp => (
-                          <tr key={cp.name}>
-                            <td>{cp.name}</td>
-                            {results.teams.map(team => (
-                              <td key={team}>
-                                {(cp.teamPoints?.[team] || 0).toFixed(1)}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                        <tr className="totals-row">
-                          <td><strong>TOTAL</strong></td>
-                          {results.teams.map(team => (
-                            <td key={team}>
-                              <strong>
-                                {(results.positionChallengeStats.teamTotals?.[team] || 0).toFixed(1)}
-                              </strong>
-                            </td>
-                          ))}
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
             </>
           )}
         </div>
