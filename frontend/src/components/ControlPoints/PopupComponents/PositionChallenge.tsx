@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ControlPoint } from '../../../types';
 
 interface PositionChallengeProps {
@@ -12,41 +12,37 @@ export const PositionChallenge: React.FC<PositionChallengeProps> = ({
   onToggle,
   onUpdate
 }) => {
-  const [minDistance, setMinDistance] = useState(controlPoint.minDistance || 25);
-  const [minAccuracy, setMinAccuracy] = useState(controlPoint.minAccuracy || 20);
+  const [showInputs, setShowInputs] = useState(controlPoint.hasPositionChallenge || false);
 
   const handleToggle = () => {
+    setShowInputs(!showInputs);
     onToggle(controlPoint.id);
   };
 
-  const handleDistanceChange = (value: number) => {
-    setMinDistance(value);
-    onUpdate(controlPoint.id, value, minAccuracy);
-  };
-
-  const handleAccuracyChange = (value: number) => {
-    setMinAccuracy(value);
-    onUpdate(controlPoint.id, minDistance, value);
-  };
+  // Update showInputs when controlPoint changes
+  useEffect(() => {
+    setShowInputs(controlPoint.hasPositionChallenge || false);
+  }, [controlPoint.hasPositionChallenge]);
 
   return (
     <div className="challenge-item" style={{ marginBottom: '10px' }}>
       <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-        <input 
-          type="checkbox" 
-          checked={controlPoint.hasPositionChallenge || false}
+        <input
+          type="checkbox"
+          id={`positionChallenge_${controlPoint.id}`}
+          defaultChecked={controlPoint.hasPositionChallenge || false}
           onChange={handleToggle}
           style={{ marginRight: '8px' }}
         />
         <span style={{ fontSize: '13px' }}>Desafío de Posición</span>
       </label>
-      {controlPoint.hasPositionChallenge && (
-        <div style={{ marginTop: '5px', marginLeft: '20px' }}>
+      {showInputs && (
+        <div id={`positionInputs_${controlPoint.id}`} style={{ marginTop: '5px', marginLeft: '20px' }}>
           <div className="form-group">
             <label className="form-label">Distancia Mínima:</label>
-            <select 
-              value={minDistance}
-              onChange={(e) => handleDistanceChange(Number(e.target.value))}
+            <select
+              id={`controlPointMinDistance_${controlPoint.id}`}
+              defaultValue={controlPoint.minDistance || 25}
               className="form-input"
             >
               <option value="5">5m (Muy cercano)</option>
@@ -58,9 +54,9 @@ export const PositionChallenge: React.FC<PositionChallengeProps> = ({
           </div>
           <div className="form-group">
             <label className="form-label">Accuracy Mínimo:</label>
-            <select 
-              value={minAccuracy}
-              onChange={(e) => handleAccuracyChange(Number(e.target.value))}
+            <select
+              id={`controlPointMinAccuracy_${controlPoint.id}`}
+              defaultValue={controlPoint.minAccuracy || 20}
               className="form-input"
             >
               <option value="5">5m (Alta precisión)</option>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ControlPoint } from '../../../types';
 
 interface BombChallengeProps {
@@ -16,28 +16,17 @@ export const BombChallenge: React.FC<BombChallengeProps> = ({
   onActivate,
   onDeactivate
 }) => {
-  const [bombTime, setBombTime] = useState(controlPoint.bombTime || 180);
-  const [armedCode, setArmedCode] = useState(controlPoint.armedCode || '');
-  const [disarmedCode, setDisarmedCode] = useState(controlPoint.disarmedCode || '');
+  const [showInputs, setShowInputs] = useState(controlPoint.hasBombChallenge || false);
 
   const handleToggle = () => {
+    setShowInputs(!showInputs);
     onToggle(controlPoint.id);
   };
 
-  const handleBombTimeChange = (value: number) => {
-    setBombTime(value);
-    onUpdate(controlPoint.id, value, armedCode, disarmedCode);
-  };
-
-  const handleArmedCodeChange = (value: string) => {
-    setArmedCode(value);
-    onUpdate(controlPoint.id, bombTime, value, disarmedCode);
-  };
-
-  const handleDisarmedCodeChange = (value: string) => {
-    setDisarmedCode(value);
-    onUpdate(controlPoint.id, bombTime, armedCode, value);
-  };
+  // Update showInputs when controlPoint changes
+  useEffect(() => {
+    setShowInputs(controlPoint.hasBombChallenge || false);
+  }, [controlPoint.hasBombChallenge]);
 
   const handleActivate = () => {
     onActivate(controlPoint.id);
@@ -50,21 +39,22 @@ export const BombChallenge: React.FC<BombChallengeProps> = ({
   return (
     <div className="challenge-item" style={{ marginBottom: '10px' }}>
       <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-        <input 
-          type="checkbox" 
-          checked={controlPoint.hasBombChallenge || false}
+        <input
+          type="checkbox"
+          id={`bombChallenge_${controlPoint.id}`}
+          defaultChecked={controlPoint.hasBombChallenge || false}
           onChange={handleToggle}
           style={{ marginRight: '8px' }}
         />
         <span style={{ fontSize: '13px' }}>Desafío de Bomba</span>
       </label>
-      {controlPoint.hasBombChallenge && (
-        <div style={{ marginTop: '5px', marginLeft: '20px' }}>
+      {showInputs && (
+        <div id={`bombInputs_${controlPoint.id}`} style={{ marginTop: '5px', marginLeft: '20px' }}>
           <div className="form-group">
             <label className="form-label">Bomb Time:</label>
-            <select 
-              value={bombTime}
-              onChange={(e) => handleBombTimeChange(Number(e.target.value))}
+            <select
+              id={`controlPointBombTime_${controlPoint.id}`}
+              defaultValue={controlPoint.bombTime || 180}
               className="form-input"
             >
               <option value="60">1 minuto</option>
@@ -77,36 +67,36 @@ export const BombChallenge: React.FC<BombChallengeProps> = ({
           </div>
           <div className="form-group">
             <label className="form-label">Armed Code:</label>
-            <input 
-              type="text" 
-              value={armedCode}
-              onChange={(e) => handleArmedCodeChange(e.target.value)}
-              className="form-input" 
+            <input
+              type="text"
+              id={`controlPointArmedCode_${controlPoint.id}`}
+              defaultValue={controlPoint.armedCode || ''}
+              className="form-input"
               placeholder="Código para armar"
             />
           </div>
           <div className="form-group">
             <label className="form-label">Disarmed Code:</label>
-            <input 
-              type="text" 
-              value={disarmedCode}
-              onChange={(e) => handleDisarmedCodeChange(e.target.value)}
-              className="form-input" 
+            <input
+              type="text"
+              id={`controlPointDisarmedCode_${controlPoint.id}`}
+              defaultValue={controlPoint.disarmedCode || ''}
+              className="form-input"
               placeholder="Código para desarmar"
             />
           </div>
           {controlPoint.hasBombChallenge && (
             <div style={{ marginTop: '10px', display: 'flex', gap: '5px' }}>
-              <button 
-                onClick={handleActivate} 
-                className="btn btn-danger" 
+              <button
+                onClick={handleActivate}
+                className="btn btn-danger"
                 style={{ background: '#F44336', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '3px', fontSize: '12px' }}
               >
                 Activar Bomba
               </button>
-              <button 
-                onClick={handleDeactivate} 
-                className="btn btn-success" 
+              <button
+                onClick={handleDeactivate}
+                className="btn btn-success"
                 style={{ background: '#4CAF50', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '3px', fontSize: '12px' }}
               >
                 Desactivar

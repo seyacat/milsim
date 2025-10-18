@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ControlPoint } from '../../../types';
 import { PositionChallenge } from './PositionChallenge';
 import { CodeChallenge } from './CodeChallenge';
@@ -38,11 +38,7 @@ export const OwnerPopup: React.FC<OwnerPopupProps> = ({
   onActivateBomb,
   onDeactivateBomb
 }) => {
-  const [type, setType] = useState<'site' | 'control_point'>(
-    controlPoint.type === 'site' ? 'site' : 'control_point'
-  );
-  const [name, setName] = useState(controlPoint.name);
-  const [hasOtherSite] = useState(false); // This would need to be calculated from existing control points
+  const hasOtherSite = false; // This would need to be calculated from existing control points
 
   const handleUpdate = () => {
     onUpdate(controlPoint.id, markerId);
@@ -67,16 +63,16 @@ export const OwnerPopup: React.FC<OwnerPopupProps> = ({
         
         {controlPoint.ownedByTeam && (
           <>
-            <div 
-              className="ownership-status" 
-              style={{ 
-                background: controlPoint.ownedByTeam, 
-                color: 'white', 
-                padding: '5px', 
-                borderRadius: '4px', 
-                marginBottom: '10px', 
-                textAlign: 'center', 
-                fontWeight: 'bold' 
+            <div
+              className="ownership-status"
+              style={{
+                background: controlPoint.ownedByTeam,
+                color: 'white',
+                padding: '5px',
+                borderRadius: '4px',
+                marginBottom: '10px',
+                textAlign: 'center',
+                fontWeight: 'bold'
               }}
             >
               Controlado por: {controlPoint.ownedByTeam.toUpperCase()}
@@ -89,9 +85,9 @@ export const OwnerPopup: React.FC<OwnerPopupProps> = ({
         
         <div className="form-group">
           <label className="form-label">Tipo:</label>
-          <select 
-            value={type}
-            onChange={(e) => setType(e.target.value as 'site' | 'control_point')}
+          <select
+            id={`controlPointType_${controlPoint.id}`}
+            defaultValue={controlPoint.type}
             className="form-input"
           >
             {hasOtherSite && controlPoint.type !== 'site' ? (
@@ -107,10 +103,10 @@ export const OwnerPopup: React.FC<OwnerPopupProps> = ({
         
         <div className="form-group">
           <label className="form-label">Nombre:</label>
-          <input 
-            type="text" 
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+          <input
+            type="text"
+            id={`controlPointEditName_${controlPoint.id}`}
+            defaultValue={controlPoint.name}
             className="form-input"
           />
         </div>
