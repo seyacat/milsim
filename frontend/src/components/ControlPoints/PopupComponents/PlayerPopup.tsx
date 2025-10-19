@@ -43,8 +43,8 @@ export const PlayerPopup: React.FC<PlayerPopupProps> = ({
     setDisarmedCodeInput('');
   };
 
-  // Check if bomb is active
-  const isBombActive = false; // This should come from bomb timers state
+  // Check if bomb is active using bombStatus from control point
+  const isBombActive = controlPoint.bombStatus?.isActive || false;
 
   return (
     <div className="control-point-popup player">
@@ -88,18 +88,43 @@ export const PlayerPopup: React.FC<PlayerPopupProps> = ({
       
       {canTakePoint && controlPoint.hasBombChallenge && (
         <div className="bomb-challenge-section" style={{ marginTop: '10px' }}>
+          {/* Bomb status indicator */}
+          <div style={{
+            marginBottom: '10px',
+            padding: '8px',
+            borderRadius: '4px',
+            background: isBombActive ? '#FFEBEE' : '#E8F5E8',
+            border: `1px solid ${isBombActive ? '#F44336' : '#4CAF50'}`,
+            color: isBombActive ? '#C62828' : '#2E7D32',
+            fontWeight: 'bold',
+            fontSize: '14px'
+          }}>
+            {isBombActive ? (
+              <>
+                💣 Bomba ACTIVA
+                {controlPoint.bombStatus?.remainingTime && (
+                  <div style={{ fontSize: '12px', fontWeight: 'normal', marginTop: '4px' }}>
+                    Tiempo restante: {Math.floor(controlPoint.bombStatus.remainingTime / 60)}:{(controlPoint.bombStatus.remainingTime % 60).toString().padStart(2, '0')}
+                  </div>
+                )}
+              </>
+            ) : (
+              '💣 Bomba INACTIVA'
+            )}
+          </div>
+
           {isBombActive ? (
             <>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Código Desactivación:</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={disarmedCodeInput}
                 onChange={(e) => setDisarmedCodeInput(e.target.value)}
                 style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
                 placeholder="Ingresa el código de desactivación"
               />
-              <button 
-                className="submit-bomb-button" 
+              <button
+                className="submit-bomb-button"
                 onClick={handleSubmitBombDeactivation}
                 style={{ width: '100%', marginTop: '8px', padding: '8px', background: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
               >
@@ -109,15 +134,15 @@ export const PlayerPopup: React.FC<PlayerPopupProps> = ({
           ) : (
             <>
               <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Código Armado:</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={armedCodeInput}
                 onChange={(e) => setArmedCodeInput(e.target.value)}
                 style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
                 placeholder="Ingresa el código armado"
               />
-              <button 
-                className="submit-bomb-button" 
+              <button
+                className="submit-bomb-button"
                 onClick={handleSubmitBombChallenge}
                 style={{ width: '100%', marginTop: '8px', padding: '8px', background: '#FF5722', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
               >

@@ -62,10 +62,41 @@ export class GameManagementService {
       game.players = [];
     }
 
+    // Calculate bomb status for control points with bomb challenge
+    if (game.controlPoints && game.instanceId) {
+      for (const controlPoint of game.controlPoints) {
+        if (controlPoint.hasBombChallenge) {
+          try {
+            const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(
+              controlPoint.id,
+              game.instanceId,
+            );
+            if (bombTimeData) {
+              // Add bombStatus to control point
+              (controlPoint as any).bombStatus = {
+                isActive: bombTimeData.isActive,
+                remainingTime: bombTimeData.remainingTime,
+                totalTime: bombTimeData.totalTime,
+                activatedByUserId: bombTimeData.activatedByUserId,
+                activatedByUserName: bombTimeData.activatedByUserName,
+                activatedByTeam: bombTimeData.activatedByTeam,
+              };
+            }
+          } catch (error) {
+            console.error(`Error calculating bomb time for control point ${controlPoint.id}:`, error);
+          }
+        }
+      }
+    }
+
     // Remove sensitive code data from control points only for non-owner users
     if (game.controlPoints && (!userId || game.owner.id !== userId)) {
       game.controlPoints = game.controlPoints.map(cp => {
         const { code, armedCode, disarmedCode, ...safeControlPoint } = cp;
+        // Preserve bombStatus even for non-owner users
+        if ((cp as any).bombStatus) {
+          (safeControlPoint as any).bombStatus = (cp as any).bombStatus;
+        }
         return safeControlPoint as ControlPoint;
       });
     }

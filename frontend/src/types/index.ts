@@ -48,6 +48,7 @@ export interface ControlPoint {
   hasPositionChallenge: boolean;
   hasCodeChallenge: boolean;
   bombTimer?: BombTimer;
+  bombStatus?: BombStatus;
   currentTeam?: TeamColor;
   currentHoldTime?: number;
   displayTime?: string;
@@ -65,6 +66,15 @@ export interface BombTimer {
   remainingTime: number;
   activatedBy?: User;
   activatedAt?: string;
+}
+
+export interface BombStatus {
+  isActive: boolean;
+  remainingTime: number;
+  totalTime: number;
+  activatedByUserId?: number;
+  activatedByUserName?: string;
+  activatedByTeam?: string;
 }
 
 // Position Challenge types
