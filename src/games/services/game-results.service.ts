@@ -250,13 +250,14 @@ export class GameResultsService {
       }
     >();
 
-    // Initialize all players with 0 captures, 0 bomb deactivations, and 0 bomb explosions
+    // Initialize ALL players with 0 captures, 0 bomb deactivations, and 0 bomb explosions
+    // Include players even if they have no team assigned (team === 'none')
     for (const player of gamePlayers) {
-      if (player.user && player.team && player.team !== 'none') {
+      if (player.user) {
         playerStats.set(player.user.id, {
           userId: player.user.id,
           userName: player.user.name,
-          team: player.team,
+          team: player.team || 'none',
           codeCaptureCount: 0,
           positionCaptureCount: 0,
           bombDeactivationCount: 0,

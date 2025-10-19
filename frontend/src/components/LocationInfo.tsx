@@ -84,11 +84,6 @@ const LocationInfo: React.FC<LocationInfoProps> = ({
           </div>
         )}
         
-        {!isOwner && currentGame.status === 'stopped' && (
-          <button className="btn btn-secondary team-selection-btn">
-            Seleccionar Equipo
-          </button>
-        )}
       </div>
     </div>
   )

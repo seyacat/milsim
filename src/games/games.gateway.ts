@@ -758,15 +758,18 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           if (user) {
             try {
               let playerId = data.playerId;
+              const targetUserId = data.userId || user.id;
 
-              // If playerId is not provided but userId is, find the player by userId
-              if (!playerId && data.userId) {
+              // If playerId is not provided, find or create the player by userId
+              if (!playerId) {
                 const players = await this.gamesService.getPlayersByGame(gameId);
-                const player = players.find(p => p.user.id === data.userId);
+                const player = players.find(p => p.user.id === targetUserId);
                 if (player) {
                   playerId = player.id;
                 } else {
-                  throw new Error('No se pudo encontrar el jugador para el usuario');
+                  // Player not found in current game instance, create a new player entry
+                  const newPlayer = await this.gamesService.joinGame(gameId, targetUserId);
+                  playerId = newPlayer.id;
                 }
               }
 

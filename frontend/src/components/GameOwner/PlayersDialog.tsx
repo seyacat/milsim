@@ -32,10 +32,12 @@ const PlayersDialog: React.FC<PlayersDialogProps> = ({
 
   // Update players data when props change
   useEffect(() => {
-    if (players && players.length > 0) {
-      setPlayersData([...players].sort((a, b) => 
+    if (players) {
+      setPlayersData([...players].sort((a, b) =>
         (a.user?.name || '').localeCompare(b.user?.name || '')
       ))
+    } else {
+      setPlayersData([])
     }
   }, [players])
 
