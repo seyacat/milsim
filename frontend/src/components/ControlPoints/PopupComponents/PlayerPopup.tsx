@@ -102,11 +102,6 @@ export const PlayerPopup: React.FC<PlayerPopupProps> = ({
             {isBombActive ? (
               <>
                 💣 Bomba ACTIVA
-                {controlPoint.bombStatus?.remainingTime && (
-                  <div style={{ fontSize: '12px', fontWeight: 'normal', marginTop: '4px' }}>
-                    Tiempo restante: {Math.floor(controlPoint.bombStatus.remainingTime / 60)}:{(controlPoint.bombStatus.remainingTime % 60).toString().padStart(2, '0')}
-                  </div>
-                )}
               </>
             ) : (
               '💣 Bomba INACTIVA'

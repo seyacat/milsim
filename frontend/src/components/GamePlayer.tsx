@@ -111,6 +111,7 @@ const GamePlayer: React.FC = () => {
         centerOnSite={centerOnSite}
         openResultsDialog={openGameResultsDialog}
         showTeamSelection={showTeamSelectionManual}
+        gameStatus={currentGame?.status}
       />
       {/* Game Results Dialog */}
       <GameResultsDialog
