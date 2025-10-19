@@ -260,12 +260,17 @@ export class ControlPointManagementService {
       }
     }
 
+    // Check if ownership is actually changing (ignore if same team tries to take it again)
+    const previousTeam = controlPoint.ownedByTeam;
+    const newTeam = player.team;
+    const ownershipChanged = previousTeam !== newTeam;
+
     // Update control point ownership
     controlPoint.ownedByTeam = player.team;
     const updatedControlPoint = await this.controlPointsRepository.save(controlPoint);
 
-    // Add to game history
-    if (controlPoint.game.instanceId) {
+    // Add to game history only if ownership actually changed
+    if (ownershipChanged && controlPoint.game.instanceId) {
       await this.gameManagementService.addGameHistory(
         controlPoint.game.instanceId,
         'control_point_taken',

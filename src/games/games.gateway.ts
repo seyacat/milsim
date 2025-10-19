@@ -708,7 +708,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 );
               }
 
-              // Update control point team
+              // Update control point team - the updateControlPoint method already handles ownership change checks
               const updatedControlPoint = await this.gamesService.updateControlPoint(
                 data.controlPointId,
                 {
@@ -716,28 +716,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 },
               );
 
-              // Add game history event for team assignment by owner
-              if (updatedControlPoint.game?.instanceId) {
-                await this.gamesService.addGameHistory(
-                  updatedControlPoint.game.instanceId,
-                  'control_point_taken',
-                  {
-                    controlPointId: data.controlPointId,
-                    controlPointName: updatedControlPoint.name,
-                    team: data.team === 'none' ? null : data.team,
-                    userId: user.id,
-                    assignedByOwner: true,
-                    timestamp: new Date(),
-                  },
-                );
-
-                // Update control point timer with new ownership (owner assignment, not position challenge)
-                await this.timerManagementService.updateControlPointTimer(
-                  data.controlPointId,
-                  updatedControlPoint.game.instanceId,
-                  false, // Not from position challenge
-                );
-              }
+              // Note: The updateControlPoint method in control-point-management.service.ts
+              // already handles ownership change checks and history logging internally
+              // so we don't need to duplicate that logic here
 
               // Get the complete updated game with all control points AFTER the update
               const updatedGame = await this.gamesService.findOne(gameId, user.id);
