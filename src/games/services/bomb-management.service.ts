@@ -34,7 +34,10 @@ export class BombManagementService {
     private gamesGateway: GamesGateway,
     private timerCalculationService: TimerCalculationService,
     private gameManagementService: GameManagementService,
-  ) {}
+  ) {
+    // Restart bomb timers for active bombs when service initializes
+    this.restartActiveBombTimers();
+  }
 
   // Activate bomb with armed code
   async activateBomb(
@@ -647,5 +650,38 @@ export class BombManagementService {
     }
 
     return activeBombTimers;
+  }
+
+  // Restart bomb timers for all active bombs across all running games
+  private async restartActiveBombTimers(): Promise<void> {
+    try {
+      // Get all running games
+      const runningGames = await this.gamesRepository.find({
+        where: { status: 'running' },
+        relations: ['controlPoints'],
+      });
+
+      for (const game of runningGames) {
+        if (game.instanceId && game.controlPoints) {
+          for (const controlPoint of game.controlPoints) {
+            if (controlPoint.hasBombChallenge && controlPoint.bombTime) {
+              // Check if bomb is currently active
+              const bombTimeData = await this.timerCalculationService.calculateRemainingBombTime(
+                controlPoint.id,
+                game.instanceId,
+              );
+
+              if (bombTimeData && bombTimeData.isActive && bombTimeData.remainingTime > 0) {
+                // Restart the bomb timer broadcast for this active bomb
+                console.log(`Restarting bomb timer for control point ${controlPoint.id} in game ${game.id}`);
+                this.startBombTimeBroadcast(controlPoint.id, game.instanceId);
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error restarting active bomb timers:', error);
+    }
   }
 }

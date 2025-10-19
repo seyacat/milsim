@@ -47,7 +47,10 @@ export class TimerManagementService {
     @Inject(forwardRef(() => GamesGateway))
     private gamesGateway: GamesGateway,
     private timerCalculationService: TimerCalculationService,
-  ) {}
+  ) {
+    // Restart timers for running games when service initializes
+    this.restartRunningGameTimers();
+  }
 
   // Game Timer management methods
   async startGameTimer(
@@ -506,6 +509,33 @@ export class TimerManagementService {
     if (interval) {
       clearInterval(interval);
       this.positionChallengeTimers.delete(gameId);
+    }
+  }
+
+  // Restart timers for all running games
+  private async restartRunningGameTimers(): Promise<void> {
+    try {
+      // Get all running games
+      const runningGames = await this.gamesRepository.find({
+        where: { status: 'running' },
+        relations: ['controlPoints'],
+      });
+
+      for (const game of runningGames) {
+        if (game.instanceId) {
+          // Restart game timer
+          console.log(`Restarting game timer for game ${game.id}`);
+          await this.startGameTimer(game.id, game.totalTime, game.instanceId);
+
+          // Restart control point timers
+          if (game.controlPoints && game.controlPoints.length > 0) {
+            console.log(`Restarting control point timers for game ${game.id}`);
+            await this.startAllControlPointTimers(game.id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error restarting running game timers:', error);
     }
   }
 }
