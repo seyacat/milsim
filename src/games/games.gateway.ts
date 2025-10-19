@@ -329,10 +329,32 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
             // Remove sensitive code data before broadcasting to all clients
             const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
 
+            // Calculate bomb status for this control point
+            let bombStatus: any = null;
+            if (updatedControlPoint.hasBombChallenge && updatedControlPoint.game?.instanceId) {
+              const bombTimeData = await this.gamesService.getBombTime(updatedControlPoint.id);
+              if (bombTimeData) {
+                bombStatus = {
+                  isActive: bombTimeData.isActive,
+                  remainingTime: bombTimeData.remainingTime,
+                  totalTime: bombTimeData.totalTime,
+                  activatedByUserId: bombTimeData.activatedByUserId,
+                  activatedByUserName: bombTimeData.activatedByUserName,
+                  activatedByTeam: bombTimeData.activatedByTeam,
+                };
+              }
+            }
+
+            // Create enhanced control point data with bomb status
+            const enhancedControlPoint = {
+              ...safeControlPoint,
+              bombStatus,
+            };
+
             // Broadcast the updated control point to all clients (without codes)
             this.server.to(`game_${gameId}`).emit('gameAction', {
               action: 'controlPointUpdated',
-              data: safeControlPoint,
+              data: enhancedControlPoint,
               from: client.id,
             });
 
@@ -408,10 +430,32 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
             // Remove sensitive code data before broadcasting to all clients
             const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
 
+            // Calculate bomb status for this control point
+            let bombStatus: any = null;
+            if (updatedControlPoint.hasBombChallenge && updatedControlPoint.game?.instanceId) {
+              const bombTimeData = await this.gamesService.getBombTime(updatedControlPoint.id);
+              if (bombTimeData) {
+                bombStatus = {
+                  isActive: bombTimeData.isActive,
+                  remainingTime: bombTimeData.remainingTime,
+                  totalTime: bombTimeData.totalTime,
+                  activatedByUserId: bombTimeData.activatedByUserId,
+                  activatedByUserName: bombTimeData.activatedByUserName,
+                  activatedByTeam: bombTimeData.activatedByTeam,
+                };
+              }
+            }
+
+            // Create enhanced control point data with bomb status
+            const enhancedControlPoint = {
+              ...safeControlPoint,
+              bombStatus,
+            };
+
             // Broadcast the updated control point to all clients (without codes)
             this.server.to(`game_${gameId}`).emit('gameAction', {
               action: 'controlPointUpdated',
-              data: safeControlPoint,
+              data: enhancedControlPoint,
               from: client.id,
             });
 
@@ -549,6 +593,28 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               // Remove sensitive code data before broadcasting to all clients
               const { code, armedCode, disarmedCode, ...safeControlPoint } = result.controlPoint;
 
+              // Calculate bomb status for this control point
+              let bombStatus: any = null;
+              if (result.controlPoint.hasBombChallenge && result.controlPoint.game?.instanceId) {
+                const bombTimeData = await this.gamesService.getBombTime(result.controlPoint.id);
+                if (bombTimeData) {
+                  bombStatus = {
+                    isActive: bombTimeData.isActive,
+                    remainingTime: bombTimeData.remainingTime,
+                    totalTime: bombTimeData.totalTime,
+                    activatedByUserId: bombTimeData.activatedByUserId,
+                    activatedByUserName: bombTimeData.activatedByUserName,
+                    activatedByTeam: bombTimeData.activatedByTeam,
+                  };
+                }
+              }
+
+              // Create enhanced control point data with bomb status
+              const enhancedControlPoint = {
+                ...safeControlPoint,
+                bombStatus,
+              };
+
               // Get the complete updated game with all control points AFTER the update
               const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
@@ -560,7 +626,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                   userId: user.id,
                   userName: user.name,
                   team: result.controlPoint.ownedByTeam,
-                  controlPoint: safeControlPoint,
+                  controlPoint: enhancedControlPoint,
                 },
                 from: client.id,
               });
@@ -679,13 +745,35 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               // Remove sensitive code data before broadcasting to all clients
               const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
 
+              // Calculate bomb status for this control point
+              let bombStatus: any = null;
+              if (updatedControlPoint.hasBombChallenge && updatedControlPoint.game?.instanceId) {
+                const bombTimeData = await this.gamesService.getBombTime(updatedControlPoint.id);
+                if (bombTimeData) {
+                  bombStatus = {
+                    isActive: bombTimeData.isActive,
+                    remainingTime: bombTimeData.remainingTime,
+                    totalTime: bombTimeData.totalTime,
+                    activatedByUserId: bombTimeData.activatedByUserId,
+                    activatedByUserName: bombTimeData.activatedByUserName,
+                    activatedByTeam: bombTimeData.activatedByTeam,
+                  };
+                }
+              }
+
+              // Create enhanced control point data with bomb status
+              const enhancedControlPoint = {
+                ...safeControlPoint,
+                bombStatus,
+              };
+
               // Broadcast the updated control point to all clients (without codes)
               this.server.to(`game_${gameId}`).emit('gameAction', {
                 action: 'controlPointTeamAssigned',
                 data: {
                   controlPointId: data.controlPointId,
                   team: data.team,
-                  controlPoint: safeControlPoint,
+                  controlPoint: enhancedControlPoint,
                 },
                 from: client.id,
               });
@@ -1187,6 +1275,28 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               // Remove sensitive code data before broadcasting to all clients
               const { code, armedCode, disarmedCode, ...safeControlPoint } = result.controlPoint;
 
+              // Calculate bomb status for this control point
+              let bombStatus: any = null;
+              if (result.controlPoint.hasBombChallenge && result.controlPoint.game?.instanceId) {
+                const bombTimeData = await this.gamesService.getBombTime(result.controlPoint.id);
+                if (bombTimeData) {
+                  bombStatus = {
+                    isActive: bombTimeData.isActive,
+                    remainingTime: bombTimeData.remainingTime,
+                    totalTime: bombTimeData.totalTime,
+                    activatedByUserId: bombTimeData.activatedByUserId,
+                    activatedByUserName: bombTimeData.activatedByUserName,
+                    activatedByTeam: bombTimeData.activatedByTeam,
+                  };
+                }
+              }
+
+              // Create enhanced control point data with bomb status
+              const enhancedControlPoint = {
+                ...safeControlPoint,
+                bombStatus,
+              };
+
               // Get the complete updated game with all control points AFTER the update
               const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
@@ -1197,7 +1307,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                   controlPointId: data.controlPointId,
                   userId: user.id,
                   userName: user.name,
-                  controlPoint: safeControlPoint,
+                  controlPoint: enhancedControlPoint,
                   activatedByOwner: true,
                 },
                 from: client.id,
@@ -1252,6 +1362,28 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               // Remove sensitive code data before broadcasting to all clients
               const { code, armedCode, disarmedCode, ...safeControlPoint } = result.controlPoint;
 
+              // Calculate bomb status for this control point
+              let bombStatus: any = null;
+              if (result.controlPoint.hasBombChallenge && result.controlPoint.game?.instanceId) {
+                const bombTimeData = await this.gamesService.getBombTime(result.controlPoint.id);
+                if (bombTimeData) {
+                  bombStatus = {
+                    isActive: bombTimeData.isActive,
+                    remainingTime: bombTimeData.remainingTime,
+                    totalTime: bombTimeData.totalTime,
+                    activatedByUserId: bombTimeData.activatedByUserId,
+                    activatedByUserName: bombTimeData.activatedByUserName,
+                    activatedByTeam: bombTimeData.activatedByTeam,
+                  };
+                }
+              }
+
+              // Create enhanced control point data with bomb status
+              const enhancedControlPoint = {
+                ...safeControlPoint,
+                bombStatus,
+              };
+
               // Get the complete updated game with all control points AFTER the update
               const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
@@ -1262,7 +1394,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                   controlPointId: data.controlPointId,
                   userId: user.id,
                   userName: user.name,
-                  controlPoint: safeControlPoint,
+                  controlPoint: enhancedControlPoint,
                   deactivatedByOwner: true,
                 },
                 from: client.id,
