@@ -647,17 +647,18 @@ export class PositionChallengeService {
             );
           }
 
-          // Use normalized broadcast function for control point taken event
-          await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
+          // Send control point taken event for position challenge
+          this.broadcastUtilitiesHandler.broadcastGameAction(
             gameId,
-            updatedControlPoint,
             'controlPointTaken',
             {
               controlPointId,
               team: winningTeam,
+              controlPoint: updatedControlPoint,
               positionChallenge: true, // Mark as position challenge control change
             },
             this.gamesGateway.server,
+            'server',
           );
 
           // Control point ownership already updated via controlPointTaken event above

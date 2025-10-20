@@ -33,13 +33,13 @@ export class ControlPointActionHandler {
       type: data.type,
     });
 
-    // Use normalized broadcast function for all clients (without codes)
-    await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
+    // Send the control point data to all clients (without codes)
+    this.broadcastUtilitiesHandler.broadcastGameAction(
       gameId,
-      newControlPoint,
       'controlPointCreated',
-      {},
+      { controlPoint: newControlPoint },
       server,
+      client.id,
     );
 
     // Send the full control point data (with codes) only to the owner
@@ -87,13 +87,13 @@ export class ControlPointActionHandler {
       // Get the complete updated game with all control points AFTER the update
       const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-      // Use normalized broadcast function for all clients (without codes)
-      await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
+      // Send the control point data to all clients (without codes)
+      this.broadcastUtilitiesHandler.broadcastGameAction(
         gameId,
-        updatedControlPoint,
         'controlPointUpdated',
-        {},
+        { controlPoint: updatedControlPoint },
         server,
+        client.id,
       );
 
       // Send the full control point data (with codes) only to the owner
@@ -132,13 +132,13 @@ export class ControlPointActionHandler {
       // Get the complete updated game with all control points AFTER the update
       const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-      // Use normalized broadcast function for all clients (without codes)
-      await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
+      // Send the control point data to all clients (without codes)
+      this.broadcastUtilitiesHandler.broadcastGameAction(
         gameId,
-        updatedControlPoint,
         'controlPointUpdated',
-        {},
+        { controlPoint: updatedControlPoint },
         server,
+        client.id,
       );
 
       // Send the full control point data (with codes) only to the owner
@@ -201,18 +201,19 @@ export class ControlPointActionHandler {
           );
         }
 
-        // Use normalized broadcast function for all clients (without codes)
-        await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
+        // Send the control point data to all clients (without codes)
+        this.broadcastUtilitiesHandler.broadcastGameAction(
           gameId,
-          result.controlPoint,
           'controlPointTaken',
           {
             controlPointId: data.controlPointId,
             userId: user.id,
             userName: user.name,
             team: result.controlPoint.ownedByTeam,
+            controlPoint: result.controlPoint,
           },
           server,
+          client.id,
         );
 
         // Send the full control point data (with codes) only to the owner
@@ -274,16 +275,17 @@ export class ControlPointActionHandler {
         // Get the complete updated game with all control points AFTER the update
         const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-        // Use normalized broadcast function for all clients (without codes)
-        await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
+        // Send the control point data to all clients (without codes)
+        this.broadcastUtilitiesHandler.broadcastGameAction(
           gameId,
-          updatedControlPoint,
           'controlPointTeamAssigned',
           {
             controlPointId: data.controlPointId,
             team: data.team,
+            controlPoint: updatedControlPoint,
           },
           server,
+          client.id,
         );
 
         // Send the full control point data (with codes) only to the owner using normalized function
