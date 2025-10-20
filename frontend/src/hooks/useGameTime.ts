@@ -79,6 +79,7 @@ export const useGameTime = (currentGame: Game | null, socket: Socket | null): Us
       console.error('[GAME_TIME] ERROR: Invalid playedTime received from server:', timeData.playedTime);
       console.error('[GAME_TIME] Full timeData object:', timeData);
       // Don't hide the error - let it show as NaN:NaN so we can debug
+      return;
     }
 
     // Calculate elapsed time since last server update
@@ -163,12 +164,6 @@ export const useGameTime = (currentGame: Game | null, socket: Socket | null): Us
     };
   }, [socket]);
 
-  // Request game time when game is loaded
-  useEffect(() => {
-    if (socket && currentGame) {
-      socket.emit('getGameTime', { gameId: currentGame.id });
-    }
-  }, [socket, currentGame]);
 
   // Clean up timer on unmount
   useEffect(() => {

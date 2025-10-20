@@ -248,6 +248,17 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         message: 'Successfully joined game',
         user: { id: user.id, name: user.name },
       });
+
+      // Send initial time data when user joins the game
+      const timeData = await this.gamesService.getGameTime(gameId);
+      const controlPointTimes = await this.gamesService.getControlPointTimes(gameId);
+
+      if (timeData) {
+        client.emit('gameTime', {
+          ...timeData,
+          controlPointTimes,
+        });
+      }
     } catch (error: any) {
       console.error('[JOIN_GAME_WS] Error joining game:', error);
       console.error('[JOIN_GAME_WS] Error details:', error.message, error.stack);

@@ -395,10 +395,6 @@ export const useGamePlayer = (
         memoizedAddToast({ message: `Error: ${data.error}`, type: 'error' })
       })
 
-      // Listen for game time errors
-      socket.on('gameTimeError', (data: { message: string }) => {
-        console.error('[GAME_PLAYER] ERROR: Failed to get game time:', data.message)
-      })
 
       // Listen for connection errors
       socket.on('connect_error', (error: Error) => {

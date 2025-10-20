@@ -249,10 +249,6 @@ export const useGameOwner = (
         memoizedAddToast({ message: `Error: ${data.error}`, type: 'error' })
       })
 
-      // Listen for game time errors
-      socket.on('gameTimeError', (data: { message: string }) => {
-        console.error('[GAME_OWNER] ERROR: Failed to get game time:', data.message)
-      })
   
       // Listen for player position updates
       socket.on('gameAction', (data: { action: string; data: any }) => {
