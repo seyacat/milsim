@@ -2,14 +2,19 @@ import { Socket } from 'socket.io';
 import { GamesService } from '../games.service';
 import { PositionChallengeService } from '../services/position-challenge.service';
 import { TimerManagementService } from '../services/timer-management.service';
+import { BroadcastUtilitiesHandler } from './broadcast-utilities.handler';
 import { ConflictException } from '@nestjs/common';
 
 export class ControlPointActionHandler {
+  private broadcastUtilitiesHandler: BroadcastUtilitiesHandler;
+
   constructor(
     private readonly gamesService: GamesService,
     private readonly positionChallengeService: PositionChallengeService,
     private readonly timerManagementService: TimerManagementService,
-  ) {}
+  ) {
+    this.broadcastUtilitiesHandler = new BroadcastUtilitiesHandler(gamesService);
+  }
 
   async handleCreateControlPoint(
     client: Socket,
@@ -28,15 +33,14 @@ export class ControlPointActionHandler {
       type: data.type,
     });
 
-    // Remove sensitive code data before broadcasting to all clients
-    const { code, armedCode, disarmedCode, ...safeControlPoint } = newControlPoint;
-
-    // Broadcast the new control point to all clients (without codes)
-    server.to(`game_${gameId}`).emit('gameAction', {
-      action: 'controlPointCreated',
-      data: safeControlPoint,
-      from: client.id,
-    });
+    // Use normalized broadcast function for all clients (without codes)
+    await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
+      gameId,
+      newControlPoint,
+      'controlPointCreated',
+      {},
+      server,
+    );
 
     // Send the full control point data (with codes) only to the owner
     if (user) {
@@ -81,42 +85,14 @@ export class ControlPointActionHandler {
       // Get the complete updated game with all control points AFTER the update
       const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-      // Remove sensitive code data before broadcasting to all clients
-      const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
-
-      // Calculate bomb status for this control point
-      let bombStatus: any = null;
-      if (updatedControlPoint.hasBombChallenge && updatedControlPoint.game?.instanceId) {
-        const bombTimeData = await this.gamesService.getBombTime(updatedControlPoint.id);
-        if (bombTimeData) {
-          bombStatus = {
-            isActive: bombTimeData.isActive,
-            remainingTime: bombTimeData.remainingTime,
-            totalTime: bombTimeData.totalTime,
-            activatedByUserId: bombTimeData.activatedByUserId,
-            activatedByUserName: bombTimeData.activatedByUserName,
-            activatedByTeam: bombTimeData.activatedByTeam,
-          };
-        }
-      }
-
-      // Create enhanced control point data with bomb status
-      const enhancedControlPoint = {
-        ...safeControlPoint,
-        bombStatus,
-      };
-
-      // Broadcast the updated control point to all clients (without codes)
-      server.to(`game_${gameId}`).emit('gameAction', {
-        action: 'controlPointUpdated',
-        data: enhancedControlPoint,
-        from: client.id,
-      });
-
-      // If this control point has position challenge, send current position challenge data
-      if (safeControlPoint.hasPositionChallenge) {
-        await this.sendPositionChallengeUpdate(gameId, safeControlPoint.id, server);
-      }
+      // Use normalized broadcast function for all clients (without codes)
+      await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
+        gameId,
+        updatedControlPoint,
+        'controlPointUpdated',
+        {},
+        server,
+      );
 
       // Send the full control point data (with codes) only to the owner
       if (user) {
@@ -128,11 +104,6 @@ export class ControlPointActionHandler {
             from: client.id,
           });
         }
-      }
-
-      // Send position challenge data ONLY for the control point that was updated
-      if (safeControlPoint.hasPositionChallenge) {
-        await this.sendPositionChallengeUpdate(gameId, safeControlPoint.id, server);
       }
     }
   }
@@ -157,42 +128,14 @@ export class ControlPointActionHandler {
       // Get the complete updated game with all control points AFTER the update
       const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-      // Remove sensitive code data before broadcasting to all clients
-      const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
-
-      // Calculate bomb status for this control point
-      let bombStatus: any = null;
-      if (updatedControlPoint.hasBombChallenge && updatedControlPoint.game?.instanceId) {
-        const bombTimeData = await this.gamesService.getBombTime(updatedControlPoint.id);
-        if (bombTimeData) {
-          bombStatus = {
-            isActive: bombTimeData.isActive,
-            remainingTime: bombTimeData.remainingTime,
-            totalTime: bombTimeData.totalTime,
-            activatedByUserId: bombTimeData.activatedByUserId,
-            activatedByUserName: bombTimeData.activatedByUserName,
-            activatedByTeam: bombTimeData.activatedByTeam,
-          };
-        }
-      }
-
-      // Create enhanced control point data with bomb status
-      const enhancedControlPoint = {
-        ...safeControlPoint,
-        bombStatus,
-      };
-
-      // Broadcast the updated control point to all clients (without codes)
-      server.to(`game_${gameId}`).emit('gameAction', {
-        action: 'controlPointUpdated',
-        data: enhancedControlPoint,
-        from: client.id,
-      });
-
-      // If this control point has position challenge, send current position challenge data
-      if (safeControlPoint.hasPositionChallenge) {
-        await this.sendPositionChallengeUpdate(gameId, safeControlPoint.id, server);
-      }
+      // Use normalized broadcast function for all clients (without codes)
+      await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
+        gameId,
+        updatedControlPoint,
+        'controlPointUpdated',
+        {},
+        server,
+      );
 
       // Send the full control point data (with codes) only to the owner
       if (user) {
@@ -204,11 +147,6 @@ export class ControlPointActionHandler {
             from: client.id,
           });
         }
-      }
-
-      // Send position challenge data ONLY for the control point that was updated
-      if (safeControlPoint.hasPositionChallenge) {
-        await this.sendPositionChallengeUpdate(gameId, safeControlPoint.id, server);
       }
     }
   }
@@ -255,51 +193,19 @@ export class ControlPointActionHandler {
           );
         }
 
-        // Remove sensitive code data before broadcasting to all clients
-        const { code, armedCode, disarmedCode, ...safeControlPoint } = result.controlPoint;
-
-        // Calculate bomb status for this control point
-        let bombStatus: any = null;
-        if (result.controlPoint.hasBombChallenge && result.controlPoint.game?.instanceId) {
-          const bombTimeData = await this.gamesService.getBombTime(result.controlPoint.id);
-          if (bombTimeData) {
-            bombStatus = {
-              isActive: bombTimeData.isActive,
-              remainingTime: bombTimeData.remainingTime,
-              totalTime: bombTimeData.totalTime,
-              activatedByUserId: bombTimeData.activatedByUserId,
-              activatedByUserName: bombTimeData.activatedByUserName,
-              activatedByTeam: bombTimeData.activatedByTeam,
-            };
-          }
-        }
-
-        // Create enhanced control point data with bomb status
-        const enhancedControlPoint = {
-          ...safeControlPoint,
-          bombStatus,
-        };
-
-        // Get the complete updated game with all control points AFTER the update
-        const updatedGame = await this.gamesService.findOne(gameId, user.id);
-
-        // Broadcast the updated control point to all clients (without codes)
-        server.to(`game_${gameId}`).emit('gameAction', {
-          action: 'controlPointTaken',
-          data: {
+        // Use normalized broadcast function for all clients (without codes)
+        await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
+          gameId,
+          result.controlPoint,
+          'controlPointTaken',
+          {
             controlPointId: data.controlPointId,
             userId: user.id,
             userName: user.name,
             team: result.controlPoint.ownedByTeam,
-            controlPoint: enhancedControlPoint,
           },
-          from: client.id,
-        });
-
-        // If this control point has position challenge, send current position challenge data
-        if (safeControlPoint.hasPositionChallenge) {
-          await this.sendPositionChallengeUpdate(gameId, safeControlPoint.id, server);
-        }
+          server,
+        );
 
         // Send the full control point data (with codes) only to the owner
         const game = await this.gamesService.findOne(gameId, user.id);
@@ -315,11 +221,6 @@ export class ControlPointActionHandler {
             },
             from: client.id,
           });
-        }
-
-        // Send position challenge data ONLY for the control point that was updated
-        if (safeControlPoint.hasPositionChallenge) {
-          await this.sendPositionChallengeUpdate(gameId, safeControlPoint.id, server);
         }
       } catch (error: any) {
         client.emit('gameActionError', {
@@ -363,46 +264,17 @@ export class ControlPointActionHandler {
         // Get the complete updated game with all control points AFTER the update
         const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-        // Remove sensitive code data before broadcasting to all clients
-        const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
-
-        // Calculate bomb status for this control point
-        let bombStatus: any = null;
-        if (updatedControlPoint.hasBombChallenge && updatedControlPoint.game?.instanceId) {
-          const bombTimeData = await this.gamesService.getBombTime(updatedControlPoint.id);
-          if (bombTimeData) {
-            bombStatus = {
-              isActive: bombTimeData.isActive,
-              remainingTime: bombTimeData.remainingTime,
-              totalTime: bombTimeData.totalTime,
-              activatedByUserId: bombTimeData.activatedByUserId,
-              activatedByUserName: bombTimeData.activatedByUserName,
-              activatedByTeam: bombTimeData.activatedByTeam,
-            };
-          }
-        }
-
-        // Create enhanced control point data with bomb status
-        const enhancedControlPoint = {
-          ...safeControlPoint,
-          bombStatus,
-        };
-
-        // Broadcast the updated control point to all clients (without codes)
-        server.to(`game_${gameId}`).emit('gameAction', {
-          action: 'controlPointTeamAssigned',
-          data: {
+        // Use normalized broadcast function for all clients (without codes)
+        await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
+          gameId,
+          updatedControlPoint,
+          'controlPointTeamAssigned',
+          {
             controlPointId: data.controlPointId,
             team: data.team,
-            controlPoint: enhancedControlPoint,
           },
-          from: client.id,
-        });
-
-        // If this control point has position challenge, send current position challenge data
-        if (safeControlPoint.hasPositionChallenge) {
-          await this.sendPositionChallengeUpdate(gameId, safeControlPoint.id, server);
-        }
+          server,
+        );
 
         // Send the full control point data (with codes) only to the owner
         client.emit('gameAction', {
@@ -414,11 +286,6 @@ export class ControlPointActionHandler {
           },
           from: client.id,
         });
-
-        // Send position challenge data ONLY for the control point that was updated
-        if (safeControlPoint.hasPositionChallenge) {
-          await this.sendPositionChallengeUpdate(gameId, safeControlPoint.id, server);
-        }
       } catch (error: any) {
         client.emit('gameActionError', {
           action: 'assignControlPointTeam',

@@ -5,6 +5,7 @@ import { GamesService } from '../games.service';
 import { GamesGateway } from '../games.gateway';
 import { TimerCalculationService } from './timer-calculation.service';
 import { TimerManagementService } from './timer-management.service';
+import { BroadcastUtilitiesHandler } from '../handlers/broadcast-utilities.handler';
 import { ControlPoint } from '../entities/control-point.entity';
 import { Game } from '../entities/game.entity';
 import { Player } from '../entities/player.entity';
@@ -39,6 +40,7 @@ interface ControlPointAccumulatedPoints {
 @Injectable()
 export class PositionChallengeService {
   // Removed internal playerPositions map - now using Gateway's positions directly
+  private broadcastUtilitiesHandler: BroadcastUtilitiesHandler;
 
   constructor(
     @InjectRepository(ControlPoint)
@@ -53,7 +55,9 @@ export class PositionChallengeService {
     private gamesGateway: GamesGateway,
     private timerCalculationService: TimerCalculationService,
     private timerManagementService: TimerManagementService,
-  ) {}
+  ) {
+    this.broadcastUtilitiesHandler = new BroadcastUtilitiesHandler(gamesService);
+  }
 
   /**
    * Calculate distance between two coordinates using Haversine formula
@@ -643,28 +647,28 @@ export class PositionChallengeService {
             );
           }
 
-          // Remove sensitive code data before broadcasting to all clients
-          const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
-
-          // Broadcast control point taken event to refresh UI and show toast
-          this.gamesGateway.server.to(`game_${gameId}`).emit('gameAction', {
-            action: 'controlPointTaken',
-            data: {
+          // Use normalized broadcast function for control point taken event
+          await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
+            gameId,
+            updatedControlPoint,
+            'controlPointTaken',
+            {
               controlPointId,
               team: winningTeam,
-              controlPoint: safeControlPoint,
               positionChallenge: true, // Mark as position challenge control change
             },
-            from: 'system',
-          });
+            this.gamesGateway.server,
+          );
 
           // Also broadcast a controlPointUpdated event to ensure the control point markers are refreshed
           // This ensures the marker colors update immediately
-          this.gamesGateway.server.to(`game_${gameId}`).emit('gameAction', {
-            action: 'controlPointUpdated',
-            data: safeControlPoint,
-            from: 'system',
-          });
+          await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
+            gameId,
+            updatedControlPoint,
+            'controlPointUpdated',
+            {},
+            this.gamesGateway.server,
+          );
         }
 
         // Create control change event using control_point_taken (same as code challenge)

@@ -3,6 +3,75 @@ import { GamesService } from '../games.service';
 export class BroadcastUtilitiesHandler {
   constructor(private readonly gamesService: GamesService) {}
 
+  /**
+   * Normalized function to broadcast control point updates with complete information
+   */
+  async broadcastControlPointUpdate(
+    gameId: number,
+    controlPoint: any,
+    action: string,
+    additionalData: any = {},
+    server: any,
+  ) {
+    try {
+      // Remove sensitive code data for non-owner clients
+      const { code, armedCode, disarmedCode, ...safeControlPoint } = controlPoint;
+
+      // Calculate bomb status for this control point
+      let bombStatus: any = null;
+      if (controlPoint.hasBombChallenge && controlPoint.game?.instanceId) {
+        const bombTimeData = await this.gamesService.getBombTime(controlPoint.id);
+        if (bombTimeData) {
+          bombStatus = {
+            isActive: bombTimeData.isActive,
+            remainingTime: bombTimeData.remainingTime,
+            totalTime: bombTimeData.totalTime,
+            activatedByUserId: bombTimeData.activatedByUserId,
+            activatedByUserName: bombTimeData.activatedByUserName,
+            activatedByTeam: bombTimeData.activatedByTeam,
+          };
+        }
+      }
+
+      // Create enhanced control point data with bomb status
+      const enhancedControlPoint = {
+        ...safeControlPoint,
+        bombStatus,
+      };
+
+      // Broadcast to all clients (without codes)
+      const broadcastData = {
+        action,
+        data: {
+          ...additionalData,
+          controlPoint: enhancedControlPoint,
+        },
+        from: 'server',
+      };
+
+      server.to(`game_${gameId}`).emit('gameAction', broadcastData);
+
+      // If this control point has position challenge, send current position challenge data
+      if (safeControlPoint.hasPositionChallenge) {
+        await this.sendPositionChallengeUpdate(gameId, safeControlPoint.id, server);
+      }
+
+      return enhancedControlPoint;
+    } catch (error) {
+      console.error(`[BROADCAST_CONTROL_POINT_UPDATE] Error broadcasting control point update:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send position challenge update for a specific control point
+   */
+  private sendPositionChallengeUpdate(gameId: number, controlPointId: number, server: any) {
+    // This method would need access to positionChallengeService
+    // For now, we'll leave this as a placeholder that can be implemented later
+    // The actual implementation should be in ControlPointActionHandler
+  }
+
   // Method to broadcast game updates to all connected clients in a game
   broadcastGameUpdate(gameId: number, game: any, server: any) {
     server.to(`game_${gameId}`).emit('gameUpdate', {
