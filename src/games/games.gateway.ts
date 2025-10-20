@@ -56,6 +56,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private initializeHandlers() {
+    // Initialize BroadcastUtilitiesHandler first since other handlers depend on it
+    this.broadcastUtilitiesHandler = new BroadcastUtilitiesHandler(this.gamesService);
+    
     this.controlPointActionHandler = new ControlPointActionHandler(
       this.gamesService,
       this.positionChallengeService,
@@ -64,10 +67,13 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.gameStateHandler = new GameStateHandler(
       this.gamesService,
       this.positionChallengeService,
+      this.broadcastUtilitiesHandler,
     );
     this.bombChallengeHandler = new BombChallengeHandler(this.gamesService);
-    this.playerPositionHandler = new PlayerPositionHandler(this.gamesService);
-    this.broadcastUtilitiesHandler = new BroadcastUtilitiesHandler(this.gamesService);
+    this.playerPositionHandler = new PlayerPositionHandler(
+      this.gamesService,
+      this.broadcastUtilitiesHandler,
+    );
   }
 
   async handleConnection(client: Socket) {
@@ -201,11 +207,13 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         });
 
         if (positions.length > 0) {
-          client.emit('gameAction', {
-            action: 'playerPositionsResponse',
-            data: { positions },
-            from: 'server',
-          });
+          this.broadcastUtilitiesHandler.broadcastGameAction(
+            gameId,
+            'playerPositionsResponse',
+            { positions },
+            this.server,
+            'server',
+          );
         }
       }
 
@@ -221,10 +229,12 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
           // Send position challenge data for each control point
           for (const [controlPointId, teamPoints] of currentPositionChallengeData.entries()) {
-            client.emit('positionChallengeUpdate', {
+            this.broadcastUtilitiesHandler.broadcastPositionChallengeUpdate(
+              gameId,
               controlPointId,
               teamPoints,
-            });
+              this.server,
+            );
           }
         } catch (error) {
           console.error(
@@ -431,12 +441,14 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           break;
 
         default:
-          // For other actions, just broadcast as before
-          this.server.to(`game_${gameId}`).emit('gameAction', {
+          // For other actions, use normalized broadcast function
+          this.broadcastUtilitiesHandler.broadcastGameAction(
+            gameId,
             action,
             data,
-            from: client.id,
-          });
+            this.server,
+            client.id,
+          );
       }
     } catch (error: any) {
       // Send error back to the client that initiated the action

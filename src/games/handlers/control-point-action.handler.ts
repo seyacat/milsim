@@ -46,11 +46,13 @@ export class ControlPointActionHandler {
     if (user) {
       const game = await this.gamesService.findOne(gameId, user.id);
       if (game.owner && game.owner.id === user.id) {
-        client.emit('gameAction', {
-          action: 'controlPointCreated',
-          data: newControlPoint, // Full data with codes
-          from: client.id,
-        });
+        this.broadcastUtilitiesHandler.broadcastGameAction(
+          gameId,
+          'controlPointCreated',
+          { controlPoint: newControlPoint }, // Full data with codes
+          server,
+          client.id,
+        );
       }
     }
   }
@@ -98,11 +100,13 @@ export class ControlPointActionHandler {
       if (user) {
         const game = await this.gamesService.findOne(gameId, user.id);
         if (game.owner && game.owner.id === user.id) {
-          client.emit('gameAction', {
-            action: 'controlPointUpdated',
-            data: updatedControlPoint, // Full data with codes
-            from: client.id,
-          });
+          this.broadcastUtilitiesHandler.broadcastGameAction(
+            gameId,
+            'controlPointUpdated',
+            { controlPoint: updatedControlPoint }, // Full data with codes
+            server,
+            client.id,
+          );
         }
       }
     }
@@ -141,11 +145,13 @@ export class ControlPointActionHandler {
       if (user) {
         const game = await this.gamesService.findOne(gameId, user.id);
         if (game.owner && game.owner.id === user.id) {
-          client.emit('gameAction', {
-            action: 'controlPointUpdated',
-            data: updatedControlPoint, // Full data with codes
-            from: client.id,
-          });
+          this.broadcastUtilitiesHandler.broadcastGameAction(
+            gameId,
+            'controlPointUpdated',
+            { controlPoint: updatedControlPoint }, // Full data with codes
+            server,
+            client.id,
+          );
         }
       }
     }
@@ -159,12 +165,14 @@ export class ControlPointActionHandler {
   ) {
     await this.gamesService.deleteControlPoint(data.controlPointId);
 
-    // Broadcast the deletion to all clients
-    server.to(`game_${gameId}`).emit('gameAction', {
-      action: 'controlPointDeleted',
-      data: { controlPointId: data.controlPointId },
-      from: client.id,
-    });
+    // Broadcast the deletion to all clients using normalized function
+    this.broadcastUtilitiesHandler.broadcastGameAction(
+      gameId,
+      'controlPointDeleted',
+      { controlPointId: data.controlPointId },
+      server,
+      client.id,
+    );
   }
 
   async handleTakeControlPoint(
@@ -210,17 +218,19 @@ export class ControlPointActionHandler {
         // Send the full control point data (with codes) only to the owner
         const game = await this.gamesService.findOne(gameId, user.id);
         if (game.owner && game.owner.id === user.id) {
-          client.emit('gameAction', {
-            action: 'controlPointTaken',
-            data: {
+          this.broadcastUtilitiesHandler.broadcastGameAction(
+            gameId,
+            'controlPointTaken',
+            {
               controlPointId: data.controlPointId,
               userId: user.id,
               userName: user.name,
               team: result.controlPoint.ownedByTeam,
               controlPoint: result.controlPoint, // Full data with codes
             },
-            from: client.id,
-          });
+            server,
+            client.id,
+          );
         }
       } catch (error: any) {
         client.emit('gameActionError', {
@@ -276,16 +286,18 @@ export class ControlPointActionHandler {
           server,
         );
 
-        // Send the full control point data (with codes) only to the owner
-        client.emit('gameAction', {
-          action: 'controlPointTeamAssigned',
-          data: {
+        // Send the full control point data (with codes) only to the owner using normalized function
+        this.broadcastUtilitiesHandler.broadcastGameAction(
+          gameId,
+          'controlPointTeamAssigned',
+          {
             controlPointId: data.controlPointId,
             team: data.team,
             controlPoint: updatedControlPoint, // Full data with codes
           },
-          from: client.id,
-        });
+          server,
+          client.id,
+        );
       } catch (error: any) {
         client.emit('gameActionError', {
           action: 'assignControlPointTeam',
@@ -301,10 +313,12 @@ export class ControlPointActionHandler {
         await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
       const teamPoints = currentPositionChallengeData.get(controlPointId);
       if (teamPoints) {
-        server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
+        this.broadcastUtilitiesHandler.broadcastPositionChallengeUpdate(
+          gameId,
           controlPointId,
           teamPoints,
-        });
+          server,
+        );
       }
     } catch (error) {
       console.error(

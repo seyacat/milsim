@@ -30,16 +30,18 @@ export class BombChallengeHandler {
         // Get the complete updated game with all control points AFTER the update
         const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-        // Broadcast bomb activated action to all clients in the game room
-        server.to(`game_${gameId}`).emit('gameAction', {
-          action: 'bombActivated',
-          data: {
+        // Broadcast bomb activated action to all clients in the game room using normalized function
+        this.broadcastUtilitiesHandler.broadcastGameAction(
+          gameId,
+          'bombActivated',
+          {
             controlPointId: data.controlPointId,
             userId: user.id,
             userName: user.name,
           },
-          from: client.id,
-        });
+          server,
+          client.id,
+        );
 
         // Use normalized broadcast function for control point updated event
         await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
@@ -53,23 +55,27 @@ export class BombChallengeHandler {
         // Send the full control point data (with codes) only to the owner
         const game = await this.gamesService.findOne(gameId, user.id);
         if (game.owner && game.owner.id === user.id) {
-          client.emit('gameAction', {
-            action: 'bombActivated',
-            data: {
+          this.broadcastUtilitiesHandler.broadcastGameAction(
+            gameId,
+            'bombActivated',
+            {
               controlPointId: data.controlPointId,
               userId: user.id,
               userName: user.name,
               controlPoint: result.controlPoint, // Full data with codes
             },
-            from: client.id,
-          });
+            server,
+            client.id,
+          );
 
-          // Send full control point update to owner
-          client.emit('gameAction', {
-            action: 'controlPointUpdated',
-            data: result.controlPoint, // Full data with codes
-            from: client.id,
-          });
+          // Send full control point update to owner using normalized function
+          this.broadcastUtilitiesHandler.broadcastGameAction(
+            gameId,
+            'controlPointUpdated',
+            { controlPoint: result.controlPoint }, // Full data with codes
+            server,
+            client.id,
+          );
         }
 
       } catch (error: any) {
@@ -101,16 +107,18 @@ export class BombChallengeHandler {
         // Get the complete updated game with all control points AFTER the update
         const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-        // Broadcast bomb deactivated action to all clients in the game room
-        server.to(`game_${gameId}`).emit('gameAction', {
-          action: 'bombDeactivated',
-          data: {
+        // Broadcast bomb deactivated action to all clients in the game room using normalized function
+        this.broadcastUtilitiesHandler.broadcastGameAction(
+          gameId,
+          'bombDeactivated',
+          {
             controlPointId: data.controlPointId,
             userId: user.id,
             userName: user.name,
           },
-          from: client.id,
-        });
+          server,
+          client.id,
+        );
 
         // Use normalized broadcast function for control point updated event
         await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
@@ -124,23 +132,27 @@ export class BombChallengeHandler {
         // Send the full control point data (with codes) only to the owner
         const game = await this.gamesService.findOne(gameId, user.id);
         if (game.owner && game.owner.id === user.id) {
-          client.emit('gameAction', {
-            action: 'bombDeactivated',
-            data: {
+          this.broadcastUtilitiesHandler.broadcastGameAction(
+            gameId,
+            'bombDeactivated',
+            {
               controlPointId: data.controlPointId,
               userId: user.id,
               userName: user.name,
               controlPoint: result.controlPoint, // Full data with codes
             },
-            from: client.id,
-          });
+            server,
+            client.id,
+          );
 
-          // Send full control point update to owner
-          client.emit('gameAction', {
-            action: 'controlPointUpdated',
-            data: result.controlPoint, // Full data with codes
-            from: client.id,
-          });
+          // Send full control point update to owner using normalized function
+          this.broadcastUtilitiesHandler.broadcastGameAction(
+            gameId,
+            'controlPointUpdated',
+            { controlPoint: result.controlPoint }, // Full data with codes
+            server,
+            client.id,
+          );
         }
 
       } catch (error: any) {
@@ -179,17 +191,19 @@ export class BombChallengeHandler {
         // Get the complete updated game with all control points AFTER the update
         const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-        // Broadcast bomb activated action to all clients in the game room
-        server.to(`game_${gameId}`).emit('gameAction', {
-          action: 'bombActivated',
-          data: {
+        // Broadcast bomb activated action to all clients in the game room using normalized function
+        this.broadcastUtilitiesHandler.broadcastGameAction(
+          gameId,
+          'bombActivated',
+          {
             controlPointId: data.controlPointId,
             userId: user.id,
             userName: user.name,
             activatedByOwner: true,
           },
-          from: client.id,
-        });
+          server,
+          client.id,
+        );
 
         // Use normalized broadcast function for control point updated event
         await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
@@ -200,25 +214,29 @@ export class BombChallengeHandler {
           server,
         );
 
-        // Send the full control point data (with codes) only to the owner
-        client.emit('gameAction', {
-          action: 'bombActivated',
-          data: {
+        // Send the full control point data (with codes) only to the owner using normalized function
+        this.broadcastUtilitiesHandler.broadcastGameAction(
+          gameId,
+          'bombActivated',
+          {
             controlPointId: data.controlPointId,
             userId: user.id,
             userName: user.name,
             controlPoint: result.controlPoint, // Full data with codes
             activatedByOwner: true,
           },
-          from: client.id,
-        });
+          server,
+          client.id,
+        );
 
-        // Send full control point update to owner
-        client.emit('gameAction', {
-          action: 'controlPointUpdated',
-          data: result.controlPoint, // Full data with codes
-          from: client.id,
-        });
+        // Send full control point update to owner using normalized function
+        this.broadcastUtilitiesHandler.broadcastGameAction(
+          gameId,
+          'controlPointUpdated',
+          { controlPoint: result.controlPoint }, // Full data with codes
+          server,
+          client.id,
+        );
 
       } catch (error: any) {
         client.emit('gameActionError', {
@@ -256,17 +274,19 @@ export class BombChallengeHandler {
         // Get the complete updated game with all control points AFTER the update
         const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-        // Broadcast bomb deactivated action to all clients in the game room
-        server.to(`game_${gameId}`).emit('gameAction', {
-          action: 'bombDeactivated',
-          data: {
+        // Broadcast bomb deactivated action to all clients in the game room using normalized function
+        this.broadcastUtilitiesHandler.broadcastGameAction(
+          gameId,
+          'bombDeactivated',
+          {
             controlPointId: data.controlPointId,
             userId: user.id,
             userName: user.name,
             deactivatedByOwner: true,
           },
-          from: client.id,
-        });
+          server,
+          client.id,
+        );
 
         // Use normalized broadcast function for control point updated event
         await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
@@ -277,25 +297,29 @@ export class BombChallengeHandler {
           server,
         );
 
-        // Send the full control point data (with codes) only to the owner
-        client.emit('gameAction', {
-          action: 'bombDeactivated',
-          data: {
+        // Send the full control point data (with codes) only to the owner using normalized function
+        this.broadcastUtilitiesHandler.broadcastGameAction(
+          gameId,
+          'bombDeactivated',
+          {
             controlPointId: data.controlPointId,
             userId: user.id,
             userName: user.name,
             controlPoint: result.controlPoint, // Full data with codes
             deactivatedByOwner: true,
           },
-          from: client.id,
-        });
+          server,
+          client.id,
+        );
 
-        // Send full control point update to owner
-        client.emit('gameAction', {
-          action: 'controlPointUpdated',
-          data: result.controlPoint, // Full data with codes
-          from: client.id,
-        });
+        // Send full control point update to owner using normalized function
+        this.broadcastUtilitiesHandler.broadcastGameAction(
+          gameId,
+          'controlPointUpdated',
+          { controlPoint: result.controlPoint }, // Full data with codes
+          server,
+          client.id,
+        );
 
       } catch (error: any) {
         client.emit('gameActionError', {

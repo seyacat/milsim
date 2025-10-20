@@ -1,11 +1,13 @@
 import { Socket } from 'socket.io';
 import { GamesService } from '../games.service';
 import { PositionChallengeService } from '../services/position-challenge.service';
+import { BroadcastUtilitiesHandler } from './broadcast-utilities.handler';
 
 export class GameStateHandler {
   constructor(
     private readonly gamesService: GamesService,
     private readonly positionChallengeService: PositionChallengeService,
+    private readonly broadcastUtilities: BroadcastUtilitiesHandler,
   ) {}
 
   async handleUpdatePlayerTeam(
@@ -36,17 +38,19 @@ export class GameStateHandler {
 
         const updatedPlayer = await this.gamesService.updatePlayerTeam(playerId, data.team);
 
-        // Broadcast the team update to all clients
-        server.to(`game_${gameId}`).emit('gameAction', {
-          action: 'playerTeamUpdated',
-          data: {
+        // Broadcast the team update to all clients using normalized function
+        this.broadcastUtilities.broadcastGameAction(
+          gameId,
+          'playerTeamUpdated',
+          {
             playerId: playerId,
             userId: updatedPlayer.user.id,
             userName: updatedPlayer.user.name,
             team: data.team,
           },
-          from: client.id,
-        });
+          server,
+          client.id,
+        );
 
         // Recalculate and broadcast position challenge data for all control points
         // This ensures the pie charts and scores update immediately when teams change
@@ -72,11 +76,13 @@ export class GameStateHandler {
     if (user) {
       try {
         const startedGame = await this.gamesService.startGame(gameId, user.id);
-        server.to(`game_${gameId}`).emit('gameAction', {
-          action: 'gameStateChanged',
-          data: { game: startedGame },
-          from: client.id,
-        });
+        this.broadcastUtilities.broadcastGameAction(
+          gameId,
+          'gameStateChanged',
+          { game: startedGame },
+          server,
+          client.id,
+        );
         
         // Start inactive player checking when game starts
         startInactivePlayerCheck(gameId);
@@ -101,11 +107,13 @@ export class GameStateHandler {
     if (user) {
       try {
         const pausedGame = await this.gamesService.pauseGame(gameId, user.id);
-        server.to(`game_${gameId}`).emit('gameAction', {
-          action: 'gameStateChanged',
-          data: { game: pausedGame },
-          from: client.id,
-        });
+        this.broadcastUtilities.broadcastGameAction(
+          gameId,
+          'gameStateChanged',
+          { game: pausedGame },
+          server,
+          client.id,
+        );
         
         // Stop inactive player checking when game is paused
         stopInactivePlayerCheck(gameId);
@@ -130,11 +138,13 @@ export class GameStateHandler {
     if (user) {
       try {
         const resumedGame = await this.gamesService.resumeGame(gameId, user.id);
-        server.to(`game_${gameId}`).emit('gameAction', {
-          action: 'gameStateChanged',
-          data: { game: resumedGame },
-          from: client.id,
-        });
+        this.broadcastUtilities.broadcastGameAction(
+          gameId,
+          'gameStateChanged',
+          { game: resumedGame },
+          server,
+          client.id,
+        );
         
         // Resume inactive player checking when game resumes
         startInactivePlayerCheck(gameId);
@@ -159,11 +169,13 @@ export class GameStateHandler {
     if (user) {
       try {
         const endedGame = await this.gamesService.endGame(gameId, user.id);
-        server.to(`game_${gameId}`).emit('gameAction', {
-          action: 'gameStateChanged',
-          data: { game: endedGame },
-          from: client.id,
-        });
+        this.broadcastUtilities.broadcastGameAction(
+          gameId,
+          'gameStateChanged',
+          { game: endedGame },
+          server,
+          client.id,
+        );
         
         // Stop inactive player checking when game ends
         stopInactivePlayerCheck(gameId);
@@ -187,11 +199,13 @@ export class GameStateHandler {
     if (user) {
       try {
         const restartedGame = await this.gamesService.restartGame(gameId, user.id);
-        server.to(`game_${gameId}`).emit('gameAction', {
-          action: 'gameStateChanged',
-          data: { game: restartedGame },
-          from: client.id,
-        });
+        this.broadcastUtilities.broadcastGameAction(
+          gameId,
+          'gameStateChanged',
+          { game: restartedGame },
+          server,
+          client.id,
+        );
       } catch (error: any) {
         client.emit('gameActionError', {
           action: 'restartGame',
@@ -216,11 +230,13 @@ export class GameStateHandler {
           data.teamCount,
           user.id,
         );
-        server.to(`game_${gameId}`).emit('gameAction', {
-          action: 'teamCountUpdated',
-          data: { game: updatedGame },
-          from: client.id,
-        });
+        this.broadcastUtilities.broadcastGameAction(
+          gameId,
+          'teamCountUpdated',
+          { game: updatedGame },
+          server,
+          client.id,
+        );
       } catch (error: any) {
         client.emit('gameActionError', {
           action: 'updateTeamCount',
@@ -243,11 +259,13 @@ export class GameStateHandler {
         const game = await this.gamesService.findOne(gameId, user.id);
         if (game.owner && game.owner.id === user.id) {
           const updatedGame = await this.gamesService.addTime(gameId, data.seconds);
-          server.to(`game_${gameId}`).emit('gameAction', {
-            action: 'timeAdded',
-            data: { game: updatedGame },
-            from: client.id,
-          });
+          this.broadcastUtilities.broadcastGameAction(
+            gameId,
+            'timeAdded',
+            { game: updatedGame },
+            server,
+            client.id,
+          );
         }
       } catch (error: any) {
         client.emit('gameActionError', {
@@ -275,11 +293,13 @@ export class GameStateHandler {
             data.timeInSeconds,
             user.id,
           );
-          server.to(`game_${gameId}`).emit('gameAction', {
-            action: 'gameTimeUpdated',
-            data: { game: updatedGame },
-            from: client.id,
-          });
+          this.broadcastUtilities.broadcastGameAction(
+            gameId,
+            'gameTimeUpdated',
+            { game: updatedGame },
+            server,
+            client.id,
+          );
         }
       } catch (error: any) {
         client.emit('gameActionError', {
@@ -304,10 +324,12 @@ export class GameStateHandler {
         // Only send update if this control point has position challenge
         const controlPoint = currentGame.controlPoints?.find(cp => cp.id === controlPointId);
         if (controlPoint && controlPoint.hasPositionChallenge) {
-          server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
+          this.broadcastUtilities.broadcastPositionChallengeUpdate(
+            gameId,
             controlPointId,
             teamPoints,
-          });
+            server,
+          );
         }
       }
     } catch (positionChallengeError) {

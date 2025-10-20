@@ -1,8 +1,12 @@
 import { Socket } from 'socket.io';
 import { GamesService } from '../games.service';
+import { BroadcastUtilitiesHandler } from './broadcast-utilities.handler';
 
 export class PlayerPositionHandler {
-  constructor(private readonly gamesService: GamesService) {}
+  constructor(
+    private readonly gamesService: GamesService,
+    private readonly broadcastUtilities: BroadcastUtilitiesHandler,
+  ) {}
 
   handlePositionUpdate(
     client: Socket,
@@ -23,18 +27,20 @@ export class PlayerPositionHandler {
         lastUpdate: new Date(),
       });
 
-      // Broadcast position update to all clients in the game
-      server.to(`game_${gameId}`).emit('gameAction', {
-        action: 'positionUpdate',
-        data: {
+      // Broadcast position update to all clients in the game using normalized function
+      this.broadcastUtilities.broadcastGameAction(
+        gameId,
+        'positionUpdate',
+        {
           userId: user.id,
           userName: user.name,
           lat: data.lat,
           lng: data.lng,
           accuracy: data.accuracy,
         },
-        from: client.id,
-      });
+        server,
+        client.id,
+      );
     }
   }
 
@@ -100,12 +106,14 @@ export class PlayerPositionHandler {
           }
         }
 
-        // Send positions back to the requesting owner
-        client.emit('gameAction', {
-          action: 'playerPositionsResponse',
-          data: { positions },
-          from: client.id,
-        });
+        // Send positions back to the requesting owner using normalized function
+        this.broadcastUtilities.broadcastGameAction(
+          gameId,
+          'playerPositionsResponse',
+          { positions },
+          server,
+          client.id,
+        );
       }
     }
   }
@@ -125,15 +133,17 @@ export class PlayerPositionHandler {
       const timeSinceLastUpdate = now.getTime() - position.lastUpdate.getTime();
       
       if (timeSinceLastUpdate > inactiveThreshold) {
-        // Player is inactive, notify all clients in the game
-        server.to(`game_${gameId}`).emit('gameAction', {
-          action: 'playerInactive',
-          data: {
+        // Player is inactive, notify all clients in the game using normalized function
+        this.broadcastUtilities.broadcastGameAction(
+          gameId,
+          'playerInactive',
+          {
             userId: userId,
             inactiveSince: position.lastUpdate,
           },
-          from: 'server',
-        });
+          server,
+          'server',
+        );
 
         // Remove the player's position from tracking
         playerPositions.delete(userId);
