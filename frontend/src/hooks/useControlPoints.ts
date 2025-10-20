@@ -410,9 +410,26 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
   }, [socket, game, showToast]);
 
   // Update single control point marker (for team color changes)
-  const updateSingleControlPointMarker = useCallback((controlPoint: ControlPoint) => {
+  const updateSingleControlPointMarker = useCallback((controlPoint: any) => {
     if (!map) return;
 
+    // Handle nested control point structure - use any type to handle flexible structure
+    const actualControlPoint = controlPoint.controlPoint || controlPoint;
+    
+    // Validate coordinates before proceeding - check both direct and nested properties
+    const latitude = parseFloat(actualControlPoint.latitude);
+    const longitude = parseFloat(actualControlPoint.longitude);
+    
+    if (isNaN(latitude) || isNaN(longitude)) {
+      console.error(`[UPDATE_SINGLE_CONTROL_POINT_MARKER] Control point ${actualControlPoint.id} has invalid coordinates:`, {
+        originalLatitude: actualControlPoint.latitude,
+        originalLongitude: actualControlPoint.longitude,
+        parsedLatitude: latitude,
+        parsedLongitude: longitude,
+        controlPoint: actualControlPoint
+      });
+      return;
+    }
 
     // Find and remove existing marker
     const existingMarker = controlPointMarkers.current.get(controlPoint.id);
@@ -565,20 +582,38 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
 
     // Create new markers
     controlPoints.forEach((controlPoint) => {
-      const marker = createControlPointMarker(controlPoint, map, isOwner, isDragModeEnabled, game || undefined);
+      // Handle nested control point structure
+      const actualControlPoint = (controlPoint as any).controlPoint || controlPoint;
+      
+      // Validate coordinates before creating marker
+      const latitude = parseFloat(actualControlPoint.latitude);
+      const longitude = parseFloat(actualControlPoint.longitude);
+      
+      if (isNaN(latitude) || isNaN(longitude)) {
+        console.error(`[RENDER_CONTROL_POINTS] Control point ${actualControlPoint.id} has invalid coordinates:`, {
+          originalLatitude: actualControlPoint.latitude,
+          originalLongitude: actualControlPoint.longitude,
+          parsedLatitude: latitude,
+          parsedLongitude: longitude,
+          controlPoint: actualControlPoint
+        });
+        return;
+      }
+
+      const marker = createControlPointMarker(actualControlPoint, map, isOwner, isDragModeEnabled, game || undefined);
       if (marker) {
-        controlPointMarkers.current.set(controlPoint.id, marker);
+        controlPointMarkers.current.set(actualControlPoint.id, marker);
       }
 
       // Add position circle and PIE chart if position challenge is active
-      if (controlPoint.hasPositionChallenge && controlPoint.minDistance) {
-        const circle = createPositionCircle(controlPoint, map);
+      if (actualControlPoint.hasPositionChallenge && actualControlPoint.minDistance) {
+        const circle = createPositionCircle(actualControlPoint, map);
         if (circle) {
-          positionCircles.current.set(controlPoint.id, circle);
+          positionCircles.current.set(actualControlPoint.id, circle);
           
           // Create PIE chart for position challenge
           if (marker) {
-            createPositionChallengePieChart(marker, controlPoint, circle);
+            createPositionChallengePieChart(marker, actualControlPoint, circle);
           }
         }
       }
@@ -676,27 +711,40 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
         // Update control point when taken by a team
         const controlPoint = data.data.controlPoint;
         if (controlPoint) {
+          // Ensure control point has proper coordinates structure
+          const normalizedControlPoint = {
+            ...controlPoint,
+            latitude: controlPoint.latitude || (controlPoint.controlPoint?.latitude),
+            longitude: controlPoint.longitude || (controlPoint.controlPoint?.longitude)
+          };
+          
           // Update ONLY this specific control point without triggering full re-render
           setControlPoints(prev =>
-            prev.map(cp => cp.id === controlPoint.id ? controlPoint : cp)
+            prev.map(cp => cp.id === normalizedControlPoint.id ? normalizedControlPoint : cp)
           );
           
           // Update ONLY the marker for this specific control point
-          updateSingleControlPointMarker(controlPoint);
+          updateSingleControlPointMarker(normalizedControlPoint);
           
           // Show toast notification for control point taken
           if (showToast) {
-            const teamName = data.data.team || controlPoint.ownedByTeam;
+            const teamName = data.data.team || normalizedControlPoint.ownedByTeam;
             const actionType = data.action === 'controlPointTaken' ? 'tomado' : 'asignado';
             const byPlayer = data.data.userName ? ` por ${data.data.userName}` : '';
-            showToast(`Punto ${controlPoint.name} ${actionType} por equipo ${teamName}${byPlayer}`, 'success');
+            showToast(`Punto ${normalizedControlPoint.name} ${actionType} por equipo ${teamName}${byPlayer}`, 'success');
           }
         }
       } else if (data.action === 'controlPointUpdated') {
         // Handle direct control point updates
         const controlPoint = data.data;
         if (controlPoint) {
-          handleControlPointUpdated({ controlPoint });
+          // Ensure control point has proper coordinates structure
+          const normalizedControlPoint = {
+            ...controlPoint,
+            latitude: controlPoint.latitude || (controlPoint.controlPoint?.latitude),
+            longitude: controlPoint.longitude || (controlPoint.controlPoint?.longitude)
+          };
+          handleControlPointUpdated({ controlPoint: normalizedControlPoint });
         }
       }
     };

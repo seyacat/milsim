@@ -18,8 +18,9 @@ export class BroadcastUtilitiesHandler {
       const { code, armedCode, disarmedCode, ...safeControlPoint } = controlPoint;
 
       // Ensure coordinates are always present and properly formatted
-      const latitude = parseFloat(safeControlPoint.latitude);
-      const longitude = parseFloat(safeControlPoint.longitude);
+      // Use fallback values if coordinates are missing
+      const latitude = safeControlPoint.latitude ? parseFloat(safeControlPoint.latitude) : 0;
+      const longitude = safeControlPoint.longitude ? parseFloat(safeControlPoint.longitude) : 0;
       
       if (isNaN(latitude) || isNaN(longitude)) {
         console.error(`[BROADCAST_CONTROL_POINT_UPDATE] Control point ${controlPoint.id} has invalid coordinates:`, {

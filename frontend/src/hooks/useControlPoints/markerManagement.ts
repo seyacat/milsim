@@ -5,6 +5,21 @@ import { createPopupContent } from '../../components/ControlPoints/PopupComponen
 
 // Create control point marker
 export const createControlPointMarker = (controlPoint: ControlPoint, map: L.Map, isOwner: boolean, isDragModeEnabled: boolean = false, game?: Game): L.Marker | null => {
+  // Validate coordinates to prevent Leaflet errors
+  const latitude = parseFloat(controlPoint.latitude as any);
+  const longitude = parseFloat(controlPoint.longitude as any);
+  
+  if (isNaN(latitude) || isNaN(longitude)) {
+    console.error(`[CREATE_CONTROL_POINT_MARKER] Control point ${controlPoint.id} has invalid coordinates:`, {
+      originalLatitude: controlPoint.latitude,
+      originalLongitude: controlPoint.longitude,
+      parsedLatitude: latitude,
+      parsedLongitude: longitude,
+      controlPoint
+    });
+    return null;
+  }
+
   const { iconColor, iconEmoji } = getControlPointIcon(controlPoint);
 
   const controlPointIcon = L.divIcon({
@@ -87,7 +102,7 @@ export const createControlPointMarker = (controlPoint: ControlPoint, map: L.Map,
     iconAnchor: [10, 10]
   });
 
-  const marker = L.marker([controlPoint.latitude, controlPoint.longitude], {
+  const marker = L.marker([latitude, longitude], {
     icon: controlPointIcon,
     draggable: isDragModeEnabled
   }).addTo(map);
@@ -191,7 +206,22 @@ export const createControlPointMarker = (controlPoint: ControlPoint, map: L.Map,
 export const createPositionCircle = (controlPoint: ControlPoint, map: L.Map): L.Circle | null => {
   if (!controlPoint.minDistance) return null;
 
-  const circle = L.circle([controlPoint.latitude, controlPoint.longitude], {
+  // Validate coordinates to prevent Leaflet errors
+  const latitude = parseFloat(controlPoint.latitude as any);
+  const longitude = parseFloat(controlPoint.longitude as any);
+  
+  if (isNaN(latitude) || isNaN(longitude)) {
+    console.error(`[CREATE_POSITION_CIRCLE] Control point ${controlPoint.id} has invalid coordinates:`, {
+      originalLatitude: controlPoint.latitude,
+      originalLongitude: controlPoint.longitude,
+      parsedLatitude: latitude,
+      parsedLongitude: longitude,
+      controlPoint
+    });
+    return null;
+  }
+
+  const circle = L.circle([latitude, longitude], {
     radius: controlPoint.minDistance,
     color: '#FF9800', // Orange color
     fillColor: 'transparent',
