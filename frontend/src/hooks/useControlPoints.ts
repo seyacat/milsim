@@ -620,18 +620,18 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     });
   }, [map, controlPoints, isOwner]);
 
-  // Update control points when they change - only recreate all markers when controlPoints array changes
+  // Update control points when they change - only recreate all markers when controlPoints array length changes
   useEffect(() => {
     // Don't update if drag mode is enabled to avoid interrupting drag
     if (isDragModeEnabled) {
       return;
     }
     
-    // Only recreate all markers when the controlPoints array itself changes (new control points added/removed)
+    // Only recreate all markers when the controlPoints array length changes (new control points added/removed)
     // Individual control point updates should be handled by updateSingleControlPointMarker
     renderControlPoints();
     updateAllControlPointTimers();
-  }, [renderControlPoints, updateAllControlPointTimers, isDragModeEnabled]);
+  }, [controlPoints.length, renderControlPoints, updateAllControlPointTimers, isDragModeEnabled]);
 
   // Update draggable state of existing markers without recreating them
   useEffect(() => {

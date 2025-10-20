@@ -660,15 +660,8 @@ export class PositionChallengeService {
             this.gamesGateway.server,
           );
 
-          // Also broadcast a controlPointUpdated event to ensure the control point markers are refreshed
-          // This ensures the marker colors update immediately
-          await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
-            gameId,
-            updatedControlPoint,
-            'controlPointUpdated',
-            {},
-            this.gamesGateway.server,
-          );
+          // Control point ownership already updated via controlPointTaken event above
+          // No need for additional controlPointUpdated broadcast
         }
 
         // Create control change event using control_point_taken (same as code challenge)

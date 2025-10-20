@@ -43,14 +43,8 @@ export class BombChallengeHandler {
           client.id,
         );
 
-        // Use normalized broadcast function for control point updated event
-        await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
-          gameId,
-          result.controlPoint,
-          'controlPointUpdated',
-          {},
-          server,
-        );
+        // Control point already updated via bombActivated event above
+        // No need for additional controlPointUpdated broadcast
 
         // Send the full control point data (with codes) only to the owner
         const game = await this.gamesService.findOne(gameId, user.id);
@@ -68,14 +62,8 @@ export class BombChallengeHandler {
             client.id,
           );
 
-          // Send full control point update to owner using normalized function
-          this.broadcastUtilitiesHandler.broadcastGameAction(
-            gameId,
-            'controlPointUpdated',
-            { controlPoint: result.controlPoint }, // Full data with codes
-            server,
-            client.id,
-          );
+          // Owner already received full control point data via bombActivated event above
+          // No need for additional controlPointUpdated broadcast
         }
 
       } catch (error: any) {
@@ -120,14 +108,8 @@ export class BombChallengeHandler {
           client.id,
         );
 
-        // Use normalized broadcast function for control point updated event
-        await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
-          gameId,
-          result.controlPoint,
-          'controlPointUpdated',
-          {},
-          server,
-        );
+        // Control point already updated via bombDeactivated event above
+        // No need for additional controlPointUpdated broadcast
 
         // Send the full control point data (with codes) only to the owner
         const game = await this.gamesService.findOne(gameId, user.id);
@@ -145,14 +127,8 @@ export class BombChallengeHandler {
             client.id,
           );
 
-          // Send full control point update to owner using normalized function
-          this.broadcastUtilitiesHandler.broadcastGameAction(
-            gameId,
-            'controlPointUpdated',
-            { controlPoint: result.controlPoint }, // Full data with codes
-            server,
-            client.id,
-          );
+          // Owner already received full control point data via bombDeactivated event above
+          // No need for additional controlPointUpdated broadcast
         }
 
       } catch (error: any) {
@@ -205,14 +181,8 @@ export class BombChallengeHandler {
           client.id,
         );
 
-        // Use normalized broadcast function for control point updated event
-        await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
-          gameId,
-          result.controlPoint,
-          'controlPointUpdated',
-          {},
-          server,
-        );
+        // Control point already updated via bombActivated event above
+        // No need for additional controlPointUpdated broadcast
 
         // Send the full control point data (with codes) only to the owner using normalized function
         this.broadcastUtilitiesHandler.broadcastGameAction(
@@ -229,14 +199,8 @@ export class BombChallengeHandler {
           client.id,
         );
 
-        // Send full control point update to owner using normalized function
-        this.broadcastUtilitiesHandler.broadcastGameAction(
-          gameId,
-          'controlPointUpdated',
-          { controlPoint: result.controlPoint }, // Full data with codes
-          server,
-          client.id,
-        );
+        // Owner already received full control point data via bombActivated event above
+        // No need for additional controlPointUpdated broadcast
 
       } catch (error: any) {
         client.emit('gameActionError', {
@@ -288,14 +252,8 @@ export class BombChallengeHandler {
           client.id,
         );
 
-        // Use normalized broadcast function for control point updated event
-        await this.broadcastUtilitiesHandler.broadcastControlPointUpdate(
-          gameId,
-          result.controlPoint,
-          'controlPointUpdated',
-          {},
-          server,
-        );
+        // Control point already updated via bombDeactivated event above
+        // No need for additional controlPointUpdated broadcast
 
         // Send the full control point data (with codes) only to the owner using normalized function
         this.broadcastUtilitiesHandler.broadcastGameAction(
@@ -312,14 +270,8 @@ export class BombChallengeHandler {
           client.id,
         );
 
-        // Send full control point update to owner using normalized function
-        this.broadcastUtilitiesHandler.broadcastGameAction(
-          gameId,
-          'controlPointUpdated',
-          { controlPoint: result.controlPoint }, // Full data with codes
-          server,
-          client.id,
-        );
+        // Owner already received full control point data via bombDeactivated event above
+        // No need for additional controlPointUpdated broadcast
 
       } catch (error: any) {
         client.emit('gameActionError', {
