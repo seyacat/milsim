@@ -99,7 +99,6 @@ export const useGameOwner = (
   const positionCircles = controlPointsResult?.positionCircles || new Map();
   const pieCharts = controlPointsResult?.pieCharts || new Map();
   const enableDragMode = controlPointsResult?.enableDragMode || (() => {});
-  const updateAllControlPointTimers = controlPointsResult?.updateAllControlPointTimers || (() => {});
 
   // Use player markers hook
   const playerMarkersResult = usePlayerMarkers({
@@ -138,12 +137,8 @@ export const useGameOwner = (
   }, [socketRef.current, currentUser, currentGame, playerMarkersResult.updatePlayerMarker]);
 
   // Update control point timers when control point times change
-  useEffect(() => {
-    if (controlPointTimes && controlPointTimes.length > 0) {
-      updateAllControlPointTimers();
-      updateAllBombTimerDisplays();
-    }
-  }, [controlPointTimes, updateAllControlPointTimers, updateAllBombTimerDisplays]);
+  // This effect is removed to prevent flicker when individual CPs are taken
+  // Individual CP timer updates are handled by the useControlPointTimers hook
 
   useEffect(() => {
     let isMounted = true

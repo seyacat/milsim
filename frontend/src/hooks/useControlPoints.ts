@@ -23,26 +23,6 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
   const positionCircles = useRef<Map<number, L.Circle>>(new Map());
   const pieCharts = useRef<Map<number, L.SVGOverlay>>(new Map());
 
-  // Function to update all control point timer displays
-  const updateAllControlPointTimers = useCallback(() => {
-    if (!game?.controlPoints) return;
-    
-    
-    game.controlPoints.forEach(controlPoint => {
-      const timerElement = document.getElementById(`timer_${controlPoint.id}`);
-      if (timerElement) {
-        // Show timer only if control point is owned by a team and game is running
-        const shouldShow = game.status === 'running' && controlPoint.ownedByTeam !== null;
-        
-        if (shouldShow) {
-          timerElement.style.display = 'block';
-          // The actual time value will be updated by useControlPointTimers hook
-        } else {
-          timerElement.style.display = 'none';
-        }
-      }
-    });
-  }, [game?.controlPoints, game?.status]);
 
   // Enable drag mode for control points
   const enableDragMode = useCallback((controlPointId: number, markerId: number) => {
@@ -630,8 +610,7 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     // Only recreate all markers when the controlPoints array length changes (new control points added/removed)
     // Individual control point updates should be handled by updateSingleControlPointMarker
     renderControlPoints();
-    updateAllControlPointTimers();
-  }, [controlPoints.length, renderControlPoints, updateAllControlPointTimers, isDragModeEnabled]);
+  }, [controlPoints.length, renderControlPoints, isDragModeEnabled]);
 
   // Update draggable state of existing markers without recreating them
   useEffect(() => {
@@ -775,7 +754,6 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     activateBombAsOwner,
     deactivateBombAsOwner,
     assignControlPointTeam,
-    updateAllControlPointTimers,
     updateSingleControlPointMarker
   };
 };
