@@ -511,12 +511,16 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const timeData = await this.gamesService.getGameTime(gameId);
       const controlPointTimes = await this.gamesService.getControlPointTimes(gameId);
 
+      if (!timeData) {
+        throw new Error('No hay un temporizador activo para este juego');
+      }
+
       client.emit('gameTime', {
         ...timeData,
         controlPointTimes,
       });
     } catch (error: any) {
-      client.emit('gameTimeError', { message: 'Failed to get game time' });
+      client.emit('gameTimeError', { message: error.message });
     }
   }
 

@@ -166,9 +166,9 @@ export class TimerManagementService {
   }
 
   // Get current time for a game
-  getGameTime(
+  async getGameTime(
     gameId: number,
-  ): { remainingTime: number | null; totalTime: number | null; playedTime: number } | null {
+  ): Promise<{ remainingTime: number | null; totalTime: number | null; playedTime: number } | null> {
     const timer = this.gameTimers.get(gameId);
     if (timer) {
       return {
@@ -177,7 +177,29 @@ export class TimerManagementService {
         playedTime: timer.elapsedTime,
       };
     }
-    return null;
+
+    // If no timer exists, try to calculate from game history
+    try {
+      const game = await this.gamesRepository.findOne({
+        where: { id: gameId },
+      });
+
+      if (!game || !game.instanceId) {
+        return null;
+      }
+
+      // Calculate elapsed time from game history events
+      const elapsedTime = await this.timerCalculationService.calculateElapsedTimeFromEvents(game.instanceId);
+
+      return {
+        remainingTime: game.totalTime ? Math.max(0, game.totalTime - elapsedTime) : null,
+        totalTime: game.totalTime,
+        playedTime: elapsedTime,
+      };
+    } catch (error) {
+      console.error(`Error calculating game time for game ${gameId}:`, error);
+      return null;
+    }
   }
 
   // Control Point Timer management methods

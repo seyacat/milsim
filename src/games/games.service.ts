@@ -448,14 +448,14 @@ export class GamesService {
   }
 
   // Timer Management - delegate to TimerManagementService
-  getGameTime(
+  async getGameTime(
     gameId: number,
-  ): { remainingTime: number | null; totalTime: number | null; playedTime: number } | null {
+  ): Promise<{ remainingTime: number | null; totalTime: number | null; playedTime: number } | null> {
     return this.timerManagementService.getGameTime(gameId);
   }
 
   async addTime(gameId: number, seconds: number): Promise<Game> {
-    const timer = this.timerManagementService.getGameTime(gameId);
+    const timer = await this.timerManagementService.getGameTime(gameId);
     if (!timer) {
       throw new Error('No hay un temporizador activo para este juego');
     }
@@ -563,7 +563,7 @@ export class GamesService {
     }
 
     // Update timer if exists
-    const timer = this.timerManagementService.getGameTime(gameId);
+    const timer = await this.timerManagementService.getGameTime(gameId);
     if (timer) {
       // Note: This would need to be implemented in TimerManagementService
     }
