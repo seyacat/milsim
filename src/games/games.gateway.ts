@@ -1,3 +1,4 @@
+
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -5,15 +6,18 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
-import { Inject, forwardRef, ConflictException } from '@nestjs/common';
+import { Inject, forwardRef } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { GamesService } from './games.service';
 import { WebsocketAuthService } from '../auth/websocket-auth.service';
-import { AuthService } from '../auth/auth.service';
 import { ConnectionTrackerService } from '../connection-tracker.service';
-import { ControlPoint } from './entities/control-point.entity';
 import { PositionChallengeService } from './services/position-challenge.service';
 import { TimerManagementService } from './services/timer-management.service';
+import { ControlPointActionHandler } from './handlers/control-point-action.handler';
+import { GameStateHandler } from './handlers/game-state.handler';
+import { BombChallengeHandler } from './handlers/bomb-challenge.handler';
+import { PlayerPositionHandler } from './handlers/player-position.handler';
+import { BroadcastUtilitiesHandler } from './handlers/broadcast-utilities.handler';
 
 @WebSocketGateway({
   cors: {
@@ -34,6 +38,12 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private gameConnections = new Map<number, Set<string>>(); // gameId -> Set of socket IDs
   private gameIntervals = new Map<number, NodeJS.Timeout>(); // gameId -> interval ID
 
+  private controlPointActionHandler: ControlPointActionHandler;
+  private gameStateHandler: GameStateHandler;
+  private bombChallengeHandler: BombChallengeHandler;
+  private playerPositionHandler: PlayerPositionHandler;
+  private broadcastUtilitiesHandler: BroadcastUtilitiesHandler;
+
   constructor(
     @Inject(forwardRef(() => GamesService))
     private readonly gamesService: GamesService,
@@ -41,7 +51,24 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly connectionTracker: ConnectionTrackerService,
     private readonly positionChallengeService: PositionChallengeService,
     private readonly timerManagementService: TimerManagementService,
-  ) {}
+  ) {
+    this.initializeHandlers();
+  }
+
+  private initializeHandlers() {
+    this.controlPointActionHandler = new ControlPointActionHandler(
+      this.gamesService,
+      this.positionChallengeService,
+      this.timerManagementService,
+    );
+    this.gameStateHandler = new GameStateHandler(
+      this.gamesService,
+      this.positionChallengeService,
+    );
+    this.bombChallengeHandler = new BombChallengeHandler(this.gamesService);
+    this.playerPositionHandler = new PlayerPositionHandler(this.gamesService);
+    this.broadcastUtilitiesHandler = new BroadcastUtilitiesHandler(this.gamesService);
+  }
 
   async handleConnection(client: Socket) {
     try {
@@ -267,1236 +294,141 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     try {
       switch (action) {
-        case 'createControlPoint': {
-          const user = this.connectedUsers.get(client.id);
-          const newControlPoint = await this.gamesService.createControlPoint({
-            name: data.name,
-            description: data.description || '',
-            latitude: data.latitude,
-            longitude: data.longitude,
-            gameId: data.gameId,
-            type: data.type,
-          });
-
-          // Remove sensitive code data before broadcasting to all clients
-          const { code, armedCode, disarmedCode, ...safeControlPoint } = newControlPoint;
-
-          // Broadcast the new control point to all clients (without codes)
-          this.server.to(`game_${gameId}`).emit('gameAction', {
-            action: 'controlPointCreated',
-            data: safeControlPoint,
-            from: client.id,
-          });
-
-          // Send the full control point data (with codes) only to the owner
-          if (user) {
-            const game = await this.gamesService.findOne(gameId, user.id);
-            if (game.owner && game.owner.id === user.id) {
-              client.emit('gameAction', {
-                action: 'controlPointCreated',
-                data: newControlPoint, // Full data with codes
-                from: client.id,
-              });
-            }
-          }
+        case 'createControlPoint':
+          await this.controlPointActionHandler.handleCreateControlPoint(
+            client, gameId, data, this.connectedUsers, this.server
+          );
           break;
-        }
 
-        case 'updateControlPoint': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            const updatedControlPoint = await this.gamesService.updateControlPoint(
-              data.controlPointId,
-              {
-                name: data.name,
-                type: data.type,
-                challengeType: data.challengeType,
-                code: data.code,
-                armedCode: data.armedCode,
-                disarmedCode: data.disarmedCode,
-                minDistance: data.minDistance,
-                minAccuracy: data.minAccuracy,
-                hasPositionChallenge: data.hasPositionChallenge,
-                hasCodeChallenge: data.hasCodeChallenge,
-                hasBombChallenge: data.hasBombChallenge,
-                bombTime: data.bombTime,
-              },
-            );
-
-            // Get the complete updated game with all control points AFTER the update
-            const updatedGame = await this.gamesService.findOne(gameId, user.id);
-
-            // Remove sensitive code data before broadcasting to all clients
-            const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
-
-            // Calculate bomb status for this control point
-            let bombStatus: any = null;
-            if (updatedControlPoint.hasBombChallenge && updatedControlPoint.game?.instanceId) {
-              const bombTimeData = await this.gamesService.getBombTime(updatedControlPoint.id);
-              if (bombTimeData) {
-                bombStatus = {
-                  isActive: bombTimeData.isActive,
-                  remainingTime: bombTimeData.remainingTime,
-                  totalTime: bombTimeData.totalTime,
-                  activatedByUserId: bombTimeData.activatedByUserId,
-                  activatedByUserName: bombTimeData.activatedByUserName,
-                  activatedByTeam: bombTimeData.activatedByTeam,
-                };
-              }
-            }
-
-            // Create enhanced control point data with bomb status
-            const enhancedControlPoint = {
-              ...safeControlPoint,
-              bombStatus,
-            };
-
-            // Broadcast the updated control point to all clients (without codes)
-            this.server.to(`game_${gameId}`).emit('gameAction', {
-              action: 'controlPointUpdated',
-              data: enhancedControlPoint,
-              from: client.id,
-            });
-
-            // If this control point has position challenge, send current position challenge data
-            if (safeControlPoint.hasPositionChallenge) {
-              try {
-                const currentPositionChallengeData =
-                  await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
-                const teamPoints = currentPositionChallengeData.get(safeControlPoint.id);
-                if (teamPoints) {
-                  this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
-                    controlPointId: safeControlPoint.id,
-                    teamPoints,
-                  });
-                }
-              } catch (error) {
-                console.error(
-                  `[CONTROL_POINT_UPDATE] Error sending position challenge data for control point ${safeControlPoint.id}:`,
-                  error,
-                );
-              }
-            }
-
-            // Send the full control point data (with codes) only to the owner
-            if (user) {
-              const game = await this.gamesService.findOne(gameId, user.id);
-              if (game.owner && game.owner.id === user.id) {
-                client.emit('gameAction', {
-                  action: 'controlPointUpdated',
-                  data: updatedControlPoint, // Full data with codes
-                  from: client.id,
-                });
-              }
-            }
-
-            // Send position challenge data ONLY for the control point that was updated
-            // This prevents unnecessary updates to all control points
-            if (safeControlPoint.hasPositionChallenge) {
-              try {
-                const currentPositionChallengeData =
-                  await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
-                const teamPoints = currentPositionChallengeData.get(safeControlPoint.id);
-                if (teamPoints) {
-                  this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
-                    controlPointId: safeControlPoint.id,
-                    teamPoints,
-                  });
-                }
-              } catch (error) {
-                console.error(
-                  `[CONTROL_POINT_UPDATE] Error sending position challenge data for control point ${safeControlPoint.id}:`,
-                  error,
-                );
-              }
-            }
-          }
+        case 'updateControlPoint':
+          await this.controlPointActionHandler.handleUpdateControlPoint(
+            client, gameId, data, this.connectedUsers, this.server
+          );
           break;
-        }
 
-        case 'updateControlPointPosition': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            const updatedControlPoint = await this.gamesService.updateControlPoint(
-              data.controlPointId,
-              {
-                latitude: data.latitude,
-                longitude: data.longitude,
-              },
-            );
-
-            // Get the complete updated game with all control points AFTER the update
-            const updatedGame = await this.gamesService.findOne(gameId, user.id);
-
-            // Remove sensitive code data before broadcasting to all clients
-            const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
-
-            // Calculate bomb status for this control point
-            let bombStatus: any = null;
-            if (updatedControlPoint.hasBombChallenge && updatedControlPoint.game?.instanceId) {
-              const bombTimeData = await this.gamesService.getBombTime(updatedControlPoint.id);
-              if (bombTimeData) {
-                bombStatus = {
-                  isActive: bombTimeData.isActive,
-                  remainingTime: bombTimeData.remainingTime,
-                  totalTime: bombTimeData.totalTime,
-                  activatedByUserId: bombTimeData.activatedByUserId,
-                  activatedByUserName: bombTimeData.activatedByUserName,
-                  activatedByTeam: bombTimeData.activatedByTeam,
-                };
-              }
-            }
-
-            // Create enhanced control point data with bomb status
-            const enhancedControlPoint = {
-              ...safeControlPoint,
-              bombStatus,
-            };
-
-            // Broadcast the updated control point to all clients (without codes)
-            this.server.to(`game_${gameId}`).emit('gameAction', {
-              action: 'controlPointUpdated',
-              data: enhancedControlPoint,
-              from: client.id,
-            });
-
-            // If this control point has position challenge, send current position challenge data
-            if (safeControlPoint.hasPositionChallenge) {
-              try {
-                const currentPositionChallengeData =
-                  await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
-                const teamPoints = currentPositionChallengeData.get(safeControlPoint.id);
-                if (teamPoints) {
-                  this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
-                    controlPointId: safeControlPoint.id,
-                    teamPoints,
-                  });
-                }
-              } catch (error) {
-                console.error(
-                  `[CONTROL_POINT_POSITION_UPDATE] Error sending position challenge data for control point ${safeControlPoint.id}:`,
-                  error,
-                );
-              }
-            }
-
-            // Send the full control point data (with codes) only to the owner
-            if (user) {
-              const game = await this.gamesService.findOne(gameId, user.id);
-              if (game.owner && game.owner.id === user.id) {
-                client.emit('gameAction', {
-                  action: 'controlPointUpdated',
-                  data: updatedControlPoint, // Full data with codes
-                  from: client.id,
-                });
-              }
-            }
-
-            // Send position challenge data ONLY for the control point that was updated
-            // This prevents unnecessary updates to all control points
-            if (safeControlPoint.hasPositionChallenge) {
-              try {
-                const currentPositionChallengeData =
-                  await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
-                const teamPoints = currentPositionChallengeData.get(safeControlPoint.id);
-                if (teamPoints) {
-                  this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
-                    controlPointId: safeControlPoint.id,
-                    teamPoints,
-                  });
-                }
-              } catch (error) {
-                console.error(
-                  `[CONTROL_POINT_POSITION_UPDATE] Error sending position challenge data for control point ${safeControlPoint.id}:`,
-                  error,
-                );
-              }
-            }
-          }
+        case 'updateControlPointPosition':
+          await this.controlPointActionHandler.handleUpdateControlPointPosition(
+            client, gameId, data, this.connectedUsers, this.server
+          );
           break;
-        }
 
-        case 'deleteControlPoint': {
-          await this.gamesService.deleteControlPoint(data.controlPointId);
-
-          // Broadcast the deletion to all clients
-          this.server.to(`game_${gameId}`).emit('gameAction', {
-            action: 'controlPointDeleted',
-            data: { controlPointId: data.controlPointId },
-            from: client.id,
-          });
+        case 'deleteControlPoint':
+          await this.controlPointActionHandler.handleDeleteControlPoint(
+            client, gameId, data, this.server
+          );
           break;
-        }
 
-        case 'positionUpdate': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            // Store the player's position with timestamp
-            this.playerPositions.set(user.id, {
-              lat: data.lat,
-              lng: data.lng,
-              accuracy: data.accuracy,
-              socketId: client.id,
-              lastUpdate: new Date(),
-            });
-
-            // Broadcast position update to all clients in the game
-            this.server.to(`game_${gameId}`).emit('gameAction', {
-              action: 'positionUpdate',
-              data: {
-                userId: user.id,
-                userName: user.name,
-                lat: data.lat,
-                lng: data.lng,
-                accuracy: data.accuracy,
-              },
-              from: client.id,
-            });
-          }
+        case 'takeControlPoint':
+          await this.controlPointActionHandler.handleTakeControlPoint(
+            client, gameId, data, this.connectedUsers, this.server
+          );
           break;
-        }
 
-        case 'positionChallengeUpdate': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            // Store the player's position for position challenge calculations
-            this.playerPositions.set(user.id, {
-              lat: data.lat,
-              lng: data.lng,
-              accuracy: data.accuracy,
-              socketId: client.id,
-              lastUpdate: new Date(),
-            });
-
-          }
+        case 'assignControlPointTeam':
+          await this.controlPointActionHandler.handleAssignControlPointTeam(
+            client, gameId, data, this.connectedUsers, this.server
+          );
           break;
-        }
 
-        case 'takeControlPoint': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            try {
-              const result = await this.gamesService.takeControlPoint(
-                data.controlPointId,
-                user.id,
-                data.code,
-              );
-
-              // Update control point timer with new ownership ONLY if it's not from position challenge
-              // Position challenge changes should NOT stop the timer
-              if (result.controlPoint.game?.instanceId && !data.positionChallenge) {
-                await this.timerManagementService.updateControlPointTimer(
-                  data.controlPointId,
-                  result.controlPoint.game.instanceId,
-                  data.positionChallenge || false, // Pass position challenge flag
-                );
-              }
-
-              // Remove sensitive code data before broadcasting to all clients
-              const { code, armedCode, disarmedCode, ...safeControlPoint } = result.controlPoint;
-
-              // Calculate bomb status for this control point
-              let bombStatus: any = null;
-              if (result.controlPoint.hasBombChallenge && result.controlPoint.game?.instanceId) {
-                const bombTimeData = await this.gamesService.getBombTime(result.controlPoint.id);
-                if (bombTimeData) {
-                  bombStatus = {
-                    isActive: bombTimeData.isActive,
-                    remainingTime: bombTimeData.remainingTime,
-                    totalTime: bombTimeData.totalTime,
-                    activatedByUserId: bombTimeData.activatedByUserId,
-                    activatedByUserName: bombTimeData.activatedByUserName,
-                    activatedByTeam: bombTimeData.activatedByTeam,
-                  };
-                }
-              }
-
-              // Create enhanced control point data with bomb status
-              const enhancedControlPoint = {
-                ...safeControlPoint,
-                bombStatus,
-              };
-
-              // Get the complete updated game with all control points AFTER the update
-              const updatedGame = await this.gamesService.findOne(gameId, user.id);
-
-              // Broadcast the updated control point to all clients (without codes)
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'controlPointTaken',
-                data: {
-                  controlPointId: data.controlPointId,
-                  userId: user.id,
-                  userName: user.name,
-                  team: result.controlPoint.ownedByTeam,
-                  controlPoint: enhancedControlPoint,
-                },
-                from: client.id,
-              });
-
-              // If this control point has position challenge, send current position challenge data
-              if (safeControlPoint.hasPositionChallenge) {
-                try {
-                  const currentPositionChallengeData =
-                    await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
-                  const teamPoints = currentPositionChallengeData.get(safeControlPoint.id);
-                  if (teamPoints) {
-                    this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
-                      controlPointId: safeControlPoint.id,
-                      teamPoints,
-                    });
-                  }
-                } catch (error) {
-                  console.error(
-                    `[CONTROL_POINT_TAKEN] Error sending position challenge data for control point ${safeControlPoint.id}:`,
-                    error,
-                  );
-                }
-              }
-
-              // Send the full control point data (with codes) only to the owner
-              const game = await this.gamesService.findOne(gameId, user.id);
-              if (game.owner && game.owner.id === user.id) {
-                client.emit('gameAction', {
-                  action: 'controlPointTaken',
-                  data: {
-                    controlPointId: data.controlPointId,
-                    userId: user.id,
-                    userName: user.name,
-                    team: result.controlPoint.ownedByTeam,
-                    controlPoint: result.controlPoint, // Full data with codes
-                  },
-                  from: client.id,
-                });
-              }
-
-              // Send position challenge data ONLY for the control point that was updated
-              // This prevents unnecessary updates to all control points
-              if (safeControlPoint.hasPositionChallenge) {
-                try {
-                  const currentPositionChallengeData =
-                    await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
-                  const teamPoints = currentPositionChallengeData.get(safeControlPoint.id);
-                  if (teamPoints) {
-                    this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
-                      controlPointId: safeControlPoint.id,
-                      teamPoints,
-                    });
-                  }
-                } catch (error) {
-                  console.error(
-                    `[CONTROL_POINT_TAKEN] Error sending position challenge data for control point ${safeControlPoint.id}:`,
-                    error,
-                  );
-                }
-              }
-            } catch (error: any) {
-              client.emit('gameActionError', {
-                action: 'takeControlPoint',
-                error: error.message,
-              });
-            }
-          }
+        case 'updatePlayerTeam':
+          await this.gameStateHandler.handleUpdatePlayerTeam(
+            client, gameId, data, this.connectedUsers, this.server
+          );
           break;
-        }
 
-        case 'assignControlPointTeam': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            try {
-              // Check if user is the game owner
-              const game = await this.gamesService.findOne(gameId, user.id);
-              if (!game.owner || game.owner.id !== user.id) {
-                throw new ConflictException(
-                  'Solo el propietario del juego puede asignar equipos a puntos de control',
-                );
-              }
-
-              // Update control point team - the updateControlPoint method already handles ownership change checks
-              const updatedControlPoint = await this.gamesService.updateControlPoint(
-                data.controlPointId,
-                {
-                  ownedByTeam: data.team === 'none' ? null : data.team,
-                },
-              );
-
-              // Note: The updateControlPoint method in control-point-management.service.ts
-              // already handles ownership change checks and history logging internally
-              // so we don't need to duplicate that logic here
-
-              // Get the complete updated game with all control points AFTER the update
-              const updatedGame = await this.gamesService.findOne(gameId, user.id);
-
-              // Remove sensitive code data before broadcasting to all clients
-              const { code, armedCode, disarmedCode, ...safeControlPoint } = updatedControlPoint;
-
-              // Calculate bomb status for this control point
-              let bombStatus: any = null;
-              if (updatedControlPoint.hasBombChallenge && updatedControlPoint.game?.instanceId) {
-                const bombTimeData = await this.gamesService.getBombTime(updatedControlPoint.id);
-                if (bombTimeData) {
-                  bombStatus = {
-                    isActive: bombTimeData.isActive,
-                    remainingTime: bombTimeData.remainingTime,
-                    totalTime: bombTimeData.totalTime,
-                    activatedByUserId: bombTimeData.activatedByUserId,
-                    activatedByUserName: bombTimeData.activatedByUserName,
-                    activatedByTeam: bombTimeData.activatedByTeam,
-                  };
-                }
-              }
-
-              // Create enhanced control point data with bomb status
-              const enhancedControlPoint = {
-                ...safeControlPoint,
-                bombStatus,
-              };
-
-              // Broadcast the updated control point to all clients (without codes)
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'controlPointTeamAssigned',
-                data: {
-                  controlPointId: data.controlPointId,
-                  team: data.team,
-                  controlPoint: enhancedControlPoint,
-                },
-                from: client.id,
-              });
-
-              // If this control point has position challenge, send current position challenge data
-              if (safeControlPoint.hasPositionChallenge) {
-                try {
-                  const currentPositionChallengeData =
-                    await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
-                  const teamPoints = currentPositionChallengeData.get(safeControlPoint.id);
-                  if (teamPoints) {
-                    this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
-                      controlPointId: safeControlPoint.id,
-                      teamPoints,
-                    });
-                  }
-                } catch (error) {
-                  console.error(
-                    `[CONTROL_POINT_TEAM_ASSIGNED] Error sending position challenge data for control point ${safeControlPoint.id}:`,
-                    error,
-                  );
-                }
-              }
-
-              // Send the full control point data (with codes) only to the owner
-              client.emit('gameAction', {
-                action: 'controlPointTeamAssigned',
-                data: {
-                  controlPointId: data.controlPointId,
-                  team: data.team,
-                  controlPoint: updatedControlPoint, // Full data with codes
-                },
-                from: client.id,
-              });
-
-              // Send position challenge data ONLY for the control point that was updated
-              // This prevents unnecessary updates to all control points
-              if (safeControlPoint.hasPositionChallenge) {
-                try {
-                  const currentPositionChallengeData =
-                    await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
-                  const teamPoints = currentPositionChallengeData.get(safeControlPoint.id);
-                  if (teamPoints) {
-                    this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
-                      controlPointId: safeControlPoint.id,
-                      teamPoints,
-                    });
-                  }
-                } catch (error) {
-                  console.error(
-                    `[CONTROL_POINT_TEAM_ASSIGNED] Error sending position challenge data for control point ${safeControlPoint.id}:`,
-                    error,
-                  );
-                }
-              }
-            } catch (error: any) {
-              client.emit('gameActionError', {
-                action: 'assignControlPointTeam',
-                error: error.message,
-              });
-            }
-          }
+        case 'startGame':
+          await this.gameStateHandler.handleStartGame(
+            client, gameId, data, this.connectedUsers, this.server,
+            this.startInactivePlayerCheck.bind(this)
+          );
           break;
-        }
 
-        case 'updatePlayerTeam': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            try {
-              let playerId = data.playerId;
-              const targetUserId = data.userId || user.id;
-
-              // If playerId is not provided, find or create the player by userId
-              if (!playerId) {
-                const players = await this.gamesService.getPlayersByGame(gameId);
-                const player = players.find(p => p.user.id === targetUserId);
-                if (player) {
-                  playerId = player.id;
-                } else {
-                  // Player not found in current game instance, create a new player entry
-                  const newPlayer = await this.gamesService.joinGame(gameId, targetUserId);
-                  playerId = newPlayer.id;
-                }
-              }
-
-              const updatedPlayer = await this.gamesService.updatePlayerTeam(playerId, data.team);
-
-              // Broadcast the team update to all clients
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'playerTeamUpdated',
-                data: {
-                  playerId: playerId,
-                  userId: updatedPlayer.user.id,
-                  userName: updatedPlayer.user.name,
-                  team: data.team,
-                },
-                from: client.id,
-              });
-
-              // Recalculate and broadcast position challenge data for all control points
-              // This ensures the pie charts and scores update immediately when teams change
-              try {
-                const currentPositionChallengeData =
-                  await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
-                
-                // Get the current game to check which control points have position challenge
-                const currentGame = await this.gamesService.findOne(gameId, user.id);
-                
-                // Broadcast updated position challenge data ONLY for control points with position challenge
-                // This prevents unnecessary updates to all control points
-                for (const [controlPointId, teamPoints] of currentPositionChallengeData.entries()) {
-                  // Only send update if this control point has position challenge
-                  const controlPoint = currentGame.controlPoints?.find(cp => cp.id === controlPointId);
-                  if (controlPoint && controlPoint.hasPositionChallenge) {
-                    this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
-                      controlPointId,
-                      teamPoints,
-                    });
-                  }
-                }
-              } catch (positionChallengeError) {
-                console.error(
-                  `[UPDATE_PLAYER_TEAM] Error recalculating position challenge data for game ${gameId}:`,
-                  positionChallengeError,
-                );
-              }
-            } catch (error: any) {
-              client.emit('gameActionError', {
-                action: 'updatePlayerTeam',
-                error: error.message,
-              });
-            }
-          }
+        case 'pauseGame':
+          await this.gameStateHandler.handlePauseGame(
+            client, gameId, data, this.connectedUsers, this.server,
+            this.stopInactivePlayerCheck.bind(this)
+          );
           break;
-        }
 
-        case 'startGame': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            try {
-              const startedGame = await this.gamesService.startGame(gameId, user.id);
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'gameStateChanged',
-                data: { game: startedGame },
-                from: client.id,
-              });
-              
-              // Start inactive player checking when game starts
-              this.startInactivePlayerCheck(gameId);
-            } catch (error: any) {
-              client.emit('gameActionError', {
-                action: 'startGame',
-                error: error.message,
-              });
-            }
-          }
+        case 'resumeGame':
+          await this.gameStateHandler.handleResumeGame(
+            client, gameId, data, this.connectedUsers, this.server,
+            this.startInactivePlayerCheck.bind(this)
+          );
           break;
-        }
 
-        case 'pauseGame': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            try {
-              const pausedGame = await this.gamesService.pauseGame(gameId, user.id);
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'gameStateChanged',
-                data: { game: pausedGame },
-                from: client.id,
-              });
-              
-              // Stop inactive player checking when game is paused
-              this.stopInactivePlayerCheck(gameId);
-            } catch (error: any) {
-              client.emit('gameActionError', {
-                action: 'pauseGame',
-                error: error.message,
-              });
-            }
-          }
+        case 'endGame':
+          await this.gameStateHandler.handleEndGame(
+            client, gameId, data, this.connectedUsers, this.server,
+            this.stopInactivePlayerCheck.bind(this)
+          );
           break;
-        }
 
-        case 'resumeGame': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            try {
-              const resumedGame = await this.gamesService.resumeGame(gameId, user.id);
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'gameStateChanged',
-                data: { game: resumedGame },
-                from: client.id,
-              });
-              
-              // Resume inactive player checking when game resumes
-              this.startInactivePlayerCheck(gameId);
-            } catch (error: any) {
-              client.emit('gameActionError', {
-                action: 'resumeGame',
-                error: error.message,
-              });
-            }
-          }
+        case 'restartGame':
+          await this.gameStateHandler.handleRestartGame(
+            client, gameId, data, this.connectedUsers, this.server
+          );
           break;
-        }
 
-        case 'endGame': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            try {
-              const endedGame = await this.gamesService.endGame(gameId, user.id);
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'gameStateChanged',
-                data: { game: endedGame },
-                from: client.id,
-              });
-              
-              // Stop inactive player checking when game ends
-              this.stopInactivePlayerCheck(gameId);
-            } catch (error: any) {
-              client.emit('gameActionError', {
-                action: 'endGame',
-                error: error.message,
-              });
-            }
-          }
+        case 'updateTeamCount':
+          await this.gameStateHandler.handleUpdateTeamCount(
+            client, gameId, data, this.connectedUsers, this.server
+          );
           break;
-        }
 
-        case 'restartGame': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            try {
-              const restartedGame = await this.gamesService.restartGame(gameId, user.id);
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'gameStateChanged',
-                data: { game: restartedGame },
-                from: client.id,
-              });
-            } catch (error: any) {
-              client.emit('gameActionError', {
-                action: 'restartGame',
-                error: error.message,
-              });
-            }
-          }
+        case 'addTime':
+          await this.gameStateHandler.handleAddTime(
+            client, gameId, data, this.connectedUsers, this.server
+          );
           break;
-        }
 
-        case 'updateTeamCount': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            try {
-              const updatedGame = await this.gamesService.updateTeamCount(
-                gameId,
-                data.teamCount,
-                user.id,
-              );
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'teamCountUpdated',
-                data: { game: updatedGame },
-                from: client.id,
-              });
-            } catch (error: any) {
-              client.emit('gameActionError', {
-                action: 'updateTeamCount',
-                error: error.message,
-              });
-            }
-          }
+        case 'updateGameTime':
+          await this.gameStateHandler.handleUpdateGameTime(
+            client, gameId, data, this.connectedUsers, this.server
+          );
           break;
-        }
 
-        case 'addTime': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            try {
-              const game = await this.gamesService.findOne(gameId, user.id);
-              if (game.owner && game.owner.id === user.id) {
-                const updatedGame = await this.gamesService.addTime(gameId, data.seconds);
-                this.server.to(`game_${gameId}`).emit('gameAction', {
-                  action: 'timeAdded',
-                  data: { game: updatedGame },
-                  from: client.id,
-                });
-              }
-            } catch (error: any) {
-              client.emit('gameActionError', {
-                action: 'addTime',
-                error: error.message,
-              });
-            }
-          }
+        case 'positionUpdate':
+          this.playerPositionHandler.handlePositionUpdate(
+            client, gameId, data, this.connectedUsers, this.playerPositions, this.server
+          );
           break;
-        }
 
-        case 'updateGameTime': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            try {
-              const game = await this.gamesService.findOne(gameId, user.id);
-              if (game.owner && game.owner.id === user.id) {
-                const updatedGame = await this.gamesService.updateGameTime(
-                  gameId,
-                  data.timeInSeconds,
-                  user.id,
-                );
-                this.server.to(`game_${gameId}`).emit('gameAction', {
-                  action: 'gameTimeUpdated',
-                  data: { game: updatedGame },
-                  from: client.id,
-                });
-              }
-            } catch (error: any) {
-              client.emit('gameActionError', {
-                action: 'updateGameTime',
-                error: error.message,
-              });
-            }
-          }
+        case 'positionChallengeUpdate':
+          this.playerPositionHandler.handlePositionChallengeUpdate(
+            client, gameId, data, this.connectedUsers, this.playerPositions
+          );
           break;
-        }
 
-        case 'requestPlayerPositions': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            // Check if user is the game owner
-            const game = await this.gamesService.findOne(gameId, user.id);
-            if (game.owner && game.owner.id === user.id) {
-              // Collect current positions of all connected players
-              const positions: Array<{
-                userId: number;
-                userName: string;
-                lat: number;
-                lng: number;
-                accuracy: number;
-              }> = [];
-
-              // Get all connected users in this game
-              const gameRoom = this.server.sockets.adapter.rooms.get(`game_${gameId}`);
-              if (gameRoom) {
-                for (const socketId of gameRoom) {
-                  const connectedUser = this.connectedUsers.get(socketId);
-                  if (connectedUser && connectedUser.id !== user.id) {
-                    const position = this.playerPositions.get(connectedUser.id);
-                    if (position) {
-                      positions.push({
-                        userId: connectedUser.id,
-                        userName: connectedUser.name,
-                        lat: position.lat,
-                        lng: position.lng,
-                        accuracy: position.accuracy,
-                      });
-                    }
-                  }
-                }
-              }
-
-              // Send positions back to the requesting owner
-              client.emit('gameAction', {
-                action: 'playerPositionsResponse',
-                data: { positions },
-                from: client.id,
-              });
-            }
-          }
+        case 'requestPlayerPositions':
+          await this.playerPositionHandler.handleRequestPlayerPositions(
+            client, gameId, data, this.connectedUsers, this.playerPositions, this.server
+          );
           break;
-        }
 
-        case 'activateBomb': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            try {
-              // Use the new activateBomb method
-              const result = await this.gamesService.activateBomb(
-                data.controlPointId,
-                user.id,
-                data.armedCode,
-              );
-
-              // Remove sensitive code data before broadcasting to all clients
-              const { code, armedCode, disarmedCode, ...safeControlPoint } = result.controlPoint;
-
-              // Calculate bomb status for this control point
-              let bombStatus: any = null;
-              if (result.controlPoint.hasBombChallenge && result.controlPoint.game?.instanceId) {
-                const bombTimeData = await this.gamesService.getBombTime(result.controlPoint.id);
-                if (bombTimeData) {
-                  bombStatus = {
-                    isActive: bombTimeData.isActive,
-                    remainingTime: bombTimeData.remainingTime,
-                    totalTime: bombTimeData.totalTime,
-                    activatedByUserId: bombTimeData.activatedByUserId,
-                    activatedByUserName: bombTimeData.activatedByUserName,
-                    activatedByTeam: bombTimeData.activatedByTeam,
-                  };
-                }
-              }
-
-              // Create enhanced control point data with bomb status
-              const enhancedControlPoint = {
-                ...safeControlPoint,
-                bombStatus,
-              };
-
-              // Get the complete updated game with all control points AFTER the update
-              const updatedGame = await this.gamesService.findOne(gameId, user.id);
-
-              // Broadcast bomb activated action to all clients in the game room
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'bombActivated',
-                data: {
-                  controlPointId: data.controlPointId,
-                  userId: user.id,
-                  userName: user.name,
-                  controlPoint: enhancedControlPoint,
-                },
-                from: client.id,
-              });
-
-              // Also send control point updated event to refresh the popup menu
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'controlPointUpdated',
-                data: enhancedControlPoint,
-                from: client.id,
-              });
-
-              // Send the full control point data (with codes) only to the owner
-              const game = await this.gamesService.findOne(gameId, user.id);
-              if (game.owner && game.owner.id === user.id) {
-                client.emit('gameAction', {
-                  action: 'bombActivated',
-                  data: {
-                    controlPointId: data.controlPointId,
-                    userId: user.id,
-                    userName: user.name,
-                    controlPoint: result.controlPoint, // Full data with codes
-                  },
-                  from: client.id,
-                });
-
-                // Send full control point update to owner
-                client.emit('gameAction', {
-                  action: 'controlPointUpdated',
-                  data: result.controlPoint, // Full data with codes
-                  from: client.id,
-                });
-              }
-
-            } catch (error: any) {
-              client.emit('gameActionError', {
-                action: 'activateBomb',
-                error: error.message,
-              });
-            }
-          }
+        case 'activateBomb':
+          await this.bombChallengeHandler.handleActivateBomb(
+            client, gameId, data, this.connectedUsers, this.server
+          );
           break;
-        }
 
-        case 'deactivateBomb': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            try {
-              // Use the new deactivateBomb method
-              const result = await this.gamesService.deactivateBomb(
-                data.controlPointId,
-                user.id,
-                data.disarmedCode,
-              );
-
-              // Remove sensitive code data before broadcasting to all clients
-              const { code, armedCode, disarmedCode, ...safeControlPoint } = result.controlPoint;
-
-              // Calculate bomb status for this control point
-              let bombStatus: any = null;
-              if (result.controlPoint.hasBombChallenge && result.controlPoint.game?.instanceId) {
-                const bombTimeData = await this.gamesService.getBombTime(result.controlPoint.id);
-                if (bombTimeData) {
-                  bombStatus = {
-                    isActive: bombTimeData.isActive,
-                    remainingTime: bombTimeData.remainingTime,
-                    totalTime: bombTimeData.totalTime,
-                    activatedByUserId: bombTimeData.activatedByUserId,
-                    activatedByUserName: bombTimeData.activatedByUserName,
-                    activatedByTeam: bombTimeData.activatedByTeam,
-                  };
-                }
-              }
-
-              // Create enhanced control point data with bomb status
-              const enhancedControlPoint = {
-                ...safeControlPoint,
-                bombStatus,
-              };
-
-              // Get the complete updated game with all control points AFTER the update
-              const updatedGame = await this.gamesService.findOne(gameId, user.id);
-
-              // Broadcast bomb deactivated action to all clients in the game room
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'bombDeactivated',
-                data: {
-                  controlPointId: data.controlPointId,
-                  userId: user.id,
-                  userName: user.name,
-                  controlPoint: enhancedControlPoint,
-                },
-                from: client.id,
-              });
-
-              // Also send control point updated event to refresh the popup menu
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'controlPointUpdated',
-                data: enhancedControlPoint,
-                from: client.id,
-              });
-
-              // Send the full control point data (with codes) only to the owner
-              const game = await this.gamesService.findOne(gameId, user.id);
-              if (game.owner && game.owner.id === user.id) {
-                client.emit('gameAction', {
-                  action: 'bombDeactivated',
-                  data: {
-                    controlPointId: data.controlPointId,
-                    userId: user.id,
-                    userName: user.name,
-                    controlPoint: result.controlPoint, // Full data with codes
-                  },
-                  from: client.id,
-                });
-
-                // Send full control point update to owner
-                client.emit('gameAction', {
-                  action: 'controlPointUpdated',
-                  data: result.controlPoint, // Full data with codes
-                  from: client.id,
-                });
-              }
-
-            } catch (error: any) {
-              client.emit('gameActionError', {
-                action: 'deactivateBomb',
-                error: error.message,
-              });
-            }
-          }
+        case 'deactivateBomb':
+          await this.bombChallengeHandler.handleDeactivateBomb(
+            client, gameId, data, this.connectedUsers, this.server
+          );
           break;
-        }
 
-        case 'activateBombAsOwner': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            try {
-              // Check if user is the game owner
-              const game = await this.gamesService.findOne(gameId, user.id);
-              if (!game.owner || game.owner.id !== user.id) {
-                throw new ConflictException(
-                  'Solo el propietario del juego puede activar bombas sin código',
-                );
-              }
-
-              // Use the new activateBombAsOwner method (no code validation)
-              const result = await this.gamesService.activateBombAsOwner(
-                data.controlPointId,
-                user.id,
-              );
-
-              // Remove sensitive code data before broadcasting to all clients
-              const { code, armedCode, disarmedCode, ...safeControlPoint } = result.controlPoint;
-
-              // Calculate bomb status for this control point
-              let bombStatus: any = null;
-              if (result.controlPoint.hasBombChallenge && result.controlPoint.game?.instanceId) {
-                const bombTimeData = await this.gamesService.getBombTime(result.controlPoint.id);
-                if (bombTimeData) {
-                  bombStatus = {
-                    isActive: bombTimeData.isActive,
-                    remainingTime: bombTimeData.remainingTime,
-                    totalTime: bombTimeData.totalTime,
-                    activatedByUserId: bombTimeData.activatedByUserId,
-                    activatedByUserName: bombTimeData.activatedByUserName,
-                    activatedByTeam: bombTimeData.activatedByTeam,
-                  };
-                }
-              }
-
-              // Create enhanced control point data with bomb status
-              const enhancedControlPoint = {
-                ...safeControlPoint,
-                bombStatus,
-              };
-
-              // Get the complete updated game with all control points AFTER the update
-              const updatedGame = await this.gamesService.findOne(gameId, user.id);
-
-              // Broadcast bomb activated action to all clients in the game room
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'bombActivated',
-                data: {
-                  controlPointId: data.controlPointId,
-                  userId: user.id,
-                  userName: user.name,
-                  controlPoint: enhancedControlPoint,
-                  activatedByOwner: true,
-                },
-                from: client.id,
-              });
-
-              // Also send control point updated event to refresh the popup menu
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'controlPointUpdated',
-                data: enhancedControlPoint,
-                from: client.id,
-              });
-
-              // Send the full control point data (with codes) only to the owner
-              client.emit('gameAction', {
-                action: 'bombActivated',
-                data: {
-                  controlPointId: data.controlPointId,
-                  userId: user.id,
-                  userName: user.name,
-                  controlPoint: result.controlPoint, // Full data with codes
-                  activatedByOwner: true,
-                },
-                from: client.id,
-              });
-
-              // Send full control point update to owner
-              client.emit('gameAction', {
-                action: 'controlPointUpdated',
-                data: result.controlPoint, // Full data with codes
-                from: client.id,
-              });
-
-            } catch (error: any) {
-              client.emit('gameActionError', {
-                action: 'activateBombAsOwner',
-                error: error.message,
-              });
-            }
-          }
+        case 'activateBombAsOwner':
+          await this.bombChallengeHandler.handleActivateBombAsOwner(
+            client, gameId, data, this.connectedUsers, this.server
+          );
           break;
-        }
 
-        case 'deactivateBombAsOwner': {
-          const user = this.connectedUsers.get(client.id);
-          if (user) {
-            try {
-              // Check if user is the game owner
-              const game = await this.gamesService.findOne(gameId, user.id);
-              if (!game.owner || game.owner.id !== user.id) {
-                throw new ConflictException(
-                  'Solo el propietario del juego puede desactivar bombas sin código',
-                );
-              }
-
-              // Use the new deactivateBombAsOwner method (no code validation)
-              const result = await this.gamesService.deactivateBombAsOwner(
-                data.controlPointId,
-                user.id,
-              );
-
-              // Remove sensitive code data before broadcasting to all clients
-              const { code, armedCode, disarmedCode, ...safeControlPoint } = result.controlPoint;
-
-              // Calculate bomb status for this control point
-              let bombStatus: any = null;
-              if (result.controlPoint.hasBombChallenge && result.controlPoint.game?.instanceId) {
-                const bombTimeData = await this.gamesService.getBombTime(result.controlPoint.id);
-                if (bombTimeData) {
-                  bombStatus = {
-                    isActive: bombTimeData.isActive,
-                    remainingTime: bombTimeData.remainingTime,
-                    totalTime: bombTimeData.totalTime,
-                    activatedByUserId: bombTimeData.activatedByUserId,
-                    activatedByUserName: bombTimeData.activatedByUserName,
-                    activatedByTeam: bombTimeData.activatedByTeam,
-                  };
-                }
-              }
-
-              // Create enhanced control point data with bomb status
-              const enhancedControlPoint = {
-                ...safeControlPoint,
-                bombStatus,
-              };
-
-              // Get the complete updated game with all control points AFTER the update
-              const updatedGame = await this.gamesService.findOne(gameId, user.id);
-
-              // Broadcast bomb deactivated action to all clients in the game room
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'bombDeactivated',
-                data: {
-                  controlPointId: data.controlPointId,
-                  userId: user.id,
-                  userName: user.name,
-                  controlPoint: enhancedControlPoint,
-                  deactivatedByOwner: true,
-                },
-                from: client.id,
-              });
-
-              // Also send control point updated event to refresh the popup menu
-              this.server.to(`game_${gameId}`).emit('gameAction', {
-                action: 'controlPointUpdated',
-                data: enhancedControlPoint,
-                from: client.id,
-              });
-
-              // Send the full control point data (with codes) only to the owner
-              client.emit('gameAction', {
-                action: 'bombDeactivated',
-                data: {
-                  controlPointId: data.controlPointId,
-                  userId: user.id,
-                  userName: user.name,
-                  controlPoint: result.controlPoint, // Full data with codes
-                  deactivatedByOwner: true,
-                },
-                from: client.id,
-              });
-
-              // Send full control point update to owner
-              client.emit('gameAction', {
-                action: 'controlPointUpdated',
-                data: result.controlPoint, // Full data with codes
-                from: client.id,
-              });
-
-            } catch (error: any) {
-              client.emit('gameActionError', {
-                action: 'deactivateBombAsOwner',
-                error: error.message,
-              });
-            }
-          }
+        case 'deactivateBombAsOwner':
+          await this.bombChallengeHandler.handleDeactivateBombAsOwner(
+            client, gameId, data, this.connectedUsers, this.server
+          );
           break;
-        }
 
         default:
           // For other actions, just broadcast as before
@@ -1550,7 +482,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       let responseControlPoint = controlPoint;
       if (!isOwner) {
         const { code, armedCode, disarmedCode, ...safeControlPoint } = controlPoint;
-        responseControlPoint = safeControlPoint as ControlPoint;
+        responseControlPoint = safeControlPoint as any;
       }
 
       client.emit('controlPointData', responseControlPoint);
@@ -1604,10 +536,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Method to broadcast game updates to all connected clients in a game
   broadcastGameUpdate(gameId: number, game: any) {
-    this.server.to(`game_${gameId}`).emit('gameUpdate', {
-      type: 'gameUpdated',
-      game,
-    });
+    this.broadcastUtilitiesHandler.broadcastGameUpdate(gameId, game, this.server);
   }
 
   // Method to broadcast time updates to all connected clients in a game
@@ -1619,28 +548,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       totalTime: number | null;
     },
   ) {
-    try {
-      // Get control point times for this game
-      const controlPointTimes = await this.gamesService.getControlPointTimes(gameId);
-
-      
-
-      // Broadcast combined time update with control point times
-      this.server.to(`game_${gameId}`).emit('timeUpdate', {
-        ...timeData,
-        controlPointTimes,
-      });
-    } catch (error) {
-      console.error(
-        `[BROADCAST_TIME_UPDATE] Error broadcasting time update for game ${gameId}:`,
-        error,
-      );
-      // Fallback: broadcast without control point times
-      this.server.to(`game_${gameId}`).emit('timeUpdate', {
-        ...timeData,
-        controlPointTimes: [],
-      });
-    }
+    await this.broadcastUtilitiesHandler.broadcastTimeUpdate(gameId, timeData, this.server);
   }
 
   // Method to broadcast control point time updates to all connected clients in a game
@@ -1652,33 +560,11 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       displayTime: string;
     },
   ) {
-    try {
-      // Find the game that contains this control point by using the takeControlPoint method structure
-      // We'll get the control point with game relation through the service
-      const controlPoint = await this.gamesService.getControlPointWithGame(controlPointId);
-
-      if (controlPoint && controlPoint.game) {
-        // Broadcast to the specific game room
-        this.server.to(`game_${controlPoint.game.id}`).emit('controlPointTimeUpdate', {
-          controlPointId,
-          ...timeData,
-        });
-      } else {
-        // Fallback: broadcast to all connected clients
-        this.server.emit('controlPointTimeUpdate', {
-          controlPointId,
-          ...timeData,
-        });
-      }
-    } catch (error) {
-      console.error('Error broadcasting control point time update:', error);
-      // Fallback: broadcast to all connected clients
-      this.server.emit('controlPointTimeUpdate', {
-        controlPointId,
-        ...timeData,
-      });
-    }
+    await this.broadcastUtilitiesHandler.broadcastControlPointTimeUpdate(
+      controlPointId, timeData, this.server
+    );
   }
+
   // Method to broadcast bomb time updates to all connected clients in a game
   async broadcastBombTimeUpdate(
     controlPointId: number,
@@ -1692,31 +578,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       exploded?: boolean;
     },
   ) {
-    try {
-      // Find the game that contains this control point
-      const controlPoint = await this.gamesService.getControlPointWithGame(controlPointId);
-
-      if (controlPoint && controlPoint.game) {
-        // Broadcast to the specific game room
-        this.server.to(`game_${controlPoint.game.id}`).emit('bombTimeUpdate', {
-          controlPointId,
-          ...bombTimeData,
-        });
-      } else {
-        // Fallback: broadcast to all connected clients
-        this.server.emit('bombTimeUpdate', {
-          controlPointId,
-          ...bombTimeData,
-        });
-      }
-    } catch (error) {
-      console.error('Error broadcasting bomb time update:', error);
-      // Fallback: broadcast to all connected clients
-      this.server.emit('bombTimeUpdate', {
-        controlPointId,
-        ...bombTimeData,
-      });
-    }
+    await this.broadcastUtilitiesHandler.broadcastBombTimeUpdate(
+      controlPointId, bombTimeData, this.server
+    );
   }
 
   /**
@@ -1727,17 +591,16 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     controlPointId: number,
     teamPoints: Record<string, number>,
   ) {
-    this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
-      controlPointId,
-      teamPoints,
-    });
+    this.broadcastUtilitiesHandler.broadcastPositionChallengeUpdate(
+      gameId, controlPointId, teamPoints, this.server
+    );
   }
 
   /**
    * Get current player positions for position challenge processing
    */
   getCurrentPlayerPositions(): Map<number, any> {
-    return this.playerPositions;
+    return this.playerPositionHandler.getCurrentPlayerPositions(this.playerPositions);
   }
 
   /**
@@ -1771,35 +634,13 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         socketId: position.socketId,
       });
     });
-
   }
-
 
   /**
    * Check for inactive players and notify frontend
    */
   private checkInactivePlayers(gameId: number): void {
-    const now = new Date();
-    const inactiveThreshold = 20000; // 20 seconds in milliseconds
-
-    this.playerPositions.forEach((position, userId) => {
-      const timeSinceLastUpdate = now.getTime() - position.lastUpdate.getTime();
-      
-      if (timeSinceLastUpdate > inactiveThreshold) {
-        // Player is inactive, notify all clients in the game
-        this.server.to(`game_${gameId}`).emit('gameAction', {
-          action: 'playerInactive',
-          data: {
-            userId: userId,
-            inactiveSince: position.lastUpdate,
-          },
-          from: 'server',
-        });
-
-        // Remove the player's position from tracking
-        this.playerPositions.delete(userId);
-      }
-    });
+    this.playerPositionHandler.checkInactivePlayers(gameId, this.playerPositions, this.server);
   }
 
   /**
