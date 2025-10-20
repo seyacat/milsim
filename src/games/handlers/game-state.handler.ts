@@ -52,8 +52,8 @@ export class GameStateHandler {
           client.id,
         );
 
-        // Recalculate and broadcast position challenge data for all control points
-        // This ensures the pie charts and scores update immediately when teams change
+        // Recalculate position challenge data internally when teams change
+        // This ensures the internal state is updated but doesn't force frontend notifications
         await this.recalculatePositionChallengeData(gameId, user.id, server);
       } catch (error: any) {
         client.emit('gameActionError', {
@@ -312,26 +312,11 @@ export class GameStateHandler {
 
   private async recalculatePositionChallengeData(gameId: number, userId: number, server: any) {
     try {
-      const currentPositionChallengeData =
-        await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
+      // Recalculate position challenge data internally without broadcasting to frontend
+      // This ensures internal state is updated but doesn't force unnecessary frontend notifications
+      await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
       
-      // Get the current game to check which control points have position challenge
-      const currentGame = await this.gamesService.findOne(gameId, userId);
-      
-      // Broadcast updated position challenge data ONLY for control points with position challenge
-      // This prevents unnecessary updates to all control points
-      for (const [controlPointId, teamPoints] of currentPositionChallengeData.entries()) {
-        // Only send update if this control point has position challenge
-        const controlPoint = currentGame.controlPoints?.find(cp => cp.id === controlPointId);
-        if (controlPoint && controlPoint.hasPositionChallenge) {
-          this.broadcastUtilities.broadcastPositionChallengeUpdate(
-            gameId,
-            controlPointId,
-            teamPoints,
-            server,
-          );
-        }
-      }
+      console.log(`[GAME_STATE_HANDLER] Position challenge data recalculated internally for game ${gameId} (no frontend notifications sent)`);
     } catch (positionChallengeError) {
       console.error(
         `[GAME_STATE_HANDLER] Error recalculating position challenge data for game ${gameId}:`,

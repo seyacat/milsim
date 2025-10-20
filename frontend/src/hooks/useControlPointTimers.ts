@@ -24,12 +24,17 @@ export const useControlPointTimers = (
   // Update control point times when they come from useGameTime
   useEffect(() => {
     if (controlPointTimesFromGameTime && controlPointTimesFromGameTime.length > 0) {
-      const timesMap: Record<number, ControlPointTimeData> = {};
-      controlPointTimesFromGameTime.forEach(cpTime => {
-        timesMap[cpTime.controlPointId] = cpTime;
+      // Only update specific control points that changed, don't replace the entire state
+      setControlPointTimes(prev => {
+        const updated = { ...prev };
+        controlPointTimesFromGameTime.forEach(cpTime => {
+          // Only update if we have valid data for this control point
+          if (cpTime.controlPointId && cpTime.currentHoldTime !== undefined) {
+            updated[cpTime.controlPointId] = cpTime;
+          }
+        });
+        return updated;
       });
-      
-      setControlPointTimes(timesMap);
 
       // Start local timer interval if game is running
       if (currentGame?.status === 'running' && !localTimerRef.current) {
