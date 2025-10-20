@@ -585,13 +585,15 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     });
   }, [map, controlPoints, isOwner]);
 
-  // Update control points when they change
+  // Update control points when they change - only recreate all markers when controlPoints array changes
   useEffect(() => {
     // Don't update if drag mode is enabled to avoid interrupting drag
     if (isDragModeEnabled) {
       return;
     }
     
+    // Only recreate all markers when the controlPoints array itself changes (new control points added/removed)
+    // Individual control point updates should be handled by updateSingleControlPointMarker
     renderControlPoints();
     updateAllControlPointTimers();
   }, [renderControlPoints, updateAllControlPointTimers, isDragModeEnabled]);
@@ -629,11 +631,12 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
         return;
       }
       
+      // Update the control point in state without triggering full re-render
       setControlPoints(prev =>
         prev.map(cp => cp.id === data.controlPoint.id ? data.controlPoint : cp)
       );
       
-      // Force update the marker for this control point to reflect color changes
+      // Force update ONLY the marker for this specific control point
       updateSingleControlPointMarker(data.controlPoint);
     };
 
@@ -673,7 +676,13 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
         // Update control point when taken by a team
         const controlPoint = data.data.controlPoint;
         if (controlPoint) {
-          handleControlPointUpdated({ controlPoint });
+          // Update ONLY this specific control point without triggering full re-render
+          setControlPoints(prev =>
+            prev.map(cp => cp.id === controlPoint.id ? controlPoint : cp)
+          );
+          
+          // Update ONLY the marker for this specific control point
+          updateSingleControlPointMarker(controlPoint);
           
           // Show toast notification for control point taken
           if (showToast) {

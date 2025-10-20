@@ -198,7 +198,6 @@ export const useGamePlayer = (
 
       // Log all WebSocket events for debugging
       socket.onAny((event: string, ...args: any[]) => {
-        console.log('WebSocket event received:', event, args);
       });
 
       // Log WebSocket emits
@@ -209,7 +208,6 @@ export const useGamePlayer = (
 
       // Listen for game updates - this should be the main event for game state changes
       socket.on('gameUpdate', (data: { game: Game; type?: string }) => {
-        console.log('gameUpdate received:', data);
         if (data.game) {
           setCurrentGame(data.game)
           // Handle specific status changes
@@ -226,7 +224,6 @@ export const useGamePlayer = (
 
       // Listen for game state events
       socket.on('gameState', (game: Game) => {
-        console.log('gameState received:', game);
         if (game) {
           setCurrentGame(game)
           // Handle specific status changes
@@ -243,7 +240,6 @@ export const useGamePlayer = (
 
       // Listen for game status changes
       socket.on('gameStatusChanged', (data: { game: Game; previousStatus: string; newStatus: string }) => {
-        console.log('gameStatusChanged received:', data);
         if (data.game) {
           setCurrentGame(data.game)
           
@@ -261,7 +257,6 @@ export const useGamePlayer = (
 
       // Listen for game finish events specifically
       socket.on('gameFinished', (data: { game: Game }) => {
-        console.log('gameFinished received:', data);
         if (data.game) {
           setCurrentGame(data.game)
           setTimeout(() => {
@@ -272,7 +267,6 @@ export const useGamePlayer = (
 
       // Listen for game stopped events specifically
       socket.on('gameStopped', (data: { game: Game }) => {
-        console.log('gameStopped received:', data);
         if (data.game) {
           setCurrentGame(data.game)
           setIsGameResultsDialogOpen(false)
@@ -282,13 +276,11 @@ export const useGamePlayer = (
 
       // Listen for any game action that might change the game state
       socket.on('gameAction', (data: { action: string; data: any }) => {
-        console.log('gameAction received:', data);
         if (data.action === 'updateGameStatus') {
           // This handles when the owner changes the game status
           // The game state should be updated via gameUpdate or gameState events
         } else if (data.action === 'gameStateChanged' && data.data.game) {
           // Handle game state changes from owner actions
-          console.log('gameStateChanged received in gameAction:', data);
           setCurrentGame(data.data.game);
           
           // Handle specific status changes
@@ -302,16 +294,13 @@ export const useGamePlayer = (
           }
         } else if (data.action === 'teamCountUpdated' && data.data.game) {
           // Handle team count updates from owner
-          console.log('teamCountUpdated received:', data);
           setCurrentGame(data.data.game);
         } else if (data.action === 'timeAdded' && data.data.game) {
           // Handle time added by owner
-          console.log('timeAdded received:', data);
           setCurrentGame(data.data.game);
           memoizedAddToast({ message: 'Se ha agregado tiempo al juego', type: 'info' });
         } else if (data.action === 'gameTimeUpdated' && data.data.game) {
           // Handle game time updates from owner
-          console.log('gameTimeUpdated received:', data);
           setCurrentGame(data.data.game);
           memoizedAddToast({ message: 'El tiempo del juego ha sido actualizado', type: 'info' });
         }

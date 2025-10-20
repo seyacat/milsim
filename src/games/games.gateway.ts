@@ -390,24 +390,25 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               }
             }
 
-            // Also broadcast the complete game update so frontend has all control points
-            this.server.to(`game_${gameId}`).emit('gameUpdate', {
-              type: 'gameUpdated',
-              game: updatedGame,
-            });
-
-            // Send position challenge data for all control points with position challenge
-            try {
-              const currentPositionChallengeData =
-                await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
-              for (const [controlPointId, teamPoints] of currentPositionChallengeData.entries()) {
-                this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
-                  controlPointId,
-                  teamPoints,
-                });
+            // Send position challenge data ONLY for the control point that was updated
+            // This prevents unnecessary updates to all control points
+            if (safeControlPoint.hasPositionChallenge) {
+              try {
+                const currentPositionChallengeData =
+                  await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
+                const teamPoints = currentPositionChallengeData.get(safeControlPoint.id);
+                if (teamPoints) {
+                  this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
+                    controlPointId: safeControlPoint.id,
+                    teamPoints,
+                  });
+                }
+              } catch (error) {
+                console.error(
+                  `[CONTROL_POINT_UPDATE] Error sending position challenge data for control point ${safeControlPoint.id}:`,
+                  error,
+                );
               }
-            } catch (error) {
-              console.error(`[GAME_UPDATE] Error sending position challenge data:`, error);
             }
           }
           break;
@@ -491,24 +492,25 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
               }
             }
 
-            // Also broadcast the complete game update so frontend has all control points
-            this.server.to(`game_${gameId}`).emit('gameUpdate', {
-              type: 'gameUpdated',
-              game: updatedGame,
-            });
-
-            // Send position challenge data for all control points with position challenge
-            try {
-              const currentPositionChallengeData =
-                await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
-              for (const [controlPointId, teamPoints] of currentPositionChallengeData.entries()) {
-                this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
-                  controlPointId,
-                  teamPoints,
-                });
+            // Send position challenge data ONLY for the control point that was updated
+            // This prevents unnecessary updates to all control points
+            if (safeControlPoint.hasPositionChallenge) {
+              try {
+                const currentPositionChallengeData =
+                  await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
+                const teamPoints = currentPositionChallengeData.get(safeControlPoint.id);
+                if (teamPoints) {
+                  this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
+                    controlPointId: safeControlPoint.id,
+                    teamPoints,
+                  });
+                }
+              } catch (error) {
+                console.error(
+                  `[CONTROL_POINT_POSITION_UPDATE] Error sending position challenge data for control point ${safeControlPoint.id}:`,
+                  error,
+                );
               }
-            } catch (error) {
-              console.error(`[GAME_UPDATE_POSITION] Error sending position challenge data:`, error);
             }
           }
           break;
@@ -667,24 +669,25 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 });
               }
 
-              // Also broadcast the complete game update so frontend has all control points
-              this.server.to(`game_${gameId}`).emit('gameUpdate', {
-                type: 'gameUpdated',
-                game: updatedGame,
-              });
-
-              // Send position challenge data for all control points with position challenge
-              try {
-                const currentPositionChallengeData =
-                  await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
-                for (const [controlPointId, teamPoints] of currentPositionChallengeData.entries()) {
-                  this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
-                    controlPointId,
-                    teamPoints,
-                  });
+              // Send position challenge data ONLY for the control point that was updated
+              // This prevents unnecessary updates to all control points
+              if (safeControlPoint.hasPositionChallenge) {
+                try {
+                  const currentPositionChallengeData =
+                    await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
+                  const teamPoints = currentPositionChallengeData.get(safeControlPoint.id);
+                  if (teamPoints) {
+                    this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
+                      controlPointId: safeControlPoint.id,
+                      teamPoints,
+                    });
+                  }
+                } catch (error) {
+                  console.error(
+                    `[CONTROL_POINT_TAKEN] Error sending position challenge data for control point ${safeControlPoint.id}:`,
+                    error,
+                  );
                 }
-              } catch (error) {
-                console.error(`[GAME_UPDATE_TAKEN] Error sending position challenge data:`, error);
               }
             } catch (error: any) {
               client.emit('gameActionError', {
@@ -790,27 +793,25 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 from: client.id,
               });
 
-              // Also broadcast the complete game update so frontend has all control points
-              this.server.to(`game_${gameId}`).emit('gameUpdate', {
-                type: 'gameUpdated',
-                game: updatedGame,
-              });
-
-              // Send position challenge data for all control points with position challenge
-              try {
-                const currentPositionChallengeData =
-                  await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
-                for (const [controlPointId, teamPoints] of currentPositionChallengeData.entries()) {
-                  this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
-                    controlPointId,
-                    teamPoints,
-                  });
+              // Send position challenge data ONLY for the control point that was updated
+              // This prevents unnecessary updates to all control points
+              if (safeControlPoint.hasPositionChallenge) {
+                try {
+                  const currentPositionChallengeData =
+                    await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
+                  const teamPoints = currentPositionChallengeData.get(safeControlPoint.id);
+                  if (teamPoints) {
+                    this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
+                      controlPointId: safeControlPoint.id,
+                      teamPoints,
+                    });
+                  }
+                } catch (error) {
+                  console.error(
+                    `[CONTROL_POINT_TEAM_ASSIGNED] Error sending position challenge data for control point ${safeControlPoint.id}:`,
+                    error,
+                  );
                 }
-              } catch (error) {
-                console.error(
-                  `[GAME_UPDATE_TEAM_ASSIGNED] Error sending position challenge data:`,
-                  error,
-                );
               }
             } catch (error: any) {
               client.emit('gameActionError', {
@@ -862,12 +863,20 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 const currentPositionChallengeData =
                   await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
                 
-                // Broadcast updated position challenge data for all control points
+                // Get the current game to check which control points have position challenge
+                const currentGame = await this.gamesService.findOne(gameId, user.id);
+                
+                // Broadcast updated position challenge data ONLY for control points with position challenge
+                // This prevents unnecessary updates to all control points
                 for (const [controlPointId, teamPoints] of currentPositionChallengeData.entries()) {
-                  this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
-                    controlPointId,
-                    teamPoints,
-                  });
+                  // Only send update if this control point has position challenge
+                  const controlPoint = currentGame.controlPoints?.find(cp => cp.id === controlPointId);
+                  if (controlPoint && controlPoint.hasPositionChallenge) {
+                    this.server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
+                      controlPointId,
+                      teamPoints,
+                    });
+                  }
                 }
               } catch (positionChallengeError) {
                 console.error(
@@ -1161,11 +1170,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 });
               }
 
-              // Also broadcast the complete game update so frontend has all control points
-              this.server.to(`game_${gameId}`).emit('gameUpdate', {
-                type: 'gameUpdated',
-                game: updatedGame,
-              });
             } catch (error: any) {
               client.emit('gameActionError', {
                 action: 'activateBomb',
@@ -1220,11 +1224,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 });
               }
 
-              // Also broadcast the complete game update so frontend has all control points
-              this.server.to(`game_${gameId}`).emit('gameUpdate', {
-                type: 'gameUpdated',
-                game: updatedGame,
-              });
             } catch (error: any) {
               client.emit('gameActionError', {
                 action: 'deactivateBomb',
@@ -1307,11 +1306,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 from: client.id,
               });
 
-              // Also broadcast the complete game update so frontend has all control points
-              this.server.to(`game_${gameId}`).emit('gameUpdate', {
-                type: 'gameUpdated',
-                game: updatedGame,
-              });
             } catch (error: any) {
               client.emit('gameActionError', {
                 action: 'activateBombAsOwner',
@@ -1394,11 +1388,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 from: client.id,
               });
 
-              // Also broadcast the complete game update so frontend has all control points
-              this.server.to(`game_${gameId}`).emit('gameUpdate', {
-                type: 'gameUpdated',
-                game: updatedGame,
-              });
             } catch (error: any) {
               client.emit('gameActionError', {
                 action: 'deactivateBombAsOwner',

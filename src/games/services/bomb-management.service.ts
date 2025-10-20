@@ -673,7 +673,6 @@ export class BombManagementService {
 
               if (bombTimeData && bombTimeData.isActive && bombTimeData.remainingTime > 0) {
                 // Restart the bomb timer broadcast for this active bomb
-                console.log(`Restarting bomb timer for control point ${controlPoint.id} in game ${game.id}`);
                 this.startBombTimeBroadcast(controlPoint.id, game.instanceId);
               }
             }

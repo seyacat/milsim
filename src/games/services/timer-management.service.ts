@@ -524,12 +524,10 @@ export class TimerManagementService {
       for (const game of runningGames) {
         if (game.instanceId) {
           // Restart game timer
-          console.log(`Restarting game timer for game ${game.id}`);
           await this.startGameTimer(game.id, game.totalTime, game.instanceId);
 
           // Restart control point timers
           if (game.controlPoints && game.controlPoints.length > 0) {
-            console.log(`Restarting control point timers for game ${game.id}`);
             await this.startAllControlPointTimers(game.id);
           }
         }
