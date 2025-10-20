@@ -78,11 +78,19 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
     const bombTimerData = activeBombTimers.get(controlPointId);
     
     if (!bombTimerElement) {
+      console.error(`[BOMB_TIMER] Bomb timer element not found for control point ${controlPointId}`);
       return;
     }
 
     // Show bomb timer only if bomb is active
     if (bombTimerData?.isActive) {
+      // Validate bomb timer data
+      if (typeof bombTimerData.remainingTime !== 'number' || isNaN(bombTimerData.remainingTime)) {
+        console.error(`[BOMB_TIMER] Invalid remainingTime for control point ${controlPointId}:`, bombTimerData.remainingTime);
+        bombTimerElement.style.display = 'none';
+        return;
+      }
+
       // Format time as MM:SS
       const minutes = Math.floor(bombTimerData.remainingTime / 60);
       const seconds = bombTimerData.remainingTime % 60;

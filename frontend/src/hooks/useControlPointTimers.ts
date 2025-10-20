@@ -51,10 +51,19 @@ export const useControlPointTimers = (
     const timeData = controlPointTimes[controlPointId];
     
     if (!timerElement) {
+      console.error(`[CONTROL_POINT_TIMER] Timer element not found for control point ${controlPointId}`);
       return;
     }
     
     if (!timeData) {
+      console.error(`[CONTROL_POINT_TIMER] No time data found for control point ${controlPointId}`);
+      timerElement.style.display = 'none';
+      return;
+    }
+
+    // Validate time data
+    if (typeof timeData.currentHoldTime !== 'number' || isNaN(timeData.currentHoldTime)) {
+      console.error(`[CONTROL_POINT_TIMER] Invalid currentHoldTime for control point ${controlPointId}:`, timeData.currentHoldTime);
       timerElement.style.display = 'none';
       return;
     }

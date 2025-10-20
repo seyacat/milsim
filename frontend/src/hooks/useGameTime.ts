@@ -61,6 +61,7 @@ export const useGameTime = (currentGame: Game | null, socket: Socket | null): Us
   // Update time display using local timer or server data
   const updateTimeDisplay = () => {
     if (!timeData) {
+      console.error('[GAME_TIME] No time data available');
       return;
     }
 
@@ -69,7 +70,15 @@ export const useGameTime = (currentGame: Game | null, socket: Socket | null): Us
     const timeRemainingElement = document.getElementById('timeRemaining');
 
     if (!timePlayedElement) {
+      console.error('[GAME_TIME] Time played element not found');
       return;
+    }
+
+    // Validate time data - log error but don't hide it
+    if (typeof timeData.playedTime !== 'number' || isNaN(timeData.playedTime)) {
+      console.error('[GAME_TIME] ERROR: Invalid playedTime received from server:', timeData.playedTime);
+      console.error('[GAME_TIME] Full timeData object:', timeData);
+      // Don't hide the error - let it show as NaN:NaN so we can debug
     }
 
     // Calculate elapsed time since last server update
@@ -95,6 +104,15 @@ export const useGameTime = (currentGame: Game | null, socket: Socket | null): Us
         timeRemainingContainer.style.display = 'none';
       }
     } else {
+      // Validate remaining time
+      if (typeof timeData.remainingTime !== 'number' || isNaN(timeData.remainingTime)) {
+        console.error('[GAME_TIME] Invalid remainingTime:', timeData.remainingTime);
+        if (timeRemainingContainer) {
+          timeRemainingContainer.style.display = 'none';
+        }
+        return;
+      }
+
       // Time limited - show both time played and remaining
       const currentRemainingTime = Math.max(0, timeData.remainingTime - elapsedSinceUpdate);
       const minutes = Math.floor(currentRemainingTime / 60);

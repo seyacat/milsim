@@ -13,6 +13,12 @@ export const GameTimeDisplay: React.FC<GameTimeDisplayProps> = ({ currentGame, s
 
   // Update display when time data changes
   React.useEffect(() => {
+    if (timeData) {
+      // Log if we receive invalid time data
+      if (typeof timeData.playedTime !== 'number' || isNaN(timeData.playedTime)) {
+        console.error('[GAME_TIME_DISPLAY] ERROR: Received invalid time data:', timeData);
+      }
+    }
     updateTimeDisplay();
   }, [timeData, updateTimeDisplay]);
 
