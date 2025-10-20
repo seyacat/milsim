@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Game, ControlPoint } from '../types';
+import { Game } from '../types';
 import { Socket } from 'socket.io-client';
 
 export interface ControlPointTimeData {
@@ -10,8 +10,6 @@ export interface ControlPointTimeData {
 
 export interface UseControlPointTimersReturn {
   controlPointTimes: Record<number, ControlPointTimeData>;
-  updateControlPointTimerDisplay: (controlPointId: number) => void;
-  updateAllTimerDisplays: () => void;
 }
 
 export const useControlPointTimers = (
@@ -25,18 +23,13 @@ export const useControlPointTimers = (
 
   // Update control point times when they come from useGameTime
   useEffect(() => {
-
     if (controlPointTimesFromGameTime && controlPointTimesFromGameTime.length > 0) {
-
       const timesMap: Record<number, ControlPointTimeData> = {};
       controlPointTimesFromGameTime.forEach(cpTime => {
         timesMap[cpTime.controlPointId] = cpTime;
       });
       
       setControlPointTimes(timesMap);
-
-      // Update all timer displays immediately
-      updateAllTimerDisplays();
 
       // Start local timer interval if game is running
       if (currentGame?.status === 'running' && !localTimerRef.current) {
@@ -50,21 +43,8 @@ export const useControlPointTimers = (
     const timerElement = document.getElementById(`timer_${controlPointId}`);
     const timeData = controlPointTimes[controlPointId];
     
-    if (!timerElement) {
-      console.error(`[CONTROL_POINT_TIMER] Timer element not found for control point ${controlPointId}`);
-      return;
-    }
-    
-    if (!timeData) {
-      console.error(`[CONTROL_POINT_TIMER] No time data found for control point ${controlPointId}`);
-      timerElement.style.display = 'none';
-      return;
-    }
-
-    // Validate time data
-    if (typeof timeData.currentHoldTime !== 'number' || isNaN(timeData.currentHoldTime)) {
-      console.error(`[CONTROL_POINT_TIMER] Invalid currentHoldTime for control point ${controlPointId}:`, timeData.currentHoldTime);
-      timerElement.style.display = 'none';
+    if (!timerElement || !timeData) {
+      if (timerElement) timerElement.style.display = 'none';
       return;
     }
 
@@ -77,7 +57,6 @@ export const useControlPointTimers = (
       const seconds = timeData.currentHoldTime % 60;
       const timeText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
       
-      
       timerElement.textContent = timeText;
       timerElement.style.display = 'block';
     } else {
@@ -88,7 +67,6 @@ export const useControlPointTimers = (
   // Update all timer displays
   const updateAllTimerDisplays = () => {
     if (!currentGame?.controlPoints) return;
-    
     
     currentGame.controlPoints.forEach(controlPoint => {
       updateControlPointTimerDisplay(controlPoint.id);
@@ -122,9 +100,6 @@ export const useControlPointTimers = (
           
           return updated;
         });
-
-        // Update all timer displays
-        updateAllTimerDisplays();
       }
     }, 1000);
   };
@@ -137,21 +112,21 @@ export const useControlPointTimers = (
     }
   };
 
+  // Update displays when control point times change
+  useEffect(() => {
+    updateAllTimerDisplays();
+  }, [controlPointTimes, currentGame?.status]);
+
   // Handle game state changes
   useEffect(() => {
     if (!currentGame) return;
 
     if (currentGame.status === 'running') {
-      // Start timer when game starts running
       if (!localTimerRef.current) {
         startControlPointTimerInterval();
       }
     } else {
-      // Stop timer when game is not running
       stopControlPointTimerInterval();
-      
-      // Hide all timers when game is not running
-      updateAllTimerDisplays();
     }
   }, [currentGame?.status]);
 
@@ -163,8 +138,6 @@ export const useControlPointTimers = (
   }, []);
 
   return {
-    controlPointTimes,
-    updateControlPointTimerDisplay,
-    updateAllTimerDisplays
+    controlPointTimes
   };
 };

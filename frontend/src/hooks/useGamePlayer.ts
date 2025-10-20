@@ -74,7 +74,7 @@ export const useGamePlayer = (
   const { controlPointTimes } = useGameTime(currentGame, socketRef.current)
 
   // Use control point timers hook
-  const { updateAllTimerDisplays } = useControlPointTimers(currentGame, socketRef.current, controlPointTimes)
+  const { controlPointTimes: controlPointTimers } = useControlPointTimers(currentGame, socketRef.current, controlPointTimes)
 
   // Use bomb timers hook
   const { activeBombTimers, updateAllBombTimerDisplays } = useBombTimers(currentGame, socketRef.current)
@@ -110,10 +110,9 @@ export const useGamePlayer = (
   useEffect(() => {
     if (controlPointTimes && controlPointTimes.length > 0) {
       updateAllControlPointTimers();
-      updateAllTimerDisplays();
       updateAllBombTimerDisplays();
     }
-  }, [controlPointTimes, updateAllControlPointTimers, updateAllTimerDisplays, updateAllBombTimerDisplays]);
+  }, [controlPointTimes, updateAllControlPointTimers, updateAllBombTimerDisplays]);
 
   // Update global active bomb timers reference when they change
   useEffect(() => {

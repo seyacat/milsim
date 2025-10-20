@@ -9,22 +9,10 @@ interface GameTimeDisplayProps {
 }
 
 export const GameTimeDisplay: React.FC<GameTimeDisplayProps> = ({ currentGame, socket }) => {
-  const { timeData, isGameRunning, updateTimeDisplay } = useGameTime(currentGame, socket);
+  const { timeData, isGameRunning, controlPointTimes } = useGameTime(currentGame, socket);
 
-  // Update display when time data changes
-  React.useEffect(() => {
-    if (timeData) {
-      // Log if we receive invalid time data
-      if (typeof timeData.playedTime !== 'number' || isNaN(timeData.playedTime)) {
-        console.error('[GAME_TIME_DISPLAY] ERROR: Received invalid time data:', timeData);
-      }
-    }
-    updateTimeDisplay();
-  }, [timeData, updateTimeDisplay]);
-
-  // Show time played container only when game is running or paused (like in original code)
-  // TEMPORARILY: Show always for debugging
-  const shouldShowTimePlayed = true; // currentGame?.status === 'running' || currentGame?.status === 'paused';
+  // Show time played container only when game is running or paused
+  const shouldShowTimePlayed = currentGame?.status === 'running' || currentGame?.status === 'paused';
 
   if (!shouldShowTimePlayed) {
     return null;

@@ -14,108 +14,63 @@ export interface TimeData {
   playedTime: number;
   totalTime: number | null;
   controlPointTimes?: ControlPointTimeData[];
-  receivedAt?: number;
 }
 
 export interface UseGameTimeReturn {
   timeData: TimeData | null;
   isGameRunning: boolean;
-  updateTimeDisplay: () => void;
   controlPointTimes: ControlPointTimeData[];
 }
 
 export const useGameTime = (currentGame: Game | null, socket: Socket | null): UseGameTimeReturn => {
   const [timeData, setTimeData] = useState<TimeData | null>(null);
   const [controlPointTimes, setControlPointTimes] = useState<ControlPointTimeData[]>([]);
+  const [localPlayedTime, setLocalPlayedTime] = useState<number>(0);
   const localTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Handle time updates from server
   const handleTimeUpdate = (newTimeData: TimeData) => {
-
-    const timeDataWithTimestamp = {
-      ...newTimeData,
-      receivedAt: Date.now()
-    };
-    
-    setTimeData(timeDataWithTimestamp);
+    setTimeData(newTimeData);
+    setLocalPlayedTime(newTimeData.playedTime);
 
     // Update control point times if provided
     if (newTimeData.controlPointTimes) {
       setControlPointTimes(newTimeData.controlPointTimes);
     }
 
-    // Stop existing local timer
-    if (localTimerRef.current) {
+    // Start/stop local timer based on game status
+    if (currentGame?.status === 'running' && !localTimerRef.current) {
+      localTimerRef.current = setInterval(() => {
+        setLocalPlayedTime(prev => prev + 1);
+      }, 1000);
+    } else if (currentGame?.status !== 'running' && localTimerRef.current) {
       clearInterval(localTimerRef.current);
       localTimerRef.current = null;
     }
-
-    // Start local timer for smooth updates if game is running
-    if (currentGame?.status === 'running') {
-      localTimerRef.current = setInterval(() => {
-        updateTimeDisplay();
-      }, 1000);
-    }
   };
 
-  // Update time display using local timer or server data
+  // Update time display
   const updateTimeDisplay = () => {
-    if (!timeData) {
-      console.error('[GAME_TIME] No time data available');
-      return;
-    }
-
     const timePlayedElement = document.getElementById('timePlayed');
     const timeRemainingContainer = document.getElementById('timeRemainingContainer');
     const timeRemainingElement = document.getElementById('timeRemaining');
 
-    if (!timePlayedElement) {
-      console.error('[GAME_TIME] Time played element not found');
-      return;
-    }
-
-    // Validate time data - log error but don't hide it
-    if (typeof timeData.playedTime !== 'number' || isNaN(timeData.playedTime)) {
-      console.error('[GAME_TIME] ERROR: Invalid playedTime received from server:', timeData.playedTime);
-      console.error('[GAME_TIME] Full timeData object:', timeData);
-      // Don't hide the error - let it show as NaN:NaN so we can debug
-      return;
-    }
-
-    // Calculate elapsed time since last server update
-    let elapsedSinceUpdate = 0;
-    if (timeData.receivedAt) {
-      elapsedSinceUpdate = Math.floor((Date.now() - timeData.receivedAt) / 1000);
-    }
-
-    // Calculate current played time (server time + local elapsed time)
-    const currentPlayedTime = timeData.playedTime + elapsedSinceUpdate;
+    if (!timePlayedElement) return;
 
     // Format time played
-    const playedMinutes = Math.floor(currentPlayedTime / 60);
-    const playedSeconds = currentPlayedTime % 60;
+    const playedMinutes = Math.floor(localPlayedTime / 60);
+    const playedSeconds = localPlayedTime % 60;
     const timePlayedText = `${playedMinutes}:${playedSeconds.toString().padStart(2, '0')}`;
     
     timePlayedElement.textContent = timePlayedText;
 
     // Handle remaining time
-    if (timeData.remainingTime === null || timeData.remainingTime === undefined) {
-      // Time indefinite - only show time played
+    if (timeData?.remainingTime === null || timeData?.remainingTime === undefined) {
       if (timeRemainingContainer) {
         timeRemainingContainer.style.display = 'none';
       }
-    } else {
-      // Validate remaining time
-      if (typeof timeData.remainingTime !== 'number' || isNaN(timeData.remainingTime)) {
-        console.error('[GAME_TIME] Invalid remainingTime:', timeData.remainingTime);
-        if (timeRemainingContainer) {
-          timeRemainingContainer.style.display = 'none';
-        }
-        return;
-      }
-
-      // Time limited - show both time played and remaining
-      const currentRemainingTime = Math.max(0, timeData.remainingTime - elapsedSinceUpdate);
+    } else if (timeData.remainingTime !== null) {
+      const currentRemainingTime = Math.max(0, timeData.remainingTime - (localPlayedTime - (timeData.playedTime || 0)));
       const minutes = Math.floor(currentRemainingTime / 60);
       const seconds = currentRemainingTime % 60;
       const timeRemainingText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
@@ -126,20 +81,16 @@ export const useGameTime = (currentGame: Game | null, socket: Socket | null): Us
       if (timeRemainingContainer) {
         timeRemainingContainer.style.display = 'block';
       }
-
-      // If time is up, stop local timer
-      if (currentRemainingTime <= 0 && localTimerRef.current) {
-        clearInterval(localTimerRef.current);
-        localTimerRef.current = null;
-      }
     }
-    
   };
+
+  // Update display when local time changes
+  useEffect(() => {
+    updateTimeDisplay();
+  }, [localPlayedTime, timeData]);
   // Set up WebSocket listeners
   useEffect(() => {
-    if (!socket) {
-      return;
-    }
+    if (!socket) return;
 
     const handleTimeUpdateEvent = (data: TimeData) => {
       handleTimeUpdate(data);
@@ -164,6 +115,19 @@ export const useGameTime = (currentGame: Game | null, socket: Socket | null): Us
     };
   }, [socket]);
 
+  // Handle game state changes
+  useEffect(() => {
+    if (!currentGame) return;
+
+    if (currentGame.status === 'running' && !localTimerRef.current) {
+      localTimerRef.current = setInterval(() => {
+        setLocalPlayedTime(prev => prev + 1);
+      }, 1000);
+    } else if (currentGame.status !== 'running' && localTimerRef.current) {
+      clearInterval(localTimerRef.current);
+      localTimerRef.current = null;
+    }
+  }, [currentGame?.status]);
 
   // Clean up timer on unmount
   useEffect(() => {
@@ -175,30 +139,9 @@ export const useGameTime = (currentGame: Game | null, socket: Socket | null): Us
     };
   }, []);
 
-  // Handle game state changes
-  useEffect(() => {
-    if (!currentGame) {
-      return;
-    }
-
-    // Stop timer when game is not running
-    if (currentGame.status !== 'running' && localTimerRef.current) {
-      clearInterval(localTimerRef.current);
-      localTimerRef.current = null;
-    }
-
-    // Start timer when game starts running
-    if (currentGame.status === 'running' && timeData && !localTimerRef.current) {
-      localTimerRef.current = setInterval(() => {
-        updateTimeDisplay();
-      }, 1000);
-    }
-  }, [currentGame?.status, timeData]);
-
   return {
     timeData,
     isGameRunning: currentGame?.status === 'running',
-    updateTimeDisplay,
     controlPointTimes
   };
 };
