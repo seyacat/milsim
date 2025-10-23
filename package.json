@@ -27,7 +27,11 @@
     "migration:delete": "npx rimraf \"src/database/migrations/*.ts\" --glob && npx rimraf \"dist/database/migrations/*.js\" --glob",
     "migration:fix-quotes": "node scripts/fix-migrations-quotes.js",
     "migration:fix": "node scripts/fix-migrations-v2.js",
-    "migration": "npm run migration:delete && npm run migration:generate && npm run migration:fix-quotes && npm run migration:fix && npm run migration:run && npm run migration:delete"
+    "migration": "npm run migration:delete && npm run migration:generate && npm run migration:fix-quotes && npm run migration:fix && npm run migration:run && npm run migration:delete",
+    "frontend:dev": "cd frontendSolidJS && npm run dev",
+    "frontend:build": "cd frontendSolidJS && npm run build",
+    "frontend:preview": "cd frontendSolidJS && npm run preview",
+    "build:all": "./build-all.sh"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

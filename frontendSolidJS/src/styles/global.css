@@ -1,0 +1,398 @@
+/* Global Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f5f5f5;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* Loading Styles */
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-size: 1.2rem;
+  color: #666;
+}
+
+/* Login/Register Styles */
+.login-container,
+.register-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.login-form,
+.register-form {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 400px;
+}
+
+.login-form h2,
+.register-form h2 {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: #333;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #555;
+  font-weight: 500;
+}
+
+.form-group input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+button {
+  width: 100%;
+  padding: 0.75rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+button:hover:not(:disabled) {
+  background: #5a6fd8;
+}
+
+button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.login-form p,
+.register-form p {
+  text-align: center;
+  margin-top: 1rem;
+  color: #666;
+}
+
+.login-form a,
+.register-form a {
+  color: #667eea;
+  text-decoration: none;
+}
+
+.login-form a:hover,
+.register-form a:hover {
+  text-decoration: underline;
+}
+
+/* Toast Styles */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+.toast {
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  border-radius: 4px;
+  color: white;
+  cursor: pointer;
+  min-width: 250px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toast-success {
+  background-color: #10b981;
+}
+
+.toast-error {
+  background-color: #ef4444;
+}
+
+.toast-warning {
+  background-color: #f59e0b;
+}
+
+.toast-info {
+  background-color: #3b82f6;
+}
+
+/* Map Styles */
+.map-container {
+  width: 100%;
+  height: 100vh;
+  position: relative;
+}
+
+/* User Marker Styles */
+.user-marker {
+  background: #3b82f6;
+  border: 2px solid white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.user-marker.blue {
+  background: #3b82f6;
+}
+
+.user-marker.red {
+  background: #ef4444;
+}
+
+.user-marker.green {
+  background: #10b981;
+}
+
+.user-marker.yellow {
+  background: #f59e0b;
+}
+
+.user-marker.none {
+  background: #6b7280;
+}
+
+/* Player Marker Styles */
+.player-marker {
+  background: #6b7280;
+  border: 2px solid white;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.player-marker.blue {
+  background: #3b82f6;
+}
+
+.player-marker.red {
+  background: #ef4444;
+}
+
+.player-marker.green {
+  background: #10b981;
+}
+
+.player-marker.yellow {
+  background: #f59e0b;
+}
+
+.player-marker.none {
+  background: #6b7280;
+}
+
+/* Control Point Styles */
+.control-point-marker {
+  background: #8b5cf6;
+  border: 2px solid white;
+  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.control-point-marker.blue {
+  background: #3b82f6;
+}
+
+.control-point-marker.red {
+  background: #ef4444;
+}
+
+.control-point-marker.green {
+  background: #10b981;
+}
+
+.control-point-marker.yellow {
+  background: #f59e0b;
+}
+
+.control-point-marker.none {
+  background: #8b5cf6;
+}
+
+/* Overlay Styles */
+.game-overlay {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-width: 300px;
+}
+
+/* Dashboard Styles */
+.dashboard-container {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.dashboard-header h1 {
+  color: #333;
+}
+
+.dashboard-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.game-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-left: 4px solid #667eea;
+}
+
+.game-card h3 {
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.game-card p {
+  color: #666;
+  margin-bottom: 0.5rem;
+}
+
+.game-status {
+  display: inline-block;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.status-running {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-stopped {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.status-paused {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-finished {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.game-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.game-actions button {
+  flex: 1;
+  padding: 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .dashboard-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  
+  .dashboard-actions {
+    width: 100%;
+  }
+  
+  .games-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .game-overlay {
+    max-width: calc(100% - 20px);
+  }
+}
+/* App Container Styles */
+.app-container {
+  padding: 20px;
+  background-color: red;
+  color: white;
+  font-size: 24px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.app-container h1 {
+  margin-bottom: 20px;
+}
+
+.app-links a {
+  color: white;
+  text-decoration: underline;
+  margin: 0 10px;
+}
+
+.app-links a:hover {
+  text-decoration: none;
+}

@@ -1,0 +1,124 @@
+.game-player-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+}
+
+.map-container {
+  width: 100%;
+  height: 100%;
+}
+
+.game-overlay {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-width: 300px;
+}
+
+.location-info {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: white;
+  padding: 1rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-width: 300px;
+}
+
+.map-controls {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 0.5rem;
+  background: white;
+  padding: 0.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.team-selection-dialog,
+.game-results-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  z-index: 2000;
+  min-width: 300px;
+}
+
+.team-selection-dialog h3,
+.game-results-dialog h3 {
+  margin-bottom: 1rem;
+  color: #333;
+}
+
+.team-selection-dialog button,
+.game-results-dialog button {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.team-selection-dialog button:hover,
+.game-results-dialog button:hover {
+  background: #5a6fd8;
+}
+
+/* Team colors for player interface */
+.team-blue {
+  color: #3b82f6;
+}
+
+.team-red {
+  color: #ef4444;
+}
+
+.team-green {
+  color: #10b981;
+}
+
+.team-yellow {
+  color: #f59e0b;
+}
+
+.team-none {
+  color: #6b7280;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .game-overlay,
+  .location-info {
+    max-width: calc(100% - 20px);
+  }
+  
+  .map-controls {
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: calc(100% - 20px);
+  }
+  
+  .team-selection-dialog,
+  .game-results-dialog {
+    max-width: calc(100% - 40px);
+  }
+}
