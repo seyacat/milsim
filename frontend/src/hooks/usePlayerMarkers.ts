@@ -271,17 +271,21 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       }
     };
 
-    const handlePlayerTeamUpdated = (data: any) => {
-      if (data.action === 'playerTeamUpdated') {
-        updatePlayerMarkerTeam(data.data.playerId, data.data.team);
-      }
-    };
 
     // Listen for game updates that might include player team changes
     const handleGameUpdate = (data: any) => {
       if (data.game && data.game.players) {
-        // Update all player markers when game data changes
-        updatePlayerMarkers();
+        // Only update markers if there are significant changes to player data
+        // Avoid full updates for minor changes like team colors
+        if (data.type === 'playerTeamChanged' || data.type === 'playerJoined' || data.type === 'playerLeft') {
+          // For team changes, we handle them separately via playerTeamUpdated events
+          // Only do full update for major player changes
+          updatePlayerMarkers();
+        } else if (!data.type || data.type === 'gameStateChanged') {
+          // Full update for game state changes
+          updatePlayerMarkers();
+        }
+        // Skip update for other minor changes to prevent unnecessary re-renders
       }
     };
 
@@ -302,19 +306,17 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     };
 
     socket.on('gameAction', handlePositionUpdate);
-    socket.on('gameAction', handlePlayerTeamUpdated);
     socket.on('gameUpdate', handleGameUpdate);
     socket.on('gameAction', handlePlayerPositionsResponse);
     socket.on('gameAction', handlePlayerInactive);
 
     return () => {
       socket.off('gameAction', handlePositionUpdate);
-      socket.off('gameAction', handlePlayerTeamUpdated);
       socket.off('gameUpdate', handleGameUpdate);
       socket.off('gameAction', handlePlayerPositionsResponse);
       socket.off('gameAction', handlePlayerInactive);
     };
-  }, [socket, currentUser, updatePlayerMarker, updatePlayerMarkerTeam, updatePlayerMarkers]);
+  }, [socket, currentUser, updatePlayerMarker, updatePlayerMarkers]);
 
   // Update markers when game changes
   useEffect(() => {

@@ -88,9 +88,7 @@ export const useGamePlayer = (
     isOwner: false
   })
 
-  // Log initialization
-  useEffect(() => {
-  }, [currentGame, currentUser]);
+  // Removed unnecessary effect that was causing re-renders
 
   // Timer and GPS functionality is now handled by isolated components
 
@@ -222,20 +220,7 @@ export const useGamePlayer = (
           // Game time updates should come through gameUpdate event
           // No need to update state here to prevent duplicate updates
           memoizedAddToast({ message: 'El tiempo del juego ha sido actualizado', type: 'info' });
-        }
-      })
-
-      // Listen for join success
-      socket.on('joinSuccess', (data: { user: User }) => {
-        if (data.user) {
-          setCurrentUser(data.user)
-          currentUserRef.current = data.user
-        }
-      })
-
-      // Listen for player team updates - optimized to prevent unnecessary re-renders
-      socket.on('gameAction', (data: { action: string; data: any }) => {
-        if (data.action === 'playerTeamUpdated') {
+        } else if (data.action === 'playerTeamUpdated') {
           // DO NOT update currentGame state - this causes cascading re-renders
           // The game state will be updated via gameUpdate event if needed
           
@@ -259,7 +244,15 @@ export const useGamePlayer = (
             updatePlayerMarkers();
           }
         }
-      });
+      })
+
+      // Listen for join success
+      socket.on('joinSuccess', (data: { user: User }) => {
+        if (data.user) {
+          setCurrentUser(data.user)
+          currentUserRef.current = data.user
+        }
+      })
 
       // Listen for challenge responses
       socket.on('codeChallengeResult', (data: { success: boolean; message: string }) => {
@@ -391,84 +384,52 @@ export const useGamePlayer = (
     setIsGameResultsDialogOpen(false)
   }, [])
 
-  // Automatically open game results dialog when game enters finished state
-  useEffect(() => {
-    if (currentGame?.status === 'finished') {
-      // Small delay to ensure DOM is ready (like in original code)
-      setTimeout(() => {
-        openGameResultsDialog()
-      }, 1000)
-    }
-  }, [currentGame?.status, openGameResultsDialog])
-
-  // Check game status on initial load and show results if already finished
-  useEffect(() => {
-    if (currentGame?.status === 'finished' && !isLoading) {
-      // Small delay to ensure DOM is ready
-      setTimeout(() => {
-        openGameResultsDialog()
-      }, 1500)
-    }
-  }, [currentGame?.status, isLoading, openGameResultsDialog])
-
-  // Show team selection when game is stopped and shouldShowTeamSelection is true
+  // Consolidated game status effects to prevent cascading re-renders
   useEffect(() => {
     if (!currentGame || !currentUser || isLoading) return
 
     const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id
     const isStopped = currentGame.status === 'stopped'
-
-    // Only show team selection for non-owners when game is stopped and shouldShowTeamSelection is true
-    if (!isOwner && isStopped && shouldShowTeamSelection) {
-      setShowTeamSelection(true)
-    } else {
-      setShowTeamSelection(false)
-    }
-  }, [currentGame, currentUser, isLoading, shouldShowTeamSelection])
-
-  // Automatically show team selection only in specific cases
-  useEffect(() => {
-    if (!currentGame || !currentUser || isLoading) return
-
-    const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id
-    const isStopped = currentGame.status === 'stopped'
+    const isFinished = currentGame.status === 'finished'
     
     // Find current player
     const currentPlayer = currentGame.players?.find((p: any) => p?.user?.id === currentUser.id)
     const hasTeam = currentPlayer?.team && currentPlayer.team !== 'none'
 
-    // Only show automatically for non-owners when game is stopped
-    if (!isOwner && isStopped && !hasAutoShownTeamSelection) {
-      // Case 1: Page load/refresh and player doesn't have a team
-      if (!hasTeam) {
-        setShouldShowTeamSelection(true)
-        setHasAutoShownTeamSelection(true)
-      }
-      // Case 2: Game status changed from 'finished' to 'stopped'
-      // This will be handled by the game status change effect below
+    // Handle game finished status
+    if (isFinished) {
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        openGameResultsDialog()
+      }, 1000)
     }
-  }, [currentGame, currentUser, isLoading, hasAutoShownTeamSelection])
 
-  // Reset auto-show flag when game status changes to prevent unwanted popups
-  useEffect(() => {
-    if (currentGame?.status !== 'stopped') {
+    // Handle team selection logic
+    if (!isOwner && isStopped) {
+      // Show team selection if shouldShowTeamSelection is true
+      if (shouldShowTeamSelection) {
+        setShowTeamSelection(true)
+      } else {
+        setShowTeamSelection(false)
+      }
+
+      // Automatically show team selection in specific cases
+      if (!hasAutoShownTeamSelection) {
+        // Case 1: Page load/refresh and player doesn't have a team
+        if (!hasTeam) {
+          setShouldShowTeamSelection(true)
+          setHasAutoShownTeamSelection(true)
+        }
+      }
+    } else {
+      setShowTeamSelection(false)
+    }
+
+    // Reset auto-show flag when game status changes from stopped
+    if (!isStopped) {
       setHasAutoShownTeamSelection(false)
     }
-  }, [currentGame?.status])
-
-  // Handle game status changes (specifically from 'finished' to 'stopped')
-  useEffect(() => {
-    if (!currentGame || !currentUser || isLoading) return
-
-    const isOwner = currentGame.owner && currentGame.owner.id === currentUser.id
-    const isStopped = currentGame.status === 'stopped'
-
-    // When game changes from 'finished' to 'stopped', show team selection for non-owners
-    if (!isOwner && isStopped && !hasAutoShownTeamSelection) {
-      setShouldShowTeamSelection(true)
-      setHasAutoShownTeamSelection(true)
-    }
-  }, [currentGame?.status, currentUser, isLoading, hasAutoShownTeamSelection])
+  }, [currentGame, currentUser, isLoading, shouldShowTeamSelection, hasAutoShownTeamSelection, openGameResultsDialog])
 
   const hideTeamSelection = useCallback(() => {
     setShouldShowTeamSelection(false)
