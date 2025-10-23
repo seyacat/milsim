@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { memo } from 'react'
 import { User, Game } from '../../types'
 
 interface LocationInfoProps {
@@ -14,6 +14,10 @@ const LocationInfo: React.FC<LocationInfoProps> = ({
     <div className="location-info-panel">
       <div className="location-header">
         <h3>Sistema de Posición GPS</h3>
+        <div className="gps-status">
+          <span className="label">Estado:</span>
+          <span className="value" id="gpsStatus">Desconectado</span>
+        </div>
       </div>
       
       <div className="location-details">
@@ -71,4 +75,4 @@ const LocationInfo: React.FC<LocationInfoProps> = ({
   )
 }
 
-export default LocationInfo
+export default memo(LocationInfo)

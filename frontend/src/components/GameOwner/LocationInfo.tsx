@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, memo } from 'react'
 import { Game } from '../../types'
 
 interface LocationInfoProps {
@@ -34,9 +34,10 @@ const LocationInfo: React.FC<LocationInfoProps> = ({
 
   return (
     <div className="location-info-panel">
-      <div>Lat: <span>{currentPosition ? currentPosition.lat.toFixed(6) : '-'}</span></div>
-      <div>Lng: <span>{currentPosition ? currentPosition.lng.toFixed(6) : '-'}</span></div>
-      <div>Precisión: <span>{currentPosition ? currentPosition.accuracy.toFixed(1) + 'm' : '-'}</span></div>
+      <div>Estado GPS: <span id="gpsStatus">Desconectado</span></div>
+      <div>Lat: <span id="currentLat">{currentPosition ? currentPosition.lat.toFixed(6) : '-'}</span></div>
+      <div>Lng: <span id="currentLng">{currentPosition ? currentPosition.lng.toFixed(6) : '-'}</span></div>
+      <div>Precisión: <span id="accuracy">{currentPosition ? currentPosition.accuracy.toFixed(1) + 'm' : '-'}</span></div>
       
       
       <div style={{ marginTop: '10px' }}>
@@ -58,4 +59,4 @@ const LocationInfo: React.FC<LocationInfoProps> = ({
   )
 }
 
-export default LocationInfo
+export default memo(LocationInfo)

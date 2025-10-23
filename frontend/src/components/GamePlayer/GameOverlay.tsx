@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { memo } from 'react'
 import { User, Game } from '../../types'
 import { GameTimeDisplayRefactored } from '../GameTimeDisplayRefactored'
 import { Socket } from 'socket.io-client'
@@ -15,13 +15,14 @@ interface GameOverlayProps {
   };
 }
 
-const GameOverlay: React.FC<GameOverlayProps> = ({
+const GameOverlay: React.FC<GameOverlayProps> = React.memo(({
   currentUser,
   currentGame,
   gpsStatus,
   socket,
   timeData
 }) => {
+  console.log('GamePlayer/GameOverlay rendered');
   return (
     <div className="game-overlay">
       <div className="game-header">
@@ -65,6 +66,6 @@ const GameOverlay: React.FC<GameOverlayProps> = ({
       </div>
     </div>
   )
-}
+})
 
-export default GameOverlay
+export default memo(GameOverlay)

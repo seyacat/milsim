@@ -20,22 +20,27 @@ interface BombTimerData {
   isActive: boolean;
 }
 
-export const TimerManager: React.FC<TimerManagerProps> = ({ currentGame, socket, children }) => {
+export const TimerManager: React.FC<TimerManagerProps> = React.memo(({ currentGame, socket, children }) => {
+  console.log('TimerManager rendered');
   const [timeData, setTimeData] = useState<TimeData | null>(null);
   const [controlPointTimes, setControlPointTimes] = useState<ControlPointUpdateData[]>([]);
   const [activeBombTimers, setActiveBombTimers] = useState<Map<number, BombTimerData>>(new Map());
-  const [localPlayedTime, setLocalPlayedTime] = useState<number>(0);
+  const localPlayedTimeRef = React.useRef<number>(0);
+  const localControlPointTimesRef = React.useRef<ControlPointUpdateData[]>([]);
   const localTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const localCPTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Handle time updates from server
   const handleTimeUpdate = useCallback((newTimeData: TimeData) => {
     setTimeData(newTimeData);
-    setLocalPlayedTime(newTimeData.playedTime);
+    localPlayedTimeRef.current = newTimeData.playedTime;
 
     // Start/stop local timer based on game status
     if (currentGame?.status === 'running' && !localTimerRef.current) {
       localTimerRef.current = setInterval(() => {
-        setLocalPlayedTime(prev => prev + 1);
+        localPlayedTimeRef.current += 1;
+        // Update DOM directly without causing re-render
+        updateGameTimeDisplay();
       }, 1000);
     } else if (currentGame?.status !== 'running' && localTimerRef.current) {
       clearInterval(localTimerRef.current);
@@ -46,6 +51,7 @@ export const TimerManager: React.FC<TimerManagerProps> = ({ currentGame, socket,
   // Handle control point times updates
   const handleControlPointTimes = useCallback((data: ControlPointUpdateData[]) => {
     setControlPointTimes(data);
+    localControlPointTimesRef.current = data;
   }, []);
 
   // Handle bomb time updates
@@ -120,26 +126,55 @@ export const TimerManager: React.FC<TimerManagerProps> = ({ currentGame, socket,
     }
   }, [socket, currentGame]);
 
-  // Handle game state changes for local timer
+  // Handle game state changes for local timers
   useEffect(() => {
     if (!currentGame) return;
 
+    // Handle played time timer
     if (currentGame.status === 'running' && !localTimerRef.current) {
       localTimerRef.current = setInterval(() => {
-        setLocalPlayedTime(prev => prev + 1);
+        localPlayedTimeRef.current += 1;
+        // Update DOM directly without causing re-render
+        updateGameTimeDisplay();
       }, 1000);
     } else if (currentGame.status !== 'running' && localTimerRef.current) {
       clearInterval(localTimerRef.current);
       localTimerRef.current = null;
     }
+
+    // Handle control point timers
+    if (currentGame.status === 'running' && !localCPTimerRef.current) {
+      localCPTimerRef.current = setInterval(() => {
+        // Update control point timers directly in the ref
+        localControlPointTimesRef.current = localControlPointTimesRef.current.map(cp => {
+          // Only increment timers for control points that are currently held by a team
+          if (cp.currentTeam !== null && cp.currentTeam !== 'none') {
+            return {
+              ...cp,
+              currentHoldTime: cp.currentHoldTime + 1
+            };
+          }
+          return cp;
+        });
+        // Update DOM directly without causing re-render
+        updateControlPointTimerDisplays();
+      }, 1000);
+    } else if (currentGame.status !== 'running' && localCPTimerRef.current) {
+      clearInterval(localCPTimerRef.current);
+      localCPTimerRef.current = null;
+    }
   }, [currentGame?.status]);
 
-  // Clean up timer on unmount
+  // Clean up timers on unmount
   useEffect(() => {
     return () => {
       if (localTimerRef.current) {
         clearInterval(localTimerRef.current);
         localTimerRef.current = null;
+      }
+      if (localCPTimerRef.current) {
+        clearInterval(localCPTimerRef.current);
+        localCPTimerRef.current = null;
       }
     };
   }, []);
@@ -167,10 +202,7 @@ export const TimerManager: React.FC<TimerManagerProps> = ({ currentGame, socket,
   // Update control point timer displays when controlPointTimes change
   useEffect(() => {
     if (!currentGame?.controlPoints) return;
-
-    currentGame.controlPoints.forEach(controlPoint => {
-      updateControlPointTimerDisplay(controlPoint.id);
-    });
+    updateControlPointTimerDisplays();
   }, [controlPointTimes, currentGame?.status, currentGame?.controlPoints]);
 
   // Update bomb timer display for a specific control point
@@ -205,10 +237,46 @@ export const TimerManager: React.FC<TimerManagerProps> = ({ currentGame, socket,
     }
   };
 
+  // Update game time display directly in DOM
+  const updateGameTimeDisplay = () => {
+    const timePlayedElement = document.getElementById('timePlayed');
+    if (timePlayedElement) {
+      const playedMinutes = Math.floor(localPlayedTimeRef.current / 60);
+      const playedSeconds = localPlayedTimeRef.current % 60;
+      const timePlayedText = `${playedMinutes}:${playedSeconds.toString().padStart(2, '0')}`;
+      timePlayedElement.textContent = timePlayedText;
+    }
+  };
+
+  // Update all control point timer displays
+  const updateControlPointTimerDisplays = () => {
+    if (!currentGame?.controlPoints) return;
+
+    currentGame.controlPoints.forEach(controlPoint => {
+      const timerElement = document.getElementById(`timer_${controlPoint.id}`);
+      const timeData = localControlPointTimesRef.current.find(cp => cp.controlPointId === controlPoint.id);
+      
+      if (!timerElement) return;
+
+      const shouldShow = currentGame?.status === 'running' && timeData?.currentTeam !== null;
+      
+      if (shouldShow && timeData) {
+        const minutes = Math.floor(timeData.currentHoldTime / 60);
+        const seconds = timeData.currentHoldTime % 60;
+        const timeText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        
+        timerElement.textContent = timeText;
+        timerElement.style.display = 'block';
+      } else {
+        timerElement.style.display = 'none';
+      }
+    });
+  };
+
   // Update control point timer display for a specific control point
   const updateControlPointTimerDisplay = (controlPointId: number) => {
     const timerElement = document.getElementById(`timer_${controlPointId}`);
-    const timeData = controlPointTimes.find(cp => cp.controlPointId === controlPointId);
+    const timeData = localControlPointTimesRef.current.find(cp => cp.controlPointId === controlPointId);
     
     if (!timerElement) return;
 
@@ -228,7 +296,7 @@ export const TimerManager: React.FC<TimerManagerProps> = ({ currentGame, socket,
 
   const currentTimeData = {
     remainingTime: timeData?.remainingTime || null,
-    playedTime: localPlayedTime,
+    playedTime: localPlayedTimeRef.current,
     totalTime: timeData?.totalTime || null
   };
 
@@ -245,4 +313,4 @@ export const TimerManager: React.FC<TimerManagerProps> = ({ currentGame, socket,
       })}
     </>
   );
-};
+});

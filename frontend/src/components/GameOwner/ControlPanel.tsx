@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { memo } from 'react'
 import { Game } from '../../types'
 
 interface ControlPanelProps {
@@ -118,4 +118,4 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   )
 }
 
-export default ControlPanel
+export default memo(ControlPanel)

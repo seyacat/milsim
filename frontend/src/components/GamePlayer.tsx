@@ -70,22 +70,22 @@ const GamePlayer: React.FC = () => {
 
   return (
     <div className="game-owner-container">
-      {/* Map */}
-      <GamePlayerMap
-        mapRef={mapRef}
-        currentGame={currentGame}
-        currentUser={currentUser}
-        mapInstanceRef={mapInstanceRef}
-        userMarkerRef={userMarkerRef}
-        playerMarkersRef={playerMarkersRef}
-        controlPointMarkersRef={controlPointMarkersRef}
-        controlPointMarkers={controlPointMarkers}
-        positionCircles={positionCircles}
-        pieCharts={pieCharts}
-      />
-
       {/* GPS Manager - Handles GPS tracking independently */}
       <GPSManager currentGame={currentGame} socket={socket}>
+        {/* Map */}
+        <GamePlayerMap
+          mapRef={mapRef}
+          currentGame={currentGame}
+          currentUser={currentUser}
+          mapInstanceRef={mapInstanceRef}
+          userMarkerRef={userMarkerRef}
+          playerMarkersRef={playerMarkersRef}
+          controlPointMarkersRef={controlPointMarkersRef}
+          controlPointMarkers={controlPointMarkers}
+          positionCircles={positionCircles}
+          pieCharts={pieCharts}
+        />
+
         {/* Timer Manager - Handles all timer functionality independently */}
         <TimerManager currentGame={currentGame} socket={socket}>
           {/* Game Overlay */}
@@ -100,18 +100,20 @@ const GamePlayer: React.FC = () => {
         <LocationInfo
           currentGame={currentGame}
         />
+
+        {/* Map Controls */}
+        <MapControls
+          goBack={goBack}
+          reloadPage={reloadPage}
+          centerOnUser={centerOnUser}
+          centerOnSite={centerOnSite}
+          openResultsDialog={openGameResultsDialog}
+          showTeamSelection={showTeamSelectionManual}
+          gameStatus={currentGame?.status}
+          mapInstanceRef={mapInstanceRef}
+        />
       </GPSManager>
 
-      {/* Map Controls */}
-      <MapControls
-        goBack={goBack}
-        reloadPage={reloadPage}
-        centerOnUser={centerOnUser}
-        centerOnSite={centerOnSite}
-        openResultsDialog={openGameResultsDialog}
-        showTeamSelection={showTeamSelectionManual}
-        gameStatus={currentGame?.status}
-      />
       {/* Game Results Dialog */}
       <GameResultsDialog
         isOpen={isGameResultsDialogOpen}
@@ -133,4 +135,4 @@ const GamePlayer: React.FC = () => {
   )
 }
 
-export default GamePlayer
+export default React.memo(GamePlayer)

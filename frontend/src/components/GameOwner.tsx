@@ -107,10 +107,10 @@ const GameOwner: React.FC = () => {
         playerMarkers={playerMarkers}
       />
 
-      {/* Timer Manager - Handles all timer functionality independently */}
-      <TimerManager currentGame={currentGame} socket={socket}>
-        {/* GPS Manager - Handles GPS tracking independently */}
-        <GPSManager currentGame={currentGame} socket={socket}>
+      {/* GPS Manager - Handles GPS tracking independently */}
+      <GPSManager currentGame={currentGame} socket={socket}>
+        {/* Timer Manager - Handles all timer functionality independently */}
+        <TimerManager currentGame={currentGame} socket={socket}>
           {/* Game Overlay */}
           <GameOverlay
             currentGame={currentGame}
@@ -127,8 +127,19 @@ const GameOwner: React.FC = () => {
             }}
             openTeamsDialog={openTeamsDialog}
           />
-        </GPSManager>
-      </TimerManager>
+        </TimerManager>
+
+        {/* Map Controls */}
+        <MapControls
+          goBack={goBack}
+          reloadPage={reloadPage}
+          centerOnUser={centerOnUser}
+          centerOnSite={centerOnSite}
+          openTeamsDialog={handleOpenTeamsDialog}
+          openResultsDialog={openGameResultsDialog}
+          mapInstanceRef={mapInstanceRef}
+        />
+      </GPSManager>
 
       {/* Control Panel */}
       <ControlPanel
@@ -148,16 +159,6 @@ const GameOwner: React.FC = () => {
         restartGame={async () => {
           await restartGame()
         }}
-      />
-
-      {/* Map Controls */}
-      <MapControls
-        goBack={goBack}
-        reloadPage={reloadPage}
-        centerOnUser={centerOnUser}
-        centerOnSite={centerOnSite}
-        openTeamsDialog={handleOpenTeamsDialog}
-        openResultsDialog={openGameResultsDialog}
       />
 
       {/* Players Dialog */}
@@ -181,4 +182,4 @@ const GameOwner: React.FC = () => {
   )
 }
 
-export default GameOwner
+export default React.memo(GameOwner)

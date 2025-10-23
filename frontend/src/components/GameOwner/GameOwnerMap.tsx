@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, memo } from 'react'
 import { Game, User } from '../../types'
 
 interface GameOwnerMapProps {
@@ -102,4 +102,4 @@ const GameOwnerMap: React.FC<GameOwnerMapProps> = ({
   )
 }
 
-export default GameOwnerMap
+export default memo(GameOwnerMap)

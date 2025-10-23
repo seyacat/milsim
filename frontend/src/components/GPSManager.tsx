@@ -19,9 +19,10 @@ interface GPSTrackingConfig {
   timeoutDuration: number;
 }
 
-export const GPSManager: React.FC<GPSManagerProps> = ({ currentGame, socket, children }) => {
+export const GPSManager: React.FC<GPSManagerProps> = React.memo(({ currentGame, socket, children }) => {
+  console.log('GPSManager rendered');
   const [gpsStatus, setGpsStatus] = useState('Desconectado');
-  const [currentPosition, setCurrentPosition] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
+  const currentPositionRef = useRef<{ lat: number; lng: number; accuracy: number } | null>(null);
 
   const watchIdRef = useRef<number | null>(null);
   const lastDetectionRef = useRef<number | null>(null);
@@ -57,7 +58,7 @@ export const GPSManager: React.FC<GPSManagerProps> = ({ currentGame, socket, chi
       accuracy: position.coords.accuracy
     };
 
-    setCurrentPosition(newPosition);
+    currentPositionRef.current = newPosition;
     lastKnownPositionRef.current = newPosition;
     setGpsStatus('Activo');
 
@@ -74,6 +75,9 @@ export const GPSManager: React.FC<GPSManagerProps> = ({ currentGame, socket, chi
       setGpsStatus('Inactivo - Sin señal GPS por 1 minuto');
       isSendingPeriodicUpdatesRef.current = false;
     }, config.timeoutDuration);
+
+    // Update GPS displays directly in DOM without causing re-render
+    updateGPSDisplays(newPosition);
   }, [config.timeoutDuration]);
 
   const handlePositionError = useCallback((error: GeolocationPositionError) => {
@@ -97,7 +101,7 @@ export const GPSManager: React.FC<GPSManagerProps> = ({ currentGame, socket, chi
       return;
     }
 
-    const positionToSend = currentPosition || lastKnownPositionRef.current;
+    const positionToSend = currentPositionRef.current || lastKnownPositionRef.current;
     
     if (positionToSend && socket && currentGame) {
       socket.emit('gameAction', {
@@ -110,7 +114,7 @@ export const GPSManager: React.FC<GPSManagerProps> = ({ currentGame, socket, chi
         }
       });
     }
-  }, [currentPosition, socket, currentGame]);
+  }, [socket, currentGame]);
 
   const startGPSTracking = useCallback(() => {
     if (watchIdRef.current !== null) {
@@ -177,10 +181,13 @@ export const GPSManager: React.FC<GPSManagerProps> = ({ currentGame, socket, chi
     }
 
     setGpsStatus('Detenido');
-    setCurrentPosition(null);
+    currentPositionRef.current = null;
     lastDetectionRef.current = null;
     lastKnownPositionRef.current = null;
     isSendingPeriodicUpdatesRef.current = false;
+
+    // Clear GPS displays
+    updateGPSDisplays(null);
 
   }, []);
 
@@ -196,17 +203,41 @@ export const GPSManager: React.FC<GPSManagerProps> = ({ currentGame, socket, chi
     }
   }, [currentGame, socket, startGPSTracking]);
 
+  // Update GPS displays directly in DOM
+  const updateGPSDisplays = (position: { lat: number; lng: number; accuracy: number } | null) => {
+    // Update GPS status display
+    const gpsStatusElement = document.getElementById('gpsStatus');
+    if (gpsStatusElement) {
+      gpsStatusElement.textContent = gpsStatus;
+    }
+
+    // Update position displays
+    const currentLatElement = document.getElementById('currentLat');
+    const currentLngElement = document.getElementById('currentLng');
+    const accuracyElement = document.getElementById('accuracy');
+
+    if (position) {
+      if (currentLatElement) currentLatElement.textContent = position.lat.toFixed(6);
+      if (currentLngElement) currentLngElement.textContent = position.lng.toFixed(6);
+      if (accuracyElement) accuracyElement.textContent = `${Math.round(position.accuracy)} metros`;
+    } else {
+      if (currentLatElement) currentLatElement.textContent = '';
+      if (currentLngElement) currentLngElement.textContent = '';
+      if (accuracyElement) accuracyElement.textContent = '';
+    }
+  };
+
   return (
     <>
       {React.Children.map(children, child => {
         if (React.isValidElement(child)) {
           return React.cloneElement(child, {
             gpsStatus,
-            currentPosition
+            currentPosition: currentPositionRef.current
           } as any);
         }
         return child;
       })}
     </>
   );
-};
+});

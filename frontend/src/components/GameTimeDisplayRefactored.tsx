@@ -10,7 +10,7 @@ interface GameTimeDisplayRefactoredProps {
   };
 }
 
-export const GameTimeDisplayRefactored: React.FC<GameTimeDisplayRefactoredProps> = ({
+export const GameTimeDisplayRefactored: React.FC<GameTimeDisplayRefactoredProps> = React.memo(({
   currentGame,
   timeData
 }) => {
@@ -47,4 +47,4 @@ export const GameTimeDisplayRefactored: React.FC<GameTimeDisplayRefactoredProps>
       )}
     </div>
   );
-};
+});
