@@ -17,7 +17,6 @@ const GameOverlay: React.FC<GameOverlayProps> = React.memo(({
   gpsStatus,
   socket
 }) => {
-  console.log('GamePlayer/GameOverlay rendered');
   const { timeData } = useTimer();
   
   return (

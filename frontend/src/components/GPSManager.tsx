@@ -20,7 +20,6 @@ interface GPSTrackingConfig {
 }
 
 export const GPSManager: React.FC<GPSManagerProps> = React.memo(({ currentGame, socket, children }) => {
-  console.log('GPSManager rendered');
   const [gpsStatus, setGpsStatus] = useState('Desconectado');
   const currentPositionRef = useRef<{ lat: number; lng: number; accuracy: number } | null>(null);
 

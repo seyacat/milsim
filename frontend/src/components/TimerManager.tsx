@@ -41,7 +41,6 @@ export const useTimer = () => {
 };
 
 export const TimerManager: React.FC<TimerManagerProps> = React.memo(({ currentGame, socket, children }) => {
-  console.log('TimerManager rendered');
   const [timeData, setTimeData] = useState<TimeData | null>(null);
   const [controlPointTimes, setControlPointTimes] = useState<ControlPointUpdateData[]>([]);
   const [activeBombTimers, setActiveBombTimers] = useState<Map<number, BombTimerData>>(new Map());
