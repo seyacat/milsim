@@ -97,4 +97,14 @@ const GamePlayerMap: React.FC<GamePlayerMapProps> = ({
   )
 }
 
-export default memo(GamePlayerMap)
+const arePropsEqual = (prevProps: GamePlayerMapProps, nextProps: GamePlayerMapProps) => {
+  // This component only initializes the map once and doesn't depend on game state changes
+  // Only re-render if the map ref or game object reference changes
+  return (
+    prevProps.mapRef === nextProps.mapRef &&
+    prevProps.currentGame === nextProps.currentGame &&
+    prevProps.currentUser === nextProps.currentUser
+  );
+};
+
+export default memo(GamePlayerMap, arePropsEqual)

@@ -50,4 +50,17 @@ const MapControls: React.FC<MapControlsProps> = ({
   )
 }
 
-export default memo(MapControls)
+const arePropsEqual = (prevProps: MapControlsProps, nextProps: MapControlsProps) => {
+  // Only re-render if game status changes or function references change
+  return (
+    prevProps.gameStatus === nextProps.gameStatus &&
+    prevProps.goBack === nextProps.goBack &&
+    prevProps.reloadPage === nextProps.reloadPage &&
+    prevProps.centerOnUser === nextProps.centerOnUser &&
+    prevProps.centerOnSite === nextProps.centerOnSite &&
+    prevProps.openResultsDialog === nextProps.openResultsDialog &&
+    prevProps.showTeamSelection === nextProps.showTeamSelection
+  );
+};
+
+export default memo(MapControls, arePropsEqual)

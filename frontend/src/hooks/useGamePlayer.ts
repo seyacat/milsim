@@ -77,7 +77,7 @@ export const useGamePlayer = (
   const pieCharts = controlPointsResult?.pieCharts || new Map();
 
   // Use bomb timers hook for smooth countdown updates
-  const { activeBombTimers, updateBombTimerDisplay, updateAllBombTimerDisplays } = useBombTimers(currentGame, socketRef.current);
+  useBombTimers(currentGame, socketRef.current);
 
   // Use player markers hook
   const { updatePlayerMarkers, updatePlayerMarkerTeam, updatePlayerMarkerTeamByUserId } = usePlayerMarkers({
@@ -176,7 +176,7 @@ export const useGamePlayer = (
         return originalEmit(event, ...args);
       };
 
-      // Listen for game updates - this should be the main event for game state changes
+      // Consolidated game state updates - only use gameUpdate for all game state changes
       socket.on('gameUpdate', (data: { game: Game; type?: string }) => {
         if (data.game) {
           // Only update if the game has actually changed
@@ -198,130 +198,29 @@ export const useGamePlayer = (
         }
       })
 
-      // Listen for game state events
-      socket.on('gameState', (game: Game) => {
-        if (game) {
-          // Only update if the game has actually changed
-          setCurrentGame(prevGame => {
-            if (JSON.stringify(prevGame) === JSON.stringify(game)) {
-              return prevGame;
-            }
-            return game;
-          });
-          // Handle specific status changes
-          if (game.status === 'finished') {
-            setTimeout(() => {
-              setIsGameResultsDialogOpen(true)
-            }, 1000)
-          } else if (game.status === 'stopped') {
-            setIsGameResultsDialogOpen(false)
-            memoizedAddToast({ message: 'El juego ha sido detenido. Puedes seleccionar tu equipo.', type: 'info' })
-          }
-        }
-      })
-
-      // Listen for game status changes
-      socket.on('gameStatusChanged', (data: { game: Game; previousStatus: string; newStatus: string }) => {
-        if (data.game) {
-          // Only update if the game has actually changed
-          setCurrentGame(prevGame => {
-            if (JSON.stringify(prevGame) === JSON.stringify(data.game)) {
-              return prevGame;
-            }
-            return data.game;
-          });
-          
-          // Handle specific status transitions
-          if (data.newStatus === 'finished') {
-            setTimeout(() => {
-              setIsGameResultsDialogOpen(true)
-            }, 1000)
-          } else if (data.newStatus === 'stopped') {
-            setIsGameResultsDialogOpen(false)
-            memoizedAddToast({ message: 'El juego ha sido detenido. Puedes seleccionar tu equipo.', type: 'info' })
-          }
-        }
-      })
-
-      // Listen for game finish events specifically
-      socket.on('gameFinished', (data: { game: Game }) => {
-        if (data.game) {
-          // Only update if the game has actually changed
-          setCurrentGame(prevGame => {
-            if (JSON.stringify(prevGame) === JSON.stringify(data.game)) {
-              return prevGame;
-            }
-            return data.game;
-          });
-          setTimeout(() => {
-            setIsGameResultsDialogOpen(true)
-          }, 1000)
-        }
-      })
-
-      // Listen for game stopped events specifically
-      socket.on('gameStopped', (data: { game: Game }) => {
-        if (data.game) {
-          // Only update if the game has actually changed
-          setCurrentGame(prevGame => {
-            if (JSON.stringify(prevGame) === JSON.stringify(data.game)) {
-              return prevGame;
-            }
-            return data.game;
-          });
-          setIsGameResultsDialogOpen(false)
-          memoizedAddToast({ message: 'El juego ha sido detenido. Puedes seleccionar tu equipo.', type: 'info' })
-        }
-      })
+      // Remove duplicate listeners - all game state changes should come through gameUpdate
+      // gameState, gameStatusChanged, gameFinished, gameStopped are redundant
 
       // Listen for any game action that might change the game state
+      // All game state changes should come through gameUpdate event
+      // This listener only handles actions that don't require full game state updates
       socket.on('gameAction', (data: { action: string; data: any }) => {
         if (data.action === 'updateGameStatus') {
           // This handles when the owner changes the game status
-          // The game state should be updated via gameUpdate or gameState events
+          // The game state should be updated via gameUpdate event
         } else if (data.action === 'gameStateChanged' && data.data.game) {
-          // Handle game state changes from owner actions
-          setCurrentGame(prevGame => {
-            if (JSON.stringify(prevGame) === JSON.stringify(data.data.game)) {
-              return prevGame;
-            }
-            return data.data.game;
-          });
-          
-          // Handle specific status changes
-          if (data.data.game.status === 'finished') {
-            setTimeout(() => {
-              setIsGameResultsDialogOpen(true);
-            }, 1000);
-          } else if (data.data.game.status === 'stopped') {
-            setIsGameResultsDialogOpen(false);
-            memoizedAddToast({ message: 'El juego ha sido detenido. Puedes seleccionar tu equipo.', type: 'info' });
-          }
+          // Game state changes should come through gameUpdate event
+          // No need to update state here to prevent duplicate updates
         } else if (data.action === 'teamCountUpdated' && data.data.game) {
-          // Handle team count updates from owner
-          setCurrentGame(prevGame => {
-            if (JSON.stringify(prevGame) === JSON.stringify(data.data.game)) {
-              return prevGame;
-            }
-            return data.data.game;
-          });
+          // Team count updates should come through gameUpdate event
+          // No need to update state here to prevent duplicate updates
         } else if (data.action === 'timeAdded' && data.data.game) {
-          // Handle time added by owner
-          setCurrentGame(prevGame => {
-            if (JSON.stringify(prevGame) === JSON.stringify(data.data.game)) {
-              return prevGame;
-            }
-            return data.data.game;
-          });
+          // Time added should come through gameUpdate event
+          // No need to update state here to prevent duplicate updates
           memoizedAddToast({ message: 'Se ha agregado tiempo al juego', type: 'info' });
         } else if (data.action === 'gameTimeUpdated' && data.data.game) {
-          // Handle game time updates from owner
-          setCurrentGame(prevGame => {
-            if (JSON.stringify(prevGame) === JSON.stringify(data.data.game)) {
-              return prevGame;
-            }
-            return data.data.game;
-          });
+          // Game time updates should come through gameUpdate event
+          // No need to update state here to prevent duplicate updates
           memoizedAddToast({ message: 'El tiempo del juego ha sido actualizado', type: 'info' });
         }
       })
@@ -334,30 +233,16 @@ export const useGamePlayer = (
         }
       })
 
-      // Listen for player team updates
+      // Listen for player team updates - optimized to prevent unnecessary re-renders
       socket.on('gameAction', (data: { action: string; data: any }) => {
         if (data.action === 'playerTeamUpdated') {
+          // DO NOT update currentGame state - this causes cascading re-renders
+          // The game state will be updated via gameUpdate event if needed
           
-          // Update the current game state to reflect the team change
-          setCurrentGame(prevGame => {
-            if (!prevGame) return prevGame;
-            
-            // Update the player's team in the game state
-            const updatedPlayers = prevGame.players?.map(player => {
-              if (player.user?.id === data.data.userId) {
-                return { ...player, team: data.data.team };
-              }
-              return player;
-            }) || [];
-            
-            return { ...prevGame, players: updatedPlayers };
-          });
-
           // Show toast notification for team change
           const targetPlayer = currentGame?.players?.find(p => p.user?.id === data.data.userId);
           const playerName = targetPlayer?.user?.name || data.data.userName || 'Un jugador';
           const teamName = data.data.team && data.data.team !== 'none' ? data.data.team.toUpperCase() : 'sin equipo';
-          
           
           if (data.data.userId === currentUserRef.current?.id) {
             memoizedAddToast({ message: `Haz cambiado de equipo`, type: 'info' });
@@ -365,20 +250,14 @@ export const useGamePlayer = (
             memoizedAddToast({ message: `${playerName} ha cambiado al equipo ${teamName}`, type: 'info' });
           }
 
-          // Force update player markers to reflect team changes
-          if (updatePlayerMarkers) {
-            updatePlayerMarkers();
-          }
-          
-          // Also update individual player marker if it exists
+          // Update player markers without triggering full re-render
           if (updatePlayerMarkerTeamByUserId && data.data.userId) {
             updatePlayerMarkerTeamByUserId(data.data.userId, data.data.team);
           } else if (updatePlayerMarkerTeam && data.data.playerId) {
             updatePlayerMarkerTeam(data.data.playerId, data.data.team);
+          } else if (updatePlayerMarkers) {
+            updatePlayerMarkers();
           }
-
-          // Update user's own marker if they changed their own team
-          // This will be handled by the GPSManager component
         }
       });
 

@@ -75,4 +75,10 @@ const LocationInfo: React.FC<LocationInfoProps> = ({
   )
 }
 
-export default memo(LocationInfo)
+const arePropsEqual = (prevProps: LocationInfoProps, nextProps: LocationInfoProps) => {
+  // Only re-render if the game object reference changes
+  // This component only uses GPS data from context, not game props
+  return prevProps.currentGame === nextProps.currentGame;
+};
+
+export default memo(LocationInfo, arePropsEqual)

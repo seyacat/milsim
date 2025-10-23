@@ -144,4 +144,10 @@ const GamePlayer: React.FC = () => {
   )
 }
 
-export default React.memo(GamePlayer)
+const arePropsEqual = () => {
+  // GamePlayer doesn't receive any props, so it should never re-render
+  // All state is managed internally via hooks
+  return true;
+};
+
+export default React.memo(GamePlayer, arePropsEqual)

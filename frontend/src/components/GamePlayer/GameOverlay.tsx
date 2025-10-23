@@ -64,4 +64,15 @@ const GameOverlay: React.FC<GameOverlayProps> = React.memo(({
   )
 })
 
-export default memo(GameOverlay)
+const arePropsEqual = (prevProps: GameOverlayProps, nextProps: GameOverlayProps) => {
+  // Only re-render if game status, user name, or game name changes
+  // Don't re-render for player team changes or other minor updates
+  return (
+    prevProps.currentUser.name === nextProps.currentUser.name &&
+    prevProps.currentGame.name === nextProps.currentGame.name &&
+    prevProps.currentGame.status === nextProps.currentGame.status &&
+    prevProps.currentGame.owner.name === nextProps.currentGame.owner.name
+  );
+};
+
+export default memo(GameOverlay, arePropsEqual)
