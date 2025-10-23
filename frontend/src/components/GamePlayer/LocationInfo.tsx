@@ -2,7 +2,7 @@ import React from 'react'
 import { User, Game } from '../../types'
 
 interface LocationInfoProps {
-  currentPosition: { lat: number; lng: number; accuracy: number } | null
+  currentPosition?: { lat: number; lng: number; accuracy: number } | null
   currentGame: Game
 }
 

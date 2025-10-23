@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Game } from '../../types'
 
 interface LocationInfoProps {
-  currentPosition: { lat: number; lng: number; accuracy: number } | null
+  currentPosition?: { lat: number; lng: number; accuracy: number } | null
   currentGame: Game
   updateGameTime: (timeInSeconds: number) => Promise<void>
   openTeamsDialog: () => void

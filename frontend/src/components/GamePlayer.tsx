@@ -8,6 +8,8 @@ import MapControls from './GamePlayer/MapControls'
 import GameResultsDialog from './GameResultsDialog'
 import TeamSelection from './TeamSelection'
 import { useGamePlayer } from '../hooks/useGamePlayer'
+import { TimerManager } from './TimerManager'
+import { GPSManager } from './GPSManager'
 import '../styles/game-player.css'
 
 const GamePlayer: React.FC = () => {
@@ -27,8 +29,6 @@ const GamePlayer: React.FC = () => {
     currentUser,
     currentGame,
     isLoading,
-    gpsStatus,
-    currentPosition,
     mapRef,
     mapInstanceRef,
     userMarkerRef,
@@ -39,11 +39,9 @@ const GamePlayer: React.FC = () => {
     reloadPage,
     centerOnUser,
     centerOnSite,
-    controlPointTimes,
     controlPointMarkers,
     positionCircles,
     pieCharts,
-    activeBombTimers,
     isGameResultsDialogOpen,
     openGameResultsDialog,
     closeGameResultsDialog,
@@ -52,10 +50,7 @@ const GamePlayer: React.FC = () => {
     showTeamSelectionManual
   } = useGamePlayer(gameId, navigate, addToast)
 
-  // Expose active bomb timers globally for popup access
-  React.useEffect(() => {
-    ;(window as any).activeBombTimers = activeBombTimers;
-  }, [activeBombTimers]);
+  // Timer and GPS functionality is now handled by isolated managers
 
   if (isLoading) {
     return (
@@ -89,19 +84,23 @@ const GamePlayer: React.FC = () => {
         pieCharts={pieCharts}
       />
 
-      {/* Game Overlay */}
-      <GameOverlay
-        currentUser={currentUser}
-        currentGame={currentGame}
-        gpsStatus={gpsStatus}
-        socket={socket}
-      />
+      {/* GPS Manager - Handles GPS tracking independently */}
+      <GPSManager currentGame={currentGame} socket={socket}>
+        {/* Timer Manager - Handles all timer functionality independently */}
+        <TimerManager currentGame={currentGame} socket={socket}>
+          {/* Game Overlay */}
+          <GameOverlay
+            currentUser={currentUser}
+            currentGame={currentGame}
+            socket={socket}
+          />
+        </TimerManager>
 
-      {/* Location Info */}
-      <LocationInfo
-        currentPosition={currentPosition}
-        currentGame={currentGame}
-      />
+        {/* Location Info */}
+        <LocationInfo
+          currentGame={currentGame}
+        />
+      </GPSManager>
 
       {/* Map Controls */}
       <MapControls

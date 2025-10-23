@@ -1,14 +1,19 @@
 import React from 'react'
 import { Game, User } from '../../types'
-import { GameTimeDisplay } from '../GameTimeDisplay'
+import { GameTimeDisplayRefactored } from '../GameTimeDisplayRefactored'
 import { Socket } from 'socket.io-client'
 
 interface GameOverlayProps {
   currentGame: Game
   currentUser: User
-  gpsStatus: string
+  gpsStatus?: string
   enableGameNameEdit: () => void
   socket: Socket | null
+  timeData?: {
+    remainingTime: number | null;
+    playedTime: number;
+    totalTime: number | null;
+  };
 }
 
 const GameOverlay: React.FC<GameOverlayProps> = ({
@@ -16,7 +21,8 @@ const GameOverlay: React.FC<GameOverlayProps> = ({
   currentUser,
   gpsStatus,
   enableGameNameEdit,
-  socket
+  socket,
+  timeData
 }) => {
   const getStatusText = (status: string): string => {
     switch (status) {
@@ -54,7 +60,7 @@ const GameOverlay: React.FC<GameOverlayProps> = ({
       </div>
       
       {/* Game Time Display Component */}
-      <GameTimeDisplay currentGame={currentGame} socket={socket} />
+      <GameTimeDisplayRefactored currentGame={currentGame} timeData={timeData} />
       
       <div className="game-details">
         GPS: <span>{gpsStatus}</span>

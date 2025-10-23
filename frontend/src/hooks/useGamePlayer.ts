@@ -4,19 +4,13 @@ import { AuthService } from '../services/auth'
 import { GameService } from '../services/game'
 import { User, Game, ControlPoint, Toast } from '../types'
 import { io, Socket } from 'socket.io-client'
-import { useGameTime, ControlPointTimeData } from './useGameTime'
-import { useGPSTracking } from './useGPSTracking'
 import { useControlPoints } from './useControlPoints'
-import { useControlPointTimers } from './useControlPointTimers'
-import { useBombTimers } from './useBombTimers'
 import { usePlayerMarkers } from './usePlayerMarkers'
 
 interface UseGamePlayerReturn {
   currentUser: User | null
   currentGame: Game | null
   isLoading: boolean
-  gpsStatus: string
-  currentPosition: { lat: number; lng: number; accuracy: number } | null
   mapRef: React.RefObject<HTMLDivElement>
   mapInstanceRef: React.MutableRefObject<any>
   userMarkerRef: React.MutableRefObject<any>
@@ -27,11 +21,9 @@ interface UseGamePlayerReturn {
   reloadPage: () => void
   centerOnUser: () => void
   centerOnSite: () => void
-  controlPointTimes: ControlPointTimeData[]
   controlPointMarkers: Map<number, any>
   positionCircles: Map<number, any>
   pieCharts: Map<number, any>
-  activeBombTimers: Map<number, any>
   isGameResultsDialogOpen: boolean
   openGameResultsDialog: () => void
   closeGameResultsDialog: () => void
@@ -70,15 +62,6 @@ export const useGamePlayer = (
     memoizedAddToast({ message, type: type as any });
   }, [memoizedAddToast]);
 
-  // Use game time hook to get control point times
-  const { controlPointTimes } = useGameTime(currentGame, socketRef.current)
-
-  // Use control point timers hook
-  const { controlPointTimes: controlPointTimers } = useControlPointTimers(currentGame, socketRef.current, controlPointTimes)
-
-  // Use bomb timers hook
-  const { activeBombTimers, updateAllBombTimerDisplays } = useBombTimers(currentGame, socketRef.current)
-
   // Use control points hook
   const controlPointsResult = useControlPoints({
     game: currentGame,
@@ -105,17 +88,7 @@ export const useGamePlayer = (
   useEffect(() => {
   }, [currentGame, currentUser]);
 
-  // Update control point timers when control point times change
-  // This effect is removed to prevent flicker when individual CPs are taken
-  // Individual CP timer updates are handled by the useControlPointTimers hook
-
-  // Update global active bomb timers reference when they change
-  useEffect(() => {
-    ;(window as any).activeBombTimers = activeBombTimers;
-  }, [activeBombTimers]);
-
-  // Use GPS tracking hook
-  const { gpsStatus, currentPosition } = useGPSTracking(currentGame, socketRef.current)
+  // Timer and GPS functionality is now handled by isolated components
 
   useEffect(() => {
     let isMounted = true
@@ -181,8 +154,7 @@ export const useGamePlayer = (
       // Expose socket and game globally for control point interactions
       ;(window as any).currentSocket = socket
       
-      // Expose active bomb timers globally for popup access
-      ;(window as any).activeBombTimers = activeBombTimers
+      // Timer functionality is now handled by TimerManager component
 
       // Listen for successful connection
       socket.on('connect', () => {
@@ -352,9 +324,7 @@ export const useGamePlayer = (
           }
 
           // Update user's own marker if they changed their own team
-          if (data.data.userId === currentUserRef.current?.id && currentPosition) {
-            createUserMarker(currentPosition.lat, currentPosition.lng);
-          }
+          // This will be handled by the GPSManager component
         }
       });
 
@@ -413,28 +383,8 @@ export const useGamePlayer = (
     }
   }, [gameId, memoizedNavigate, memoizedAddToast])
   
-    // Update user marker when position changes
-    useEffect(() => {
-      if (currentPosition && mapInstanceRef.current) {
-        // Update user marker on map
-        if (!userMarkerRef.current) {
-          createUserMarker(currentPosition.lat, currentPosition.lng)
-          
-          // Set view to user's location when GPS is first available (like in original code)
-          mapInstanceRef.current.setView([currentPosition.lat, currentPosition.lng], 16)
-        } else if (userMarkerRef.current) {
-          userMarkerRef.current.setLatLng([currentPosition.lat, currentPosition.lng])
-        }
-      }
-    }, [currentPosition])
-
-    // Update user marker when game state changes (including team changes)
-    useEffect(() => {
-      if (currentPosition && mapInstanceRef.current && userMarkerRef.current) {
-        // Recreate user marker with updated team
-        createUserMarker(currentPosition.lat, currentPosition.lng);
-      }
-    }, [currentGame])
+    // User marker creation is now handled by the GPSManager component
+    // The GPSManager will provide position data to the map components
   
     const createUserMarker = useCallback((lat: number, lng: number) => {
       if (!mapInstanceRef.current) return
@@ -487,10 +437,9 @@ export const useGamePlayer = (
   }, [])
 
   const centerOnUser = useCallback(() => {
-    if (mapInstanceRef.current && currentPosition) {
-      mapInstanceRef.current.setView([currentPosition.lat, currentPosition.lng], 18)
-    }
-  }, [currentPosition])
+    // This will be handled by the GPSManager component
+    // The GPSManager will provide position data to center on user
+  }, [])
 
   const centerOnSite = useCallback(() => {
     if (mapInstanceRef.current && currentGame) {
@@ -609,8 +558,6 @@ export const useGamePlayer = (
     currentUser,
     currentGame,
     isLoading,
-    gpsStatus,
-    currentPosition,
     mapRef,
     mapInstanceRef,
     userMarkerRef,
@@ -621,11 +568,9 @@ export const useGamePlayer = (
     reloadPage,
     centerOnUser,
     centerOnSite,
-    controlPointTimes,
     controlPointMarkers,
     positionCircles,
     pieCharts,
-    activeBombTimers,
     isGameResultsDialogOpen,
     openGameResultsDialog,
     closeGameResultsDialog,

@@ -9,6 +9,8 @@ import MapControls from './GameOwner/MapControls'
 import PlayersDialog from './GameOwner/PlayersDialog'
 import GameResultsDialog from './GameResultsDialog'
 import { useGameOwner } from '../hooks/useGameOwner'
+import { TimerManager } from './TimerManager'
+import { GPSManager } from './GPSManager'
 import '../styles/game-owner.css'
 
 const GameOwner: React.FC = () => {
@@ -37,8 +39,6 @@ const GameOwner: React.FC = () => {
     currentUser,
     currentGame,
     isLoading,
-    gpsStatus,
-    currentPosition,
     mapRef,
     mapInstanceRef,
     userMarkerRef,
@@ -107,24 +107,28 @@ const GameOwner: React.FC = () => {
         playerMarkers={playerMarkers}
       />
 
-      {/* Game Overlay */}
-      <GameOverlay
-        currentGame={currentGame}
-        currentUser={currentUser}
-        gpsStatus={gpsStatus}
-        enableGameNameEdit={enableGameNameEdit}
-        socket={socket}
-      />
+      {/* Timer Manager - Handles all timer functionality independently */}
+      <TimerManager currentGame={currentGame} socket={socket}>
+        {/* GPS Manager - Handles GPS tracking independently */}
+        <GPSManager currentGame={currentGame} socket={socket}>
+          {/* Game Overlay */}
+          <GameOverlay
+            currentGame={currentGame}
+            currentUser={currentUser}
+            enableGameNameEdit={enableGameNameEdit}
+            socket={socket}
+          />
 
-      {/* Location Info */}
-      <LocationInfo
-        currentPosition={currentPosition}
-        currentGame={currentGame}
-        updateGameTime={async (timeInSeconds: number) => {
-          await updateGameTime(timeInSeconds)
-        }}
-        openTeamsDialog={openTeamsDialog}
-      />
+          {/* Location Info */}
+          <LocationInfo
+            currentGame={currentGame}
+            updateGameTime={async (timeInSeconds: number) => {
+              await updateGameTime(timeInSeconds)
+            }}
+            openTeamsDialog={openTeamsDialog}
+          />
+        </GPSManager>
+      </TimerManager>
 
       {/* Control Panel */}
       <ControlPanel
