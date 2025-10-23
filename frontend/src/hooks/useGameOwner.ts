@@ -94,7 +94,7 @@ export const useGameOwner = (
   const pieCharts = controlPointsResult?.pieCharts || new Map();
   const enableDragMode = controlPointsResult?.enableDragMode || (() => {});
 
-  // Use bomb timers hook for smooth countdown updates
+  // Use bomb timers hook for smooth countdown updates - initialize only when socket is available
   const { activeBombTimers, updateBombTimerDisplay, updateAllBombTimerDisplays } = useBombTimers(currentGame, socketRef.current);
 
   // Memoize player markers hook dependencies
