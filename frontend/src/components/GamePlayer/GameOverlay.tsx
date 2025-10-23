@@ -2,27 +2,24 @@ import React, { memo } from 'react'
 import { User, Game } from '../../types'
 import { GameTimeDisplayRefactored } from '../GameTimeDisplayRefactored'
 import { Socket } from 'socket.io-client'
+import { useTimer } from '../TimerManager'
 
 interface GameOverlayProps {
   currentUser: User
   currentGame: Game
   gpsStatus?: string
   socket: Socket | null
-  timeData?: {
-    remainingTime: number | null;
-    playedTime: number;
-    totalTime: number | null;
-  };
 }
 
 const GameOverlay: React.FC<GameOverlayProps> = React.memo(({
   currentUser,
   currentGame,
   gpsStatus,
-  socket,
-  timeData
+  socket
 }) => {
   console.log('GamePlayer/GameOverlay rendered');
+  const { timeData } = useTimer();
+  
   return (
     <div className="game-overlay">
       <div className="game-header">
@@ -62,7 +59,7 @@ const GameOverlay: React.FC<GameOverlayProps> = React.memo(({
           </div>
         </div>
         
-        <GameTimeDisplayRefactored currentGame={currentGame} timeData={timeData} />
+        <GameTimeDisplayRefactored currentGame={currentGame} />
       </div>
     </div>
   )

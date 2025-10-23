@@ -1,19 +1,15 @@
 import React from 'react';
 import { Game } from '../types';
+import { useTimer } from './TimerManager';
 
 interface GameTimeDisplayRefactoredProps {
   currentGame: Game | null;
-  timeData?: {
-    remainingTime: number | null;
-    playedTime: number;
-    totalTime: number | null;
-  };
 }
 
 export const GameTimeDisplayRefactored: React.FC<GameTimeDisplayRefactoredProps> = React.memo(({
-  currentGame,
-  timeData
+  currentGame
 }) => {
+  const { timeData } = useTimer();
   // Show time played container only when game is running or paused
   const shouldShowTimePlayed = currentGame?.status === 'running' || currentGame?.status === 'paused';
 

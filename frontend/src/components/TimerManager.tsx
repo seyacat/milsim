@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import { Game, ControlPointUpdateData, BombTimer } from '../types';
 import { Socket } from 'socket.io-client';
 
@@ -19,6 +19,26 @@ interface BombTimerData {
   remainingTime: number;
   isActive: boolean;
 }
+
+// Create context for timer data
+interface TimerContextValue {
+  timeData: {
+    remainingTime: number | null;
+    playedTime: number;
+    totalTime: number | null;
+  };
+}
+
+const TimerContext = createContext<TimerContextValue | null>(null);
+
+// Hook to use timer context
+export const useTimer = () => {
+  const context = useContext(TimerContext);
+  if (!context) {
+    throw new Error('useTimer must be used within a TimerManager');
+  }
+  return context;
+};
 
 export const TimerManager: React.FC<TimerManagerProps> = React.memo(({ currentGame, socket, children }) => {
   console.log('TimerManager rendered');
@@ -300,17 +320,9 @@ export const TimerManager: React.FC<TimerManagerProps> = React.memo(({ currentGa
     totalTime: timeData?.totalTime || null
   };
 
-
   return (
-    <>
-      {React.Children.map(children, child => {
-        if (React.isValidElement(child)) {
-          return React.cloneElement(child, {
-            timeData: currentTimeData
-          } as any);
-        }
-        return child;
-      })}
-    </>
+    <TimerContext.Provider value={{ timeData: currentTimeData }}>
+      {children}
+    </TimerContext.Provider>
   );
 });
