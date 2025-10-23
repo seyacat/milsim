@@ -175,7 +175,13 @@ export const useGamePlayer = (
       // Listen for game updates - this should be the main event for game state changes
       socket.on('gameUpdate', (data: { game: Game; type?: string }) => {
         if (data.game) {
-          setCurrentGame(data.game)
+          // Only update if the game has actually changed
+          setCurrentGame(prevGame => {
+            if (JSON.stringify(prevGame) === JSON.stringify(data.game)) {
+              return prevGame;
+            }
+            return data.game;
+          });
           // Handle specific status changes
           if (data.game.status === 'finished') {
             setTimeout(() => {
@@ -191,7 +197,13 @@ export const useGamePlayer = (
       // Listen for game state events
       socket.on('gameState', (game: Game) => {
         if (game) {
-          setCurrentGame(game)
+          // Only update if the game has actually changed
+          setCurrentGame(prevGame => {
+            if (JSON.stringify(prevGame) === JSON.stringify(game)) {
+              return prevGame;
+            }
+            return game;
+          });
           // Handle specific status changes
           if (game.status === 'finished') {
             setTimeout(() => {
@@ -207,7 +219,13 @@ export const useGamePlayer = (
       // Listen for game status changes
       socket.on('gameStatusChanged', (data: { game: Game; previousStatus: string; newStatus: string }) => {
         if (data.game) {
-          setCurrentGame(data.game)
+          // Only update if the game has actually changed
+          setCurrentGame(prevGame => {
+            if (JSON.stringify(prevGame) === JSON.stringify(data.game)) {
+              return prevGame;
+            }
+            return data.game;
+          });
           
           // Handle specific status transitions
           if (data.newStatus === 'finished') {
@@ -224,7 +242,13 @@ export const useGamePlayer = (
       // Listen for game finish events specifically
       socket.on('gameFinished', (data: { game: Game }) => {
         if (data.game) {
-          setCurrentGame(data.game)
+          // Only update if the game has actually changed
+          setCurrentGame(prevGame => {
+            if (JSON.stringify(prevGame) === JSON.stringify(data.game)) {
+              return prevGame;
+            }
+            return data.game;
+          });
           setTimeout(() => {
             setIsGameResultsDialogOpen(true)
           }, 1000)
@@ -234,7 +258,13 @@ export const useGamePlayer = (
       // Listen for game stopped events specifically
       socket.on('gameStopped', (data: { game: Game }) => {
         if (data.game) {
-          setCurrentGame(data.game)
+          // Only update if the game has actually changed
+          setCurrentGame(prevGame => {
+            if (JSON.stringify(prevGame) === JSON.stringify(data.game)) {
+              return prevGame;
+            }
+            return data.game;
+          });
           setIsGameResultsDialogOpen(false)
           memoizedAddToast({ message: 'El juego ha sido detenido. Puedes seleccionar tu equipo.', type: 'info' })
         }
@@ -247,7 +277,12 @@ export const useGamePlayer = (
           // The game state should be updated via gameUpdate or gameState events
         } else if (data.action === 'gameStateChanged' && data.data.game) {
           // Handle game state changes from owner actions
-          setCurrentGame(data.data.game);
+          setCurrentGame(prevGame => {
+            if (JSON.stringify(prevGame) === JSON.stringify(data.data.game)) {
+              return prevGame;
+            }
+            return data.data.game;
+          });
           
           // Handle specific status changes
           if (data.data.game.status === 'finished') {
@@ -260,14 +295,29 @@ export const useGamePlayer = (
           }
         } else if (data.action === 'teamCountUpdated' && data.data.game) {
           // Handle team count updates from owner
-          setCurrentGame(data.data.game);
+          setCurrentGame(prevGame => {
+            if (JSON.stringify(prevGame) === JSON.stringify(data.data.game)) {
+              return prevGame;
+            }
+            return data.data.game;
+          });
         } else if (data.action === 'timeAdded' && data.data.game) {
           // Handle time added by owner
-          setCurrentGame(data.data.game);
+          setCurrentGame(prevGame => {
+            if (JSON.stringify(prevGame) === JSON.stringify(data.data.game)) {
+              return prevGame;
+            }
+            return data.data.game;
+          });
           memoizedAddToast({ message: 'Se ha agregado tiempo al juego', type: 'info' });
         } else if (data.action === 'gameTimeUpdated' && data.data.game) {
           // Handle game time updates from owner
-          setCurrentGame(data.data.game);
+          setCurrentGame(prevGame => {
+            if (JSON.stringify(prevGame) === JSON.stringify(data.data.game)) {
+              return prevGame;
+            }
+            return data.data.game;
+          });
           memoizedAddToast({ message: 'El tiempo del juego ha sido actualizado', type: 'info' });
         }
       })

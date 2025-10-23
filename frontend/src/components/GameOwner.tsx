@@ -73,6 +73,31 @@ const GameOwner: React.FC = () => {
     updateTeamCount(count)
   }, [updateTeamCount])
 
+  // Memoize handlers to prevent re-renders
+  const memoizedStartGame = useCallback(async () => {
+    await startGame()
+  }, [startGame])
+
+  const memoizedPauseGame = useCallback(async () => {
+    await pauseGame()
+  }, [pauseGame])
+
+  const memoizedResumeGame = useCallback(async () => {
+    await resumeGame()
+  }, [resumeGame])
+
+  const memoizedEndGame = useCallback(async () => {
+    await endGame()
+  }, [endGame])
+
+  const memoizedRestartGame = useCallback(async () => {
+    await restartGame()
+  }, [restartGame])
+
+  const memoizedUpdateGameTime = useCallback(async (timeInSeconds: number) => {
+    await updateGameTime(timeInSeconds)
+  }, [updateGameTime])
+
   if (isLoading) {
     return (
       <div className="loading">
@@ -122,9 +147,7 @@ const GameOwner: React.FC = () => {
           {/* Location Info */}
           <LocationInfo
             currentGame={currentGame}
-            updateGameTime={async (timeInSeconds: number) => {
-              await updateGameTime(timeInSeconds)
-            }}
+            updateGameTime={memoizedUpdateGameTime}
             openTeamsDialog={openTeamsDialog}
           />
         </TimerManager>
@@ -144,21 +167,11 @@ const GameOwner: React.FC = () => {
       {/* Control Panel */}
       <ControlPanel
         currentGame={currentGame}
-        startGame={async () => {
-          await startGame()
-        }}
-        pauseGame={async () => {
-          await pauseGame()
-        }}
-        resumeGame={async () => {
-          await resumeGame()
-        }}
-        endGame={async () => {
-          await endGame()
-        }}
-        restartGame={async () => {
-          await restartGame()
-        }}
+        startGame={memoizedStartGame}
+        pauseGame={memoizedPauseGame}
+        resumeGame={memoizedResumeGame}
+        endGame={memoizedEndGame}
+        restartGame={memoizedRestartGame}
       />
 
       {/* Players Dialog */}

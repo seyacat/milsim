@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { NavigateFunction } from 'react-router-dom'
 import { AuthService } from '../services/auth'
 import { GameService } from '../services/game'
@@ -77,16 +77,10 @@ export const useGameOwner = (
     memoizedAddToast({ message, type: type as any });
   }, [memoizedAddToast]);
 
-  // Use game time hook to get control point times
-  const { controlPointTimes } = useGameTime(currentGame, socketRef.current)
+  // Timer functionality is now handled by TimerManager component
+  // Don't use timer hooks that cause re-renders every second
 
-  // Use control point timers hook
-  const { controlPointTimes: controlPointTimers } = useControlPointTimers(currentGame, socketRef.current, controlPointTimes)
-
-  // Use bomb timers hook
-  const { updateAllBombTimerDisplays } = useBombTimers(currentGame, socketRef.current)
-
-  // Use control points hook
+  // Use control points hook - same pattern as useGamePlayer
   const controlPointsResult = useControlPoints({
     game: currentGame,
     map: mapInstanceRef.current,
@@ -100,14 +94,17 @@ export const useGameOwner = (
   const pieCharts = controlPointsResult?.pieCharts || new Map();
   const enableDragMode = controlPointsResult?.enableDragMode || (() => {});
 
-  // Use player markers hook
-  const playerMarkersResult = usePlayerMarkers({
+  // Memoize player markers hook dependencies
+  const playerMarkersConfig = useMemo(() => ({
     game: currentGame,
     map: mapInstanceRef.current,
     currentUser: currentUser,
     socket: socketRef.current,
     isOwner: true
-  })
+  }), [currentGame, currentUser, socketRef.current])
+
+  // Use player markers hook
+  const playerMarkersResult = usePlayerMarkers(playerMarkersConfig)
 
   // Listen for player positions when joining as owner
   useEffect(() => {
@@ -141,6 +138,116 @@ export const useGameOwner = (
   // Individual CP timer updates are handled by the useControlPointTimers hook
 
   useEffect(() => {
+    // Declare handler functions inside the effect to avoid circular dependencies
+    const handleGameStateChanged = (data: { action: string; data: any }) => {
+      if (data.action === 'gameStateChanged' && data.data.game) {
+        // Only update if the game has actually changed
+        setCurrentGame(prevGame => {
+          if (prevGame && data.data.game && prevGame.id === data.data.game.id) {
+            // Deep comparison for critical fields only
+            if (prevGame.status === data.data.game.status &&
+                prevGame.activeConnections === data.data.game.activeConnections &&
+                JSON.stringify(prevGame.controlPoints) === JSON.stringify(data.data.game.controlPoints)) {
+              return prevGame;
+            }
+          }
+          return data.data.game;
+        });
+      }
+    }
+
+    const handleGameUpdate = (data: { game: Game; type?: string }) => {
+      if (data.game) {
+        // Only update if the game has actually changed
+        setCurrentGame(prevGame => {
+          if (prevGame && data.game && prevGame.id === data.game.id) {
+            // Deep comparison for critical fields only
+            if (prevGame.status === data.game.status &&
+                prevGame.activeConnections === data.game.activeConnections &&
+                JSON.stringify(prevGame.controlPoints) === JSON.stringify(data.game.controlPoints)) {
+              return prevGame;
+            }
+          }
+          return data.game;
+        });
+      }
+    }
+
+    const handleGameState = (game: Game) => {
+      // Only update if the game has actually changed
+      setCurrentGame(prevGame => {
+        if (prevGame && game && prevGame.id === game.id) {
+          // Deep comparison for critical fields only
+          if (prevGame.status === game.status &&
+              prevGame.activeConnections === game.activeConnections &&
+              JSON.stringify(prevGame.controlPoints) === JSON.stringify(game.controlPoints)) {
+            return prevGame;
+          }
+        }
+        return game;
+      });
+    }
+
+    const handlePositionUpdate = (data: { action: string; data: any }) => {
+      if (data.action === 'positionUpdate') {
+        // Update player markers with position data
+        playerMarkersResult.updatePlayerMarker(data.data);
+      }
+    }
+
+    const handlePlayerInactive = (data: { action: string; data: any }) => {
+      if (data.action === 'playerInactive') {
+        // Remove player marker from map
+        playerMarkersResult.removePlayerMarker(data.data.userId);
+      }
+    }
+
+    const handlePlayerTeamUpdated = (data: { action: string; data: any }) => {
+      if (data.action === 'playerTeamUpdated') {
+        
+        handlePlayerTeamUpdate(data.data);
+        
+        // Also update the game state to reflect the team change
+        setCurrentGame(prevGame => {
+          if (!prevGame) return prevGame;
+          
+          // Check if the player's team actually changed
+          const player = prevGame.players?.find(p => p.user?.id === data.data.userId);
+          if (player && player.team === data.data.team) {
+            return prevGame; // No change needed
+          }
+          
+          // Update the player's team in the game state
+          const updatedPlayers = prevGame.players?.map(player => {
+            if (player.user?.id === data.data.userId) {
+              return { ...player, team: data.data.team };
+            }
+            return player;
+          }) || [];
+          
+          return { ...prevGame, players: updatedPlayers };
+        });
+
+        // Update user's own marker if they changed their own team
+        if (data.data.userId === currentUserRef.current?.id && currentPosition) {
+          createUserMarker(currentPosition.lat, currentPosition.lng);
+        }
+      }
+    }
+
+    const handleTeamCountUpdated = (data: { action: string; data: any }) => {
+      if (data.action === 'teamCountUpdated') {
+        handleTeamCountUpdate(data.data)
+      }
+    }
+
+    const handlePlayerPositionsResponse = (data: any) => {
+      if (data.action === 'playerPositionsResponse' && data.data.positions) {
+        data.data.positions.forEach((position: any) => {
+          playerMarkersResult.updatePlayerMarker(position);
+        });
+      }
+    };
     let isMounted = true
 
     const initializeGame = async () => {
@@ -210,24 +317,9 @@ export const useGameOwner = (
         socket.emit('joinGame', { gameId: parseInt(gameId) })
       })
 
-      // Listen for game state changes
-      socket.on('gameAction', (data: { action: string; data: any }) => {
-        if (data.action === 'gameStateChanged' && data.data.game) {
-          setCurrentGame(data.data.game)
-        }
-      })
-
-      // Listen for game updates (including restart)
-      socket.on('gameUpdate', (data: { game: Game; type?: string }) => {
-        if (data.game) {
-          setCurrentGame(data.game)
-        }
-      })
-
-      // Listen for game state events
-      socket.on('gameState', (game: Game) => {
-        setCurrentGame(game)
-      })
+      socket.on('gameAction', handleGameStateChanged)
+      socket.on('gameUpdate', handleGameUpdate)
+      socket.on('gameState', handleGameState)
 
       // Listen for join success
       socket.on('joinSuccess', (data: { user: User }) => {
@@ -243,58 +335,11 @@ export const useGameOwner = (
         memoizedAddToast({ message: `Error: ${data.error}`, type: 'error' })
       })
 
-  
-      // Listen for player position updates
-      socket.on('gameAction', (data: { action: string; data: any }) => {
-        if (data.action === 'positionUpdate') {
-          // Update player markers with position data
-          playerMarkersResult.updatePlayerMarker(data.data);
-        }
-      })
+      socket.on('gameAction', handlePositionUpdate)
+      socket.on('gameAction', handlePlayerInactive)
+      socket.on('gameAction', handlePlayerTeamUpdated)
+      socket.on('gameAction', handleTeamCountUpdated)
 
-      // Listen for player inactive notifications
-      socket.on('gameAction', (data: { action: string; data: any }) => {
-        if (data.action === 'playerInactive') {
-          // Remove player marker from map
-          playerMarkersResult.removePlayerMarker(data.data.userId);
-        }
-      })
-
-      // Listen for player team updates
-      socket.on('gameAction', (data: { action: string; data: any }) => {
-        if (data.action === 'playerTeamUpdated') {
-          
-          handlePlayerTeamUpdate(data.data);
-          
-          // Also update the game state to reflect the team change
-          setCurrentGame(prevGame => {
-            if (!prevGame) return prevGame;
-            
-            // Update the player's team in the game state
-            const updatedPlayers = prevGame.players?.map(player => {
-              if (player.user?.id === data.data.userId) {
-                return { ...player, team: data.data.team };
-              }
-              return player;
-            }) || [];
-            
-            return { ...prevGame, players: updatedPlayers };
-          });
-
-          // Update user's own marker if they changed their own team
-          if (data.data.userId === currentUserRef.current?.id && currentPosition) {
-            createUserMarker(currentPosition.lat, currentPosition.lng);
-          }
-        }
-      })
-  
-      // Listen for team count updates
-      socket.on('gameAction', (data: { action: string; data: any }) => {
-        if (data.action === 'teamCountUpdated') {
-          handleTeamCountUpdate(data.data)
-        }
-      })
-  
       // Listen for connection errors
       socket.on('connect_error', (error: Error) => {
         console.error('WebSocket connection error:', error)
@@ -313,6 +358,17 @@ export const useGameOwner = (
 
     return () => {
       isMounted = false
+      // Clean up WebSocket listeners
+      if (socketRef.current) {
+        socketRef.current.off('gameAction', handleGameStateChanged)
+        socketRef.current.off('gameUpdate', handleGameUpdate)
+        socketRef.current.off('gameState', handleGameState)
+        socketRef.current.off('gameAction', handlePositionUpdate)
+        socketRef.current.off('gameAction', handlePlayerInactive)
+        socketRef.current.off('gameAction', handlePlayerTeamUpdated)
+        socketRef.current.off('gameAction', handleTeamCountUpdated)
+        socketRef.current.off('gameAction', handlePlayerPositionsResponse)
+      }
       // Don't disconnect WebSocket - let it be persistent
       // The WebSocket will be cleaned up when the component unmounts naturally
     }
@@ -345,7 +401,7 @@ export const useGameOwner = (
       // Recreate user marker with updated team
       createUserMarker(currentPosition.lat, currentPosition.lng);
     }
-  }, [currentGame])
+  }, [currentGame, currentPosition])
 
   const createUserMarker = useCallback((lat: number, lng: number) => {
     if (!mapInstanceRef.current) return
@@ -534,7 +590,12 @@ export const useGameOwner = (
   const handleTeamCountUpdate = useCallback((data: any) => {
     // Update game data and refresh team selection
     if (data && data.game) {
-      setCurrentGame(data.game)
+      setCurrentGame(prevGame => {
+        if (JSON.stringify(prevGame) === JSON.stringify(data.game)) {
+          return prevGame;
+        }
+        return data.game;
+      });
     }
   }, [])
 
@@ -625,6 +686,7 @@ export const useGameOwner = (
   }, [currentGame?.status, isLoading, openGameResultsDialog])
 
   return {
+    controlPointTimes: [],
     currentUser,
     currentGame,
     isLoading,
@@ -655,7 +717,6 @@ export const useGameOwner = (
     positionCircles,
     pieCharts,
     enableDragMode,
-    controlPointTimes,
     updateTeamCount,
     playerMarkers: playerMarkersResult.playerMarkers,
     isGameResultsDialogOpen,

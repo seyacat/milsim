@@ -34,7 +34,6 @@ const GameOverlay: React.FC<GameOverlayProps> = ({
     }
   }
 
-  console.log('GameOwner/GameOverlay rendered');
   return (
     <div className="game-overlay">
       <div className="game-info">

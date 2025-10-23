@@ -25,6 +25,7 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
     setActiveBombTimers(prev => {
       const newTimers = new Map(prev);
       newTimers.set(data.controlPointId, data);
+      activeBombTimersRef.current = newTimers;
       return newTimers;
     });
 
@@ -38,7 +39,7 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
       // Check if there are any active bombs after this update
       // Use a timeout to ensure we check the updated state
       setTimeout(() => {
-        const hasActiveBombs = Array.from(activeBombTimers.values()).some(timer => timer.isActive);
+        const hasActiveBombs = Array.from(activeBombTimersRef.current.values()).some(timer => timer.isActive);
         if (!hasActiveBombs && localTimerRef.current) {
           stopBombTimerInterval();
         }
@@ -58,6 +59,7 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
     }
     
     setActiveBombTimers(newTimers);
+    activeBombTimersRef.current = newTimers;
 
     // Update all bomb timer displays
     updateAllBombTimerDisplays();
