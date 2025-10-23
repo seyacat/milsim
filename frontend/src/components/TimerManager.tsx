@@ -43,7 +43,6 @@ export const useTimer = () => {
 export const TimerManager: React.FC<TimerManagerProps> = React.memo(({ currentGame, socket, children }) => {
   const [timeData, setTimeData] = useState<TimeData | null>(null);
   const [controlPointTimes, setControlPointTimes] = useState<ControlPointUpdateData[]>([]);
-  const [activeBombTimers, setActiveBombTimers] = useState<Map<number, BombTimerData>>(new Map());
   const localPlayedTimeRef = React.useRef<number>(0);
   const localControlPointTimesRef = React.useRef<ControlPointUpdateData[]>([]);
   const localTimerRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -73,27 +72,6 @@ export const TimerManager: React.FC<TimerManagerProps> = React.memo(({ currentGa
     localControlPointTimesRef.current = data;
   }, []);
 
-  // Handle bomb time updates
-  const handleBombTimeUpdate = useCallback((data: BombTimerData) => {
-    setActiveBombTimers(prev => {
-      const newTimers = new Map(prev);
-      newTimers.set(data.controlPointId, data);
-      return newTimers;
-    });
-  }, []);
-
-  // Handle active bomb timers response
-  const handleActiveBombTimers = useCallback((serverBombTimers: BombTimerData[]) => {
-    const newTimers = new Map<number, BombTimerData>();
-    
-    if (serverBombTimers && Array.isArray(serverBombTimers)) {
-      serverBombTimers.forEach(bombTimer => {
-        newTimers.set(bombTimer.controlPointId, bombTimer);
-      });
-    }
-    
-    setActiveBombTimers(newTimers);
-  }, []);
 
 
   // Set up WebSocket listeners for timer events
@@ -117,8 +95,6 @@ export const TimerManager: React.FC<TimerManagerProps> = React.memo(({ currentGa
     socket.on('timeUpdate', handleTimeUpdateEvent);
     socket.on('gameTime', handleGameTimeEvent);
     socket.on('controlPointTimes', handleControlPointTimesEvent);
-    socket.on('bombTimeUpdate', handleBombTimeUpdate);
-    socket.on('activeBombTimers', handleActiveBombTimers);
 
     // Request initial timer data
     if (currentGame) {
@@ -133,17 +109,9 @@ export const TimerManager: React.FC<TimerManagerProps> = React.memo(({ currentGa
       socket.off('timeUpdate', handleTimeUpdateEvent);
       socket.off('gameTime', handleGameTimeEvent);
       socket.off('controlPointTimes', handleControlPointTimesEvent);
-      socket.off('bombTimeUpdate', handleBombTimeUpdate);
-      socket.off('activeBombTimers', handleActiveBombTimers);
     };
-  }, [socket, currentGame, handleTimeUpdate, handleControlPointTimes, handleBombTimeUpdate, handleActiveBombTimers]);
+  }, [socket, currentGame, handleTimeUpdate, handleControlPointTimes]);
 
-  // Request active bomb timers when game is loaded
-  useEffect(() => {
-    if (socket && currentGame) {
-      socket.emit('getActiveBombTimers', { gameId: currentGame.id });
-    }
-  }, [socket, currentGame]);
 
   // Handle game state changes for local timers
   useEffect(() => {
@@ -198,25 +166,6 @@ export const TimerManager: React.FC<TimerManagerProps> = React.memo(({ currentGa
     };
   }, []);
 
-  // Update bomb timer displays when activeBombTimers change
-  useEffect(() => {
-    if (!currentGame?.controlPoints) return;
-
-    // Hide all bomb timers first
-    currentGame.controlPoints.forEach(controlPoint => {
-      const bombTimerElement = document.getElementById(`bomb_timer_${controlPoint.id}`);
-      if (bombTimerElement) {
-        bombTimerElement.style.display = 'none';
-      }
-    });
-
-    // Show bomb timers for active bombs
-    activeBombTimers.forEach((bombTimer, controlPointId) => {
-      if (bombTimer.isActive) {
-        updateBombTimerDisplay(controlPointId);
-      }
-    });
-  }, [activeBombTimers, currentGame?.controlPoints]);
 
   // Update control point timer displays when controlPointTimes change
   useEffect(() => {
@@ -224,37 +173,6 @@ export const TimerManager: React.FC<TimerManagerProps> = React.memo(({ currentGa
     updateControlPointTimerDisplays();
   }, [controlPointTimes, currentGame?.status, currentGame?.controlPoints]);
 
-  // Update bomb timer display for a specific control point
-  const updateBombTimerDisplay = (controlPointId: number) => {
-    const bombTimerElement = document.getElementById(`bomb_timer_${controlPointId}`);
-    const bombTimerData = activeBombTimers.get(controlPointId);
-    
-    if (!bombTimerElement) return;
-
-    if (bombTimerData?.isActive) {
-      if (typeof bombTimerData.remainingTime !== 'number' || isNaN(bombTimerData.remainingTime)) {
-        bombTimerElement.style.display = 'none';
-        return;
-      }
-
-      const minutes = Math.floor(bombTimerData.remainingTime / 60);
-      const seconds = bombTimerData.remainingTime % 60;
-      const timeText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      
-      bombTimerElement.textContent = timeText;
-      bombTimerElement.style.display = 'block';
-      
-      if (bombTimerData.remainingTime <= 60) {
-        bombTimerElement.style.background = 'rgba(244, 67, 54, 0.9)';
-      } else if (bombTimerData.remainingTime <= 180) {
-        bombTimerElement.style.background = 'rgba(255, 152, 0, 0.9)';
-      } else {
-        bombTimerElement.style.background = 'rgba(255, 87, 34, 0.9)';
-      }
-    } else {
-      bombTimerElement.style.display = 'none';
-    }
-  };
 
   // Update game time display directly in DOM
   const updateGameTimeDisplay = () => {

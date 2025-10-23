@@ -18,6 +18,7 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
   const [activeBombTimers, setActiveBombTimers] = useState<Map<number, BombTimerData>>(new Map());
   const localTimerRef = useRef<NodeJS.Timeout | null>(null);
   const currentGameRef = useRef<Game | null>(currentGame);
+  const activeBombTimersRef = useRef<Map<number, BombTimerData>>(new Map());
 
   // Handle bomb time updates from server
   const handleBombTimeUpdate = (data: BombTimerData) => {
@@ -77,7 +78,7 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
   // Update bomb timer display for a specific control point
   const updateBombTimerDisplay = (controlPointId: number) => {
     const bombTimerElement = document.getElementById(`bomb_timer_${controlPointId}`);
-    const bombTimerData = activeBombTimers.get(controlPointId);
+    const bombTimerData = activeBombTimersRef.current.get(controlPointId);
     
     if (!bombTimerElement) {
       console.error(`[BOMB_TIMER] Bomb timer element not found for control point ${controlPointId}`);
@@ -128,7 +129,7 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
     });
 
     // Show bomb timers for active bombs
-    activeBombTimers.forEach((bombTimer, controlPointId) => {
+    activeBombTimersRef.current.forEach((bombTimer, controlPointId) => {
       if (bombTimer.isActive) {
         updateBombTimerDisplay(controlPointId);
       }
@@ -169,6 +170,9 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
             }
           });
 
+          // Update the ref with the new timers
+          activeBombTimersRef.current = newTimers;
+
           // Stop timer if no more active bombs
           if (!hasActiveBombs && localTimerRef.current) {
             stopBombTimerInterval();
@@ -177,7 +181,7 @@ export const useBombTimers = (currentGame: Game | null, socket: Socket | null): 
           return newTimers;
         });
 
-        // Update all bomb timer displays after state update (same pattern as control point timers)
+        // Update all bomb timer displays immediately using the ref
         updateAllBombTimerDisplays();
       } else {
         console.log('[BOMB_TIMER] Game not running, skipping decrement');

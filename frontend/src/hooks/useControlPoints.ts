@@ -166,44 +166,6 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     }
   }, [map, game?.status, controlPoints]);
 
-  // Handle bomb timer updates
-  const handleBombTimeUpdate = useCallback((data: any) => {
-    const { controlPointId, remainingTime, isActive, exploded } = data;
-    
-    if (exploded) {
-      // Bomb exploded - show notification
-      if (showToast) {
-        showToast('Bomba explotó en el punto de control!', 'error');
-      }
-      return;
-    }
-
-    if (!isActive) {
-      // Bomb timer is no longer active
-      return;
-    }
-
-    // Update bomb timer display
-    const bombTimerElement = document.getElementById(`bomb_timer_${controlPointId}`);
-    if (bombTimerElement) {
-      const minutes = Math.floor(remainingTime / 60);
-      const seconds = remainingTime % 60;
-      const formattedTime = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      
-      bombTimerElement.textContent = formattedTime;
-      
-      // Show warning colors when time is running low
-      if (remainingTime <= 60) {
-        bombTimerElement.style.background = 'rgba(244, 67, 54, 0.9)';
-      } else if (remainingTime <= 180) {
-        bombTimerElement.style.background = 'rgba(255, 152, 0, 0.9)';
-      } else {
-        bombTimerElement.style.background = 'rgba(255, 87, 34, 0.9)';
-      }
-      
-      bombTimerElement.style.display = 'block';
-    }
-  }, [showToast]);
 
   // Activate bomb as owner
   const activateBombAsOwner = useCallback((controlPointId: number) => {
@@ -520,18 +482,12 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
       updatePositionChallengeBars(controlPointId, teamPoints);
     };
 
-    const handleBombTimeUpdateEvent = (data: any) => {
-      handleBombTimeUpdate(data);
-    };
-
     socket.on('positionChallengeUpdate', handlePositionChallengeUpdate);
-    socket.on('bombTimeUpdate', handleBombTimeUpdateEvent);
 
     return () => {
       socket.off('positionChallengeUpdate', handlePositionChallengeUpdate);
-      socket.off('bombTimeUpdate', handleBombTimeUpdateEvent);
     };
-  }, [socket, updatePositionChallengeBars, handleBombTimeUpdate]);
+  }, [socket, updatePositionChallengeBars]);
 
   // Initialize control points from game data
   useEffect(() => {
@@ -750,7 +706,6 @@ export const useControlPoints = ({ game, map, isOwner, socket, showToast }: UseC
     enableDragMode,
     disableDragMode,
     updatePositionChallengeBars,
-    handleBombTimeUpdate,
     activateBombAsOwner,
     deactivateBombAsOwner,
     assignControlPointTeam,

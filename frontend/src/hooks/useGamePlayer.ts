@@ -6,6 +6,7 @@ import { User, Game, ControlPoint, Toast } from '../types'
 import { io, Socket } from 'socket.io-client'
 import { useControlPoints } from './useControlPoints'
 import { usePlayerMarkers } from './usePlayerMarkers'
+import { useBombTimers } from './useBombTimers'
 
 interface UseGamePlayerReturn {
   currentUser: User | null
@@ -74,6 +75,9 @@ export const useGamePlayer = (
   const controlPointMarkers = controlPointsResult?.controlPointMarkers || new Map();
   const positionCircles = controlPointsResult?.positionCircles || new Map();
   const pieCharts = controlPointsResult?.pieCharts || new Map();
+
+  // Use bomb timers hook for smooth countdown updates
+  const { activeBombTimers, updateBombTimerDisplay, updateAllBombTimerDisplays } = useBombTimers(currentGame, socketRef.current);
 
   // Use player markers hook
   const { updatePlayerMarkers, updatePlayerMarkerTeam, updatePlayerMarkerTeamByUserId } = usePlayerMarkers({
