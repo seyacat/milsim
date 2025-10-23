@@ -1,4 +1,5 @@
 import React, { memo } from 'react'
+import { useGPS } from '../GPSManager'
 
 interface MapControlsProps {
   goBack: () => void
@@ -19,6 +20,7 @@ const MapControls: React.FC<MapControlsProps> = ({
   openResultsDialog,
   mapInstanceRef
 }) => {
+  const { currentPosition } = useGPS();
   return (
     <div className="map-controls-panel">
       <button className="btn btn-secondary" onClick={goBack} title="Volver al dashboard">←</button>
@@ -26,14 +28,14 @@ const MapControls: React.FC<MapControlsProps> = ({
       <button
         className="btn btn-secondary"
         onClick={() => {
-          if (mapInstanceRef?.current) {
-            // For owner, center on a default location or use the existing centerOnUser function
-            centerOnUser();
+          if (mapInstanceRef?.current && currentPosition) {
+            mapInstanceRef.current.setView([currentPosition.lat, currentPosition.lng], 16);
           } else {
             centerOnUser();
           }
         }}
         title="Centrar en usuario"
+        disabled={!currentPosition}
       >📍</button>
       <button className="btn btn-secondary" onClick={centerOnSite} title="Centrar en Site">🏠</button>
       <button className="btn btn-secondary" onClick={openTeamsDialog} title="Gestionar equipos">👥</button>

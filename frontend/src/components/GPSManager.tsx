@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react';
 import { Game } from '../types';
 import { Socket } from 'socket.io-client';
 
@@ -13,6 +13,16 @@ interface GPSContextValue {
   currentPosition: { lat: number; lng: number; accuracy: number } | null;
 }
 
+const GPSContext = createContext<GPSContextValue | null>(null);
+
+export const useGPS = () => {
+  const context = useContext(GPSContext);
+  if (!context) {
+    throw new Error('useGPS must be used within a GPSManager');
+  }
+  return context;
+};
+
 interface GPSTrackingConfig {
   detectionInterval: number;
   periodicNotificationInterval: number;
@@ -20,7 +30,7 @@ interface GPSTrackingConfig {
 }
 
 export const GPSManager: React.FC<GPSManagerProps> = React.memo(({ currentGame, socket, children }) => {
-  const [gpsStatus, setGpsStatus] = useState('Desconectado');
+  const gpsStatusRef = useRef('Desconectado');
   const currentPositionRef = useRef<{ lat: number; lng: number; accuracy: number } | null>(null);
 
   const watchIdRef = useRef<number | null>(null);
@@ -59,11 +69,11 @@ export const GPSManager: React.FC<GPSManagerProps> = React.memo(({ currentGame, 
 
     currentPositionRef.current = newPosition;
     lastKnownPositionRef.current = newPosition;
-    setGpsStatus('Activo');
+    gpsStatusRef.current = 'Activo';
 
     if (!isSendingPeriodicUpdatesRef.current) {
       isSendingPeriodicUpdatesRef.current = true;
-      setGpsStatus('Activo - Reanudando envío');
+      gpsStatusRef.current = 'Activo - Reanudando envío';
     }
 
     if (timeoutRef.current) {
@@ -71,7 +81,7 @@ export const GPSManager: React.FC<GPSManagerProps> = React.memo(({ currentGame, 
     }
 
     timeoutRef.current = setTimeout(() => {
-      setGpsStatus('Inactivo - Sin señal GPS por 1 minuto');
+      gpsStatusRef.current = 'Inactivo - Sin señal GPS por 1 minuto';
       isSendingPeriodicUpdatesRef.current = false;
     }, config.timeoutDuration);
 
@@ -92,7 +102,7 @@ export const GPSManager: React.FC<GPSManagerProps> = React.memo(({ currentGame, 
         message = 'Tiempo agotado';
         break;
     }
-    setGpsStatus(message);
+    gpsStatusRef.current = message;
   }, []);
 
   const sendPeriodicPositionNotification = useCallback(() => {
@@ -121,11 +131,11 @@ export const GPSManager: React.FC<GPSManagerProps> = React.memo(({ currentGame, 
     }
 
     if (!navigator.geolocation) {
-      setGpsStatus('GPS no soportado');
+      gpsStatusRef.current = 'GPS no soportado';
       return;
     }
 
-    setGpsStatus('Activando...');
+    gpsStatusRef.current = 'Activando...';
     isSendingPeriodicUpdatesRef.current = true;
 
     const options: PositionOptions = {
@@ -179,7 +189,7 @@ export const GPSManager: React.FC<GPSManagerProps> = React.memo(({ currentGame, 
       timeoutRef.current = null;
     }
 
-    setGpsStatus('Detenido');
+    gpsStatusRef.current = 'Detenido';
     currentPositionRef.current = null;
     lastDetectionRef.current = null;
     lastKnownPositionRef.current = null;
@@ -207,7 +217,7 @@ export const GPSManager: React.FC<GPSManagerProps> = React.memo(({ currentGame, 
     // Update GPS status display
     const gpsStatusElement = document.getElementById('gpsStatus');
     if (gpsStatusElement) {
-      gpsStatusElement.textContent = gpsStatus;
+      gpsStatusElement.textContent = gpsStatusRef.current;
     }
 
     // Update position displays
@@ -226,17 +236,14 @@ export const GPSManager: React.FC<GPSManagerProps> = React.memo(({ currentGame, 
     }
   };
 
+  const contextValue: GPSContextValue = {
+    gpsStatus: gpsStatusRef.current,
+    currentPosition: currentPositionRef.current
+  };
+
   return (
-    <>
-      {React.Children.map(children, child => {
-        if (React.isValidElement(child)) {
-          return React.cloneElement(child, {
-            gpsStatus,
-            currentPosition: currentPositionRef.current
-          } as any);
-        }
-        return child;
-      })}
-    </>
+    <GPSContext.Provider value={contextValue}>
+      {children}
+    </GPSContext.Provider>
   );
 });

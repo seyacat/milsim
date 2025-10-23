@@ -41,16 +41,13 @@ export const useTimer = () => {
 };
 
 export const TimerManager: React.FC<TimerManagerProps> = React.memo(({ currentGame, socket, children }) => {
-  const [timeData, setTimeData] = useState<TimeData | null>(null);
-  const [controlPointTimes, setControlPointTimes] = useState<ControlPointUpdateData[]>([]);
   const localPlayedTimeRef = React.useRef<number>(0);
   const localControlPointTimesRef = React.useRef<ControlPointUpdateData[]>([]);
   const localTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const localCPTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
-  // Handle time updates from server
+  // Handle time updates from server - update refs directly without state
   const handleTimeUpdate = useCallback((newTimeData: TimeData) => {
-    setTimeData(newTimeData);
     localPlayedTimeRef.current = newTimeData.playedTime;
 
     // Start/stop local timer based on game status
@@ -66,9 +63,8 @@ export const TimerManager: React.FC<TimerManagerProps> = React.memo(({ currentGa
     }
   }, [currentGame?.status]);
 
-  // Handle control point times updates
+  // Handle control point times updates - update refs directly without state
   const handleControlPointTimes = useCallback((data: ControlPointUpdateData[]) => {
-    setControlPointTimes(data);
     localControlPointTimesRef.current = data;
   }, []);
 
@@ -167,11 +163,11 @@ export const TimerManager: React.FC<TimerManagerProps> = React.memo(({ currentGa
   }, []);
 
 
-  // Update control point timer displays when controlPointTimes change
+  // Update control point timer displays when game status changes
   useEffect(() => {
     if (!currentGame?.controlPoints) return;
     updateControlPointTimerDisplays();
-  }, [controlPointTimes, currentGame?.status, currentGame?.controlPoints]);
+  }, [currentGame?.status, currentGame?.controlPoints]);
 
 
   // Update game time display directly in DOM
@@ -232,9 +228,9 @@ export const TimerManager: React.FC<TimerManagerProps> = React.memo(({ currentGa
   };
 
   const currentTimeData = {
-    remainingTime: timeData?.remainingTime || null,
+    remainingTime: null, // No longer tracking this in state to prevent re-renders
     playedTime: localPlayedTimeRef.current,
-    totalTime: timeData?.totalTime || null
+    totalTime: null // No longer tracking this in state to prevent re-renders
   };
 
   return (

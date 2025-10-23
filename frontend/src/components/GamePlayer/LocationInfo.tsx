@@ -1,15 +1,15 @@
 import React, { memo } from 'react'
 import { User, Game } from '../../types'
+import { useGPS } from '../GPSManager'
 
 interface LocationInfoProps {
-  currentPosition?: { lat: number; lng: number; accuracy: number } | null
   currentGame: Game
 }
 
 const LocationInfo: React.FC<LocationInfoProps> = ({
-  currentPosition,
   currentGame
 }) => {
+  const { currentPosition } = useGPS();
   return (
     <div className="location-info-panel">
       <div className="location-header">

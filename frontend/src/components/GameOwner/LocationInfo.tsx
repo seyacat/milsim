@@ -1,19 +1,19 @@
 import React, { useState, memo } from 'react'
 import { Game } from '../../types'
+import { useGPS } from '../GPSManager'
 
 interface LocationInfoProps {
-  currentPosition?: { lat: number; lng: number; accuracy: number } | null
   currentGame: Game
   updateGameTime: (timeInSeconds: number) => Promise<void>
   openTeamsDialog: () => void
 }
 
 const LocationInfo: React.FC<LocationInfoProps> = ({
-  currentPosition,
   currentGame,
   updateGameTime,
   openTeamsDialog
 }) => {
+  const { currentPosition } = useGPS();
   const [timeInput, setTimeInput] = useState('')
 
   const handleUpdateTime = () => {

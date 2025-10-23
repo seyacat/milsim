@@ -11,6 +11,7 @@ import GameResultsDialog from './GameResultsDialog'
 import { useGameOwner } from '../hooks/useGameOwner'
 import { TimerManager } from './TimerManager'
 import { GPSManager } from './GPSManager'
+import PlayerMarker from './PlayerMarker'
 import '../styles/game-owner.css'
 
 const GameOwner: React.FC = () => {
@@ -134,6 +135,14 @@ const GameOwner: React.FC = () => {
 
       {/* GPS Manager - Handles GPS tracking independently */}
       <GPSManager currentGame={currentGame} socket={socket}>
+        {/* Player Marker - Handles user marker updates independently */}
+        <PlayerMarker
+          mapInstanceRef={mapInstanceRef}
+          userMarkerRef={userMarkerRef}
+          currentGame={currentGame}
+          currentUser={currentUser}
+        />
+        
         {/* Timer Manager - Handles all timer functionality independently */}
         <TimerManager currentGame={currentGame} socket={socket}>
           {/* Game Overlay */}

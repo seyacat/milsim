@@ -10,6 +10,7 @@ import TeamSelection from './TeamSelection'
 import { useGamePlayer } from '../hooks/useGamePlayer'
 import { TimerManager } from './TimerManager'
 import { GPSManager } from './GPSManager'
+import PlayerMarker from './PlayerMarker'
 import '../styles/game-player.css'
 
 const GamePlayer: React.FC = () => {
@@ -84,6 +85,14 @@ const GamePlayer: React.FC = () => {
           controlPointMarkers={controlPointMarkers}
           positionCircles={positionCircles}
           pieCharts={pieCharts}
+        />
+
+        {/* Player Marker - Handles user marker updates independently */}
+        <PlayerMarker
+          mapInstanceRef={mapInstanceRef}
+          userMarkerRef={userMarkerRef}
+          currentGame={currentGame}
+          currentUser={currentUser}
         />
 
         {/* Timer Manager - Handles all timer functionality independently */}

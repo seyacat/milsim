@@ -1,4 +1,5 @@
 import React, { memo } from 'react'
+import { useGPS } from '../GPSManager'
 
 interface MapControlsProps {
   goBack: () => void
@@ -8,7 +9,6 @@ interface MapControlsProps {
   openResultsDialog?: () => void
   showTeamSelection?: () => void
   gameStatus?: string
-  currentPosition?: { lat: number; lng: number; accuracy: number } | null
   mapInstanceRef?: React.MutableRefObject<any>
 }
 
@@ -20,9 +20,9 @@ const MapControls: React.FC<MapControlsProps> = ({
   openResultsDialog,
   showTeamSelection,
   gameStatus,
-  currentPosition,
   mapInstanceRef
 }) => {
+  const { currentPosition } = useGPS();
   return (
     <div className="map-controls-panel">
       <button className="btn btn-secondary" onClick={goBack} title="Volver al dashboard">←</button>

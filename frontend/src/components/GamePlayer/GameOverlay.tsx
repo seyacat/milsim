@@ -3,20 +3,20 @@ import { User, Game } from '../../types'
 import { GameTimeDisplayRefactored } from '../GameTimeDisplayRefactored'
 import { Socket } from 'socket.io-client'
 import { useTimer } from '../TimerManager'
+import { useGPS } from '../GPSManager'
 
 interface GameOverlayProps {
   currentUser: User
   currentGame: Game
-  gpsStatus?: string
   socket: Socket | null
 }
 
 const GameOverlay: React.FC<GameOverlayProps> = React.memo(({
   currentUser,
   currentGame,
-  gpsStatus,
   socket
 }) => {
+  const { gpsStatus } = useGPS();
   const { timeData } = useTimer();
   
   return (
