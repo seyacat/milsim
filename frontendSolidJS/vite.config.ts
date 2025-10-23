@@ -1,8 +1,12 @@
 import { defineConfig } from 'vite'
 import solid from 'vite-plugin-solid'
+import devtools from 'solid-devtools/vite'
 
 export default defineConfig({
-  plugins: [solid()],
+  plugins: [
+    devtools(), // habilita solid-devtools
+    solid(),
+  ],
   build: {
     outDir: '../src/public',
     emptyOutDir: true

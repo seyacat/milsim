@@ -59,7 +59,7 @@ export default function GameOwner(props: GameOwnerProps) {
     isGameResultsDialogOpen,
     openGameResultsDialog,
     closeGameResultsDialog
-  } = useGameOwner(props.gameId, addToast)
+  } = useGameOwner(props?.gameId ?? '', addToast)
 
   const handleTeamCountChange = (count: number) => {
     updateTeamCount(count)

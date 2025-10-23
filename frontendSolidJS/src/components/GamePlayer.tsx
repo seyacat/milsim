@@ -41,7 +41,7 @@ export default function GamePlayer(props: GamePlayerProps) {
     showTeamSelection,
     hideTeamSelection,
     showTeamSelectionManual
-  } = useGamePlayer(props.gameId, addToast)
+  } = useGamePlayer(props?.gameId ?? '', addToast)
 
   if (isLoading()) {
     return (

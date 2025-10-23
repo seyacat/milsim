@@ -13,13 +13,13 @@ import { ToastProvider } from './contexts/ToastContext'
 // Componente wrapper para GameOwner que obtiene el gameId de los parámetros
 function GameOwnerWrapper() {
   const params = useParams()
-  return <GameOwner gameId={params.gameId} />
+  return <GameOwner gameId={params.gameId ?? ''} />
 }
 
 // Componente wrapper para GamePlayer que obtiene el gameId de los parámetros
 function GamePlayerWrapper() {
   const params = useParams()
-  return <GamePlayer gameId={params.gameId} />
+  return <GamePlayer gameId={params.gameId ?? ''} />
 }
 
 function App() {

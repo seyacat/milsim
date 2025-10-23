@@ -23,7 +23,7 @@ export default function Login(props: LoginProps) {
         password: password()
       })
       
-      props.onLogin(response.user)
+      props?.onLogin?.(response.user)
       addToast({ message: 'Inicio de sesión exitoso', type: 'success' })
       window.location.href = '/dashboard'
     } catch (error) {

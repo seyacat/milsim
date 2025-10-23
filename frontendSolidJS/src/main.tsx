@@ -42,7 +42,7 @@ if (!rootElement) {
         <pre>{err.toString()}</pre>
         <details>
           <summary>Stack trace</summary>
-          <pre>{err.stack}</pre>
+          <pre>{err?.stack ?? 'No stack trace available'}</pre>
         </details>
         <button onClick={reset} style={{
           padding: '10px',

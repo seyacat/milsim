@@ -37,7 +37,7 @@ export function ToastProvider(props: { children: JSX.Element }) {
 
   return (
     <ToastContext.Provider value={value}>
-      {props.children}
+      {props?.children}
       <ToastContainer />
     </ToastContext.Provider>
   )
@@ -51,10 +51,10 @@ function ToastContainer() {
       <For each={toasts()}>
         {(toast) => (
           <div 
-            class={`toast toast-${toast.type}`}
+            class={`toast toast-${toast?.type ?? 'info'}`}
             onClick={() => removeToast(toast.id)}
           >
-            {toast.message}
+            {toast?.message ?? ''}
           </div>
         )}
       </For>

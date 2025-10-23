@@ -21,11 +21,11 @@ export default function CreateGame(props: CreateGameProps) {
       const game = await GameService.createGame({
         name: name(),
         description: description(),
-        ownerId: props.currentUser?.id
+        ownerId: props?.currentUser?.id
       })
       
       addToast({ message: 'Juego creado exitosamente', type: 'success' })
-      window.location.href = `/owner/${game.id}`
+      window.location.href = `/owner/${game?.id ?? ''}`
     } catch (error) {
       console.error('Create game error:', error)
       addToast({ message: error instanceof Error ? error.message : 'Error al crear el juego', type: 'error' })
