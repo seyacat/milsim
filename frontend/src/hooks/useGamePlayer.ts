@@ -177,6 +177,14 @@ export const useGamePlayer = (
       // Consolidated game state updates - only use gameUpdate for all game state changes
       socket.on('gameUpdate', (data: { game: Game; type?: string }) => {
         if (data.game) {
+          // Skip game update for player team changes - we handle those separately
+          // to prevent unnecessary re-renders of all components
+          if (data.type === 'playerTeamChanged') {
+            // Team changes are handled by the playerTeamUpdated event
+            // Don't update the game state to prevent cascading re-renders
+            return;
+          }
+          
           // Only update if the game has actually changed
           setCurrentGame(prevGame => {
             if (JSON.stringify(prevGame) === JSON.stringify(data.game)) {

@@ -129,7 +129,16 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       }
     });
 
-    setPlayerMarkers(new Map(playerMarkersRef.current));
+    // Only update state if markers actually changed
+    const currentMarkers = playerMarkersRef.current;
+    const shouldUpdate = !playerMarkers || playerMarkers.size !== currentMarkers.size ||
+      Array.from(currentMarkers.entries()).some(([id, marker]) =>
+        !playerMarkers.has(id) || playerMarkers.get(id) !== marker
+      );
+    
+    if (shouldUpdate) {
+      setPlayerMarkers(new Map(currentMarkers));
+    }
   }, [map, game, currentUser, isOwner, createPlayerMarkerIcon]);
 
   // Update individual player marker with real position data
@@ -202,7 +211,16 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       <small>Precisión: ${Math.round(accuracy)}m</small>
     `);
 
-    setPlayerMarkers(new Map(playerMarkersRef.current));
+    // Only update state if markers actually changed
+    const currentMarkers = playerMarkersRef.current;
+    const shouldUpdate = !playerMarkers || playerMarkers.size !== currentMarkers.size ||
+      Array.from(currentMarkers.entries()).some(([id, marker]) =>
+        !playerMarkers.has(id) || playerMarkers.get(id) !== marker
+      );
+    
+    if (shouldUpdate) {
+      setPlayerMarkers(new Map(currentMarkers));
+    }
   }, [map, game, currentUser, isOwner, createPlayerMarkerIcon]);
 
   // Update user marker team
@@ -255,7 +273,17 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
         <small>Precisión: ${Math.round(currentAccuracy)}m</small>
       `);
       
-      setPlayerMarkers(new Map(playerMarkersRef.current));
+      // Only update state if the marker actually changed
+      // This prevents unnecessary re-renders when only updating icon
+      const currentMarkers = playerMarkersRef.current;
+      const shouldUpdate = !playerMarkers || playerMarkers.size !== currentMarkers.size ||
+        Array.from(currentMarkers.entries()).some(([id, marker]) =>
+          !playerMarkers.has(id) || playerMarkers.get(id) !== marker
+        );
+      
+      if (shouldUpdate) {
+        setPlayerMarkers(new Map(currentMarkers));
+      }
     } else {
       // No existing marker found for this user
     }
@@ -331,7 +359,16 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     if (marker) {
       map.removeLayer(marker);
       playerMarkersRef.current.delete(userId);
-      setPlayerMarkers(new Map(playerMarkersRef.current));
+      // Only update state if markers actually changed
+      const currentMarkers = playerMarkersRef.current;
+      const shouldUpdate = !playerMarkers || playerMarkers.size !== currentMarkers.size ||
+        Array.from(currentMarkers.entries()).some(([id, marker]) =>
+          !playerMarkers.has(id) || playerMarkers.get(id) !== marker
+        );
+      
+      if (shouldUpdate) {
+        setPlayerMarkers(new Map(currentMarkers));
+      }
     }
   }, [map]);
 
