@@ -129,17 +129,28 @@ export const createPopupContent = (
           <div class="challenge-toggle">
             <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px">
               <input type="checkbox" id="positionChallenge_${controlPoint.id}" ${controlPoint.hasPositionChallenge ? 'checked' : ''}>
-              <span style="color: #ccc">📍 Position Challenge</span>
+              <span style="color: #ccc">📍 Desafío de Posición</span>
             </label>
             <div class="position-challenge-info" style="margin-left: 24px; margin-top: 2px; display: ${controlPoint.hasPositionChallenge ? 'block' : 'none'}">
-              <div style="font-size: 11px; color: #999; margin-bottom: 4px">
-                ${controlPoint.minDistance ? `Radio actual: ${controlPoint.minDistance}m` : 'Radio actual: 10m'}
+              <div class="form-group">
+                <label class="form-label">Distancia Mínima:</label>
+                <select id="controlPointMinDistance_${controlPoint.id}" class="form-input">
+                  <option value="5" ${controlPoint.minDistance === 5 ? 'selected' : ''}>5m (Muy cercano)</option>
+                  <option value="10" ${controlPoint.minDistance === 10 ? 'selected' : ''}>10m (Cercano)</option>
+                  <option value="25" ${controlPoint.minDistance === 25 || !controlPoint.minDistance ? 'selected' : ''}>25m (Medio)</option>
+                  <option value="50" ${controlPoint.minDistance === 50 ? 'selected' : ''}>50m (Lejano)</option>
+                  <option value="100" ${controlPoint.minDistance === 100 ? 'selected' : ''}>100m (Muy lejano)</option>
+                </select>
               </div>
-              <div style="display: flex; align-items: center; gap: 5px">
-                <label style="font-size: 11px; color: #ccc">Nuevo radio:</label>
-                <input type="number" id="positionRadius_${controlPoint.id}" value="${controlPoint.minDistance || 10}" min="1" max="1000"
-                       style="width: 60px; padding: 2px 4px; border: 1px solid #444; border-radius: 3px; background: #333; color: white; font-size: 11px">
-                <span style="font-size: 11px; color: #999">m</span>
+              <div class="form-group">
+                <label class="form-label">Accuracy Mínimo:</label>
+                <select id="controlPointMinAccuracy_${controlPoint.id}" class="form-input">
+                  <option value="5" ${controlPoint.minAccuracy === 5 ? 'selected' : ''}>5m (Alta precisión)</option>
+                  <option value="10" ${controlPoint.minAccuracy === 10 ? 'selected' : ''}>10m (Buena precisión)</option>
+                  <option value="20" ${controlPoint.minAccuracy === 20 || !controlPoint.minAccuracy ? 'selected' : ''}>20m (Precisión media)</option>
+                  <option value="50" ${controlPoint.minAccuracy === 50 ? 'selected' : ''}>50m (Baja precisión)</option>
+                  <option value="100" ${controlPoint.minAccuracy === 100 ? 'selected' : ''}>100m (Muy baja precisión)</option>
+                </select>
               </div>
             </div>
           </div>
@@ -147,17 +158,12 @@ export const createPopupContent = (
           <div class="challenge-toggle">
             <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px">
               <input type="checkbox" id="codeChallenge_${controlPoint.id}" ${controlPoint.hasCodeChallenge ? 'checked' : ''}>
-              <span style="color: #ccc">🔢 Code Challenge</span>
+              <span style="color: #ccc">🔢 Desafío de Código</span>
             </label>
             <div class="code-challenge-info" style="margin-left: 24px; margin-top: 2px; display: ${controlPoint.hasCodeChallenge ? 'block' : 'none'}">
-              <div style="font-size: 11px; color: #999; margin-bottom: 4px">
-                ${controlPoint.code ? `Código actual: ${controlPoint.code}` : 'Código actual: No configurado'}
-              </div>
-              <div style="display: flex; align-items: center; gap: 5px">
-                <label style="font-size: 11px; color: #ccc">Nuevo código:</label>
-                <input type="text" id="codeValue_${controlPoint.id}" value="${controlPoint.code || ''}"
-                       style="width: 80px; padding: 2px 4px; border: 1px solid #444; border-radius: 3px; background: #333; color: white; font-size: 11px"
-                       placeholder="Código">
+              <div class="form-group">
+                <label class="form-label">Code:</label>
+                <input type="text" id="controlPointCode_${controlPoint.id}" value="${controlPoint.code || ''}" class="form-input" placeholder="Código para tomar">
               </div>
             </div>
           </div>
@@ -165,17 +171,27 @@ export const createPopupContent = (
           <div class="challenge-toggle">
             <label style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px">
               <input type="checkbox" id="bombChallenge_${controlPoint.id}" ${controlPoint.hasBombChallenge ? 'checked' : ''}>
-              <span style="color: #ccc">💣 Bomb Challenge</span>
+              <span style="color: #ccc">💣 Desafío de Bomba</span>
             </label>
             <div class="bomb-challenge-info" style="margin-left: 24px; margin-top: 2px; display: ${controlPoint.hasBombChallenge ? 'block' : 'none'}">
-              <div style="font-size: 11px; color: #999; margin-bottom: 4px">
-                ${controlPoint.bombTime ? `Tiempo actual: ${controlPoint.bombTime}s` : 'Tiempo actual: 60s'}
+              <div class="form-group">
+                <label class="form-label">Bomb Time:</label>
+                <select id="controlPointBombTime_${controlPoint.id}" class="form-input">
+                  <option value="60" ${controlPoint.bombTime === 60 ? 'selected' : ''}>1 minuto</option>
+                  <option value="120" ${controlPoint.bombTime === 120 ? 'selected' : ''}>2 minutos</option>
+                  <option value="180" ${controlPoint.bombTime === 180 || !controlPoint.bombTime ? 'selected' : ''}>3 minutos</option>
+                  <option value="300" ${controlPoint.bombTime === 300 ? 'selected' : ''}>5 minutos</option>
+                  <option value="600" ${controlPoint.bombTime === 600 ? 'selected' : ''}>10 minutos</option>
+                  <option value="900" ${controlPoint.bombTime === 900 ? 'selected' : ''}>15 minutos</option>
+                </select>
               </div>
-              <div style="display: flex; align-items: center; gap: 5px">
-                <label style="font-size: 11px; color: #ccc">Nuevo tiempo:</label>
-                <input type="number" id="bombTime_${controlPoint.id}" value="${controlPoint.bombTime || 60}" min="5" max="300"
-                       style="width: 60px; padding: 2px 4px; border: 1px solid #444; border-radius: 3px; background: #333; color: white; font-size: 11px">
-                <span style="font-size: 11px; color: #999">s</span>
+              <div class="form-group">
+                <label class="form-label">Armed Code:</label>
+                <input type="text" id="controlPointArmedCode_${controlPoint.id}" value="${controlPoint.armedCode || ''}" class="form-input" placeholder="Código para armar">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Disarmed Code:</label>
+                <input type="text" id="controlPointDisarmedCode_${controlPoint.id}" value="${controlPoint.disarmedCode || ''}" class="form-input" placeholder="Código para desarmar">
               </div>
             </div>
           </div>
