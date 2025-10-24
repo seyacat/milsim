@@ -980,42 +980,96 @@ onMounted(async () => {
     currentGame.value = game
     teamCount.value = game.teamCount || 2
 
-    // Initialize WebSocket connection
+    // Initialize WebSocket connection - use same approach as React (through Vite proxy)
     const token = AuthService.getToken()
+    console.log('WebSocket token:', token)
+    console.log('Token length:', token?.length)
+    console.log('Token starts with:', token?.substring(0, 20))
+    console.log('Current user:', currentUser.value)
+    console.log('Is authenticated:', AuthService.isAuthenticated())
     try {
-      // Connect directly to backend server for WebSocket (bypass Vite proxy)
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const wsUrl = `${protocol}//localhost:6600`
+      const wsUrl = `${protocol}//${window.location.host}`
       
+      // Use exact same configuration as React
       const socket = io(wsUrl, {
         auth: {
-          token: token
-        },
-        timeout: 5000,
-        transports: ['websocket', 'polling']
+          token: token  // No Bearer prefix, just the raw token
+        }
       })
       socketRef.value = socket
 
       socket.on('connect', () => {
         console.log('WebSocket connected successfully to backend')
         socket.emit('joinGame', { gameId: parseInt(gameId) })
+        console.log('Sent joinGame event for game:', gameId)
+        
+        // Debug: test if we can emit events
+        console.log('Socket connected state:', socket.connected)
+        console.log('Socket ID:', socket.id)
       })
 
       socket.on('gameUpdate', (data: { game: Game; type?: string }) => {
         if (data.game) {
+          console.log('Game update received:', data.game.status)
+          console.log('Full game data:', data.game)
           currentGame.value = data.game
-          // Update map if needed
-          if (data.type === 'controlPointAdded' && mapInstance.value) {
-            nextTick(() => {
-              centerOnSite()
-              renderControlPoints()
-            })
-          }
         }
+      })
+
+      // Add game state listeners for real-time state synchronization
+      socket.on('gameState', (game: Game) => {
+        if (game) {
+          console.log('Game state received:', game.status)
+          console.log('Full game state:', game)
+          currentGame.value = game
+        }
+      })
+
+      socket.on('gameAction', (data: { action: string; data: any }) => {
+        console.log('Game action received:', data.action, data.data)
+        if (data.action === 'gameStateChanged' && data.data.game) {
+          console.log('Game state changed:', data.data.game.status)
+          currentGame.value = data.data.game
+        }
+      })
+
+      socket.on('joinSuccess', (data: { user: User }) => {
+        if (data.user) {
+          currentUser.value = data.user
+        }
+      })
+
+      socket.on('gameActionError', (data: { action: string; error: string }) => {
+        console.error(`Game action error (${data.action}):`, data.error)
+        addToast({ message: `Error: ${data.error}`, type: 'error' })
+      })
+
+      socket.on('joinError', (data: any) => {
+        console.error('Join error received:', data)
+        addToast({ message: `Error al unirse al juego: ${data.message || 'Error desconocido'}`, type: 'error' })
+      })
+
+      socket.on('connect_error', (error: Error) => {
+        console.error('WebSocket connection error:', error)
+        addToast({ message: 'Error de conexión WebSocket: ' + error.message, type: 'error' })
+      })
+
+      socket.on('disconnect', (reason) => {
+        console.log('WebSocket disconnected:', reason)
+        if (reason === 'io server disconnect' || reason === 'transport close') {
+          addToast({ message: 'Conexión perdida con el servidor', type: 'error' })
+        }
+      })
+
+      // Debug: listen to all events
+      socket.onAny((eventName, ...args) => {
+        console.log('WebSocket event received:', eventName, args)
       })
 
       // Handle control point specific events
       socket.on('controlPointCreated', (data: { controlPoint: ControlPoint }) => {
+        console.log('Control point created:', data.controlPoint)
         if (currentGame.value) {
           currentGame.value.controlPoints = [...(currentGame.value.controlPoints || []), data.controlPoint]
           renderControlPoints()
@@ -1023,6 +1077,7 @@ onMounted(async () => {
       })
 
       socket.on('controlPointUpdated', (data: { controlPoint: ControlPoint }) => {
+        console.log('Control point updated:', data.controlPoint)
         if (currentGame.value) {
           currentGame.value.controlPoints = (currentGame.value.controlPoints || []).map(cp =>
             cp.id === data.controlPoint.id ? data.controlPoint : cp
@@ -1032,6 +1087,7 @@ onMounted(async () => {
       })
 
       socket.on('controlPointDeleted', (data: { controlPointId: number }) => {
+        console.log('Control point deleted:', data.controlPointId)
         if (currentGame.value) {
           currentGame.value.controlPoints = (currentGame.value.controlPoints || []).filter(cp =>
             cp.id !== data.controlPointId
@@ -1082,6 +1138,25 @@ onMounted(async () => {
   }
 })
 
+// Global functions for control point popup buttons
+const setupGlobalFunctions = () => {
+  ;(window as any).editControlPoint = (controlPointId: number) => {
+    // TODO: Implement edit functionality
+    console.log('Edit control point:', controlPointId)
+    addToast({ message: 'Funcionalidad de edición en desarrollo', type: 'info' })
+  }
+  
+  ;(window as any).deleteControlPoint = (controlPointId: number) => {
+    if (confirm('¿Estás seguro de que quieres eliminar este punto de control?')) {
+      handleControlPointDelete(controlPointId, 0)
+    }
+  }
+}
+
+onMounted(() => {
+  setupGlobalFunctions()
+})
+
 onUnmounted(() => {
   if (socketRef.value) {
     socketRef.value.disconnect()
@@ -1089,6 +1164,10 @@ onUnmounted(() => {
   if (mapInstance.value) {
     mapInstance.value.remove()
   }
+  
+  // Clean up global functions
+  delete (window as any).editControlPoint
+  delete (window as any).deleteControlPoint
 })
 </script>
 
