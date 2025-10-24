@@ -1,49 +1,62 @@
 #!/usr/bin/env node
 
 /**
- * Script para agregar logs automáticamente cada vez que el websocket envíe un evento al frontend
- * Este script modifica el archivo broadcast-utilities.handler.ts para agregar console.log antes de cada server.to().emit()
+ * Script simple y robusto para agregar logs automáticamente cada vez que el websocket envíe un evento al frontend
  */
 
 const fs = require('fs');
 const path = require('path');
 
-const targetFile = path.join(__dirname, '..', 'src', 'games', 'handlers', 'broadcast-utilities.handler.ts');
+const projectRoot = path.resolve(__dirname, '..');
+const targetFile = path.join(projectRoot, 'src', 'games', 'handlers', 'broadcast-utilities.handler.ts');
 
 function addWebsocketLogs() {
   try {
-    // Leer el archivo
+    console.log('📖 Leyendo archivo:', targetFile);
+    
+    if (!fs.existsSync(targetFile)) {
+      console.error('❌ Archivo no encontrado:', targetFile);
+      process.exit(1);
+    }
+    
     let content = fs.readFileSync(targetFile, 'utf8');
     
-    // Buscar todas las líneas que contengan server.to().emit() y agregar log antes
+    // Método simple: buscar líneas específicas y agregar log antes
     const lines = content.split('\n');
-    const modifiedLines = [];
+    const newLines = [];
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       
-      // Si la línea contiene server.to().emit(), agregar log antes
+      // Agregar log antes de líneas específicas de server.to().emit()
       if (line.includes('server.to(') && line.includes('.emit(')) {
-        // Encontrar la indentación de la línea actual
-        const indentMatch = line.match(/^(\s*)/);
-        const indent = indentMatch ? indentMatch[1] : '';
+        // Extraer el nombre del evento
+        let eventName = 'unknown';
+        if (line.includes("'gameAction'")) eventName = 'gameAction';
+        else if (line.includes("'gameUpdate'")) eventName = 'gameUpdate';
+        else if (line.includes("'timeUpdate'")) eventName = 'timeUpdate';
+        else if (line.includes("'controlPointTimeUpdate'")) eventName = 'controlPointTimeUpdate';
+        else if (line.includes("'bombTimeUpdate'")) eventName = 'bombTimeUpdate';
+        else if (line.includes("'positionChallengeUpdate'")) eventName = 'positionChallengeUpdate';
         
-        // Agregar línea de log con la misma indentación
+        // Agregar log con la misma indentación
+        const indent = line.match(/^(\s*)/)[1] || '';
+        newLines.push(`${indent}console.log('[WEBSOCKET_SEND] Evento: ${eventName}');`);
       }
       
-      modifiedLines.push(line);
+      newLines.push(line);
     }
     
-    // Escribir el archivo modificado
-    const modifiedContent = modifiedLines.join('\n');
-    fs.writeFileSync(targetFile, modifiedContent, 'utf8');
+    const modifiedContent = newLines.join('\n');
+    const logsAdded = (modifiedContent.match(/\[WEBSOCKET_SEND\]/g) || []).length;
     
+    fs.writeFileSync(targetFile, modifiedContent, 'utf8');
+    console.log(`✅ Se agregaron ${logsAdded} logs exitosamente`);
     
   } catch (error) {
-    console.error('❌ Error al modificar el archivo:', error.message);
+    console.error('❌ Error:', error.message);
     process.exit(1);
   }
 }
 
-// Ejecutar el script
 addWebsocketLogs();
