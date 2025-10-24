@@ -103,6 +103,8 @@ const {
   setMapView,
   centerOnPosition,
   renderControlPoints,
+  enableControlPointDrag,
+  disableControlPointDrag,
   closePopup,
   destroyMap
 } = useMap()
@@ -211,7 +213,32 @@ const updateTeamCount = (count: number) => {
 // Control point handlers
 const handleControlPointMove = (controlPointId: number, markerId: number) => {
   console.log('Move control point:', controlPointId, markerId)
+  enableControlPointDrag(controlPointId)
   closePopup()
+  
+  // Add dragend event listener to disable drag after move
+  const marker = controlPointMarkers.value.get(controlPointId)
+  if (marker) {
+    marker.off('dragend') // Remove any existing listeners
+    marker.on('dragend', () => {
+      console.log('Control point drag ended:', controlPointId)
+      disableControlPointDrag(controlPointId)
+      
+      // Get new position and update control point
+      const newLatLng = marker.getLatLng()
+      console.log('New position:', newLatLng)
+      
+      // Update control point position via WebSocket
+      if (currentGame.value) {
+        emitGameAction(currentGame.value.id, 'updateControlPointPosition', {
+          controlPointId,
+          latitude: newLatLng.lat,
+          longitude: newLatLng.lng
+        })
+        addToast({ message: 'Punto de control movido', type: 'success' })
+      }
+    })
+  }
 }
 
 const handleControlPointUpdateWrapper = (controlPointId: number, markerId: number) => {
