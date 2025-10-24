@@ -621,11 +621,14 @@ const handleControlPointUpdate = (controlPointId: number, markerId: number) => {
     const typeSelect = document.getElementById(`controlPointType_${controlPointId}`) as HTMLSelectElement
     const nameInput = document.getElementById(`controlPointEditName_${controlPointId}`) as HTMLInputElement
     const positionChallengeCheckbox = document.getElementById(`positionChallenge_${controlPointId}`) as HTMLInputElement
-    const positionRadiusInput = document.getElementById(`positionRadius_${controlPointId}`) as HTMLInputElement
+    const minDistanceSelect = document.getElementById(`controlPointMinDistance_${controlPointId}`) as HTMLSelectElement
+    const minAccuracySelect = document.getElementById(`controlPointMinAccuracy_${controlPointId}`) as HTMLSelectElement
     const codeChallengeCheckbox = document.getElementById(`codeChallenge_${controlPointId}`) as HTMLInputElement
-    const codeValueInput = document.getElementById(`codeValue_${controlPointId}`) as HTMLInputElement
+    const codeInput = document.getElementById(`controlPointCode_${controlPointId}`) as HTMLInputElement
     const bombChallengeCheckbox = document.getElementById(`bombChallenge_${controlPointId}`) as HTMLInputElement
-    const bombTimeInput = document.getElementById(`bombTime_${controlPointId}`) as HTMLInputElement
+    const bombTimeSelect = document.getElementById(`controlPointBombTime_${controlPointId}`) as HTMLSelectElement
+    const armedCodeInput = document.getElementById(`controlPointArmedCode_${controlPointId}`) as HTMLInputElement
+    const disarmedCodeInput = document.getElementById(`controlPointDisarmedCode_${controlPointId}`) as HTMLInputElement
 
     // Validate required fields
     if (!nameInput?.value.trim()) {
@@ -644,21 +647,27 @@ const handleControlPointUpdate = (controlPointId: number, markerId: number) => {
     }
 
     // Add position challenge values - always read from DOM even if inputs are hidden
-    const minDistance = positionRadiusInput?.value || ''
+    const minDistance = minDistanceSelect?.value || ''
+    const minAccuracy = minAccuracySelect?.value || ''
     
     // Validate position challenge if checked
     if (positionChallengeCheckbox?.checked) {
       if (!minDistance) {
-        addToast({ message: 'Para position challenge, debes ingresar un radio', type: 'warning' })
+        addToast({ message: 'Para position challenge, debes ingresar una distancia mínima', type: 'warning' })
+        return
+      }
+      if (!minAccuracy) {
+        addToast({ message: 'Para position challenge, debes ingresar un accuracy mínimo', type: 'warning' })
         return
       }
     }
     
     // Always send position values (they will be null if not selected)
     ;(updateData as any).minDistance = minDistance ? parseInt(minDistance) : null
+    ;(updateData as any).minAccuracy = minAccuracy ? parseInt(minAccuracy) : null
 
     // Add code challenge values - always read from DOM even if inputs are hidden
-    const code = codeValueInput?.value.trim() || ''
+    const code = codeInput?.value.trim() || ''
     
     // Validate code challenge if checked
     if (codeChallengeCheckbox?.checked) {
@@ -672,7 +681,9 @@ const handleControlPointUpdate = (controlPointId: number, markerId: number) => {
     ;(updateData as any).code = code || null
 
     // Add bomb challenge values - always read from DOM even if inputs are hidden
-    const bombTime = bombTimeInput?.value || ''
+    const bombTime = bombTimeSelect?.value || ''
+    const armedCode = armedCodeInput?.value.trim() || ''
+    const disarmedCode = disarmedCodeInput?.value.trim() || ''
     
     // Validate bomb challenge if checked
     if (bombChallengeCheckbox?.checked) {
@@ -680,10 +691,20 @@ const handleControlPointUpdate = (controlPointId: number, markerId: number) => {
         addToast({ message: 'Para bomb challenge, debes ingresar un tiempo', type: 'warning' })
         return
       }
+      if (!armedCode) {
+        addToast({ message: 'Para bomb challenge, debes ingresar un código para armar', type: 'warning' })
+        return
+      }
+      if (!disarmedCode) {
+        addToast({ message: 'Para bomb challenge, debes ingresar un código para desarmar', type: 'warning' })
+        return
+      }
     }
     
     // Always send bomb values (they will be null if not selected)
     ;(updateData as any).bombTime = bombTime ? parseInt(bombTime) : null
+    ;(updateData as any).armedCode = armedCode || null
+    ;(updateData as any).disarmedCode = disarmedCode || null
 
     // Send update via WebSocket following the original structure
     socketRef.value.emit('gameAction', {
