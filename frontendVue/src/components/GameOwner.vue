@@ -1,7 +1,7 @@
 
 <template>
   <div class="game-owner-container">
-    <div style="background: yellow; padding: 10px; margin: 10px;">
+    <div class="debug-info owner">
       GAME OWNER COMPONENT LOADED - CHECKING PLAYER MARKERS
     </div>
     <div v-if="isLoading" class="loading">
@@ -87,9 +87,9 @@ import { useControlPointTimers } from '../composables/useControlPointTimers'
 import { useBombTimers } from '../composables/useBombTimers'
 import { usePlayerMarkers } from '../composables/usePlayerMarkers'
 import { useGPSTracking } from '../composables/useGPSTracking'
-import GameOverlay from './GameOwner/GameOverlay.vue'
-import LocationInfoPanel from './GameOwner/LocationInfoPanel.vue'
-import MapControlsPanel from './GameOwner/MapControlsPanel.vue'
+import GameOverlay from './shared/GameOverlay.vue'
+import LocationInfoPanel from './shared/LocationInfoPanel.vue'
+import MapControlsPanel from './shared/MapControlsPanel.vue'
 import ControlPanel from './GameOwner/ControlPanel.vue'
 import PlayersDialog from './GameOwner/PlayersDialog.vue'
 import GameResultsDialog from './GameResultsDialog.vue'
@@ -98,8 +98,6 @@ import GameResultsDialog from './GameResultsDialog.vue'
 import 'leaflet/dist/leaflet.css'
 // Import global styles including player markers
 import '../styles/global.css'
-// Import player marker styles
-import '../styles/game-player.css'
 
 const route = useRoute()
 const router = useRouter()
@@ -203,8 +201,8 @@ const onMapClick = async (latlng: { lat: number; lng: number }) => {
   // Create menu content similar to React implementation
   const menuContent = `
     <div id="controlPointMenu">
-      <div style="display: flex; justify-content: center;">
-        <button onclick="window.createControlPoint(${latlng.lat}, ${latlng.lng})" style="padding: 8px 16px; margin: 0 10px 0 5px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Crear Punto de Control</button>
+      <div class="control-point-create-container">
+        <button onclick="window.createControlPoint(${latlng.lat}, ${latlng.lng})" class="btn-create-control-point">Crear Punto de Control</button>
       </div>
     </div>
   `
@@ -740,129 +738,3 @@ onUnmounted(() => {
 }
 </style>
 
-<style>
-/* Leaflet Popup Styles */
-.leaflet-popup-content-wrapper {
-  background: black;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  padding: 0;
-}
-
-.leaflet-popup-content {
-  margin: 0;
-  padding: 0;
-  min-width: 280px;
-  max-width: 320px;
-}
-
-.leaflet-popup-tip {
-  background: black;
-}
-
-/* Control Point Edit Menu Styles */
-.control-point-edit-menu {
-  min-width: 280px;
-  max-width: 320px;
-  background: black;
-}
-
-.control-point-edit-content {
-  padding: 10px;
-}
-
-.header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-}
-
-.edit-title {
-  margin: 0;
-  color: white;
-  font-size: 16px;
-  font-weight: bold;
-}
-
-.btn-close {
-  background: none;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  color: #ccc;
-  padding: 0;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.2s ease;
-}
-
-.btn-close:hover {
-  color: white;
-}
-
-.form-group {
-  margin-bottom: 12px;
-}
-
-.form-label {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 12px;
-  color: #ccc;
-  font-weight: bold;
-}
-
-.form-input {
-  width: 100%;
-  padding: 6px 8px;
-  border: 1px solid #444;
-  border-radius: 4px;
-  font-size: 12px;
-  box-sizing: border-box;
-  background: #333;
-  color: white;
-}
-
-.team-buttons {
-  display: flex;
-  gap: 5px;
-  margin-top: 5px;
-  flex-wrap: wrap;
-}
-
-.challenge-toggle {
-  margin-bottom: 8px;
-}
-
-.challenge-toggle label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: #ccc;
-}
-
-.challenge-toggle input[type="checkbox"] {
-  margin: 0;
-}
-
-.action-buttons {
-  margin-top: 15px;
-  display: flex;
-  gap: 5px;
-  justify-content: space-between;
-}
-
-.btn {
-  cursor: pointer;
-  transition: opacity 0.2s ease;
-}
-
-.btn:hover {
-  opacity: 0.8;
-}
-</style>

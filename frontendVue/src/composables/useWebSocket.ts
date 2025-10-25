@@ -48,16 +48,13 @@ const setupSocketListeners = (
   })
 
   socket.on('gameAction', (data: { action: string; data: any }) => {
-    console.log('WebSocket - gameAction event received:', data)
     if (data.action === 'gameStateChanged' && data.data.game) {
       callbacks.onGameUpdate(data.data.game)
     } else if (data.action === 'positionUpdate' && callbacks.onPlayerPosition) {
       callbacks.onPlayerPosition(data)
     } else if (data.action === 'controlPointTeamAssigned' && callbacks.onControlPointTeamAssigned) {
-      console.log('WebSocket - controlPointTeamAssigned via gameAction:', data)
       callbacks.onControlPointTeamAssigned(data.data)
     } else if (data.action === 'controlPointUpdated' && callbacks.onControlPointUpdated) {
-      console.log('WebSocket - controlPointUpdated via gameAction:', data)
       callbacks.onControlPointUpdated(data.data.controlPoint)
     }
   })
@@ -97,7 +94,6 @@ const setupSocketListeners = (
 
   // Debug: listen to all events
   socket.onAny((eventName, ...args) => {
-    console.log(`WebSocket event received: ${eventName}`, args)
   })
 
   // Handle control point specific events
@@ -108,8 +104,6 @@ const setupSocketListeners = (
   // Note: controlPointUpdated events now come through gameAction handler above
   // This direct listener is kept for backward compatibility
   socket.on('controlPointUpdated', (data: { controlPoint: ControlPoint }) => {
-    console.log('WebSocket - controlPointUpdated direct event received:', data)
-    console.log('Control point team assignment:', data.controlPoint.ownedByTeam)
     callbacks.onControlPointUpdated(data.controlPoint)
   })
 
@@ -154,10 +148,7 @@ const setupSocketListeners = (
   // Note: controlPointTeamAssigned events now come through gameAction handler above
   // This direct listener is kept for backward compatibility
   socket.on('controlPointTeamAssigned', (data: any) => {
-    console.log('WebSocket - controlPointTeamAssigned direct event received:', data)
-    console.log('Control point team assignment data:', data.controlPoint?.ownedByTeam)
     if (callbacks.onControlPointTeamAssigned) {
-      console.log('Calling onControlPointTeamAssigned callback')
       callbacks.onControlPointTeamAssigned(data)
     } else {
       console.log('No onControlPointTeamAssigned callback registered')

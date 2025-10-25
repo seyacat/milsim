@@ -1,14 +1,14 @@
 <template>
-  <div class="location-info-panel">
+  <div class="game-panel location-info-panel">
     <div>Estado GPS: <span>{{ gpsStatus }}</span></div>
     <div>Lat: <span>{{ currentPosition ? currentPosition.lat.toFixed(6) : '-' }}</span></div>
     <div>Lng: <span>{{ currentPosition ? currentPosition.lng.toFixed(6) : '-' }}</span></div>
     <div>Precisión: <span>{{ currentPosition ? currentPosition.accuracy.toFixed(1) + 'm' : '-' }}</span></div>
     
-    <div style="margin-top: 10px">
-      <label style="color: white; font-size: 12px; display: block; margin-bottom: 5px">Tiempo:</label>
+    <div class="time-select-container">
+      <label class="panel-label">Tiempo:</label>
       <select
-        style="width: 100%; padding: 5px; border-radius: 3px; background: #333; color: white; border: 1px solid #666"
+        class="panel-select"
         @change="handleTimeSelect"
         :value="defaultTimeValue"
       >
@@ -46,16 +46,7 @@ const handleTimeSelect = (event: Event) => {
 </script>
 
 <style scoped>
-.location-info-panel {
-  position: absolute;
-  bottom: 20px;
-  left: 20px;
-  z-index: 1000;
-  background: rgba(0, 0, 0, 0.8);
-  border-radius: 8px;
-  padding: 10px;
-  color: white;
-  font-size: 12px;
-  backdrop-filter: blur(10px);
+.time-select-container {
+  margin-top: 10px;
 }
 </style>

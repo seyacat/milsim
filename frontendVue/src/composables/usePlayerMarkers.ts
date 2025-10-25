@@ -323,7 +323,6 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     // Handle player team updates
     const handlePlayerTeamUpdated = (data: any) => {
       if (data.action === 'playerTeamUpdated' && data.data) {
-        console.log('usePlayerMarkers - received player team update:', data.data)
         const { playerId, team } = data.data
         if (playerId && team) {
           updatePlayerMarkerTeam(playerId, team)

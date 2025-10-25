@@ -215,13 +215,34 @@ export const useMap = () => {
       
       marker.setIcon(customIcon)
 
-      // Add popup for owner
-      const popupContent = createPopupContent(controlPoint, (marker as any)._leaflet_id, handlers)
-      marker.bindPopup(popupContent, {
-        closeOnClick: false,
-        autoClose: false,
-        closeButton: true
-      })
+      // Add popup - for owner with edit controls, for player with info only
+      if (Object.keys(handlers).length > 0) {
+        // Owner view - with edit controls
+        const popupContent = createPopupContent(controlPoint, (marker as any)._leaflet_id, handlers)
+        marker.bindPopup(popupContent, {
+          closeOnClick: false,
+          autoClose: false,
+          closeButton: true
+        })
+      } else {
+        // Player view - info only
+        const popupContent = `
+          <div class="control-point-info-popup">
+            <h4>${controlPoint.name || 'Punto de Control'}</h4>
+            <p class="team-info">
+              ${controlPoint.ownedByTeam ? `Equipo: ${controlPoint.ownedByTeam.toUpperCase()}` : 'Sin equipo asignado'}
+            </p>
+            ${controlPoint.hasPositionChallenge ? '<p class="challenge-info position">Desafío de Posición</p>' : ''}
+            ${controlPoint.hasCodeChallenge ? '<p class="challenge-info code">Desafío de Código</p>' : ''}
+            ${controlPoint.hasBombChallenge ? '<p class="challenge-info bomb">Desafío de Bomba</p>' : ''}
+          </div>
+        `
+        marker.bindPopup(popupContent, {
+          closeOnClick: true,
+          autoClose: true,
+          closeButton: true
+        })
+      }
 
       // Store reference to enable drag later
       ;(marker as any).controlPointId = controlPoint.id
@@ -381,7 +402,7 @@ export const useMap = () => {
 
   const renderControlPoints = async (
     controlPoints: ControlPoint[],
-    handlers: any
+    handlers: any = {}
   ) => {
     if (!mapInstance.value) return
 
@@ -422,10 +443,8 @@ export const useMap = () => {
   }
 
   const updateControlPointMarker = async (controlPoint: ControlPoint) => {
-    console.log('updateControlPointMarker called for control point:', controlPoint.id, controlPoint.name, controlPoint.ownedByTeam)
     const marker = controlPointMarkers.value.get(controlPoint.id)
     if (!marker || !mapInstance.value) {
-      console.log('Marker not found or map not ready for control point:', controlPoint.id)
       return
     }
 

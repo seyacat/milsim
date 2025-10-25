@@ -1,71 +1,57 @@
 <template>
-  <div class="game-player-container">
+  <div class="game-owner-container">
+    <div class="debug-info player">
+      GAME PLAYER COMPONENT LOADED - PLAYER VIEW
+    </div>
     <div v-if="isLoading" class="loading">
       Cargando juego...
     </div>
-
     <div v-else-if="!currentGame || !currentUser" class="loading">
       Error al cargar el juego
     </div>
-
-    <div v-else class="game-content">
-      <!-- GPS Manager - Handles GPS tracking independently -->
-      <div class="gps-manager">
-        <div class="gps-status">
-          Estado GPS: {{ gpsStatus }}
-        </div>
+    <div v-else class="game-owner-layout">
+      <!-- Map -->
+      <div class="map-container">
+        <div ref="mapRef" class="map"></div>
       </div>
 
-      <!-- Map -->
-      <div ref="mapContainer" class="map-container"></div>
-
-      <!-- Player Marker - Handles user marker updates independently -->
-      <PlayerMarker
-        :mapInstanceRef="mapInstanceRef"
-        :userMarkerRef="userMarkerRef"
-        :currentGame="currentGame"
-        :currentUser="currentUser"
-        :currentPosition="currentPosition"
-      />
-
-      <!-- Game Overlay -->
+      <!-- Game Overlay - Top Left -->
       <GameOverlay
-        :currentUser="currentUser"
-        :currentGame="currentGame"
-        :socket="socket"
+        :current-user="currentUser"
+        :current-game="currentGame"
+        :gps-status="gpsStatusFromComposable"
       />
 
-      <!-- Location Info -->
-      <LocationInfo
-        :currentGame="currentGame"
+      <!-- Location Info - Bottom Left -->
+      <LocationInfoPanel
+        :gps-status="gpsStatusFromComposable"
+        :current-position="currentPositionFromComposable"
+        :default-time-value="300"
+        @time-select="handleTimeSelect"
       />
 
-      <!-- Map Controls -->
-      <MapControls
-        :goBack="goBack"
-        :reloadPage="reloadPage"
-        :centerOnUser="centerOnUser"
-        :centerOnSite="centerOnSite"
-        :openResultsDialog="openGameResultsDialog"
-        :showTeamSelection="showTeamSelectionManual"
-        :gameStatus="currentGame?.status"
-        :mapInstanceRef="mapInstanceRef"
+      <!-- Map Controls - Top Right -->
+      <MapControlsPanel
+        :current-position="currentPositionFromComposable"
+        @center-on-user="centerOnUser"
+        @center-on-site="centerOnSite"
+        @show-results-dialog="showResultsDialog = true"
       />
 
       <!-- Game Results Dialog -->
       <GameResultsDialog
-        :isOpen="isGameResultsDialogOpen"
-        :onClose="closeGameResultsDialog"
+        :isOpen="showResultsDialog"
+        :onClose="() => showResultsDialog = false"
         :currentGame="currentGame"
         :gameId="gameId"
       />
 
       <!-- Team Selection -->
       <TeamSelection
-        v-if="showTeamSelection && currentGame && currentUser && socket"
+        v-if="showTeamSelection && currentGame && currentUser && socketRef"
         :currentGame="currentGame"
         :currentUser="currentUser"
-        :socket="socket"
+        :socket="socketRef"
         :onTeamSelected="hideTeamSelection"
       />
     </div>
@@ -73,71 +59,159 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { Game } from '../types'
-import { useGamePlayer } from '../composables/useGamePlayer'
-import { useGPSTracking } from '../composables/useGPSTracking'
-import { usePlayerMarkers } from '../composables/usePlayerMarkers'
-import { useBombTimers } from '../composables/useBombTimers'
+import { AuthService } from '../services/auth.js'
+import { GameService } from '../services/game.js'
+import { User, Game, ControlPoint } from '../types/index.js'
+import { useToast } from '../composables/useToast.js'
 import { useMap } from '../composables/useMap'
-import GameOverlay from './GamePlayer/GameOverlay.vue'
-import LocationInfo from './GamePlayer/LocationInfo.vue'
-import MapControls from './GamePlayer/MapControls.vue'
+import { useWebSocket } from '../composables/useWebSocket'
+import { usePlayerMarkers } from '../composables/usePlayerMarkers'
+import { useGPSTracking } from '../composables/useGPSTracking'
+import { useBombTimers } from '../composables/useBombTimers'
+import GameOverlay from './shared/GameOverlay.vue'
+import LocationInfoPanel from './shared/LocationInfoPanel.vue'
+import MapControlsPanel from './shared/MapControlsPanel.vue'
 import GameResultsDialog from './GameResultsDialog.vue'
 import TeamSelection from './TeamSelection.vue'
-import PlayerMarker from './PlayerMarker.vue'
+
+// Import Leaflet CSS
+import 'leaflet/dist/leaflet.css'
+// Import global styles including player markers
 import '../styles/global.css'
-import '../styles/game-player.css'
 
 const route = useRoute()
 const router = useRouter()
-const gameId = computed(() => route.params.gameId as string)
+const { addToast } = useToast()
 
-// Game player logic
+// Composables
 const {
-  currentUser,
-  currentGame,
-  isLoading,
+  mapInstance,
   mapRef,
-  mapInstanceRef,
-  userMarkerRef,
-  playerMarkersRef,
-  controlPointMarkersRef,
-  socket,
-  goBack,
-  reloadPage,
-  centerOnUser,
-  centerOnSite,
   controlPointMarkers,
-  positionCircles,
-  pieCharts,
-  isGameResultsDialogOpen,
-  openGameResultsDialog,
-  closeGameResultsDialog,
-  showTeamSelection,
-  hideTeamSelection,
-  showTeamSelectionManual
-} = useGamePlayer(gameId, router)
+  initializeMap,
+  setMapView,
+  centerOnPosition,
+  renderControlPoints,
+  updateControlPointMarker,
+  updatePositionChallengePieChart,
+  destroyMap
+} = useMap()
 
-// GPS tracking
-const { gpsStatus, currentPosition, startGPSTracking, stopGPSTracking } = useGPSTracking(
-  currentGame,
-  socket
-)
-
-// Player markers for other players
 const {
-  playerMarkers,
-  updatePlayerMarkers,
-  updatePlayerMarker
-} = usePlayerMarkers({
-  game: currentGame,
-  map: mapInstanceRef,
-  currentUser,
-  socket,
-  isOwner: false
+  socketRef,
+  connectWebSocket,
+  emitGameAction,
+  disconnectWebSocket
+} = useWebSocket()
+
+// State
+const currentUser = ref<User | null>(null)
+const currentGame = ref<Game | null>(null)
+const isLoading = ref(true)
+const showResultsDialog = ref(false)
+const showTeamSelection = ref(false)
+
+// Player markers composable - will be initialized after map is ready
+const playerMarkersComposable = ref<any>(null)
+
+// GPS tracking for player
+const {
+  gpsStatus: gpsStatusFromComposable,
+  currentPosition: currentPositionFromComposable,
+  startGPSTracking,
+  stopGPSTracking
+} = useGPSTracking(currentGame, socketRef)
+
+// Watch for GPS position changes to update user marker
+watch(() => currentPositionFromComposable.value, (position) => {
+  if (position && playerMarkersComposable.value) {
+    console.log('GamePlayer - updating user marker with GPS position:', position)
+    playerMarkersComposable.value.updateUserMarkerPosition(position)
+  }
 })
+
+const gameId = route.params.gameId as string
+
+// Map event handlers
+const onMapClick = async (latlng: { lat: number; lng: number }) => {
+  console.log('Player map clicked at:', latlng)
+  // Players can't create control points, just show info
+}
+
+// Navigation functions
+const centerOnUser = async () => {
+  if (currentPositionFromComposable.value) {
+    await centerOnPosition(currentPositionFromComposable.value.lat, currentPositionFromComposable.value.lng, 16)
+  }
+}
+
+const centerOnSite = async () => {
+  if (currentGame.value?.controlPoints?.length) {
+    await setMapView(currentGame.value.controlPoints)
+  }
+}
+
+// Team selection functions
+const hideTeamSelection = () => {
+  showTeamSelection.value = false
+}
+
+const showTeamSelectionManual = () => {
+  showTeamSelection.value = true
+}
+
+// Time selection handler
+const handleTimeSelect = (timeInSeconds: number) => {
+  console.log('Time selected:', timeInSeconds)
+  // For player, this might not be needed but keeping for consistency
+}
+
+// WebSocket callbacks
+const onGameUpdate = (game: Game) => {
+  console.log('GamePlayer - onGameUpdate called')
+  currentGame.value = game
+  // Render control points for player view (no edit handlers)
+  renderControlPoints(game.controlPoints || [], {})
+  // Update player markers if composable is ready
+  if (playerMarkersComposable.value) {
+    playerMarkersComposable.value.updatePlayerMarkers()
+  }
+}
+
+const onControlPointCreated = (controlPoint: ControlPoint) => {
+  if (currentGame.value) {
+    currentGame.value.controlPoints = [...(currentGame.value.controlPoints || []), controlPoint]
+    renderControlPoints(currentGame.value.controlPoints, {})
+  }
+}
+
+const onControlPointUpdated = (controlPoint: ControlPoint) => {
+  if (currentGame.value) {
+    currentGame.value.controlPoints = (currentGame.value.controlPoints || []).map(cp =>
+      cp.id === controlPoint.id ? controlPoint : cp
+    )
+    renderControlPoints(currentGame.value.controlPoints, {})
+  }
+}
+
+const onControlPointDeleted = (controlPointId: number) => {
+  if (currentGame.value) {
+    currentGame.value.controlPoints = (currentGame.value.controlPoints || []).filter(cp =>
+      cp.id !== controlPointId
+    )
+    renderControlPoints(currentGame.value.controlPoints, {})
+  }
+}
+
+const onJoinSuccess = (user: User) => {
+  currentUser.value = user
+}
+
+const onError = (error: string) => {
+  console.error('WebSocket error:', error)
+}
 
 // Bomb timers composable
 const {
@@ -150,93 +224,193 @@ const {
   setupBombTimerListeners
 } = useBombTimers()
 
-// Map setup
-const mapContainer = ref<HTMLElement | null>(null)
-const { initializeMap } = useMap()
+// Lifecycle
+onMounted(async () => {
+  console.log('GamePlayer - onMounted called')
+  try {
+    const user = await AuthService.getCurrentUser()
+    if (!user) {
+      router.push('/login')
+      return
+    }
 
-onMounted(() => {
-  console.log('GamePlayer mounted - checking map container and game')
-  if (mapContainer.value) {
-    console.log('Map container found, initializing map')
-    initializeMap(mapContainer.value, currentGame.value)
-    
-    // Setup bomb timer listeners
-    if (socket.value) {
-      setupBombTimerListeners(socket.value)
+    if (!gameId) {
+      addToast({ message: 'ID de juego no válido', type: 'error' })
+      router.push('/dashboard')
+      return
     }
-    
-    // Request active bomb timers
-    if (currentGame.value) {
-      requestActiveBombTimers(socket.value, currentGame.value.id)
+
+    const game = await GameService.getGame(parseInt(gameId))
+    if (!game) {
+      addToast({ message: 'Juego no encontrado', type: 'error' })
+      router.push('/dashboard')
+      return
     }
-    
-    // Update bomb timers after initial markers are rendered
-    setTimeout(() => {
-      updateAllBombTimerDisplays()
+
+    currentUser.value = user
+    currentGame.value = game
+
+    // Initialize WebSocket
+    console.log('GamePlayer - Initializing WebSocket connection')
+    connectWebSocket(parseInt(gameId), {
+      onGameUpdate,
+      onControlPointCreated,
+      onControlPointUpdated,
+      onControlPointDeleted,
+      onJoinSuccess,
+      onError,
+      onGameTime: (data: any) => {
+        console.log('Game time data received:', data)
+      },
+      onPlayerPosition: (data: any) => {
+        console.log('GamePlayer - Player position received:', data)
+        // This callback is handled by usePlayerMarkers composable
+      },
+      onBombTimeUpdate: (data: any) => {
+        console.log('GamePlayer - Bomb time update received:', data)
+        handleBombTimeUpdate(data)
+      },
+      onActiveBombTimers: (data: any) => {
+        console.log('GamePlayer - Active bomb timers received:', data)
+        handleActiveBombTimers(data)
+      },
+      onPositionChallengeUpdate: (data: any) => {
+        console.log('GamePlayer - Position challenge update received:', data)
+        if (data.controlPointId && data.teamPoints) {
+          updatePositionChallengePieChart(data.controlPointId, data.teamPoints)
+        }
+      },
+      onControlPointUpdated: (controlPoint: ControlPoint) => {
+        console.log('GamePlayer - Control point updated received:', controlPoint)
+        if (controlPoint) {
+          updateControlPointMarker(controlPoint)
+        }
+      },
+      onControlPointTeamAssigned: (data: any) => {
+        console.log('GamePlayer - Control point team assigned received:', data)
+        if (data.controlPoint) {
+          updateControlPointMarker(data.controlPoint)
+        }
+      }
+    })
+
+    // Initialize map after component is mounted and data is loaded
+    await nextTick()
+    setTimeout(async () => {
+      await initializeMap(onMapClick)
+      await setMapView(currentGame.value?.controlPoints || [])
+      await renderControlPoints(currentGame.value?.controlPoints || [], {})
+      
+      // Initialize player markers AFTER map is ready
+      console.log('GamePlayer - initializing player markers after map is ready')
+      playerMarkersComposable.value = usePlayerMarkers({
+        game: currentGame,
+        map: mapInstance,
+        currentUser,
+        socket: socketRef,
+        isOwner: false
+      })
+      
+      // Start GPS tracking for player
+      console.log('GamePlayer - starting GPS tracking')
+      startGPSTracking()
+      
+      // Setup bomb timer listeners
+      if (socketRef.value) {
+        setupBombTimerListeners(socketRef.value)
+      }
+      
+      // Request active bomb timers
+      if (currentGame.value) {
+        requestActiveBombTimers(socketRef.value, currentGame.value.id)
+      }
+      
+      // Update bomb timers after initial markers are rendered
+      setTimeout(() => {
+        updateAllBombTimerDisplays()
+      }, 100)
     }, 100)
-  } else {
-    console.log('Map container NOT found')
+
+  } catch (error) {
+    console.error('Error initializing game:', error)
+    addToast({ message: 'Error al cargar el juego', type: 'error' })
+    router.push('/dashboard')
+  } finally {
+    isLoading.value = false
   }
 })
 
 onUnmounted(() => {
-  console.log('GamePlayer unmounted, stopping GPS')
+  console.log('GamePlayer - onUnmounted called, cleaning up resources')
+  
+  // Stop GPS tracking first
   stopGPSTracking()
-})
-
-// Watch for game and socket changes to start GPS tracking
-import { watch } from 'vue'
-
-watch([currentGame, socket], ([game, sock]) => {
-  console.log('Game/socket changed:', { hasGame: !!game, hasSocket: !!sock })
-  if (game && sock) {
-    console.log('Starting GPS tracking...')
-    startGPSTracking()
+  
+  // Disconnect WebSocket
+  disconnectWebSocket()
+  
+  // Clean up player markers if composable exists
+  if (playerMarkersComposable.value) {
+    try {
+      // Clear player markers from map
+      playerMarkersComposable.value.playerMarkers.forEach((marker: any) => {
+        if (mapInstance.value && marker) {
+          mapInstance.value.removeLayer(marker as unknown as L.Layer)
+        }
+      })
+      playerMarkersComposable.value.playerMarkers.clear()
+      
+      // Remove user marker
+      if (playerMarkersComposable.value.userMarker && mapInstance.value) {
+        mapInstance.value.removeLayer(playerMarkersComposable.value.userMarker as unknown as L.Layer)
+      }
+    } catch (error) {
+      console.error('Error cleaning up player markers:', error)
+    }
   }
-}, { immediate: true })
+  
+  // Destroy map last
+  destroyMap()
+  
+  console.log('GamePlayer - cleanup completed')
+})
 </script>
 
 <style scoped>
+/* Game Player Styles - Matching Original Design */
 .game-player-container {
-  position: relative;
-  width: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
   height: 100vh;
+  width: 100vw;
   overflow: hidden;
+  margin: 0;
+  padding: 0;
 }
 
-.loading {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  font-size: 18px;
-  color: #666;
-}
-
-.game-content {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-.gps-manager {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 1000;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 12px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.gps-status {
-  font-weight: bold;
-}
-
+/* Map Container */
 .map-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.map {
   width: 100%;
   height: 100%;
+  min-height: 100vh;
+}
+
+/* Loading State */
+.loading {
+  text-align: center;
+  color: #ccc;
+  font-style: italic;
+  padding: 20px;
 }
 </style>

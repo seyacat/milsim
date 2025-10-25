@@ -441,3 +441,518 @@ body {
   background: rgba(149, 165, 166, 0.5) !important;
   border: 2px solid black;
 }
+
+/* Leaflet Popup Styles */
+.leaflet-popup-content-wrapper {
+  background: rgba(0, 0, 0, 0.8) !important;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+  padding: 0;
+  color: white;
+  backdrop-filter: blur(10px);
+}
+
+.leaflet-popup-content {
+  margin: 0;
+  padding: 0;
+  min-width: 280px;
+  max-width: 320px;
+  color: white;
+}
+
+.leaflet-popup-tip {
+  background: rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Control Point Edit Menu Styles */
+.control-point-edit-menu {
+  min-width: 280px;
+  max-width: 320px;
+  background: black;
+}
+
+.control-point-edit-content {
+  padding: 10px;
+}
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.edit-title {
+  margin: 0;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #ccc;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.btn-close:hover {
+  color: white;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: #ccc;
+  font-weight: bold;
+}
+
+.form-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #444;
+  border-radius: 4px;
+  font-size: 12px;
+  box-sizing: border-box;
+  background: #333;
+  color: white;
+}
+
+.team-buttons {
+  display: flex;
+  gap: 5px;
+  margin-top: 5px;
+  flex-wrap: wrap;
+}
+
+.challenge-toggle {
+  margin-bottom: 8px;
+}
+
+.challenge-toggle label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #ccc;
+}
+
+.challenge-toggle input[type="checkbox"] {
+  margin: 0;
+}
+
+.action-buttons {
+  margin-top: 15px;
+  display: flex;
+  gap: 5px;
+  justify-content: space-between;
+}
+
+.btn {
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.btn:hover {
+  opacity: 0.8;
+}
+
+/* Control Point Info Popup Styles (for player view) */
+.control-point-info-popup {
+  padding: 10px;
+  min-width: 200px;
+}
+
+.control-point-info-popup h4 {
+  margin: 0 0 8px 0;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.control-point-info-popup .team-info {
+  margin: 0;
+  color: #ccc;
+  font-size: 12px;
+}
+
+.control-point-info-popup .challenge-info {
+  margin: 4px 0 0 0;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.control-point-info-popup .challenge-info.position {
+  color: #FF9800;
+}
+
+.control-point-info-popup .challenge-info.code {
+  color: #4CAF50;
+}
+
+.control-point-info-popup .challenge-info.bomb {
+  color: #F44336;
+}
+
+/* Debug Info Styles */
+.debug-info {
+  padding: 10px;
+  margin: 10px;
+  border-radius: 4px;
+  font-weight: bold;
+  text-align: center;
+}
+
+.debug-info.player {
+  background: #4CAF50;
+  color: white;
+}
+
+.debug-info.owner {
+  background: #FFEB3B;
+  color: black;
+}
+
+/* Control Point Create Menu Styles */
+.control-point-create-container {
+  display: flex;
+  justify-content: center;
+}
+
+.btn-create-control-point {
+  padding: 8px 16px;
+  margin: 0 10px 0 5px;
+  background: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.btn-create-control-point:hover {
+  background: #45a049;
+}
+
+/* Team Color Styles */
+.team-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #333;
+}
+
+.team-blue {
+  background-color: #3498db;
+}
+
+.team-red {
+  background-color: #e74c3c;
+}
+
+.team-green {
+  background-color: #27ae60;
+}
+
+.team-yellow {
+  background-color: #f1c40f;
+}
+
+.team-none {
+  background-color: #ccc;
+}
+
+/* Dashboard Styles */
+.dashboard-header {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.search-container {
+  flex: 1;
+  min-width: 250px;
+}
+
+.search-input {
+  width: 100%;
+}
+
+.filter-container {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.filter-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.filter-text {
+  font-size: 12px;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 15px 0;
+}
+
+.game-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.game-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.game-owner {
+  font-size: 12px;
+}
+
+/* Game Panel Styles - Centralized for both owner and player views */
+.game-panel {
+  position: absolute;
+  z-index: 1000;
+  border-radius: 8px;
+  max-width: 300px;
+  padding: 15px;
+  color: white;
+}
+
+/* Game Overlay Panel - Transparent background (black 0%) */
+.game-panel.game-overlay-panel {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: none;
+  top: 10px;
+  left: 10px;
+}
+
+/* Location Info Panel - Black background 80% */
+.game-panel.location-info-panel {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  bottom: 20px;
+  left: 20px;
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+/* Location Info Panel specific styles to match Game Overlay */
+.game-panel.location-info-panel div {
+  margin-bottom: 5px;
+  color: var(--text-primary);
+}
+
+.game-panel.location-info-panel span {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.game-panel.location-info-panel .time-select-container {
+  margin-top: 10px;
+}
+
+.game-panel.location-info-panel .panel-label {
+  color: var(--text-primary);
+  margin-bottom: 3px;
+}
+
+.game-panel.location-info-panel .panel-select {
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: 3px;
+  font-size: 12px;
+  background: #333;
+  color: white;
+  border: 1px solid #666;
+}
+
+/* Map Controls Panel - Black background 80%, no blur */
+.game-panel.map-controls-panel {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: none;
+  padding: 10px;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  .btn.btn-secondary {
+    background-color: rgba(0, 0, 0, 0.8);
+    width: 45px;
+    height: 45px;
+    border-radius: 6px;
+  }
+}
+
+
+/* Game Info Styles */
+.game-info h2 {
+  margin: 0 0 5px 0;
+  font-size: 16px;
+  color: #4CAF50;
+}
+
+.game-details {
+  font-size: var(--font-size-sm);
+  color: #ccc;
+}
+
+/* Game Title Container */
+.game-title-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.edit-pencil {
+  color: #4CAF50;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+  transform: translateY(-3px);
+}
+
+.edit-pencil:hover {
+  opacity: 1;
+}
+
+/* Team Info */
+.team-info {
+  font-size: 14px;
+  font-weight: bold;
+  color: #1976d2;
+}
+
+/* Info Panel Styles */
+.info-panel {
+  padding: 15px;
+  border-radius: 8px;
+  max-width: 300px;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+}
+
+.info-panel h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+  color: white;
+}
+
+.info-item {
+  margin-bottom: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.info-item:last-child {
+  margin-bottom: 0;
+}
+
+.info-item strong {
+  color: #333;
+}
+
+/* Map Controls Styles */
+.control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.control-btn {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 0px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.control-btn:hover {
+  transform: scale(1.05);
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.control-btn:active {
+  transform: scale(0.95);
+}
+
+.control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.icon {
+  font-size: 16px;
+}
+
+/* Form Elements for Panels */
+.panel-select {
+  width: 100%;
+  padding: 5px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.panel-select.owner {
+  background: #333;
+  color: white;
+  border: 1px solid #666;
+}
+
+.panel-select.player {
+  background: #f5f5f5;
+  color: #333;
+  border: 1px solid #ddd;
+}
+
+.panel-label {
+  font-size: 12px;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.panel-label.owner {
+  color: white;
+}
+
+.panel-label.player {
+  color: #333;
+}

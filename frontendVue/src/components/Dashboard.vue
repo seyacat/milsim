@@ -47,9 +47,9 @@
           class="game-card"
           @click="enterGame(game)"
         >
-          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--text-muted)">
-            <span style="font-weight: 600; font-size: 14px">{{ game.name }}</span>
-            <span>Owner: {{ game.owner?.name || 'Unknown' }}</span>
+          <div class="game-card-header">
+            <span class="game-name">{{ game.name }}</span>
+            <span class="game-owner">Owner: {{ game.owner?.name || 'Unknown' }}</span>
             <span :class="`status-${game.status}`">Status: {{ game.status }}</span>
             <span>Players: {{ game.activeConnections || 0 }}</span>
             <button

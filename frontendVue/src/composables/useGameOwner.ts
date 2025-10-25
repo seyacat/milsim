@@ -114,7 +114,6 @@ export const useGameOwner = (): UseGameOwnerReturn => {
           // Handle control point creation
         },
         onControlPointUpdated: (controlPoint: any) => {
-          console.log('GameOwner - Control point updated received:', controlPoint)
           if (controlPoint) {
             updateControlPointMarker(controlPoint)
           }
@@ -133,7 +132,6 @@ export const useGameOwner = (): UseGameOwnerReturn => {
           // Handle game time updates
         },
         onControlPointTeamAssigned: (data: any) => {
-          console.log('GameOwner - Control point team assigned received:', data)
           if (data.controlPoint) {
             updateControlPointMarker(data.controlPoint)
           }

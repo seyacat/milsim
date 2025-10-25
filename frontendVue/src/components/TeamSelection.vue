@@ -16,7 +16,7 @@
             class="team-btn"
             :class="{ selected: selectedTeam === team.id }"
           >
-            <div class="team-color" :style="{ backgroundColor: team.color }"></div>
+            <div class="team-color" :class="`team-${team.id}`"></div>
             <div class="team-info">
               <div class="team-name">{{ team.name }}</div>
               <div class="team-count">{{ team.playerCount }} jugadores</div>
@@ -30,7 +30,7 @@
             class="team-btn no-team"
             :class="{ selected: selectedTeam === 'none' }"
           >
-            <div class="team-color" style="background-color: #ccc"></div>
+            <div class="team-color team-none"></div>
             <div class="team-info">
               <div class="team-name">Sin Equipo</div>
               <div class="team-count">Espectador</div>

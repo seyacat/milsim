@@ -11,7 +11,6 @@ import { useGamePlayer } from '../hooks/useGamePlayer'
 import { TimerManager } from './TimerManager'
 import { GPSManager } from './GPSManager'
 import PlayerMarker from './PlayerMarker'
-import '../styles/game-player.css'
 
 const GamePlayer: React.FC = () => {
   const { gameId } = useParams<{ gameId: string }>()
