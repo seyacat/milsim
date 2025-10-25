@@ -316,7 +316,6 @@ export class GameStateHandler {
       // This ensures internal state is updated but doesn't force unnecessary frontend notifications
       await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
       
-      console.log(`[GAME_STATE_HANDLER] Position challenge data recalculated internally for game ${gameId} (no frontend notifications sent)`);
     } catch (positionChallengeError) {
       console.error(
         `[GAME_STATE_HANDLER] Error recalculating position challenge data for game ${gameId}:`,

@@ -1,0 +1,500 @@
+/* Game Player Styles - Based on Game Owner Styles */
+.game-player-container {
+  position: relative;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* Map Container */
+.map-container {
+  height: 100%;
+  width: 100%;
+}
+
+/* Game Overlay - Top Left */
+.game-overlay {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 8px;
+  padding: 15px;
+  color: white;
+  max-width: 300px;
+  backdrop-filter: blur(10px);
+}
+
+.game-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.game-title-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.game-title {
+  margin: 0;
+  color: #4CAF50;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.game-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.game-status,
+.game-owner,
+.current-user,
+.gps-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.status-label,
+.owner-label,
+.user-label {
+  color: #ccc;
+  font-weight: normal;
+}
+
+.status-value,
+.owner-value,
+.user-value {
+  color: white;
+  font-weight: bold;
+}
+
+/* Location Info - Bottom Left */
+.location-info-panel {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.8);
+  border-radius: 8px;
+  padding: 10px;
+  color: white;
+  font-size: 12px;
+  backdrop-filter: blur(10px);
+}
+
+/* Map Controls - Top Right */
+.map-controls-panel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.map-controls-panel .btn {
+  padding: 10px;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  backdrop-filter: blur(10px);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-controls-panel .btn:hover {
+  background: rgba(0, 0, 0, 0.9);
+  transform: none;
+}
+
+/* Buttons */
+.btn {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  font-size: 12px;
+}
+
+.btn-primary {
+  background: #4CAF50;
+  color: white;
+}
+
+.btn-secondary {
+  background: #666;
+  color: white;
+}
+
+.btn:hover {
+  opacity: 1;
+  transform: none;
+}
+
+.team-selection-btn {
+  width: 100%;
+  margin-top: 10px;
+}
+
+/* Team selection button in map controls */
+.map-controls-panel .btn-team-selection {
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+}
+
+.map-controls-panel .btn-team-selection:hover {
+  background: rgba(0, 0, 0, 0.9);
+  transform: translateY(-1px);
+}
+
+/* Loading State */
+.loading {
+  text-align: center;
+  color: #ccc;
+  font-style: italic;
+  padding: 20px;
+}
+
+/* GPS Status Colors */
+.status-active {
+  color: #4CAF50;
+}
+
+.status-inactive {
+  color: #FF9800;
+}
+
+.status-error {
+  color: #f44336;
+}
+
+.status-connecting {
+  color: #2196F3;
+}
+
+/* Game Time Display */
+.game-time-display {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.time-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.time-label {
+  color: #ccc;
+  font-size: 11px;
+}
+
+.time-value {
+  color: white;
+  font-weight: bold;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+/* Team Selection Styles */
+.team-selection-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.team-selection-container {
+  background: rgba(0, 0, 0, 0.9);
+  border-radius: 12px;
+  padding: 20px;
+  color: white;
+  max-width: 320px;
+  width: 90%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  pointer-events: auto;
+}
+
+.team-selection-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding-bottom: 10px;
+}
+
+.team-selection-header h4 {
+  margin: 0;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.team-selection-close {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background-color 0.2s ease;
+}
+
+.team-selection-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.team-buttons-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.team-btn {
+  flex: 1;
+  min-width: 70px;
+  padding: 10px 8px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 12px;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  color: white;
+}
+
+.team-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.team-btn.active {
+  transform: scale(1.05);
+  box-shadow: 0 0 0 2px white;
+}
+
+.team-btn.blue {
+  background: linear-gradient(135deg, #2196F3, #1976D2);
+}
+
+.team-btn.red {
+  background: linear-gradient(135deg, #f44336, #d32f2f);
+}
+
+.team-btn.green {
+  background: linear-gradient(135deg, #4CAF50, #388E3C);
+}
+
+.team-btn.yellow {
+  background: linear-gradient(135deg, #FFC107, #FFA000);
+  color: #333;
+}
+
+.team-btn.none {
+  background: linear-gradient(135deg, #666, #444);
+}
+
+.current-team-info {
+  font-size: 12px;
+  color: #ccc;
+  text-align: center;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.current-team-info strong {
+  color: white;
+}
+
+/* Player markers - circle with team color fill and person emoji */
+.player-marker {
+  background: transparent !important;
+  border: none !important;
+  width: 24px !important;
+  height: 24px !important;
+  text-align: center;
+  font-size: 16px;
+  line-height: 24px;
+  margin-left: -12px !important;
+  margin-top: -24px !important;
+  position: relative;
+}
+
+.player-marker::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(128, 128, 128, 0.5);
+  z-index: 1;
+}
+
+.player-marker::after {
+  content: "🧍‍♂️";
+  display: block;
+  position: relative;
+  z-index: 2;
+  font-size: 14px;
+  line-height: 24px;
+  text-align: center;
+}
+
+/* Team colors for player markers */
+.player-marker.blue::before {
+  background: rgba(52, 152, 219, 0.5) !important;
+}
+
+.player-marker.red::before {
+  background: rgba(231, 76, 60, 0.5) !important;
+}
+
+.player-marker.green::before {
+  background: rgba(39, 174, 96, 0.5) !important;
+}
+
+.player-marker.yellow::before {
+  background: rgba(241, 196, 15, 0.5) !important;
+}
+
+.player-marker.none::before {
+  background: rgba(149, 165, 166, 0.5) !important;
+}
+
+/* Current user marker - circle with black border, team color fill, and person emoji */
+.user-marker {
+  background: transparent !important;
+  border: none !important;
+  width: 24px !important;
+  height: 24px !important;
+  text-align: center;
+  font-size: 16px;
+  line-height: 24px;
+  margin-left: -12px !important;
+  margin-top: -24px !important;
+  position: relative;
+}
+
+/* Custom popup positioning for user marker - move the entire popup higher */
+.user-marker-popup {
+  bottom: 17px !important;
+  text-align: center;
+}
+
+/* Center content inside user marker popup */
+.user-marker-popup .leaflet-popup-content {
+  text-align: center !important;
+  margin: 6px 10px !important;
+}
+
+.user-marker::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(128, 128, 128, 0.5);
+  border: 2px solid black;
+  z-index: 1;
+}
+
+.user-marker::after {
+  content: "🧍‍♂️";
+  display: block;
+  position: relative;
+  z-index: 2;
+  font-size: 14px;
+  line-height: 24px;
+  text-align: center;
+}
+
+/* Team colors for current user marker */
+.user-marker.blue::before {
+  background: rgba(52, 152, 219, 0.5) !important;
+  border: 2px solid black;
+}
+
+.user-marker.red::before {
+  background: rgba(231, 76, 60, 0.5) !important;
+  border: 2px solid black;
+}
+
+.user-marker.green::before {
+  background: rgba(39, 174, 96, 0.5) !important;
+  border: 2px solid black;
+}
+
+.user-marker.yellow::before {
+  background: rgba(241, 196, 15, 0.5) !important;
+  border: 2px solid black;
+}
+
+.user-marker.none::before {
+  background: rgba(149, 165, 166, 0.5) !important;
+  border: 2px solid black;
+}
+
+/* Accuracy circles - 50% opacity team colors, no border */
+.accuracy-circle {
+  stroke: none !important;
+  fill-opacity: 0.5 !important;
+}
+
+.accuracy-circle.blue {
+  fill: #3498db !important;
+}
+
+.accuracy-circle.red {
+  fill: #e74c3c !important;
+}
+
+.accuracy-circle.green {
+  fill: #27ae60 !important;
+}
+
+.accuracy-circle.yellow {
+  fill: #f1c40f !important;
+}
+
+.accuracy-circle.none {
+  fill: #95a5a6 !important;
+}

@@ -12,7 +12,6 @@ const targetFile = path.join(projectRoot, 'src', 'games', 'handlers', 'broadcast
 
 function addWebsocketLogs() {
   try {
-    console.log('📖 Leyendo archivo:', targetFile);
     
     if (!fs.existsSync(targetFile)) {
       console.error('❌ Archivo no encontrado:', targetFile);
@@ -41,7 +40,6 @@ function addWebsocketLogs() {
         
         // Agregar log con la misma indentación
         const indent = line.match(/^(\s*)/)[1] || '';
-        newLines.push(`${indent}console.log('[WEBSOCKET_SEND] Evento: ${eventName}');`);
       }
       
       newLines.push(line);
@@ -51,7 +49,6 @@ function addWebsocketLogs() {
     const logsAdded = (modifiedContent.match(/\[WEBSOCKET_SEND\]/g) || []).length;
     
     fs.writeFileSync(targetFile, modifiedContent, 'utf8');
-    console.log(`✅ Se agregaron ${logsAdded} logs exitosamente`);
     
   } catch (error) {
     console.error('❌ Error:', error.message);

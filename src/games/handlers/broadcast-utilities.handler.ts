@@ -57,13 +57,6 @@ export class BroadcastUtilitiesHandler {
         bombStatus,
       };
 
-      console.log(`[BROADCAST_CONTROL_POINT_UPDATE] Broadcasting control point ${controlPoint.id}:`, {
-        id: enhancedControlPoint.id,
-        name: enhancedControlPoint.name,
-        latitude: enhancedControlPoint.latitude,
-        longitude: enhancedControlPoint.longitude,
-        hasCoordinates: !!enhancedControlPoint.latitude && !!enhancedControlPoint.longitude
-      });
 
       // Broadcast to all clients (without codes)
       const broadcastData = {
@@ -76,7 +69,6 @@ export class BroadcastUtilitiesHandler {
         timestamp: new Date().toISOString(),
       };
 
-      console.log('[WEBSOCKET_SEND] Evento: gameAction');
       server.to(`game_${gameId}`).emit('gameAction', broadcastData);
 
       // If this control point has position challenge, send current position challenge data
@@ -102,7 +94,6 @@ export class BroadcastUtilitiesHandler {
 
   // Method to broadcast game updates to all connected clients in a game
   broadcastGameUpdate(gameId: number, game: any, server: any) {
-    console.log('[WEBSOCKET_SEND] Evento: gameUpdate');
     server.to(`game_${gameId}`).emit('gameUpdate', {
       type: 'gameUpdated',
       game,
@@ -127,7 +118,6 @@ export class BroadcastUtilitiesHandler {
       timestamp: new Date().toISOString(),
     };
 
-    console.log('[WEBSOCKET_SEND] Evento: gameAction');
     server.to(`game_${gameId}`).emit('gameAction', broadcastData);
   }
 
@@ -148,7 +138,6 @@ export class BroadcastUtilitiesHandler {
       const controlPointTimes = await this.gamesService.getControlPointTimes(gameId);
 
       // Broadcast combined time update with consistent structure
-      console.log('[WEBSOCKET_SEND] Evento: timeUpdate');
       server.to(`game_${gameId}`).emit('timeUpdate', {
         ...timeData,
         controlPointTimes,
@@ -160,7 +149,7 @@ export class BroadcastUtilitiesHandler {
         error,
       );
       // Fallback: broadcast with consistent structure
-      console.log('[WEBSOCKET_SEND] Evento: timeUpdate');
+      console.error('[WEBSOCKET_SEND] Evento: timeUpdate');
       server.to(`game_${gameId}`).emit('timeUpdate', {
         ...timeData,
         controlPointTimes: [],
@@ -193,7 +182,6 @@ export class BroadcastUtilitiesHandler {
 
       if (controlPoint && controlPoint.game) {
         // Broadcast to the specific game room
-        console.log('[WEBSOCKET_SEND] Evento: controlPointTimeUpdate');
         server.to(`game_${controlPoint.game.id}`).emit('controlPointTimeUpdate', broadcastData);
       } else {
         // Fallback: broadcast to all connected clients
@@ -238,7 +226,6 @@ export class BroadcastUtilitiesHandler {
 
       if (controlPoint && controlPoint.game) {
         // Broadcast to the specific game room
-        console.log('[WEBSOCKET_SEND] Evento: bombTimeUpdate');
         server.to(`game_${controlPoint.game.id}`).emit('bombTimeUpdate', broadcastData);
       } else {
         // Fallback: broadcast to all connected clients
@@ -264,7 +251,6 @@ export class BroadcastUtilitiesHandler {
     teamPoints: Record<string, number>,
     server: any,
   ) {
-    console.log('[WEBSOCKET_SEND] Evento: positionChallengeUpdate');
     server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
       controlPointId,
       teamPoints,

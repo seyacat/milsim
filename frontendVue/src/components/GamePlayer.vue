@@ -3,371 +3,212 @@
     <div v-if="isLoading" class="loading">
       Cargando juego...
     </div>
+
     <div v-else-if="!currentGame || !currentUser" class="loading">
       Error al cargar el juego
     </div>
-    <div v-else>
-      <!-- Simplified Game Player Interface -->
-      <div class="game-header">
-        <h1>{{ currentGame.name }}</h1>
-        <div class="game-status">
-          Status: {{ currentGame.status }}
+
+    <div v-else class="game-content">
+      <!-- GPS Manager - Handles GPS tracking independently -->
+      <div class="gps-manager">
+        <div class="gps-status">
+          Estado GPS: {{ gpsStatus }}
         </div>
       </div>
-      
-      <div class="game-info">
-        <div class="info-card">
-          <h3>Your Team</h3>
-          <div class="team-display">{{ getPlayerTeam() || 'No team assigned' }}</div>
-        </div>
-        <div class="info-card">
-          <h3>Players Online</h3>
-          <div class="player-count">{{ currentGame.activeConnections || 0 }}</div>
-        </div>
-        <div class="info-card">
-          <h3>Control Points</h3>
-          <div class="control-point-count">{{ currentGame.controlPoints.length }}</div>
-        </div>
-      </div>
-      
-      <div v-if="showTeamSelection && currentGame.status === 'stopped'" class="team-selection">
-        <h3>Select Your Team</h3>
-        <div class="team-buttons">
-          <button 
-            v-for="team in availableTeams" 
-            :key="team" 
-            class="btn team-btn" 
-            :class="`team-${team}`"
-            @click="selectTeam(team)"
-          >
-            {{ team.toUpperCase() }}
-          </button>
-        </div>
-      </div>
-      
-      <div class="game-controls">
-        <button class="btn btn-secondary" @click="goBack">
-          Back to Dashboard
-        </button>
-        <button class="btn btn-info" @click="reloadPage">
-          Reload
-        </button>
-      </div>
+
+      <!-- Map -->
+      <div ref="mapContainer" class="map-container"></div>
+
+      <!-- Player Marker - Handles user marker updates independently -->
+      <PlayerMarker
+        :mapInstanceRef="mapInstanceRef"
+        :userMarkerRef="userMarkerRef"
+        :currentGame="currentGame"
+        :currentUser="currentUser"
+        :currentPosition="currentPosition"
+      />
+
+      <!-- Game Overlay -->
+      <GameOverlay
+        :currentUser="currentUser"
+        :currentGame="currentGame"
+        :socket="socket"
+      />
+
+      <!-- Location Info -->
+      <LocationInfo
+        :currentGame="currentGame"
+      />
+
+      <!-- Map Controls -->
+      <MapControls
+        :goBack="goBack"
+        :reloadPage="reloadPage"
+        :centerOnUser="centerOnUser"
+        :centerOnSite="centerOnSite"
+        :openResultsDialog="openGameResultsDialog"
+        :showTeamSelection="showTeamSelectionManual"
+        :gameStatus="currentGame?.status"
+        :mapInstanceRef="mapInstanceRef"
+      />
+
+      <!-- Game Results Dialog -->
+      <GameResultsDialog
+        :isOpen="isGameResultsDialogOpen"
+        :onClose="closeGameResultsDialog"
+        :currentGame="currentGame"
+        :gameId="gameId"
+      />
+
+      <!-- Team Selection -->
+      <TeamSelection
+        v-if="showTeamSelection && currentGame && currentUser && socket"
+        :currentGame="currentGame"
+        :currentUser="currentUser"
+        :socket="socket"
+        :onTeamSelected="hideTeamSelection"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { AuthService } from '../services/auth.js'
-import { GameService } from '../services/game.js'
-import { User, Game, TeamColor } from '../types/index.js'
-import { useToast } from '../composables/useToast.js'
-import { io, Socket } from 'socket.io-client'
+import type { Game } from '../types'
+import { useGamePlayer } from '../composables/useGamePlayer'
+import { useGPSTracking } from '../composables/useGPSTracking'
+import { usePlayerMarkers } from '../composables/usePlayerMarkers'
+import { useMap } from '../composables/useMap'
+import GameOverlay from './GamePlayer/GameOverlay.vue'
+import LocationInfo from './GamePlayer/LocationInfo.vue'
+import MapControls from './GamePlayer/MapControls.vue'
+import GameResultsDialog from './GameResultsDialog.vue'
+import TeamSelection from './TeamSelection.vue'
+import PlayerMarker from './PlayerMarker.vue'
+import '../styles/game-player.css'
 
 const route = useRoute()
 const router = useRouter()
-const { addToast } = useToast()
+const gameId = computed(() => route.params.gameId as string)
 
-const currentUser = ref<User | null>(null)
-const currentGame = ref<Game | null>(null)
-const isLoading = ref(true)
-const socketRef = ref<Socket | null>(null)
-const showTeamSelection = ref(false)
+// Game player logic
+const {
+  currentUser,
+  currentGame,
+  isLoading,
+  mapRef,
+  mapInstanceRef,
+  userMarkerRef,
+  playerMarkersRef,
+  controlPointMarkersRef,
+  socket,
+  goBack,
+  reloadPage,
+  centerOnUser,
+  centerOnSite,
+  controlPointMarkers,
+  positionCircles,
+  pieCharts,
+  isGameResultsDialogOpen,
+  openGameResultsDialog,
+  closeGameResultsDialog,
+  showTeamSelection,
+  hideTeamSelection,
+  showTeamSelectionManual
+} = useGamePlayer(gameId, router)
 
-const gameId = route.params.gameId as string
+// GPS tracking
+const { gpsStatus, currentPosition, startGPSTracking, stopGPSTracking } = useGPSTracking(
+  currentGame,
+  socket
+)
 
-const availableTeams = computed(() => {
-  if (!currentGame.value) return []
-  const teams: TeamColor[] = ['blue', 'red', 'green', 'yellow']
-  return teams.slice(0, currentGame.value.teamCount || 2)
+// Player markers for other players
+const {
+  playerMarkers,
+  updatePlayerMarkers,
+  updatePlayerMarker
+} = usePlayerMarkers({
+  game: currentGame,
+  map: mapInstanceRef,
+  currentUser,
+  socket,
+  isOwner: false
 })
 
-onMounted(async () => {
-  try {
-    const user = await AuthService.getCurrentUser()
-    if (!user) {
-      router.push('/login')
-      return
-    }
+// Map setup
+const mapContainer = ref<HTMLElement | null>(null)
+const { initializeMap } = useMap()
 
-    if (!gameId) {
-      addToast({ message: 'ID de juego no válido', type: 'error' })
-      router.push('/dashboard')
-      return
-    }
-
-    const game = await GameService.getGame(parseInt(gameId))
-    if (!game) {
-      addToast({ message: 'Juego no encontrado', type: 'error' })
-      router.push('/dashboard')
-      return
-    }
-
-    currentUser.value = user
-    currentGame.value = game
-
-    // Check if player needs to select a team
-    const player = game.players?.find(p => p.user?.id === user.id)
-    if (!player?.team || player.team === 'none') {
-      showTeamSelection.value = true
-    }
-
-    // Initialize WebSocket connection
-    const token = AuthService.getToken()
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const wsUrl = `${protocol}//${window.location.host}`
-    
-    const socket = io(wsUrl, {
-      auth: {
-        token: token
-      }
-    })
-    socketRef.value = socket
-
-    socket.on('connect', () => {
-      socket.emit('joinGame', { gameId: parseInt(gameId) })
-    })
-
-    socket.on('gameUpdate', (data: { game: Game; type?: string }) => {
-      if (data.game) {
-        currentGame.value = data.game
-        
-        // Update team selection visibility
-        const player = data.game.players?.find(p => p.user?.id === currentUser.value?.id)
-        if (player?.team && player.team !== 'none') {
-          showTeamSelection.value = false
-        }
-      }
-    })
-
-    socket.on('joinSuccess', (data: { user: User }) => {
-      if (data.user) {
-        currentUser.value = data.user
-      }
-    })
-
-    socket.on('gameActionError', (data: { action: string; error: string }) => {
-      console.error(`Game action error (${data.action}):`, data.error)
-      addToast({ message: `Error: ${data.error}`, type: 'error' })
-    })
-
-    socket.on('connect_error', (error: Error) => {
-      console.error('WebSocket connection error:', error)
-    })
-
-    socket.on('disconnect', (reason) => {
-      if (reason === 'io server disconnect' || reason === 'transport close') {
-        addToast({ message: 'Conexión perdida con el servidor', type: 'error' })
-      }
-    })
-
-  } catch (error) {
-    console.error('Error initializing game:', error)
-    addToast({ message: 'Error al cargar el juego', type: 'error' })
-    router.push('/dashboard')
-  } finally {
-    isLoading.value = false
+onMounted(() => {
+  console.log('GamePlayer mounted - checking map container and game')
+  if (mapContainer.value) {
+    console.log('Map container found, initializing map')
+    initializeMap(mapContainer.value, currentGame.value)
+  } else {
+    console.log('Map container NOT found')
   }
 })
 
-const getPlayerTeam = () => {
-  if (!currentGame.value || !currentUser.value) return null
-  const player = currentGame.value.players?.find(p => p.user?.id === currentUser.value?.id)
-  return player?.team
-}
+onUnmounted(() => {
+  console.log('GamePlayer unmounted, stopping GPS')
+  stopGPSTracking()
+})
 
-const selectTeam = (team: TeamColor) => {
-  if (!socketRef.value || !currentGame.value) return
-  
-  socketRef.value.emit('gameAction', {
-    gameId: currentGame.value.id,
-    action: 'selectTeam',
-    data: {
-      team: team
-    }
-  })
-  
-  addToast({ message: `Te has unido al equipo ${team.toUpperCase()}`, type: 'success' })
-  showTeamSelection.value = false
-}
+// Watch for game and socket changes to start GPS tracking
+import { watch } from 'vue'
 
-const goBack = () => {
-  router.push('/dashboard')
-}
-
-const reloadPage = () => {
-  window.location.reload()
-}
+watch([currentGame, socket], ([game, sock]) => {
+  console.log('Game/socket changed:', { hasGame: !!game, hasSocket: !!sock })
+  if (game && sock) {
+    console.log('Starting GPS tracking...')
+    startGPSTracking()
+  }
+}, { immediate: true })
 </script>
 
 <style scoped>
 .game-player-container {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .loading {
   display: flex;
   justify-content: center;
   align-items: center;
-  height: 50vh;
+  height: 100vh;
   font-size: 18px;
-  color: var(--text);
+  color: #666;
 }
 
-.game-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border);
+.game-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
-.game-header h1 {
-  color: var(--text);
-  font-size: 2rem;
-  font-weight: 600;
-}
-
-.game-status {
-  padding: 0.5rem 1rem;
-  background: var(--info);
-  color: white;
+.gps-manager {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 8px 12px;
   border-radius: 4px;
-  font-weight: 500;
+  font-size: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.game-info {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
+.gps-status {
+  font-weight: bold;
 }
 
-.info-card {
-  background: var(--card-background);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1.5rem;
-  text-align: center;
-}
-
-.info-card h3 {
-  color: var(--text-muted);
-  font-size: 1rem;
-  margin-bottom: 0.5rem;
-}
-
-.team-display, .player-count, .control-point-count {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.team-selection {
-  background: var(--card-background);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 2rem;
-  margin-bottom: 2rem;
-  text-align: center;
-}
-
-.team-selection h3 {
-  color: var(--text);
-  margin-bottom: 1rem;
-  font-size: 1.2rem;
-}
-
-.team-buttons {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.team-btn {
-  padding: 1rem 2rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  color: white;
-  min-width: 100px;
-}
-
-.team-blue {
-  background: #3498db;
-}
-
-.team-blue:hover {
-  background: #2980b9;
-}
-
-.team-red {
-  background: #e74c3c;
-}
-
-.team-red:hover {
-  background: #c0392b;
-}
-
-.team-green {
-  background: #2ecc71;
-}
-
-.team-green:hover {
-  background: #27ae60;
-}
-
-.team-yellow {
-  background: #f1c40f;
-  color: #333;
-}
-
-.team-yellow:hover {
-  background: #f39c12;
-}
-
-.game-controls {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.btn {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-secondary {
-  background: var(--secondary);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-
-.btn-secondary:hover {
-  background: var(--secondary-dark);
-}
-
-.btn-info {
-  background: var(--info);
-  color: white;
-}
-
-.btn-info:hover {
-  background: var(--info-dark);
+.map-container {
+  width: 100%;
+  height: 100%;
 }
 </style>

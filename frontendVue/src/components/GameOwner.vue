@@ -1,6 +1,9 @@
 
 <template>
   <div class="game-owner-container">
+    <div style="background: yellow; padding: 10px; margin: 10px;">
+      GAME OWNER COMPONENT LOADED - CHECKING PLAYER MARKERS
+    </div>
     <div v-if="isLoading" class="loading">
       Cargando juego...
     </div>
@@ -17,20 +20,20 @@
       <GameOverlay
         :current-user="currentUser"
         :current-game="currentGame"
-        :gps-status="gpsStatus"
+        :gps-status="gpsStatusFromComposable"
       />
 
       <!-- Location Info - Bottom Left -->
       <LocationInfoPanel
-        :gps-status="gpsStatus"
-        :current-position="currentPosition"
+        :gps-status="gpsStatusFromComposable"
+        :current-position="currentPositionFromComposable"
         :default-time-value="defaultTimeValue"
         @time-select="updateGameTime"
       />
 
       <!-- Map Controls - Top Right -->
       <MapControlsPanel
-        :current-position="currentPosition"
+        :current-position="currentPositionFromComposable"
         @center-on-user="centerOnUser"
         @center-on-site="centerOnSite"
         @show-players-dialog="showPlayersDialog = true"
@@ -70,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { AuthService } from '../services/auth.js'
 import { GameService } from '../services/game.js'
@@ -80,6 +83,8 @@ import { useMap } from '../composables/useMap'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useControlPoints } from '../composables/useControlPoints'
 import { useControlPointTimers } from '../composables/useControlPointTimers'
+import { usePlayerMarkers } from '../composables/usePlayerMarkers'
+import { useGPSTracking } from '../composables/useGPSTracking'
 import GameOverlay from './GameOwner/GameOverlay.vue'
 import LocationInfoPanel from './GameOwner/LocationInfoPanel.vue'
 import MapControlsPanel from './GameOwner/MapControlsPanel.vue'
@@ -89,6 +94,8 @@ import ControlPointMenu from './GameOwner/ControlPointMenu.vue'
 
 // Import Leaflet CSS
 import 'leaflet/dist/leaflet.css'
+// Import player marker styles
+import '../styles/game-player.css'
 
 const route = useRoute()
 const router = useRouter()
@@ -103,6 +110,7 @@ const {
   setMapView,
   centerOnPosition,
   renderControlPoints,
+  updatePositionChallengePieChart,
   enableControlPointDrag,
   disableControlPointDrag,
   closePopup,
@@ -144,6 +152,25 @@ const teamCount = ref(2)
 const gpsStatus = ref('Desconectado')
 const currentPosition = ref<any>(null)
 
+// Player markers composable - will be initialized after map is ready
+const playerMarkersComposable = ref<any>(null)
+
+// GPS tracking for owner
+const {
+  gpsStatus: gpsStatusFromComposable,
+  currentPosition: currentPositionFromComposable,
+  startGPSTracking,
+  stopGPSTracking
+} = useGPSTracking(currentGame, socketRef)
+
+// Watch for GPS position changes to update user marker
+watch(() => currentPositionFromComposable.value, (position) => {
+  if (position && playerMarkersComposable.value) {
+    console.log('GameOwner - updating user marker with GPS position:', position)
+    playerMarkersComposable.value.updateUserMarkerPosition(position)
+  }
+})
+
 const gameId = route.params.gameId as string
 const defaultTimeValue = 1200 // 20 minutes
 
@@ -155,8 +182,8 @@ const onMapClick = (latlng: { lat: number; lng: number }) => {
 
 // Navigation functions
 const centerOnUser = async () => {
-  if (currentPosition.value) {
-    await centerOnPosition(currentPosition.value.lat, currentPosition.value.lng, 16)
+  if (currentPositionFromComposable.value) {
+    await centerOnPosition(currentPositionFromComposable.value.lat, currentPositionFromComposable.value.lng, 16)
   }
 }
 
@@ -283,6 +310,7 @@ const createControlPointWrapper = (lat: number, lng: number) => {
 
 // WebSocket callbacks
 const onGameUpdate = (game: Game) => {
+  console.log('GameOwner - onGameUpdate called')
   currentGame.value = game
   handleGameStateChange(game)
   renderControlPoints(game.controlPoints || [], {
@@ -297,6 +325,10 @@ const onGameUpdate = (game: Game) => {
     handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
     handleUpdateBombChallenge: handleUpdateBombChallengeWrapper
   })
+  // Update player markers if composable is ready
+  if (playerMarkersComposable.value) {
+    playerMarkersComposable.value.updatePlayerMarkers()
+  }
   // Update timers after markers are rendered
   setTimeout(() => {
     updateAllTimerDisplays(game)
@@ -397,6 +429,7 @@ const setupGlobalFunctions = () => {
 
 // Lifecycle
 onMounted(async () => {
+  console.log('GameOwner - onMounted called')
   try {
     const user = await AuthService.getCurrentUser()
     if (!user) {
@@ -428,6 +461,7 @@ onMounted(async () => {
     teamCount.value = game.teamCount || 2
 
     // Initialize WebSocket
+    console.log('GameOwner - Initializing WebSocket connection')
     connectWebSocket(parseInt(gameId), {
       onGameUpdate,
       onControlPointCreated,
@@ -446,6 +480,11 @@ onMounted(async () => {
             updateAllTimerDisplays(currentGame.value)
           }, 100)
         }
+      },
+      onPlayerPosition: (data: any) => {
+        console.log('GameOwner - Player position received:', data)
+        // This callback is handled by usePlayerMarkers composable
+        // No need to duplicate the logic here
       }
     })
 
@@ -466,6 +505,26 @@ onMounted(async () => {
         handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
         handleUpdateBombChallenge: handleUpdateBombChallengeWrapper
       })
+      
+      // Initialize player markers AFTER map is ready
+      console.log('GameOwner - initializing player markers after map is ready')
+      playerMarkersComposable.value = usePlayerMarkers({
+        game: currentGame,
+        map: mapInstance,
+        currentUser,
+        socket: socketRef,
+        isOwner: true
+      })
+      
+      // Start GPS tracking for owner
+      console.log('GameOwner - starting GPS tracking')
+      startGPSTracking()
+      
+      // Update player markers with current game data
+      if (playerMarkersComposable.value) {
+        playerMarkersComposable.value.updatePlayerMarkers()
+      }
+      
       // Update timers after initial markers are rendered
       setTimeout(() => {
         updateAllTimerDisplays(currentGame.value)
@@ -486,6 +545,7 @@ onMounted(async () => {
 onUnmounted(() => {
   disconnectWebSocket()
   destroyMap()
+  stopGPSTracking()
   
   // Clean up global functions
   delete (window as any).editControlPoint
