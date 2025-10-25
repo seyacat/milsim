@@ -28,11 +28,6 @@ export class PlayerPositionHandler {
       });
 
       // Broadcast position update to all clients in the game using normalized function
-      console.log(`[POSITION_UPDATE] Broadcasting position for user ${user.id} (${user.name}) in game ${gameId}:`, {
-        lat: data.lat,
-        lng: data.lng,
-        accuracy: data.accuracy
-      })
       this.broadcastUtilities.broadcastGameAction(
         gameId,
         'positionUpdate',

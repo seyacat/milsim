@@ -3,7 +3,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { AuthService } from '../services/auth.js'
 import { GameService } from '../services/game.js'
 import { User, Game, Toast } from '../types/index.js'
-import { io, Socket } from 'socket.io-client'
+import { useWebSocket } from './useWebSocket.js'
+import { useMap } from './useMap.js'
 import { useToast } from './useToast.js'
 
 interface UseGameOwnerReturn {
@@ -17,7 +18,7 @@ interface UseGameOwnerReturn {
   userMarkerRef: any
   playerMarkersRef: any
   controlPointMarkersRef: any
-  socket: Socket | null
+  socket: any
   startGame: () => void
   pauseGame: () => void
   resumeGame: () => void
@@ -60,15 +61,20 @@ export const useGameOwner = (): UseGameOwnerReturn => {
   const userMarkerRef = ref(null)
   const playerMarkersRef = ref(null)
   const controlPointMarkersRef = ref(null)
-  const socketRef = ref<Socket | null>(null)
   const currentUserRef = ref<User | null>(null)
 
   const gameId = computed(() => route.params.gameId as string)
 
+  // WebSocket connection
+  const { socketRef, connectWebSocket, disconnectWebSocket } = useWebSocket()
+
+  // Map functionality
+  const { updateControlPointMarker } = useMap()
+
   // Simplified implementation - in a real migration, we would need to convert all the React hooks
   // For now, I'll provide the basic structure and return values
 
-  onMounted(async () => {
+  const initializeGameData = async () => {
     try {
       const user = await AuthService.getCurrentUser()
       if (!user) {
@@ -99,50 +105,41 @@ export const useGameOwner = (): UseGameOwnerReturn => {
       currentUserRef.value = user
       currentGame.value = game
 
-      // Initialize WebSocket connection
-      const token = AuthService.getToken()
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const wsUrl = `${protocol}//${window.location.host}`
+      // Connect to WebSocket using the shared composable
+      connectWebSocket(parseInt(gameId.value), {
+        onGameUpdate: (game: Game) => {
+          currentGame.value = game
+        },
+        onControlPointCreated: (controlPoint: any) => {
+          // Handle control point creation
+        },
+        onControlPointUpdated: (controlPoint: any) => {
+          console.log('GameOwner - Control point updated received:', controlPoint)
+          if (controlPoint) {
+            updateControlPointMarker(controlPoint)
+          }
+        },
+        onControlPointDeleted: (controlPointId: number) => {
+          // Handle control point deletion
+        },
+        onJoinSuccess: (user: User) => {
+          currentUser.value = user
+          currentUserRef.value = user
+        },
+        onError: (error: string) => {
+          console.error('WebSocket error:', error)
+        },
+        onGameTime: (data: any) => {
+          // Handle game time updates
+        },
+        onControlPointTeamAssigned: (data: any) => {
+          console.log('GameOwner - Control point team assigned received:', data)
+          if (data.controlPoint) {
+            updateControlPointMarker(data.controlPoint)
+          }
+        }
+      })
       
-      const socket = io(wsUrl, {
-        auth: {
-          token: token
-        }
-      })
-      socketRef.value = socket
-
-      socket.on('connect', () => {
-        socket.emit('joinGame', { gameId: parseInt(gameId.value) })
-      })
-
-      socket.on('gameUpdate', (data: { game: Game; type?: string }) => {
-        if (data.game) {
-          currentGame.value = data.game
-        }
-      })
-
-      socket.on('joinSuccess', (data: { user: User }) => {
-        if (data.user) {
-          currentUser.value = data.user
-          currentUserRef.value = data.user
-        }
-      })
-
-      socket.on('gameActionError', (data: { action: string; error: string }) => {
-        console.error(`Game action error (${data.action}):`, data.error)
-        addToast({ message: `Error: ${data.error}`, type: 'error' })
-      })
-
-      socket.on('connect_error', (error: Error) => {
-        console.error('WebSocket connection error:', error)
-      })
-
-      socket.on('disconnect', (reason) => {
-        if (reason === 'io server disconnect' || reason === 'transport close') {
-          addToast({ message: 'Conexión perdida con el servidor', type: 'error' })
-        }
-      })
-
     } catch (error) {
       console.error('Error initializing game:', error)
       addToast({ message: 'Error al cargar el juego', type: 'error' })
@@ -150,22 +147,27 @@ export const useGameOwner = (): UseGameOwnerReturn => {
     } finally {
       isLoading.value = false
     }
+  }
+
+  onMounted(() => {
+    initializeGameData()
   })
 
   onUnmounted(() => {
-    if (socketRef.value) {
-      socketRef.value.disconnect()
-    }
+    disconnectWebSocket()
   })
 
   const startGame = () => {
-    if (!currentGame.value || !socketRef.value) return
+    if (!currentGame.value) return
     try {
-      socketRef.value.emit('gameAction', {
-        gameId: currentGame.value.id,
-        action: 'startGame'
-      })
-      addToast({ message: 'Juego iniciado', type: 'success' })
+      // Use emitGameAction from useWebSocket composable
+      const { emitGameAction } = useWebSocket()
+      const success = emitGameAction(currentGame.value.id, 'startGame')
+      if (success) {
+        addToast({ message: 'Juego iniciado', type: 'success' })
+      } else {
+        addToast({ message: 'Error al iniciar el juego', type: 'error' })
+      }
     } catch (error) {
       console.error('Error starting game:', error)
       addToast({ message: 'Error al iniciar el juego', type: 'error' })
@@ -173,13 +175,15 @@ export const useGameOwner = (): UseGameOwnerReturn => {
   }
 
   const pauseGame = () => {
-    if (!currentGame.value || !socketRef.value) return
+    if (!currentGame.value) return
     try {
-      socketRef.value.emit('gameAction', {
-        gameId: currentGame.value.id,
-        action: 'pauseGame'
-      })
-      addToast({ message: 'Juego pausado', type: 'success' })
+      const { emitGameAction } = useWebSocket()
+      const success = emitGameAction(currentGame.value.id, 'pauseGame')
+      if (success) {
+        addToast({ message: 'Juego pausado', type: 'success' })
+      } else {
+        addToast({ message: 'Error al pausar el juego', type: 'error' })
+      }
     } catch (error) {
       console.error('Error pausing game:', error)
       addToast({ message: 'Error al pausar el juego', type: 'error' })
@@ -187,13 +191,15 @@ export const useGameOwner = (): UseGameOwnerReturn => {
   }
 
   const resumeGame = () => {
-    if (!currentGame.value || !socketRef.value) return
+    if (!currentGame.value) return
     try {
-      socketRef.value.emit('gameAction', {
-        gameId: currentGame.value.id,
-        action: 'resumeGame'
-      })
-      addToast({ message: 'Juego reanudado', type: 'success' })
+      const { emitGameAction } = useWebSocket()
+      const success = emitGameAction(currentGame.value.id, 'resumeGame')
+      if (success) {
+        addToast({ message: 'Juego reanudado', type: 'success' })
+      } else {
+        addToast({ message: 'Error al reanudar el juego', type: 'error' })
+      }
     } catch (error) {
       console.error('Error resuming game:', error)
       addToast({ message: 'Error al reanudar el juego', type: 'error' })
@@ -201,13 +207,15 @@ export const useGameOwner = (): UseGameOwnerReturn => {
   }
 
   const endGame = () => {
-    if (!currentGame.value || !socketRef.value) return
+    if (!currentGame.value) return
     try {
-      socketRef.value.emit('gameAction', {
-        gameId: currentGame.value.id,
-        action: 'endGame'
-      })
-      addToast({ message: 'Juego finalizado', type: 'success' })
+      const { emitGameAction } = useWebSocket()
+      const success = emitGameAction(currentGame.value.id, 'endGame')
+      if (success) {
+        addToast({ message: 'Juego finalizado', type: 'success' })
+      } else {
+        addToast({ message: 'Error al finalizar el juego', type: 'error' })
+      }
     } catch (error) {
       console.error('Error ending game:', error)
       addToast({ message: 'Error al finalizar el juego', type: 'error' })
@@ -215,13 +223,15 @@ export const useGameOwner = (): UseGameOwnerReturn => {
   }
 
   const restartGame = () => {
-    if (!currentGame.value || !socketRef.value) return
+    if (!currentGame.value) return
     try {
-      socketRef.value.emit('gameAction', {
-        gameId: currentGame.value.id,
-        action: 'restartGame'
-      })
-      addToast({ message: 'Juego reiniciado', type: 'success' })
+      const { emitGameAction } = useWebSocket()
+      const success = emitGameAction(currentGame.value.id, 'restartGame')
+      if (success) {
+        addToast({ message: 'Juego reiniciado', type: 'success' })
+      } else {
+        addToast({ message: 'Error al reiniciar el juego', type: 'error' })
+      }
     } catch (error) {
       console.error('Error restarting game:', error)
       addToast({ message: 'Error al reiniciar el juego', type: 'error' })
@@ -229,17 +239,16 @@ export const useGameOwner = (): UseGameOwnerReturn => {
   }
 
   const addTime = (seconds: number) => {
-    if (!currentGame.value || !socketRef.value) return
+    if (!currentGame.value) return
     try {
-      socketRef.value.emit('gameAction', {
-        gameId: currentGame.value.id,
-        action: 'addTime',
-        data: {
-          seconds: seconds
-        }
-      })
-      const minutes = seconds / 60
-      addToast({ message: `Se agregaron ${minutes} minutos al juego`, type: 'success' })
+      const { emitGameAction } = useWebSocket()
+      const success = emitGameAction(currentGame.value.id, 'addTime', { seconds })
+      if (success) {
+        const minutes = seconds / 60
+        addToast({ message: `Se agregaron ${minutes} minutos al juego`, type: 'success' })
+      } else {
+        addToast({ message: 'Error al añadir tiempo', type: 'error' })
+      }
     } catch (error) {
       console.error('Error adding time:', error)
       addToast({ message: 'Error al añadir tiempo', type: 'error' })
@@ -247,21 +256,20 @@ export const useGameOwner = (): UseGameOwnerReturn => {
   }
 
   const updateGameTime = (timeInSeconds: number) => {
-    if (!currentGame.value || !socketRef.value) return
+    if (!currentGame.value) return
     try {
-      socketRef.value.emit('gameAction', {
-        gameId: currentGame.value.id,
-        action: 'updateGameTime',
-        data: {
-          timeInSeconds: timeInSeconds
+      const { emitGameAction } = useWebSocket()
+      const success = emitGameAction(currentGame.value.id, 'updateGameTime', { timeInSeconds })
+      if (success) {
+        let timeText = 'indefinido'
+        if (timeInSeconds > 0) {
+          const minutes = timeInSeconds / 60
+          timeText = `${minutes} min`
         }
-      })
-      let timeText = 'indefinido'
-      if (timeInSeconds > 0) {
-        const minutes = timeInSeconds / 60
-        timeText = `${minutes} min`
+        addToast({ message: `Tiempo del juego actualizado: ${timeText}`, type: 'success' })
+      } else {
+        addToast({ message: 'Error al actualizar el tiempo', type: 'error' })
       }
-      addToast({ message: `Tiempo del juego actualizado: ${timeText}`, type: 'success' })
     } catch (error) {
       console.error('Error updating game time:', error)
       addToast({ message: 'Error al actualizar el tiempo', type: 'error' })

@@ -113,18 +113,6 @@ export const useGPSTracking = (
     const actualSocket = socket && typeof socket === 'object' && 'value' in socket ? socket.value : socket
     if (positionToSend && actualSocket && currentGame.value) {
       const isLastKnown = !currentPosition.value
-      console.log(`[GPS] Sending position to backend:`, {
-        lat: positionToSend.lat,
-        lng: positionToSend.lng,
-        accuracy: positionToSend.accuracy,
-        gameId: currentGame.value.id
-      })
-      console.log(`[GPS] Emitting positionUpdate via WebSocket to game ${currentGame.value.id}:`, {
-        lat: positionToSend.lat,
-        lng: positionToSend.lng,
-        accuracy: positionToSend.accuracy,
-        isLastKnown: isLastKnown
-      })
       actualSocket.emit('gameAction', {
         gameId: currentGame.value.id,
         action: 'positionUpdate',

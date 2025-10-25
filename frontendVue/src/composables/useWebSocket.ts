@@ -25,11 +25,11 @@ const setupSocketListeners = (
     onBombTimeUpdate?: (data: any) => void
     onActiveBombTimers?: (data: any) => void
     onPositionChallengeUpdate?: (data: any) => void
+    onControlPointTeamAssigned?: (data: any) => void
   },
   addToast: any
 ) => {
   socket.on('connect', () => {
-    console.log('WebSocket connected successfully')
     globalIsConnecting = false
     socket.emit('joinGame', { gameId })
   })
@@ -48,12 +48,17 @@ const setupSocketListeners = (
   })
 
   socket.on('gameAction', (data: { action: string; data: any }) => {
-    console.log('useWebSocket - received gameAction:', data)
+    console.log('WebSocket - gameAction event received:', data)
     if (data.action === 'gameStateChanged' && data.data.game) {
       callbacks.onGameUpdate(data.data.game)
     } else if (data.action === 'positionUpdate' && callbacks.onPlayerPosition) {
-      console.log('useWebSocket - forwarding positionUpdate to callback:', data)
       callbacks.onPlayerPosition(data)
+    } else if (data.action === 'controlPointTeamAssigned' && callbacks.onControlPointTeamAssigned) {
+      console.log('WebSocket - controlPointTeamAssigned via gameAction:', data)
+      callbacks.onControlPointTeamAssigned(data.data)
+    } else if (data.action === 'controlPointUpdated' && callbacks.onControlPointUpdated) {
+      console.log('WebSocket - controlPointUpdated via gameAction:', data)
+      callbacks.onControlPointUpdated(data.data.controlPoint)
     }
   })
 
@@ -92,6 +97,7 @@ const setupSocketListeners = (
 
   // Debug: listen to all events
   socket.onAny((eventName, ...args) => {
+    console.log(`WebSocket event received: ${eventName}`, args)
   })
 
   // Handle control point specific events
@@ -99,7 +105,11 @@ const setupSocketListeners = (
     callbacks.onControlPointCreated(data.controlPoint)
   })
 
+  // Note: controlPointUpdated events now come through gameAction handler above
+  // This direct listener is kept for backward compatibility
   socket.on('controlPointUpdated', (data: { controlPoint: ControlPoint }) => {
+    console.log('WebSocket - controlPointUpdated direct event received:', data)
+    console.log('Control point team assignment:', data.controlPoint.ownedByTeam)
     callbacks.onControlPointUpdated(data.controlPoint)
   })
 
@@ -140,6 +150,19 @@ const setupSocketListeners = (
       callbacks.onPositionChallengeUpdate(data)
     }
   })
+
+  // Note: controlPointTeamAssigned events now come through gameAction handler above
+  // This direct listener is kept for backward compatibility
+  socket.on('controlPointTeamAssigned', (data: any) => {
+    console.log('WebSocket - controlPointTeamAssigned direct event received:', data)
+    console.log('Control point team assignment data:', data.controlPoint?.ownedByTeam)
+    if (callbacks.onControlPointTeamAssigned) {
+      console.log('Calling onControlPointTeamAssigned callback')
+      callbacks.onControlPointTeamAssigned(data)
+    } else {
+      console.log('No onControlPointTeamAssigned callback registered')
+    }
+  })
 }
 
 export const useWebSocket = () => {
@@ -161,11 +184,11 @@ export const useWebSocket = () => {
       onBombTimeUpdate?: (data: any) => void
       onActiveBombTimers?: (data: any) => void
       onPositionChallengeUpdate?: (data: any) => void
+      onControlPointTeamAssigned?: (data: any) => void
     }
   ) => {
     // Usar la conexión global si ya existe
     if (globalSocketRef && globalSocketRef.connected) {
-      console.log('Reusing existing global WebSocket connection')
       socketRef.value = globalSocketRef
       connectionCount++
       
@@ -176,7 +199,6 @@ export const useWebSocket = () => {
 
     // Si ya estamos conectando globalmente, no iniciar otra conexión
     if (globalIsConnecting) {
-      console.log('Global WebSocket connection already in progress')
       return null
     }
 
@@ -188,7 +210,6 @@ export const useWebSocket = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
       const wsUrl = `${protocol}//${window.location.host}`
       
-      console.log('Creating WebSocket connection to:', wsUrl)
       
       // Use exact same configuration as React
       const socket = io(wsUrl, {
@@ -236,11 +257,9 @@ export const useWebSocket = () => {
   const disconnectWebSocket = () => {
     if (socketRef.value) {
       connectionCount--
-      console.log(`Disconnecting WebSocket, remaining connections: ${connectionCount}`)
       
       // Solo desconectar completamente si no hay más referencias
       if (connectionCount <= 0) {
-        console.log('No more connections, disconnecting global WebSocket')
         socketRef.value.disconnect()
         globalSocketRef = null
         globalIsConnecting = false

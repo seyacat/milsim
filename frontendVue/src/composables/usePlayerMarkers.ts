@@ -61,7 +61,6 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       return
     }
 
-    console.log('updatePlayerMarkers - clearing all existing markers')
     // Clear ALL existing markers including user's own marker
     playerMarkersRef.value.forEach((marker, playerId) => {
       if (marker) {
@@ -75,7 +74,6 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       return
     }
 
-    console.log('updatePlayerMarkers - creating markers for players:', game.value.players?.length)
     // Add markers for all players (will be updated with real positions via WebSocket)
     game.value.players.forEach(player => {
       // Skip if player data is incomplete
@@ -107,7 +105,6 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
 
       // Don't create initial marker - wait for real GPS position data via WebSocket
       // This prevents markers from appearing at map center before actual positions arrive
-      console.log('updatePlayerMarkers - skipping initial marker for player:', player.user?.name, 'waiting for GPS data')
     })
 
     // Only update state if markers actually changed
@@ -132,16 +129,13 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
   }) => {
     const { userId, userName, lat, lng, accuracy } = positionData
     
-    console.log('updatePlayerMarker - called with:', { userId, userName, lat, lng, accuracy })
     
     if (!map.value || !game.value || !currentUser.value) {
-      console.log('updatePlayerMarker - missing required data:', { map: !!map.value, game: !!game.value, currentUser: !!currentUser.value })
       return
     }
     
     // Skip if it's the current user and not owner
     if (!isOwner && userId === currentUser.value.id) {
-      console.log('updatePlayerMarker - skipping own position (not owner)')
       return
     }
 
@@ -172,23 +166,18 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     let marker = playerMarkersRef.value.get(userId)
     const targetPlayer = game.value.players?.find(p => p.user?.id === userId)
     
-    console.log('updatePlayerMarker - existing marker:', !!marker, 'targetPlayer:', targetPlayer)
     
     if (!marker) {
       // Create new marker if it doesn't exist
-      console.log('updatePlayerMarker - creating new marker for user:', userId)
       const targetIsOwner = game.value.owner && userId === game.value.owner.id
       const team = targetPlayer?.team || 'none'
       const icon = createPlayerMarkerIcon(team, false)
       
       marker = L.marker([lat, lng], { icon }).addTo(map.value)
       playerMarkersRef.value.set(userId, marker)
-      console.log('updatePlayerMarker - new marker created and added to map')
     } else {
       // Update existing marker position
-      console.log('updatePlayerMarker - updating existing marker position to:', [lat, lng])
       marker.setLatLng([lat, lng])
-      console.log('updatePlayerMarker - marker position updated')
     }
     
     // Store accuracy for popup info only
@@ -287,12 +276,9 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     if (!newSocket) return
 
     const handlePositionUpdate = (data: any) => {
-      console.log('usePlayerMarkers - received position update:', data)
       if (data.action === 'positionUpdate' && data.data) {
-        console.log('usePlayerMarkers - processing position update for user:', data.data.userId, 'current user:', currentUser.value?.id)
         // Owner should see all players including themselves
         if (isOwner || data.data.userId !== currentUser.value?.id) {
-          console.log('usePlayerMarkers - updating player marker:', data.data)
           updatePlayerMarker(data.data)
         } else {
           console.log('usePlayerMarkers - skipping own position update (not owner)')
@@ -302,10 +288,8 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
 
     // Handle player positions response (for owner view)
     const handlePlayerPositionsResponse = (data: any) => {
-      console.log('usePlayerMarkers - received player positions response:', data)
       if (data.action === 'playerPositionsResponse' && data.data.positions) {
         data.data.positions.forEach((position: any) => {
-          console.log('usePlayerMarkers - updating player marker from positions response:', position)
           updatePlayerMarker(position)
         })
       }
@@ -336,10 +320,22 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       }
     }
 
+    // Handle player team updates
+    const handlePlayerTeamUpdated = (data: any) => {
+      if (data.action === 'playerTeamUpdated' && data.data) {
+        console.log('usePlayerMarkers - received player team update:', data.data)
+        const { playerId, team } = data.data
+        if (playerId && team) {
+          updatePlayerMarkerTeam(playerId, team)
+        }
+      }
+    }
+
     newSocket.on('gameAction', handlePositionUpdate)
     newSocket.on('gameUpdate', handleGameUpdate)
     newSocket.on('gameAction', handlePlayerPositionsResponse)
     newSocket.on('gameAction', handlePlayerInactive)
+    newSocket.on('gameAction', handlePlayerTeamUpdated)
 
     // Clean up socket listeners when composable is destroyed
     onCleanup(() => {
@@ -348,6 +344,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
         newSocket.off('gameUpdate', handleGameUpdate)
         newSocket.off('gameAction', handlePlayerPositionsResponse)
         newSocket.off('gameAction', handlePlayerInactive)
+        newSocket.off('gameAction', handlePlayerTeamUpdated)
       }
     })
   }, { immediate: true })

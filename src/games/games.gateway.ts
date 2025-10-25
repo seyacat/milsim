@@ -410,7 +410,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           break;
 
         case 'positionUpdate':
-          console.log(`[GATEWAY] Received positionUpdate from client ${client.id} for game ${gameId}:`, data)
           this.playerPositionHandler.handlePositionUpdate(
             client, gameId, data, this.connectedUsers, this.playerPositions, this.server
           );

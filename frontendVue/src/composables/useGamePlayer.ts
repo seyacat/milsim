@@ -51,7 +51,7 @@ export const useGamePlayer = (
   const { socketRef, connectWebSocket, disconnectWebSocket } = useWebSocket()
 
   // Map functionality
-  const { initializeMap, updatePositionChallengePieChart } = useMap()
+  const { initializeMap, updateControlPointMarker, updatePositionChallengePieChart } = useMap()
 
   // Navigation functions
   const goBack = () => {
@@ -72,12 +72,10 @@ export const useGamePlayer = (
 
   // Dialog functions
   const openGameResultsDialog = () => {
-    console.log('Opening game results dialog')
     isGameResultsDialogOpen.value = true
   }
 
   const closeGameResultsDialog = () => {
-    console.log('Closing game results dialog')
     isGameResultsDialogOpen.value = false
   }
 
@@ -111,7 +109,10 @@ export const useGamePlayer = (
             // Handle control point creation
           },
           onControlPointUpdated: (controlPoint: ControlPoint) => {
-            // Handle control point update
+            console.log('GamePlayer - Control point updated received:', controlPoint)
+            if (controlPoint) {
+              updateControlPointMarker(controlPoint)
+            }
           },
           onControlPointDeleted: (controlPointId: number) => {
             // Handle control point deletion
@@ -132,9 +133,14 @@ export const useGamePlayer = (
             // Handle active bomb timers - will be handled by useBombTimers composable
           },
           onPositionChallengeUpdate: (data: any) => {
-            console.log('GamePlayer - Position challenge update received:', data)
             if (data.controlPointId && data.teamPoints) {
               updatePositionChallengePieChart(data.controlPointId, data.teamPoints)
+            }
+          },
+          onControlPointTeamAssigned: (data: any) => {
+            console.log('GamePlayer - Control point team assigned received:', data)
+            if (data.controlPoint) {
+              updateControlPointMarker(data.controlPoint)
             }
           }
         })

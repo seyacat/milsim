@@ -114,6 +114,7 @@ const {
   setMapView,
   centerOnPosition,
   renderControlPoints,
+  updateControlPointMarker,
   updatePositionChallengePieChart,
   enableControlPointDrag,
   disableControlPointDrag,
@@ -578,6 +579,18 @@ onMounted(async () => {
         console.log('GameOwner - Position challenge update received:', data)
         if (data.controlPointId && data.teamPoints) {
           updatePositionChallengePieChart(data.controlPointId, data.teamPoints)
+        }
+      },
+      onControlPointUpdated: (controlPoint: ControlPoint) => {
+        console.log('GameOwner - Control point updated received:', controlPoint)
+        if (controlPoint) {
+          updateControlPointMarker(controlPoint)
+        }
+      },
+      onControlPointTeamAssigned: (data: any) => {
+        console.log('GameOwner - Control point team assigned received:', data)
+        if (data.controlPoint) {
+          updateControlPointMarker(data.controlPoint)
         }
       }
     })
