@@ -661,14 +661,43 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  disconnectWebSocket()
-  destroyMap()
+  console.log('GameOwner - onUnmounted called, cleaning up resources')
+  
+  // Stop GPS tracking first
   stopGPSTracking()
+  
+  // Disconnect WebSocket
+  disconnectWebSocket()
+  
+  // Clean up player markers if composable exists
+  if (playerMarkersComposable.value) {
+    try {
+      // Clear player markers from map
+      playerMarkersComposable.value.playerMarkers.forEach((marker: any) => {
+        if (mapInstance.value && marker) {
+          mapInstance.value.removeLayer(marker as unknown as L.Layer)
+        }
+      })
+      playerMarkersComposable.value.playerMarkers.clear()
+      
+      // Remove user marker
+      if (playerMarkersComposable.value.userMarker && mapInstance.value) {
+        mapInstance.value.removeLayer(playerMarkersComposable.value.userMarker as unknown as L.Layer)
+      }
+    } catch (error) {
+      console.error('Error cleaning up player markers:', error)
+    }
+  }
+  
+  // Destroy map last
+  destroyMap()
   
   // Clean up global functions
   delete (window as any).createControlPoint
   delete (window as any).editControlPoint
   delete (window as any).deleteControlPoint
+  
+  console.log('GameOwner - cleanup completed')
 })
 </script>
 

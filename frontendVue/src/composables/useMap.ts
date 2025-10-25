@@ -23,7 +23,7 @@ export const useMap = () => {
         shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
       })
       
-      // Initialize map
+      // Initialize map with animations enabled (better UX)
       mapInstance.value = L.map(mapRef.value, {
         zoomControl: true,
         maxZoom: 22,
@@ -632,8 +632,36 @@ export const useMap = () => {
 
   const destroyMap = () => {
     if (mapInstance.value) {
-      mapInstance.value.remove()
-      mapInstance.value = null
+      try {
+        // Stop any ongoing animations first
+        if (mapInstance.value._animatingZoom) {
+          mapInstance.value._stop()
+        }
+        
+        // Remove all event listeners first
+        mapInstance.value.off()
+        
+        // Remove all layers
+        mapInstance.value.eachLayer((layer: any) => {
+          mapInstance.value.removeLayer(layer)
+        })
+        
+        // Clear control point markers
+        controlPointMarkers.value.clear()
+        positionCircles.value.clear()
+        pieCharts.value.clear()
+        
+        // Remove the map
+        mapInstance.value.remove()
+        mapInstance.value = null
+        
+        // Clear the map container
+        if (mapRef.value) {
+          mapRef.value.innerHTML = ''
+        }
+      } catch (error) {
+        console.error('Error destroying map:', error)
+      }
     }
   }
 
