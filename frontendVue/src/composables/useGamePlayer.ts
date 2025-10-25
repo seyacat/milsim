@@ -51,7 +51,7 @@ export const useGamePlayer = (
   const { socketRef, connectWebSocket, disconnectWebSocket } = useWebSocket()
 
   // Map functionality
-  const { initializeMap } = useMap()
+  const { initializeMap, updatePositionChallengePieChart } = useMap()
 
   // Navigation functions
   const goBack = () => {
@@ -72,10 +72,12 @@ export const useGamePlayer = (
 
   // Dialog functions
   const openGameResultsDialog = () => {
+    console.log('Opening game results dialog')
     isGameResultsDialogOpen.value = true
   }
 
   const closeGameResultsDialog = () => {
+    console.log('Closing game results dialog')
     isGameResultsDialogOpen.value = false
   }
 
@@ -122,6 +124,18 @@ export const useGamePlayer = (
           },
           onGameTime: (data: any) => {
             // Handle game time updates
+          },
+          onBombTimeUpdate: (data: any) => {
+            // Handle bomb time updates - will be handled by useBombTimers composable
+          },
+          onActiveBombTimers: (data: any) => {
+            // Handle active bomb timers - will be handled by useBombTimers composable
+          },
+          onPositionChallengeUpdate: (data: any) => {
+            console.log('GamePlayer - Position challenge update received:', data)
+            if (data.controlPointId && data.teamPoints) {
+              updatePositionChallengePieChart(data.controlPointId, data.teamPoints)
+            }
           }
         })
       }

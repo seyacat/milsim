@@ -37,6 +37,7 @@
         @center-on-user="centerOnUser"
         @center-on-site="centerOnSite"
         @show-players-dialog="showPlayersDialog = true"
+        @show-results-dialog="showResultsDialog = true"
       />
 
       <!-- Control Panel - Bottom Right -->
@@ -60,12 +61,12 @@
         @teamCountChange="updateTeamCount"
       />
 
-      <!-- Control Point Menu -->
-      <ControlPointMenu
-        v-if="showControlPointMenu"
-        :position="controlPointMenuPosition"
-        @close="showControlPointMenu = false"
-        @createControlPoint="createControlPoint"
+      <!-- Game Results Dialog -->
+      <GameResultsDialog
+        :isOpen="showResultsDialog"
+        :onClose="() => showResultsDialog = false"
+        :currentGame="currentGame"
+        :gameId="gameId"
       />
 
     </div>
@@ -83,6 +84,7 @@ import { useMap } from '../composables/useMap'
 import { useWebSocket } from '../composables/useWebSocket'
 import { useControlPoints } from '../composables/useControlPoints'
 import { useControlPointTimers } from '../composables/useControlPointTimers'
+import { useBombTimers } from '../composables/useBombTimers'
 import { usePlayerMarkers } from '../composables/usePlayerMarkers'
 import { useGPSTracking } from '../composables/useGPSTracking'
 import GameOverlay from './GameOwner/GameOverlay.vue'
@@ -90,10 +92,12 @@ import LocationInfoPanel from './GameOwner/LocationInfoPanel.vue'
 import MapControlsPanel from './GameOwner/MapControlsPanel.vue'
 import ControlPanel from './GameOwner/ControlPanel.vue'
 import PlayersDialog from './GameOwner/PlayersDialog.vue'
-import ControlPointMenu from './GameOwner/ControlPointMenu.vue'
+import GameResultsDialog from './GameResultsDialog.vue'
 
 // Import Leaflet CSS
 import 'leaflet/dist/leaflet.css'
+// Import global styles including player markers
+import '../styles/global.css'
 // Import player marker styles
 import '../styles/game-player.css'
 
@@ -125,14 +129,14 @@ const {
 } = useWebSocket()
 
 const {
-  showControlPointMenu,
-  controlPointMenuPosition,
   createControlPoint,
   handleControlPointUpdate,
   handleControlPointDelete,
   handleAssignTeam,
   handleToggleChallenge,
-  handleUpdateChallenge
+  handleUpdateChallenge,
+  handleActivateBomb,
+  handleDeactivateBomb
 } = useControlPoints()
 
 const {
@@ -143,11 +147,23 @@ const {
   stopControlPointTimerInterval
 } = useControlPointTimers()
 
+// Bomb timers composable
+const {
+  activeBombTimers,
+  handleBombTimeUpdate,
+  handleActiveBombTimers,
+  updateBombTimerDisplay,
+  updateAllBombTimerDisplays,
+  requestActiveBombTimers,
+  setupBombTimerListeners
+} = useBombTimers()
+
 // State
 const currentUser = ref<User | null>(null)
 const currentGame = ref<Game | null>(null)
 const isLoading = ref(true)
 const showPlayersDialog = ref(false)
+const showResultsDialog = ref(false)
 const teamCount = ref(2)
 const gpsStatus = ref('Desconectado')
 const currentPosition = ref<any>(null)
@@ -175,9 +191,39 @@ const gameId = route.params.gameId as string
 const defaultTimeValue = 1200 // 20 minutes
 
 // Map event handlers
-const onMapClick = (latlng: { lat: number; lng: number }) => {
-  controlPointMenuPosition.value = latlng
-  showControlPointMenu.value = true
+const onMapClick = async (latlng: { lat: number; lng: number }) => {
+  console.log('Map clicked at:', latlng)
+  
+  if (!mapInstance.value) return
+  
+  // Close any existing popup first
+  mapInstance.value.closePopup()
+  
+  // Create menu content similar to React implementation
+  const menuContent = `
+    <div id="controlPointMenu">
+      <div style="display: flex; justify-content: center;">
+        <button onclick="window.createControlPoint(${latlng.lat}, ${latlng.lng})" style="padding: 8px 16px; margin: 0 10px 0 5px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer;">Crear Punto de Control</button>
+      </div>
+    </div>
+  `
+  
+  // Import Leaflet dynamically and create popup
+  const L = await import('leaflet')
+  if (!mapInstance.value) return
+  
+  // Create Leaflet popup that sticks to the map
+  const popup = L.popup()
+    .setLatLng([latlng.lat, latlng.lng])
+    .setContent(menuContent)
+    .openOn(mapInstance.value)
+  
+  // Add global function for the button
+  ;(window as any).createControlPoint = (lat: number, lng: number) => {
+    console.log('Creating control point at:', lat, lng)
+    createControlPoint(socketRef, currentGame, lat, lng)
+    mapInstance.value?.closePopup()
+  }
 }
 
 // Navigation functions
@@ -210,6 +256,10 @@ const endGame = () => {
   if (!currentGame.value) return
   emitGameAction(currentGame.value.id, 'endGame')
   addToast({ message: 'Juego finalizado', type: 'success' })
+  // Show results dialog after a short delay to allow server to process results
+  setTimeout(() => {
+    showResultsDialog.value = true
+  }, 1000)
 }
 
 const restartGame = () => {
@@ -305,7 +355,17 @@ const handleUpdateBombChallengeWrapper = (controlPointId: number, time: number) 
 }
 
 const createControlPointWrapper = (lat: number, lng: number) => {
+  console.log('Creating control point at:', lat, lng)
   createControlPoint(socketRef, currentGame, lat, lng)
+  showControlPointMenu.value = false
+}
+
+const handleActivateBombWrapper = (controlPointId: number) => {
+  handleActivateBomb(socketRef, currentGame, controlPointId)
+}
+
+const handleDeactivateBombWrapper = (controlPointId: number) => {
+  handleDeactivateBomb(socketRef, currentGame, controlPointId)
 }
 
 // WebSocket callbacks
@@ -323,7 +383,9 @@ const onGameUpdate = (game: Game) => {
     handleToggleBombChallenge: handleToggleBombChallengeWrapper,
     handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
     handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
-    handleUpdateBombChallenge: handleUpdateBombChallengeWrapper
+    handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
+    handleActivateBomb: handleActivateBombWrapper,
+    handleDeactivateBomb: handleDeactivateBombWrapper
   })
   // Update player markers if composable is ready
   if (playerMarkersComposable.value) {
@@ -332,6 +394,7 @@ const onGameUpdate = (game: Game) => {
   // Update timers after markers are rendered
   setTimeout(() => {
     updateAllTimerDisplays(game)
+    updateAllBombTimerDisplays()
   }, 100)
 }
 
@@ -348,11 +411,14 @@ const onControlPointCreated = (controlPoint: ControlPoint) => {
       handleToggleBombChallenge: handleToggleBombChallengeWrapper,
       handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
       handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
-      handleUpdateBombChallenge: handleUpdateBombChallengeWrapper
+      handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
+      handleActivateBomb: handleActivateBombWrapper,
+      handleDeactivateBomb: handleDeactivateBombWrapper
     })
     // Update timers after markers are rendered
     setTimeout(() => {
       updateAllTimerDisplays(currentGame.value)
+      updateAllBombTimerDisplays()
     }, 100)
   }
 }
@@ -372,11 +438,14 @@ const onControlPointUpdated = (controlPoint: ControlPoint) => {
       handleToggleBombChallenge: handleToggleBombChallengeWrapper,
       handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
       handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
-      handleUpdateBombChallenge: handleUpdateBombChallengeWrapper
+      handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
+      handleActivateBomb: handleActivateBombWrapper,
+      handleDeactivateBomb: handleDeactivateBombWrapper
     })
     // Update timers after markers are rendered
     setTimeout(() => {
       updateAllTimerDisplays(currentGame.value)
+      updateAllBombTimerDisplays()
     }, 100)
   }
 }
@@ -396,11 +465,14 @@ const onControlPointDeleted = (controlPointId: number) => {
       handleToggleBombChallenge: handleToggleBombChallengeWrapper,
       handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
       handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
-      handleUpdateBombChallenge: handleUpdateBombChallengeWrapper
+      handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
+      handleActivateBomb: handleActivateBombWrapper,
+      handleDeactivateBomb: handleDeactivateBombWrapper
     })
     // Update timers after markers are rendered
     setTimeout(() => {
       updateAllTimerDisplays(currentGame.value)
+      updateAllBombTimerDisplays()
     }, 100)
   }
 }
@@ -415,6 +487,14 @@ const onError = (error: string) => {
 
 // Global functions for control point popup buttons
 const setupGlobalFunctions = () => {
+  ;(window as any).createControlPoint = (lat: number, lng: number) => {
+    console.log('Creating control point at:', lat, lng)
+    createControlPoint(socketRef, currentGame, lat, lng)
+    if (mapInstance.value) {
+      mapInstance.value.closePopup()
+    }
+  }
+  
   ;(window as any).editControlPoint = (controlPointId: number) => {
     console.log('Edit control point:', controlPointId)
     addToast({ message: 'Funcionalidad de edición en desarrollo', type: 'info' })
@@ -485,6 +565,20 @@ onMounted(async () => {
         console.log('GameOwner - Player position received:', data)
         // This callback is handled by usePlayerMarkers composable
         // No need to duplicate the logic here
+      },
+      onBombTimeUpdate: (data: any) => {
+        console.log('GameOwner - Bomb time update received:', data)
+        handleBombTimeUpdate(data)
+      },
+      onActiveBombTimers: (data: any) => {
+        console.log('GameOwner - Active bomb timers received:', data)
+        handleActiveBombTimers(data)
+      },
+      onPositionChallengeUpdate: (data: any) => {
+        console.log('GameOwner - Position challenge update received:', data)
+        if (data.controlPointId && data.teamPoints) {
+          updatePositionChallengePieChart(data.controlPointId, data.teamPoints)
+        }
       }
     })
 
@@ -503,7 +597,9 @@ onMounted(async () => {
         handleToggleBombChallenge: handleToggleBombChallengeWrapper,
         handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
         handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
-        handleUpdateBombChallenge: handleUpdateBombChallengeWrapper
+        handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
+        handleActivateBomb: handleActivateBombWrapper,
+        handleDeactivateBomb: handleDeactivateBombWrapper
       })
       
       // Initialize player markers AFTER map is ready
@@ -520,14 +616,23 @@ onMounted(async () => {
       console.log('GameOwner - starting GPS tracking')
       startGPSTracking()
       
-      // Update player markers with current game data
-      if (playerMarkersComposable.value) {
-        playerMarkersComposable.value.updatePlayerMarkers()
+      // Player markers are automatically updated by the composable when initialized
+      // No need to call updatePlayerMarkers() manually here
+      
+      // Setup bomb timer listeners
+      if (socketRef.value) {
+        setupBombTimerListeners(socketRef.value)
+      }
+      
+      // Request active bomb timers
+      if (currentGame.value) {
+        requestActiveBombTimers(socketRef.value, currentGame.value.id)
       }
       
       // Update timers after initial markers are rendered
       setTimeout(() => {
         updateAllTimerDisplays(currentGame.value)
+        updateAllBombTimerDisplays()
       }, 100)
     }, 100)
 
@@ -548,6 +653,7 @@ onUnmounted(() => {
   stopGPSTracking()
   
   // Clean up global functions
+  delete (window as any).createControlPoint
   delete (window as any).editControlPoint
   delete (window as any).deleteControlPoint
 })

@@ -34,7 +34,7 @@ watch(() => props.currentPosition, (position) => {
     if (!currentIcon.options.className?.includes(teamClass)) {
       const newIcon = L.divIcon({
         className: `user-marker ${teamClass}`,
-        html: '🧍‍♂️',
+        html: '',
         iconSize: [24, 24],
         iconAnchor: [12, 12]
       })
@@ -45,7 +45,7 @@ watch(() => props.currentPosition, (position) => {
     props.userMarkerRef = L.marker([position.lat, position.lng], {
       icon: L.divIcon({
         className: `user-marker ${teamClass}`,
-        html: '🧍‍♂️',
+        html: '',
         iconSize: [24, 24],
         iconAnchor: [12, 12]
       })

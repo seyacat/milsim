@@ -1,217 +1,352 @@
 <template>
-  <div v-if="isOpen" class="dialog-overlay">
-    <div class="dialog">
-      <div class="dialog-header">
-        <h2>Resultados del Juego</h2>
-        <button @click="onClose" class="close-btn">×</button>
+  <div v-if="isOpen" class="game-results-overlay" @click="onClose">
+    <div class="game-results-dialog" @click.stop>
+      <div class="game-results-header">
+        <h3 class="game-results-title">Resumen del Juego</h3>
+        <p class="game-results-subtitle">¡Juego Finalizado!</p>
       </div>
-      <div class="dialog-content">
-        <div v-if="currentGame" class="game-results">
-          <div class="game-info">
-            <h3>{{ currentGame.name }}</h3>
-            <p>{{ currentGame.description }}</p>
-          </div>
-          
-          <div class="teams-section">
-            <h4>Puntuación por Equipos</h4>
-            <div class="teams-list">
-              <div v-for="team in teams" :key="team.name" class="team-item">
-                <div class="team-name">{{ team.name.toUpperCase() }}</div>
-                <div class="team-score">{{ team.score }} puntos</div>
-              </div>
+      
+      <div class="game-results-content">
+        <div v-if="isLoading" class="game-results-loading">
+          Cargando resultados del juego...
+        </div>
+        
+        <div v-if="error" class="game-results-error">
+          {{ error }}
+        </div>
+        
+        <div v-if="!isLoading && !error && results">
+          <!-- Game Summary Section -->
+          <div class="game-results-section">
+            <h4 class="game-results-section-title">Resumen General</h4>
+            <div class="game-results-table-container">
+              <table class="game-results-table">
+                <tbody>
+                  <tr>
+                    <td><strong>Duración:</strong></td>
+                    <td>{{ formatDuration(results.gameDuration) }}</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Jugadores:</strong></td>
+                    <td>{{ currentGame?.players?.length || 0 }}</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Equipos:</strong></td>
+                    <td>{{ currentGame?.teamCount || 2 }}</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Puntos de control:</strong></td>
+                    <td>{{ currentGame?.controlPoints?.length || 0 }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
-          <div class="players-section">
-            <h4>Jugadores</h4>
-            <div class="players-list">
-              <div v-for="player in currentGame.players" :key="player.id" class="player-item">
-                <div class="player-name">{{ player.user?.name || 'Jugador' }}</div>
-                <div class="player-team">{{ player.team?.toUpperCase() || 'Sin equipo' }}</div>
-              </div>
+          <!-- Team Results Table -->
+          <div v-if="results.controlPoints && results.controlPoints.length > 0" class="game-results-section">
+            <h4 class="game-results-section-title">Resultados por Equipos</h4>
+            <div class="game-results-table-container">
+              <table class="game-results-table">
+                <thead>
+                  <tr>
+                    <th>Punto de Control</th>
+                    <th v-for="team in results.teams" :key="team">
+                      <div class="game-results-team">
+                        <div :class="`team-color ${team}`"></div>
+                        {{ team.toUpperCase() }}
+                      </div>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="cp in results.controlPoints" :key="cp.id">
+                    <td>{{ cp.name }}</td>
+                    <td v-for="team in results.teams" :key="team">
+                      {{ formatTime(cp.teamTimes?.[team] || 0) }}
+                    </td>
+                  </tr>
+                  <tr class="totals-row">
+                    <td><strong>TOTAL</strong></td>
+                    <td v-for="team in results.teams" :key="team">
+                      <strong>{{ formatTime(results.teamTotals?.[team] || 0) }}</strong>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Player Capture Statistics -->
+          <div v-if="results.playerCaptureStats" class="game-results-section">
+            <h4 class="game-results-section-title">Resultados por Jugador</h4>
+            <div class="game-results-table-container">
+              <table class="game-results-table">
+                <thead>
+                  <tr>
+                    <th>Jugador</th>
+                    <th>Equipo</th>
+                    <th>Capturas</th>
+                    <th>Desactivaciones</th>
+                    <th>Explosiones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="player in sortedPlayerStats" :key="player.userId">
+                    <td>{{ player.userName }}</td>
+                    <td>
+                      <div class="game-results-team">
+                        <div :class="`team-color ${player.team}`"></div>
+                        {{ player.team.toUpperCase() }}
+                      </div>
+                    </td>
+                    <td>{{ player.captureCount || 0 }}</td>
+                    <td>{{ player.bombDeactivationCount || 0 }}</td>
+                    <td>{{ player.bombExplosionCount || 0 }}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
-        
-        <div v-else class="loading">
-          Cargando resultados...
-        </div>
       </div>
-      <div class="dialog-footer">
-        <button @click="onClose" class="btn btn-primary">Cerrar</button>
+      
+      <div class="game-results-footer">
+        <button class="btn btn-secondary" @click="onClose">
+          Cerrar
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { Game } from '../types'
+import { ref, computed, watch } from 'vue'
+import type { Game, GameResults, TeamColor } from '../types'
+import { GameService } from '../services/game.js'
 
 interface Props {
   isOpen: boolean
   onClose: () => void
   currentGame: Game | null
-  gameId?: string
+  gameId?: string | number
 }
 
 const props = defineProps<Props>()
 
-const teams = computed(() => {
-  if (!props.currentGame?.players) return []
+const results = ref<GameResults | null>(null)
+const isLoading = ref(false)
+const error = ref<string | null>(null)
+
+const sortedPlayerStats = computed(() => {
+  if (!results.value?.playerCaptureStats) return []
   
-  const teamScores: Record<string, number> = {}
+  return [...results.value.playerCaptureStats].sort((a, b) =>
+    (b.captureCount || 0) - (a.captureCount || 0)
+  )
+})
+
+const formatTime = (seconds: number): string => {
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`
+}
+
+const formatDuration = (seconds: number): string => {
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = seconds % 60
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+}
+
+const loadGameResults = async () => {
+  if (!props.gameId) return
   
-  // Calcular puntuación por equipo (esto es un ejemplo básico)
-  props.currentGame.players.forEach(player => {
-    if (player.team && player.team !== 'none') {
-      teamScores[player.team] = (teamScores[player.team] || 0) + 1
-    }
-  })
+  isLoading.value = true
+  error.value = null
   
-  return Object.entries(teamScores).map(([name, score]) => ({
-    name,
-    score
-  }))
+  try {
+    const gameId = typeof props.gameId === 'string' ? parseInt(props.gameId) : props.gameId
+    const resultsData = await GameService.getGameResults(gameId)
+    results.value = resultsData
+  } catch (err) {
+    console.error('Error loading game results:', err)
+    error.value = err instanceof Error ? err.message : 'Error desconocido'
+  } finally {
+    isLoading.value = false
+  }
+}
+
+watch(() => props.isOpen, (isOpen) => {
+  if (isOpen && props.gameId) {
+    loadGameResults()
+  }
 })
 </script>
 
 <style scoped>
-.dialog-overlay {
+.game-results-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.8);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
+  padding: 20px;
 }
 
-.dialog {
-  background: white;
-  border-radius: 12px;
-  max-width: 500px;
-  width: 90%;
-  max-height: 80vh;
+.game-results-dialog {
+  background: #000;
+  border-radius: 8px;
+  max-width: 800px;
+  width: 100%;
+  max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border: 1px solid #333;
 }
 
-.dialog-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.game-results-header {
   padding: 20px;
-  border-bottom: 1px solid #eee;
-}
-
-.dialog-header h2 {
-  margin: 0;
-  color: #333;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: #666;
-  padding: 0;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.close-btn:hover {
-  color: #333;
-}
-
-.dialog-content {
-  padding: 20px;
-}
-
-.game-info {
-  margin-bottom: 20px;
+  border-bottom: 1px solid #333;
   text-align: center;
 }
 
-.game-info h3 {
+.game-results-title {
   margin: 0 0 8px 0;
-  color: #333;
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
 }
 
-.game-info p {
+.game-results-subtitle {
   margin: 0;
-  color: #666;
+  color: #ccc;
   font-size: 14px;
 }
 
-.teams-section, .players-section {
-  margin-bottom: 20px;
-}
-
-.teams-section h4, .players-section h4 {
-  margin: 0 0 12px 0;
-  color: #333;
-  font-size: 16px;
-}
-
-.teams-list, .players-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.team-item, .player-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px;
-  background: #f8f9fa;
-  border-radius: 6px;
-}
-
-.team-name, .player-name {
-  font-weight: bold;
-  color: #333;
-}
-
-.team-score, .player-team {
-  color: #666;
-}
-
-.loading {
-  text-align: center;
-  color: #666;
-  padding: 40px;
-}
-
-.dialog-footer {
+.game-results-content {
   padding: 20px;
-  border-top: 1px solid #eee;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.game-results-section {
+  margin-bottom: 24px;
+}
+
+.game-results-section-title {
+  margin: 0 0 12px 0;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  border-bottom: 2px solid #1976d2;
+  padding-bottom: 6px;
+}
+
+.game-results-table-container {
+  overflow-x: auto;
+}
+
+.game-results-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.game-results-table th,
+.game-results-table td {
+  padding: 6px 8px;
+  text-align: center;
+  border: 1px solid #333;
+}
+
+.game-results-table th {
+  background: #1a1a1a;
+  font-weight: bold;
+  color: white;
+}
+
+.game-results-table td {
+  background: #000;
+  color: white;
+}
+
+.totals-row td {
+  background: #1a1a1a;
+  font-weight: bold;
+  color: white;
+}
+
+.game-results-team {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.team-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid #333;
+}
+
+.team-color.blue {
+  background: #2196F3;
+}
+
+.team-color.red {
+  background: #F44336;
+}
+
+.team-color.green {
+  background: #4CAF50;
+}
+
+.team-color.yellow {
+  background: #FFC107;
+}
+
+.game-results-loading,
+.game-results-error {
+  text-align: center;
+  padding: 30px;
+  font-size: 14px;
+}
+
+.game-results-loading {
+  color: #ccc;
+}
+
+.game-results-error {
+  color: #F44336;
+}
+
+.game-results-footer {
+  padding: 16px;
+  border-top: 1px solid #333;
   text-align: right;
 }
 
 .btn {
-  padding: 10px 20px;
+  padding: 8px 16px;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 12px;
   transition: background-color 0.2s;
 }
 
-.btn-primary {
-  background: #1976d2;
+.btn-secondary {
+  background: #6c757d;
   color: white;
 }
 
-.btn-primary:hover {
-  background: #1565c0;
+.btn-secondary:hover {
+  background: #5a6268;
 }
 </style>

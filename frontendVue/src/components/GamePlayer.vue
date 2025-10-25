@@ -79,6 +79,7 @@ import type { Game } from '../types'
 import { useGamePlayer } from '../composables/useGamePlayer'
 import { useGPSTracking } from '../composables/useGPSTracking'
 import { usePlayerMarkers } from '../composables/usePlayerMarkers'
+import { useBombTimers } from '../composables/useBombTimers'
 import { useMap } from '../composables/useMap'
 import GameOverlay from './GamePlayer/GameOverlay.vue'
 import LocationInfo from './GamePlayer/LocationInfo.vue'
@@ -86,6 +87,7 @@ import MapControls from './GamePlayer/MapControls.vue'
 import GameResultsDialog from './GameResultsDialog.vue'
 import TeamSelection from './TeamSelection.vue'
 import PlayerMarker from './PlayerMarker.vue'
+import '../styles/global.css'
 import '../styles/game-player.css'
 
 const route = useRoute()
@@ -137,6 +139,17 @@ const {
   isOwner: false
 })
 
+// Bomb timers composable
+const {
+  activeBombTimers,
+  handleBombTimeUpdate,
+  handleActiveBombTimers,
+  updateBombTimerDisplay,
+  updateAllBombTimerDisplays,
+  requestActiveBombTimers,
+  setupBombTimerListeners
+} = useBombTimers()
+
 // Map setup
 const mapContainer = ref<HTMLElement | null>(null)
 const { initializeMap } = useMap()
@@ -146,6 +159,21 @@ onMounted(() => {
   if (mapContainer.value) {
     console.log('Map container found, initializing map')
     initializeMap(mapContainer.value, currentGame.value)
+    
+    // Setup bomb timer listeners
+    if (socket.value) {
+      setupBombTimerListeners(socket.value)
+    }
+    
+    // Request active bomb timers
+    if (currentGame.value) {
+      requestActiveBombTimers(socket.value, currentGame.value.id)
+    }
+    
+    // Update bomb timers after initial markers are rendered
+    setTimeout(() => {
+      updateAllBombTimerDisplays()
+    }, 100)
   } else {
     console.log('Map container NOT found')
   }

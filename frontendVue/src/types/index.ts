@@ -123,6 +123,7 @@ export interface ControlPointResult {
   id: number;
   name: string;
   teamTimes: Record<TeamColor, number>;
+  teamCaptures?: Record<TeamColor, number>;
 }
 
 export interface PlayerCaptureStat {
@@ -132,11 +133,23 @@ export interface PlayerCaptureStat {
   captureCount: number;
   bombDeactivationCount: number;
   bombExplosionCount: number;
+  codeCaptureCount?: number;
+  positionCaptureCount?: number;
 }
 
 export interface PositionChallengeStats {
   controlPoints: PositionChallengeControlPoint[];
   teamTotals: Record<TeamColor, number>;
+}
+
+export interface GameResults {
+  gameDuration: number;
+  teams: TeamColor[];
+  controlPoints: ControlPointResult[];
+  teamTotals: Record<TeamColor, number>;
+  teamCaptureTotals?: Record<TeamColor, number>;
+  playerCaptureStats: PlayerCaptureStat[];
+  positionChallengeStats?: PositionChallengeStats;
 }
 
 export interface PositionChallengeControlPoint {

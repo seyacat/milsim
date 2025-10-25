@@ -22,6 +22,9 @@ const setupSocketListeners = (
     onError: (error: string) => void
     onGameTime: (data: any) => void
     onPlayerPosition?: (data: any) => void
+    onBombTimeUpdate?: (data: any) => void
+    onActiveBombTimers?: (data: any) => void
+    onPositionChallengeUpdate?: (data: any) => void
   },
   addToast: any
 ) => {
@@ -116,6 +119,27 @@ const setupSocketListeners = (
       callbacks.onGameTime(data)
     }
   })
+
+  // Handle bomb timer updates
+  socket.on('bombTimeUpdate', (data: any) => {
+    if (callbacks.onBombTimeUpdate) {
+      callbacks.onBombTimeUpdate(data)
+    }
+  })
+
+  // Handle active bomb timers response
+  socket.on('activeBombTimers', (data: any) => {
+    if (callbacks.onActiveBombTimers) {
+      callbacks.onActiveBombTimers(data)
+    }
+  })
+
+  // Handle position challenge updates
+  socket.on('positionChallengeUpdate', (data: any) => {
+    if (callbacks.onPositionChallengeUpdate) {
+      callbacks.onPositionChallengeUpdate(data)
+    }
+  })
 }
 
 export const useWebSocket = () => {
@@ -134,6 +158,9 @@ export const useWebSocket = () => {
       onError: (error: string) => void
       onGameTime: (data: any) => void
       onPlayerPosition?: (data: any) => void
+      onBombTimeUpdate?: (data: any) => void
+      onActiveBombTimers?: (data: any) => void
+      onPositionChallengeUpdate?: (data: any) => void
     }
   ) => {
     // Usar la conexión global si ya existe

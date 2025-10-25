@@ -101,6 +101,8 @@ export const useMap = () => {
       handleUpdatePositionChallenge: (controlPointId: number, radius: number) => void
       handleUpdateCodeChallenge: (controlPointId: number, code: string) => void
       handleUpdateBombChallenge: (controlPointId: number, time: number) => void
+      handleActivateBomb: (controlPointId: number) => void
+      handleDeactivateBomb: (controlPointId: number) => void
     }
   ) => {
     if (!mapInstance.value) return null

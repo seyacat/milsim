@@ -68,6 +68,8 @@ export const createPopupContent = (
     handleUpdatePositionChallenge: (controlPointId: number, radius: number) => void
     handleUpdateCodeChallenge: (controlPointId: number, code: string) => void
     handleUpdateBombChallenge: (controlPointId: number, time: number) => void
+    handleActivateBomb: (controlPointId: number) => void
+    handleDeactivateBomb: (controlPointId: number) => void
   }
 ): HTMLElement => {
   const container = document.createElement('div')
@@ -193,6 +195,16 @@ export const createPopupContent = (
                 <label class="form-label">Disarmed Code:</label>
                 <input type="text" id="controlPointDisarmedCode_${controlPoint.id}" value="${controlPoint.disarmedCode || ''}" class="form-input" placeholder="Código para desarmar">
               </div>
+              ${controlPoint.hasBombChallenge ? `
+                <div style="margin-top: 10px; display: flex; gap: 5px">
+                  <button class="btn btn-activate-bomb" style="background: #F44336; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px; cursor: pointer">
+                    Activar Bomba
+                  </button>
+                  <button class="btn btn-deactivate-bomb" style="background: #4CAF50; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px; cursor: pointer">
+                    Desactivar
+                  </button>
+                </div>
+              ` : ''}
             </div>
           </div>
         </div>
@@ -220,6 +232,8 @@ export const createPopupContent = (
   const positionCheckbox = container.querySelector(`#positionChallenge_${controlPoint.id}`) as HTMLInputElement
   const codeCheckbox = container.querySelector(`#codeChallenge_${controlPoint.id}`) as HTMLInputElement
   const bombCheckbox = container.querySelector(`#bombChallenge_${controlPoint.id}`) as HTMLInputElement
+  const activateBombButton = container.querySelector('.bomb-challenge-info .btn-activate-bomb') as HTMLButtonElement
+  const deactivateBombButton = container.querySelector('.bomb-challenge-info .btn-deactivate-bomb') as HTMLButtonElement
   
   // Handle checkbox changes locally
   positionCheckbox?.addEventListener('change', () => {
@@ -260,6 +274,19 @@ export const createPopupContent = (
       handlers.handleAssignTeam(controlPoint.id, team)
     })
   })
+
+  // Add event listeners for bomb buttons
+  if (activateBombButton) {
+    activateBombButton.addEventListener('click', () => {
+      handlers.handleActivateBomb(controlPoint.id)
+    })
+  }
+
+  if (deactivateBombButton) {
+    deactivateBombButton.addEventListener('click', () => {
+      handlers.handleDeactivateBomb(controlPoint.id)
+    })
+  }
   
   return container
 }

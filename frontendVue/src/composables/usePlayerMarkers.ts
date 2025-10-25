@@ -22,7 +22,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
 
     return L.divIcon({
       className: `${className} ${team}`,
-      html: '🧍‍♂️', // Add emoji content
+      html: '', // Empty HTML - CSS handles the display
       iconSize: [24, 24],
       iconAnchor: [12, 12]
     })
@@ -105,28 +105,9 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
         // In stopped state, all players can see each other
       }
 
-      // Create initial marker at default position (will be updated when position data arrives)
-      const targetIsOwner = game.value!.owner && player.user && player.user.id === game.value!.owner.id
-      const team = player.team || 'none'
-      
-      const icon = createPlayerMarkerIcon(team, false)
-      
-      // Use map center as default position so markers are visible initially
-      // Positions will be updated when GPS data arrives via WebSocket
-      const mapCenter = map.value!.getCenter()
-      const marker = L.marker([mapCenter.lat, mapCenter.lng], { icon }).addTo(map.value!)
-      
-      const teamInfo = team && team !== 'none' ? `<br>Equipo: ${team.toUpperCase()}` : ''
-      
-      marker.bindPopup(`
-        <strong>${player.user?.name || 'Jugador'}</strong><br>
-        ${targetIsOwner ? 'Propietario' : 'Jugador'}${teamInfo}<br>
-        <em>Esperando posición GPS...</em>
-      `)
-      
-      if (player.user && player.user.id) {
-        playerMarkersRef.value.set(player.user.id, marker)
-      }
+      // Don't create initial marker - wait for real GPS position data via WebSocket
+      // This prevents markers from appearing at map center before actual positions arrive
+      console.log('updatePlayerMarkers - skipping initial marker for player:', player.user?.name, 'waiting for GPS data')
     })
 
     // Only update state if markers actually changed

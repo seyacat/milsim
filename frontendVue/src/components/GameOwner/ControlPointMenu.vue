@@ -72,14 +72,15 @@ onMounted(() => {
   left: 50%;
   transform: translate(-50%, -50%);
   background: rgba(0, 0, 0, 0.95);
-  border: 2px solid var(--success);
+  border: 2px solid #4CAF50;
   border-radius: 8px;
   padding: 20px;
   z-index: 9999;
   min-width: 220px;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
   color: white;
-  font-family: inherit;
+  font-family: Arial, sans-serif;
+  pointer-events: auto;
 }
 
 .menu-content {
@@ -100,7 +101,7 @@ onMounted(() => {
 
 .create-btn {
   padding: 10px 20px;
-  background: var(--success);
+  background: #4CAF50;
   color: white;
   border: none;
   border-radius: 6px;
@@ -112,7 +113,7 @@ onMounted(() => {
 }
 
 .create-btn:hover {
-  background: var(--success-dark);
+  background: #45a049;
 }
 
 .cancel-btn {

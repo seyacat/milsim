@@ -29,6 +29,7 @@ const emit = defineEmits<{
   centerOnUser: []
   centerOnSite: []
   showPlayersDialog: []
+  showResultsDialog: []
 }>()
 
 const goBack = () => {
@@ -52,7 +53,7 @@ const showPlayersDialog = () => {
 }
 
 const openGameResultsDialog = () => {
-  addToast({ message: 'Funcionalidad de resultados en desarrollo', type: 'info' })
+  emit('showResultsDialog')
 }
 </script>
 

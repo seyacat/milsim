@@ -21,7 +21,8 @@ export const useControlPoints = () => {
         data: {
           latitude: lat,
           longitude: lng,
-          name: `Control Point ${(currentGame.value.controlPoints?.length || 0) + 1}`
+          name: `Control Point ${(currentGame.value.controlPoints?.length || 0) + 1}`,
+          gameId: currentGame.value.id
         }
       })
       addToast({ message: 'Punto de control creado', type: 'success' })
@@ -255,6 +256,48 @@ export const useControlPoints = () => {
     }
   }
 
+  const handleActivateBomb = (
+    socketRef: any,
+    currentGame: any,
+    controlPointId: number
+  ) => {
+    if (socketRef.value && currentGame.value) {
+      try {
+        // For owner, use activateBombAsOwner which doesn't require code
+        socketRef.value.emit('gameAction', {
+          gameId: currentGame.value.id,
+          action: 'activateBombAsOwner',
+          data: { controlPointId }
+        })
+        addToast({ message: 'Bomba activada', type: 'success' })
+      } catch (error) {
+        console.error('Error activating bomb:', error)
+        addToast({ message: 'Error al activar bomba', type: 'error' })
+      }
+    }
+  }
+
+  const handleDeactivateBomb = (
+    socketRef: any,
+    currentGame: any,
+    controlPointId: number
+  ) => {
+    if (socketRef.value && currentGame.value) {
+      try {
+        // For owner, use deactivateBombAsOwner which doesn't require code
+        socketRef.value.emit('gameAction', {
+          gameId: currentGame.value.id,
+          action: 'deactivateBombAsOwner',
+          data: { controlPointId }
+        })
+        addToast({ message: 'Bomba desactivada', type: 'success' })
+      } catch (error) {
+        console.error('Error deactivating bomb:', error)
+        addToast({ message: 'Error al desactivar bomba', type: 'error' })
+      }
+    }
+  }
+
   return {
     showControlPointMenu,
     controlPointMenuPosition,
@@ -263,6 +306,8 @@ export const useControlPoints = () => {
     handleControlPointDelete,
     handleAssignTeam,
     handleToggleChallenge,
-    handleUpdateChallenge
+    handleUpdateChallenge,
+    handleActivateBomb,
+    handleDeactivateBomb
   }
 }
