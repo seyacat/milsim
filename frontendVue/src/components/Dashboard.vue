@@ -142,11 +142,7 @@ const deleteGame = async (gameId: number) => {
 }
 
 const enterGame = (game: Game) => {
-  if (isGameOwner(game)) {
-    router.push(`/owner/${game.id}`)
-  } else {
-    router.push(`/player/${game.id}`)
-  }
+  router.push(`/game/${game.id}`)
 }
 
 const createGame = () => {

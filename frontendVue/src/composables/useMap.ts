@@ -1,6 +1,6 @@
 import { ref, onUnmounted } from 'vue'
 import { ControlPoint } from '../types/index.js'
-import { createPopupContent } from '../components/GameOwner/popupUtils.js'
+import { createPopupContent } from '../components/Game/popupUtils.js'
 
 export const useMap = () => {
   const mapInstance = ref<any>(null)

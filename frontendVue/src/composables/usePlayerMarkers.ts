@@ -81,27 +81,8 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
         return
       }
       
-      // Owner can see all players including themselves
-      if (!isOwner && player.user.id === currentUser.value.id) {
-        return
-      }
-      
-
-      // Check visibility rules
-      const isStopped = game.value!.status === 'stopped'
-      const currentPlayer = game.value!.players?.find(p => p.user?.id === currentUser.value.id)
-      
-      // Owner can always see all players
-      if (!isOwner) {
-        // For non-owners, check team visibility rules
-        if (!isStopped) {
-          // In running/paused state, only show same team players
-          if (!currentPlayer || !player || currentPlayer.team !== player.team) {
-            return // Skip creating marker for this player
-          }
-        }
-        // In stopped state, all players can see each other
-      }
+      // All players can see all other players (including themselves)
+      // No team-based filtering
 
       // Don't create initial marker - wait for real GPS position data via WebSocket
       // This prevents markers from appearing at map center before actual positions arrive
@@ -134,34 +115,8 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       return
     }
     
-    // Skip if it's the current user and not owner
-    if (!isOwner && userId === currentUser.value.id) {
-      return
-    }
-
-    // Check if current user should see this player's position
-    const isStopped = game.value.status === 'stopped'
-    
-    // Owner can always see all players
-    if (!isOwner) {
-      // For non-owners, check team visibility rules
-      const currentPlayer = game.value.players?.find(p => p.user?.id === currentUser.value.id)
-      const targetPlayer = game.value.players?.find(p => p.user?.id === userId)
-      
-      if (!isStopped) {
-        // In running/paused state, only show same team players
-        if (!currentPlayer || !targetPlayer || currentPlayer.team !== targetPlayer.team) {
-          // Remove marker if it exists and shouldn't be visible
-          const existingMarker = playerMarkersRef.value.get(userId)
-          if (existingMarker) {
-            map.value.removeLayer(existingMarker as unknown as L.Layer)
-            playerMarkersRef.value.delete(userId)
-          }
-          return
-        }
-      }
-      // In stopped state, all players can see each other
-    }
+    // All players can see all other players
+    // No team-based filtering
 
     let marker = playerMarkersRef.value.get(userId)
     const targetPlayer = game.value.players?.find(p => p.user?.id === userId)
@@ -277,12 +232,8 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
 
     const handlePositionUpdate = (data: any) => {
       if (data.action === 'positionUpdate' && data.data) {
-        // Owner should see all players including themselves
-        if (isOwner || data.data.userId !== currentUser.value?.id) {
-          updatePlayerMarker(data.data)
-        } else {
-          console.log('usePlayerMarkers - skipping own position update (not owner)')
-        }
+        // Show all players including themselves
+        updatePlayerMarker(data.data)
       }
     }
 

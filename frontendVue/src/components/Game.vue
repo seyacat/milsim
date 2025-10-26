@@ -1,9 +1,6 @@
 
 <template>
   <div class="game-owner-container">
-    <div class="debug-info owner">
-      GAME OWNER COMPONENT LOADED - CHECKING PLAYER MARKERS
-    </div>
     <div v-if="isLoading" class="loading">
       Cargando juego...
     </div>
@@ -40,8 +37,9 @@
         @show-results-dialog="showResultsDialog = true"
       />
 
-      <!-- Control Panel - Bottom Right -->
+      <!-- Control Panel - Bottom Right (Only for Owner) -->
       <ControlPanel
+        v-if="isOwner"
         :current-game="currentGame"
         @start-game="startGame"
         @pause-game="pauseGame"
@@ -50,8 +48,18 @@
         @resume-game="resumeGame"
       />
 
-      <!-- Players Dialog -->
+      <!-- Team Selection (Only for Players) -->
+      <TeamSelection
+        v-if="!isOwner && showTeamSelection && currentGame && currentUser && socketRef"
+        :currentGame="currentGame"
+        :currentUser="currentUser"
+        :socket="socketRef"
+        :onTeamSelected="hideTeamSelection"
+      />
+
+      <!-- Players Dialog (Only for Owner) -->
       <PlayersDialog
+        v-if="isOwner"
         :isOpen="showPlayersDialog"
         :players="currentGame.players || []"
         :currentGameId="currentGame.id"
@@ -90,9 +98,10 @@ import { useGPSTracking } from '../composables/useGPSTracking'
 import GameOverlay from './shared/GameOverlay.vue'
 import LocationInfoPanel from './shared/LocationInfoPanel.vue'
 import MapControlsPanel from './shared/MapControlsPanel.vue'
-import ControlPanel from './GameOwner/ControlPanel.vue'
-import PlayersDialog from './GameOwner/PlayersDialog.vue'
+import ControlPanel from './Game/ControlPanel.vue'
+import PlayersDialog from './Game/PlayersDialog.vue'
 import GameResultsDialog from './GameResultsDialog.vue'
+import TeamSelection from './TeamSelection.vue'
 
 // Import Leaflet CSS
 import 'leaflet/dist/leaflet.css'
@@ -163,9 +172,11 @@ const currentGame = ref<Game | null>(null)
 const isLoading = ref(true)
 const showPlayersDialog = ref(false)
 const showResultsDialog = ref(false)
+const showTeamSelection = ref(false)
 const teamCount = ref(2)
 const gpsStatus = ref('Desconectado')
 const currentPosition = ref<any>(null)
+const isOwner = ref(false)
 
 // Player markers composable - will be initialized after map is ready
 const playerMarkersComposable = ref<any>(null)
@@ -529,10 +540,12 @@ onMounted(async () => {
       return
     }
 
-    if (game.owner.id !== user.id) {
-      addToast({ message: 'No tienes permisos para ver este juego', type: 'error' })
-      router.push('/dashboard')
-      return
+    // Check if user is owner or player
+    isOwner.value = game.owner.id === user.id
+    
+    // If user is not owner and not in players list, show team selection
+    if (!isOwner.value && !game.players?.some(p => p.user?.id === user.id)) {
+      showTeamSelection.value = true
     }
 
     currentUser.value = user
@@ -620,7 +633,7 @@ onMounted(async () => {
         map: mapInstance,
         currentUser,
         socket: socketRef,
-        isOwner: true
+        isOwner: isOwner.value
       })
       
       // Start GPS tracking for owner
@@ -648,6 +661,11 @@ onMounted(async () => {
     }, 100)
 
     setupGlobalFunctions()
+    
+    // Add team selection handler
+    const hideTeamSelection = () => {
+      showTeamSelection.value = false
+    }
 
   } catch (error) {
     console.error('Error initializing game:', error)
