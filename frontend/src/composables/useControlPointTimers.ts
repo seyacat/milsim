@@ -48,10 +48,10 @@ export const useControlPointTimers = () => {
       return
     }
 
-    // Show timer only if game is running and control point is owned
-    const shouldShow = currentGame?.status === 'running' && timeData.currentTeam !== null
+    // Show timer if control point is owned, regardless of game status
+    const shouldShow = timeData.currentTeam !== null
     
-    console.log(`Should show timer for CP ${controlPointId}:`, shouldShow, 'currentTeam:', timeData.currentTeam)
+    console.log(`Should show timer for CP ${controlPointId}:`, shouldShow, 'currentTeam:', timeData.currentTeam, 'gameStatus:', currentGame?.status)
     
     if (shouldShow) {
       // Format time as MM:SS
@@ -61,10 +61,10 @@ export const useControlPointTimers = () => {
       
       timerElement.textContent = timeText
       timerElement.style.display = 'block'
-      console.log(`Timer displayed for CP ${controlPointId}:`, timeText)
+      console.log(`Timer displayed for CP ${controlPointId}:`, timeText, 'gameStatus:', currentGame?.status)
     } else {
       timerElement.style.display = 'none'
-      console.log(`Timer hidden for CP ${controlPointId}`)
+      console.log(`Timer hidden for CP ${controlPointId} - no team assigned`)
     }
   }
 
@@ -139,6 +139,8 @@ export const useControlPointTimers = () => {
     } else {
       console.log('Stopping control point timer interval')
       stopControlPointTimerInterval()
+      // Update displays one last time to show current time during pause
+      updateAllTimerDisplays(currentGame)
     }
   }
 
