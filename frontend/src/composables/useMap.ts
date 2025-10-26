@@ -404,47 +404,120 @@ export const useMap = () => {
     controlPoints: ControlPoint[],
     handlers: any = {}
   ) => {
-    if (!mapInstance.value) return
+    if (!mapInstance.value) {
+      console.log('Map instance not available for rendering control points')
+      return
+    }
 
-    // Clear existing markers
-    controlPointMarkers.value.forEach((marker) => {
-      mapInstance.value.removeLayer(marker)
+    console.log('Rendering control points:', controlPoints.length, 'points with handlers:', Object.keys(handlers).length > 0)
+
+    // Create a set of current control point IDs
+    const currentControlPointIds = new Set(controlPoints.map(cp => cp.id))
+
+    // Remove markers for control points that are no longer in the game
+    const controlPointsToRemove: number[] = []
+    controlPointMarkers.value.forEach((marker, controlPointId) => {
+      if (!currentControlPointIds.has(controlPointId)) {
+        if (marker) {
+          mapInstance.value.removeLayer(marker)
+        }
+        controlPointsToRemove.push(controlPointId)
+      }
     })
-    controlPointMarkers.value.clear()
-
-    positionCircles.value.forEach((circle) => {
-      mapInstance.value.removeLayer(circle)
+    
+    // Remove the deleted control points from the markers map
+    controlPointsToRemove.forEach(controlPointId => {
+      controlPointMarkers.value.delete(controlPointId)
     })
-    positionCircles.value.clear()
 
-    pieCharts.value.forEach((pieChart) => {
-      mapInstance.value.removeLayer(pieChart)
+    // Remove position circles for deleted control points
+    const circlesToRemove: number[] = []
+    positionCircles.value.forEach((circle, controlPointId) => {
+      if (!currentControlPointIds.has(controlPointId)) {
+        if (circle) {
+          mapInstance.value.removeLayer(circle)
+        }
+        circlesToRemove.push(controlPointId)
+      }
     })
-    pieCharts.value.clear()
+    
+    circlesToRemove.forEach(controlPointId => {
+      positionCircles.value.delete(controlPointId)
+    })
 
-    // Create new markers for each control point
+    // Remove pie charts for deleted control points
+    const pieChartsToRemove: number[] = []
+    pieCharts.value.forEach((pieChart, controlPointId) => {
+      if (!currentControlPointIds.has(controlPointId)) {
+        if (pieChart) {
+          mapInstance.value.removeLayer(pieChart)
+        }
+        pieChartsToRemove.push(controlPointId)
+      }
+    })
+    
+    pieChartsToRemove.forEach(controlPointId => {
+      pieCharts.value.delete(controlPointId)
+    })
+
+    // Create or update markers for each control point
     for (const controlPoint of controlPoints) {
-      const marker = await createControlPointMarker(controlPoint, handlers)
-      if (marker) {
-        controlPointMarkers.value.set(controlPoint.id, marker)
+      let marker = controlPointMarkers.value.get(controlPoint.id)
+      
+      if (!marker) {
+        console.log('Creating new marker for control point:', controlPoint.id, controlPoint.name)
+        // Create new marker if it doesn't exist
+        marker = await createControlPointMarker(controlPoint, handlers)
+        if (marker) {
+          controlPointMarkers.value.set(controlPoint.id, marker)
+          console.log('Marker created successfully for control point:', controlPoint.id)
+        } else {
+          console.log('Failed to create marker for control point:', controlPoint.id)
+        }
+      } else {
+        console.log('Updating existing marker for control point:', controlPoint.id)
+        // Update existing marker with handlers
+        await updateControlPointMarker(controlPoint, handlers)
+      }
 
-        // Add position circle and PIE chart if position challenge is active
-        if (controlPoint.hasPositionChallenge && controlPoint.minDistance) {
-          const circle = await createPositionCircle(controlPoint)
+      // Handle position circles and PIE charts
+      if (controlPoint.hasPositionChallenge && controlPoint.minDistance) {
+        let circle = positionCircles.value.get(controlPoint.id)
+        if (!circle) {
+          // Create new position circle if it doesn't exist
+          circle = await createPositionCircle(controlPoint)
           if (circle) {
             positionCircles.value.set(controlPoint.id, circle)
-
-            // Create PIE chart for position challenge
-            await createPositionChallengePieChart(marker, controlPoint, circle)
           }
+        }
+        
+        // Create or update PIE chart for position challenge
+        if (circle && marker) {
+          await createPositionChallengePieChart(marker, controlPoint, circle)
+        }
+      } else {
+        // Remove position circle and PIE chart if position challenge is no longer active
+        const circle = positionCircles.value.get(controlPoint.id)
+        if (circle) {
+          mapInstance.value.removeLayer(circle)
+          positionCircles.value.delete(controlPoint.id)
+        }
+        
+        const pieChart = pieCharts.value.get(controlPoint.id)
+        if (pieChart) {
+          mapInstance.value.removeLayer(pieChart)
+          pieCharts.value.delete(controlPoint.id)
         }
       }
     }
+    
+    console.log('Control points rendering completed. Total markers:', controlPointMarkers.value.size)
   }
 
-  const updateControlPointMarker = async (controlPoint: ControlPoint) => {
+  const updateControlPointMarker = async (controlPoint: ControlPoint, handlers: any = {}) => {
     const marker = controlPointMarkers.value.get(controlPoint.id)
     if (!marker || !mapInstance.value) {
+      console.log('Control point marker not found for update:', controlPoint.id)
       return
     }
 
@@ -536,6 +609,37 @@ export const useMap = () => {
       })
       
       marker.setIcon(customIcon)
+
+      // Always update popup content to ensure it reflects current control point state
+      if (Object.keys(handlers).length > 0) {
+        // Owner view - with edit controls
+        const popupContent = createPopupContent(controlPoint, marker._leaflet_id, handlers)
+        marker.bindPopup(popupContent, {
+          closeOnClick: false,
+          autoClose: false,
+          closeButton: true
+        })
+      } else {
+        // Player view - info only
+        const popupContent = `
+          <div class="control-point-info-popup">
+            <h4>${controlPoint.name || 'Punto de Control'}</h4>
+            <p class="team-info">
+              ${controlPoint.ownedByTeam ? `Equipo: ${controlPoint.ownedByTeam.toUpperCase()}` : 'Sin equipo asignado'}
+            </p>
+            ${controlPoint.hasPositionChallenge ? '<p class="challenge-info position">Desafío de Posición</p>' : ''}
+            ${controlPoint.hasCodeChallenge ? '<p class="challenge-info code">Desafío de Código</p>' : ''}
+            ${controlPoint.hasBombChallenge ? '<p class="challenge-info bomb">Desafío de Bomba</p>' : ''}
+          </div>
+        `
+        marker.bindPopup(popupContent, {
+          closeOnClick: true,
+          autoClose: true,
+          closeButton: true
+        })
+      }
+      
+      console.log('Control point marker updated successfully:', controlPoint.id)
     } catch (error) {
       console.error('Error updating control point marker:', error)
     }

@@ -449,24 +449,45 @@ const onGameUpdate = (game: Game) => {
     stopLocalTimer()
   }
   
-  renderControlPoints(game.controlPoints || [], {
-    handleControlPointMove,
-    handleControlPointUpdate: handleControlPointUpdateWrapper,
-    handleControlPointDelete: handleControlPointDeleteWrapper,
-    handleAssignTeam: handleAssignTeamWrapper,
-    handleTogglePositionChallenge: handleTogglePositionChallengeWrapper,
-    handleToggleCodeChallenge: handleToggleCodeChallengeWrapper,
-    handleToggleBombChallenge: handleToggleBombChallengeWrapper,
-    handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
-    handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
-    handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
-    handleActivateBomb: handleActivateBombWrapper,
-    handleDeactivateBomb: handleDeactivateBombWrapper
-  })
-  // Update player markers if composable is ready
-  if (playerMarkersComposable.value) {
-    playerMarkersComposable.value.updatePlayerMarkers()
+  // Always render control points when game state changes to ensure markers are properly restored
+  // This is especially important when transitioning between paused and running states
+  const oldControlPoints = currentGame.value?.controlPoints || []
+  const newControlPoints = game.controlPoints || []
+  
+  // Check if control points actually changed (added, removed, or modified)
+  const oldIds = new Set(oldControlPoints.map(cp => cp.id))
+  const newIds = new Set(newControlPoints.map(cp => cp.id))
+  
+  const controlPointsChanged =
+    oldControlPoints.length !== newControlPoints.length ||
+    Array.from(oldIds).some(id => !newIds.has(id)) ||
+    Array.from(newIds).some(id => !oldIds.has(id))
+  
+  // Always render control points when game state changes or control points change
+  // This ensures markers are properly restored after state transitions
+  const shouldRenderControlPoints =
+    controlPointsChanged ||
+    currentGame.value?.status !== game.status
+  
+  if (shouldRenderControlPoints) {
+    renderControlPoints(newControlPoints, {
+      handleControlPointMove,
+      handleControlPointUpdate: handleControlPointUpdateWrapper,
+      handleControlPointDelete: handleControlPointDeleteWrapper,
+      handleAssignTeam: handleAssignTeamWrapper,
+      handleTogglePositionChallenge: handleTogglePositionChallengeWrapper,
+      handleToggleCodeChallenge: handleToggleCodeChallengeWrapper,
+      handleToggleBombChallenge: handleToggleBombChallengeWrapper,
+      handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
+      handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
+      handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
+      handleActivateBomb: handleActivateBombWrapper,
+      handleDeactivateBomb: handleDeactivateBombWrapper
+    })
   }
+  
+  // Player markers are automatically updated by the composable via WebSocket events
+  // No need to manually call updatePlayerMarkers() here as it would clear existing markers
   // Update timers after markers are rendered
   setTimeout(() => {
     updateAllTimerDisplays(game)
@@ -522,7 +543,8 @@ const onControlPointUpdated = (controlPoint: ControlPoint) => {
     currentGame.value.controlPoints = (currentGame.value.controlPoints || []).map(cp =>
       cp.id === controlPoint.id ? controlPoint : cp
     )
-    renderControlPoints(currentGame.value.controlPoints, {
+    // Update the specific control point marker instead of re-rendering all
+    updateControlPointMarker(controlPoint, {
       handleControlPointMove,
       handleControlPointUpdate: handleControlPointUpdateWrapper,
       handleControlPointDelete: handleControlPointDeleteWrapper,
@@ -536,7 +558,7 @@ const onControlPointUpdated = (controlPoint: ControlPoint) => {
       handleActivateBomb: handleActivateBombWrapper,
       handleDeactivateBomb: handleDeactivateBombWrapper
     })
-    // Update timers after markers are rendered
+    // Update timers after marker is updated
     setTimeout(() => {
       updateAllTimerDisplays(currentGame.value)
       updateAllBombTimerDisplays()
@@ -704,13 +726,39 @@ onMounted(async () => {
       onControlPointUpdated: (controlPoint: ControlPoint) => {
         console.log('GameOwner - Control point updated received:', controlPoint)
         if (controlPoint) {
-          updateControlPointMarker(controlPoint)
+          updateControlPointMarker(controlPoint, {
+            handleControlPointMove,
+            handleControlPointUpdate: handleControlPointUpdateWrapper,
+            handleControlPointDelete: handleControlPointDeleteWrapper,
+            handleAssignTeam: handleAssignTeamWrapper,
+            handleTogglePositionChallenge: handleTogglePositionChallengeWrapper,
+            handleToggleCodeChallenge: handleToggleCodeChallengeWrapper,
+            handleToggleBombChallenge: handleToggleBombChallengeWrapper,
+            handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
+            handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
+            handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
+            handleActivateBomb: handleActivateBombWrapper,
+            handleDeactivateBomb: handleDeactivateBombWrapper
+          })
         }
       },
       onControlPointTeamAssigned: (data: any) => {
         console.log('GameOwner - Control point team assigned received:', data)
         if (data.controlPoint) {
-          updateControlPointMarker(data.controlPoint)
+          updateControlPointMarker(data.controlPoint, {
+            handleControlPointMove,
+            handleControlPointUpdate: handleControlPointUpdateWrapper,
+            handleControlPointDelete: handleControlPointDeleteWrapper,
+            handleAssignTeam: handleAssignTeamWrapper,
+            handleTogglePositionChallenge: handleTogglePositionChallengeWrapper,
+            handleToggleCodeChallenge: handleToggleCodeChallengeWrapper,
+            handleToggleBombChallenge: handleToggleBombChallengeWrapper,
+            handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
+            handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
+            handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
+            handleActivateBomb: handleActivateBombWrapper,
+            handleDeactivateBomb: handleDeactivateBombWrapper
+          })
         }
       },
       onPlayerTeamUpdated: (data: any) => {

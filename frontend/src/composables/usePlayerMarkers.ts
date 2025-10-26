@@ -61,32 +61,36 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       return
     }
 
-    // Clear ALL existing markers including user's own marker
-    playerMarkersRef.value.forEach((marker, playerId) => {
-      if (marker) {
-        map.value!.removeLayer(marker as unknown as L.Layer)
-      }
-    })
-    playerMarkersRef.value.clear()
-
     // Check if we have valid game and players data
     if (!game.value.players || !Array.isArray(game.value.players)) {
       return
     }
 
-    // Add markers for all players (will be updated with real positions via WebSocket)
-    game.value.players.forEach(player => {
-      // Skip if player data is incomplete
-      if (!player || !player.user || !player.user.id) {
-        return
-      }
-      
-      // All players can see all other players (including themselves)
-      // No team-based filtering
+    // Create a set of current player user IDs
+    const currentPlayerUserIds = new Set(
+      game.value.players
+        .filter(player => player && player.user && player.user.id)
+        .map(player => player.user.id)
+    )
 
-      // Don't create initial marker - wait for real GPS position data via WebSocket
-      // This prevents markers from appearing at map center before actual positions arrive
+    // Remove markers for players that are no longer in the game
+    const playersToRemove: number[] = []
+    playerMarkersRef.value.forEach((marker, userId) => {
+      if (!currentPlayerUserIds.has(userId)) {
+        if (marker) {
+          map.value!.removeLayer(marker as unknown as L.Layer)
+        }
+        playersToRemove.push(userId)
+      }
     })
+    
+    // Remove the deleted players from the markers map
+    playersToRemove.forEach(userId => {
+      playerMarkersRef.value.delete(userId)
+    })
+
+    // Note: We don't create new markers here - they will be created when position data arrives via WebSocket
+    // This prevents markers from appearing at map center before actual positions arrive
 
     // Only update state if markers actually changed
     const currentMarkers = playerMarkersRef.value
@@ -250,16 +254,14 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     const handleGameUpdate = (data: any) => {
       if (data.game && data.game.players) {
         // Only update markers if there are significant changes to player data
-        // Avoid full updates for minor changes like team colors
+        // Avoid full updates for minor changes like team colors or game state changes
         if (data.type === 'playerTeamChanged' || data.type === 'playerJoined' || data.type === 'playerLeft') {
           // For team changes, we handle them separately via playerTeamUpdated events
           // Only do full update for major player changes
           updatePlayerMarkers()
-        } else if (!data.type || data.type === 'gameStateChanged') {
-          // Full update for game state changes
-          updatePlayerMarkers()
         }
-        // Skip update for other minor changes to prevent unnecessary re-renders
+        // Skip update for game state changes and other minor changes to prevent unnecessary re-renders
+        // Markers should remain visible regardless of game state (running, paused, stopped)
       }
     }
 
@@ -299,9 +301,23 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     })
   }, { immediate: true })
 
-  // Update markers when game changes
-  watch([game, currentUser], () => {
-    updatePlayerMarkers()
+  // Update markers when game changes (only when players actually change)
+  watch([game, currentUser], ([newGame, newCurrentUser], [oldGame, oldCurrentUser]) => {
+    // Only update if there are actual changes to players
+    if (newGame?.players && oldGame?.players) {
+      const newPlayerIds = new Set(newGame.players.map((p: any) => p.id))
+      const oldPlayerIds = new Set(oldGame.players.map((p: any) => p.id))
+      
+      // Only update if players actually changed (joined/left)
+      if (newPlayerIds.size !== oldPlayerIds.size ||
+          Array.from(oldPlayerIds).some(id => !newPlayerIds.has(id))) {
+        updatePlayerMarkers()
+      }
+    } else if (newGame?.players && !oldGame?.players) {
+      // Initial load, update markers
+      updatePlayerMarkers()
+    }
+    // Skip update for other changes to prevent unnecessary re-renders
   }, { immediate: true })
 
   // Remove player marker from map
