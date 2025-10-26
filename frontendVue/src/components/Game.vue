@@ -31,10 +31,12 @@
       <!-- Map Controls - Top Right -->
       <MapControlsPanel
         :current-position="currentPositionFromComposable"
+        :is-owner="isOwner"
         @center-on-user="centerOnUser"
         @center-on-site="centerOnSite"
         @show-players-dialog="showPlayersDialog = true"
         @show-results-dialog="showResultsDialog = true"
+        @show-team-selection="showTeamSelection = true"
       />
 
       <!-- Control Panel - Bottom Right (Only for Owner) -->
@@ -297,6 +299,11 @@ const updateTeamCount = (count: number) => {
   }
 }
 
+// Team selection handler
+const hideTeamSelection = () => {
+  showTeamSelection.value = false
+}
+
 // Control point handlers
 const handleControlPointMove = (controlPointId: number, markerId: number) => {
   console.log('Move control point:', controlPointId, markerId)
@@ -406,6 +413,23 @@ const onGameUpdate = (game: Game) => {
     updateAllTimerDisplays(game)
     updateAllBombTimerDisplays()
   }, 100)
+
+  // Show results dialog automatically when game is finished for all users
+  if (game.status === 'finished') {
+    console.log('Game finished, showing results dialog for all users')
+    showResultsDialog.value = true
+  }
+
+  // Show team selection when game transitions to stopped state and player doesn't have a team
+  if (!isOwner.value && game.status === 'stopped') {
+    const currentPlayer = game.players?.find(p => p.user?.id === currentUser.value?.id)
+    const hasTeam = currentPlayer?.team && currentPlayer.team !== 'none'
+    
+    if (!hasTeam) {
+      console.log('Game stopped, showing team selection for player without team')
+      showTeamSelection.value = true
+    }
+  }
 }
 
 const onControlPointCreated = (controlPoint: ControlPoint) => {
@@ -543,9 +567,17 @@ onMounted(async () => {
     // Check if user is owner or player
     isOwner.value = game.owner.id === user.id
     
-    // If user is not owner and not in players list, show team selection
-    if (!isOwner.value && !game.players?.some(p => p.user?.id === user.id)) {
-      showTeamSelection.value = true
+    // Show team selection for players in stopped state who don't have a team
+    if (!isOwner.value) {
+      const currentPlayer = game.players?.find(p => p.user?.id === user.id)
+      const hasTeam = currentPlayer?.team && currentPlayer.team !== 'none'
+      
+      // Show team selection if:
+      // 1. Game is in stopped state AND player doesn't have a team
+      // 2. OR player is not in the players list at all
+      if ((game.status === 'stopped' && !hasTeam) || !currentPlayer) {
+        showTeamSelection.value = true
+      }
     }
 
     currentUser.value = user
@@ -602,6 +634,28 @@ onMounted(async () => {
         console.log('GameOwner - Control point team assigned received:', data)
         if (data.controlPoint) {
           updateControlPointMarker(data.controlPoint)
+        }
+      },
+      onPlayerTeamUpdated: (data: any) => {
+        console.log('GameOwner - Player team updated received:', data)
+        if (data && data.team) {
+          // Get team name for toast message
+          const teamNames: Record<string, string> = {
+            'red': 'Rojo',
+            'blue': 'Azul',
+            'green': 'Verde',
+            'yellow': 'Amarillo',
+            'none': 'Sin Equipo'
+          }
+          const teamName = teamNames[data.team] || data.team
+          
+          // Show toast only if it's the current user
+          if (data.userId === currentUser.value?.id) {
+            addToast({
+              message: `Te has unido al equipo ${teamName}`,
+              type: 'success'
+            })
+          }
         }
       }
     })
@@ -662,10 +716,6 @@ onMounted(async () => {
 
     setupGlobalFunctions()
     
-    // Add team selection handler
-    const hideTeamSelection = () => {
-      showTeamSelection.value = false
-    }
 
   } catch (error) {
     console.error('Error initializing game:', error)

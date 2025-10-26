@@ -6,15 +6,14 @@
         <button @click="onTeamSelected(null)" class="close-btn">×</button>
       </div>
       <div class="dialog-content">
-        <p>Elige tu equipo para unirte al juego:</p>
+        <p>Haz clic en un equipo para unirte:</p>
         
         <div class="teams-grid">
-          <button 
-            v-for="team in availableTeams" 
+          <button
+            v-for="team in availableTeams"
             :key="team.id"
             @click="selectTeam(team.id)"
             class="team-btn"
-            :class="{ selected: selectedTeam === team.id }"
           >
             <div class="team-color" :class="`team-${team.id}`"></div>
             <div class="team-info">
@@ -25,10 +24,9 @@
         </div>
 
         <div class="no-team-option">
-          <button 
+          <button
             @click="selectTeam('none')"
             class="team-btn no-team"
-            :class="{ selected: selectedTeam === 'none' }"
           >
             <div class="team-color team-none"></div>
             <div class="team-info">
@@ -38,23 +36,14 @@
           </button>
         </div>
       </div>
-      <div class="dialog-footer">
-        <button @click="onTeamSelected(null)" class="btn btn-secondary">Cancelar</button>
-        <button 
-          @click="confirmSelection" 
-          class="btn btn-primary"
-          :disabled="!selectedTeam"
-        >
-          Unirse
-        </button>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import type { Game, User } from '../types'
+import { useToast } from '../composables/useToast.js'
 
 interface Props {
   currentGame: Game | null
@@ -65,36 +54,96 @@ interface Props {
 
 const props = defineProps<Props>()
 const selectedTeam = ref<string | null>(null)
+const { addToast } = useToast()
 
-const availableTeams = [
+// Definir todos los equipos posibles
+const allTeams = [
   { id: 'red', name: 'Equipo Rojo', color: '#f44336', playerCount: 0 },
   { id: 'blue', name: 'Equipo Azul', color: '#2196f3', playerCount: 0 },
   { id: 'green', name: 'Equipo Verde', color: '#4caf50', playerCount: 0 },
   { id: 'yellow', name: 'Equipo Amarillo', color: '#ffeb3b', playerCount: 0 }
 ]
 
-// Calcular número de jugadores por equipo
-availableTeams.forEach(team => {
-  team.playerCount = props.currentGame?.players?.filter(p => p.team === team.id).length || 0
+// Computed property para equipos disponibles basados en teamCount del juego
+const availableTeams = computed(() => {
+  const teamCount = props.currentGame?.teamCount || 2
+  const teams = allTeams.slice(0, teamCount)
+  
+  // Calcular número de jugadores por equipo
+  teams.forEach(team => {
+    team.playerCount = props.currentGame?.players?.filter(p => p.team === team.id).length || 0
+  })
+  
+  return teams
 })
 
 const selectTeam = (teamId: string) => {
-  selectedTeam.value = teamId
-}
-
-const confirmSelection = () => {
-  if (selectedTeam.value && props.socket && props.currentGame) {
-    // Enviar selección de equipo al servidor
-    props.socket.emit('gameAction', {
-      gameId: props.currentGame.id,
-      action: 'joinTeam',
+  console.log('TeamSelection - selectTeam called with:', teamId)
+  console.log('TeamSelection - props.socket:', props.socket)
+  console.log('TeamSelection - props.currentGame:', props.currentGame)
+  
+  // Get the socket value (it's a ref)
+  const socket = props.socket?.value || props.socket
+  const currentGame = props.currentGame
+  
+  console.log('TeamSelection - Extracted socket:', socket)
+  console.log('TeamSelection - Extracted currentGame:', currentGame)
+  
+  if (!socket) {
+    console.error('TeamSelection - Socket not available')
+    addToast({ message: 'Error: Conexión no disponible', type: 'error' })
+    return
+  }
+  
+  if (!currentGame) {
+    console.error('TeamSelection - Current game not available')
+    addToast({ message: 'Error: Juego no disponible', type: 'error' })
+    return
+  }
+  
+  // Validar que el equipo seleccionado esté disponible según el teamCount
+  const teamCount = currentGame.teamCount || 2
+  const availableTeamIds = ['red', 'blue', 'green', 'yellow'].slice(0, teamCount)
+  
+  if (teamId !== 'none' && !availableTeamIds.includes(teamId)) {
+    console.error('TeamSelection - Invalid team selection:', teamId)
+    addToast({ message: 'Error: Equipo no disponible', type: 'error' })
+    return
+  }
+  
+  // Get team name for toast message
+  const teamNames: Record<string, string> = {
+    'red': 'Rojo',
+    'blue': 'Azul',
+    'green': 'Verde',
+    'yellow': 'Amarillo',
+    'none': 'Sin Equipo'
+  }
+  const teamName = teamNames[teamId] || teamId
+  
+  // Enviar selección de equipo al servidor
+  console.log('TeamSelection - Sending team selection to server')
+  console.log('TeamSelection - Game ID:', currentGame.id)
+  console.log('TeamSelection - Team ID:', teamId)
+  
+  try {
+    socket.emit('gameAction', {
+      gameId: currentGame.id,
+      action: 'updatePlayerTeam',
       data: {
-        team: selectedTeam.value
+        team: teamId
       }
     })
-    
-    props.onTeamSelected(selectedTeam.value)
+    console.log('TeamSelection - Socket emit successful')
+  } catch (error) {
+    console.error('TeamSelection - Socket emit error:', error)
+    addToast({ message: 'Error al enviar selección', type: 'error' })
+    return
   }
+  
+  // Cerrar el diálogo inmediatamente después de la selección
+  console.log('TeamSelection - Closing dialog')
+  props.onTeamSelected(teamId)
 }
 </script>
 
@@ -113,11 +162,12 @@ const confirmSelection = () => {
 }
 
 .team-selection-dialog {
-  background: white;
+  background: #000;
   border-radius: 12px;
   max-width: 400px;
   width: 90%;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  border: 1px solid #333;
 }
 
 .dialog-header {
@@ -125,12 +175,12 @@ const confirmSelection = () => {
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid #333;
 }
 
 .dialog-header h2 {
   margin: 0;
-  color: #333;
+  color: #fff;
 }
 
 .close-btn {
@@ -138,7 +188,7 @@ const confirmSelection = () => {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #666;
+  color: #999;
   padding: 0;
   width: 30px;
   height: 30px;
@@ -148,7 +198,7 @@ const confirmSelection = () => {
 }
 
 .close-btn:hover {
-  color: #333;
+  color: #fff;
 }
 
 .dialog-content {
@@ -157,7 +207,7 @@ const confirmSelection = () => {
 
 .dialog-content p {
   margin: 0 0 20px 0;
-  color: #666;
+  color: #ccc;
   text-align: center;
 }
 
@@ -172,9 +222,9 @@ const confirmSelection = () => {
   display: flex;
   align-items: center;
   padding: 12px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #333;
   border-radius: 8px;
-  background: white;
+  background: #1a1a1a;
   cursor: pointer;
   transition: all 0.2s ease;
   text-align: left;
@@ -182,12 +232,13 @@ const confirmSelection = () => {
 
 .team-btn:hover {
   border-color: #1976d2;
+  background: #2a2a2a;
   transform: translateY(-2px);
 }
 
 .team-btn.selected {
   border-color: #1976d2;
-  background: #f0f8ff;
+  background: #2a2a2a;
 }
 
 .team-color {
@@ -204,17 +255,17 @@ const confirmSelection = () => {
 
 .team-name {
   font-weight: bold;
-  color: #333;
+  color: #fff;
   margin-bottom: 2px;
 }
 
 .team-count {
   font-size: 12px;
-  color: #666;
+  color: #999;
 }
 
 .no-team-option {
-  border-top: 1px solid #eee;
+  border-top: 1px solid #333;
   padding-top: 20px;
 }
 
@@ -227,42 +278,4 @@ const confirmSelection = () => {
   background-position: 0 0, 0 2px, 2px -2px, -2px 0px;
 }
 
-.dialog-footer {
-  display: flex;
-  justify-content: space-between;
-  padding: 20px;
-  border-top: 1px solid #eee;
-}
-
-.btn {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.2s;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: #1976d2;
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: #1565c0;
-}
-
-.btn-secondary {
-  background: #f5f5f5;
-  color: #333;
-}
-
-.btn-secondary:hover {
-  background: #e0e0e0;
-}
 </style>

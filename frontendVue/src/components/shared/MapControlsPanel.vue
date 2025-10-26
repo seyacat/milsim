@@ -9,7 +9,11 @@
       :disabled="!currentPosition"
     >📍</button>
     <button class="btn btn-secondary" @click="centerOnSite" title="Centrar en Site">🏠</button>
-    <button class="btn btn-secondary" @click="showPlayersDialog" title="Gestionar equipos">👥</button>
+    <button
+      class="btn btn-secondary"
+      @click="handleTeamsButton"
+      :title="isOwner ? 'Gestionar equipos' : 'Seleccionar equipo'"
+    >👥</button>
     <button class="btn btn-secondary" @click="openGameResultsDialog" title="Ver resultados">📊</button>
   </div>
 </template>
@@ -21,8 +25,9 @@ import { useToast } from '../../composables/useToast.js'
 const router = useRouter()
 const { addToast } = useToast()
 
-defineProps<{
+const props = defineProps<{
   currentPosition: any
+  isOwner?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -30,6 +35,7 @@ const emit = defineEmits<{
   centerOnSite: []
   showPlayersDialog: []
   showResultsDialog: []
+  showTeamSelection: []
 }>()
 
 const goBack = () => {
@@ -48,8 +54,12 @@ const centerOnSite = () => {
   emit('centerOnSite')
 }
 
-const showPlayersDialog = () => {
-  emit('showPlayersDialog')
+const handleTeamsButton = () => {
+  if (props.isOwner) {
+    emit('showPlayersDialog')
+  } else {
+    emit('showTeamSelection')
+  }
 }
 
 const openGameResultsDialog = () => {

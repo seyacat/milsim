@@ -155,8 +155,8 @@ const onClose = () => {
 }
 
 .teams-dialog {
-  background: var(--card-background);
-  border: 2px solid var(--border);
+  background: #000;
+  border: 2px solid #333;
   border-radius: 8px;
   width: 90%;
   max-width: 600px;
@@ -170,12 +170,12 @@ const onClose = () => {
   justify-content: space-between;
   align-items: center;
   padding: 1.5rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--background);
+  border-bottom: 1px solid #333;
+  background: #1a1a1a;
 }
 
 .teams-dialog-header h3 {
-  color: var(--text);
+  color: #fff;
   font-size: 1.25rem;
   font-weight: 600;
   margin: 0;
@@ -185,7 +185,7 @@ const onClose = () => {
   background: none;
   border: none;
   font-size: 1.5rem;
-  color: var(--text-muted);
+  color: #999;
   cursor: pointer;
   padding: 0;
   width: 30px;
@@ -197,24 +197,25 @@ const onClose = () => {
 }
 
 .close-btn:hover {
-  background: var(--secondary);
-  color: var(--text);
+  background: #333;
+  color: #fff;
 }
 
 .teams-dialog-content {
   padding: 1.5rem;
   max-height: calc(80vh - 80px);
   overflow-y: auto;
+  background: #000;
 }
 
 .team-count-selector {
   margin-bottom: 2rem;
   padding-bottom: 1.5rem;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid #333;
 }
 
 .team-count-selector h4 {
-  color: var(--text);
+  color: #fff;
   font-size: 1rem;
   margin-bottom: 1rem;
   font-weight: 500;
@@ -228,9 +229,9 @@ const onClose = () => {
 .team-count-btn {
   flex: 1;
   padding: 0.75rem;
-  border: 1px solid var(--border);
-  background: var(--background);
-  color: var(--text);
+  border: 1px solid #333;
+  background: #1a1a1a;
+  color: #fff;
   border-radius: 4px;
   cursor: pointer;
   font-weight: 500;
@@ -238,17 +239,17 @@ const onClose = () => {
 }
 
 .team-count-btn.active {
-  background: var(--primary);
+  background: #1976d2;
   color: white;
-  border-color: var(--primary);
+  border-color: #1976d2;
 }
 
 .team-count-btn:hover:not(.active) {
-  background: var(--secondary);
+  background: #333;
 }
 
 .players-list-section h4 {
-  color: var(--text);
+  color: #fff;
   font-size: 1rem;
   margin-bottom: 1rem;
   font-weight: 500;
@@ -262,7 +263,7 @@ const onClose = () => {
 .loading, .no-players {
   text-align: center;
   padding: 2rem;
-  color: var(--text-muted);
+  color: #999;
   font-style: italic;
 }
 
@@ -277,18 +278,18 @@ const onClose = () => {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background: var(--background);
-  border: 1px solid var(--border);
+  background: #1a1a1a;
+  border: 1px solid #333;
   border-radius: 6px;
   transition: all 0.2s ease;
 }
 
 .player-row:hover {
-  border-color: var(--primary);
+  border-color: #1976d2;
 }
 
 .player-name {
-  color: var(--text);
+  color: #fff;
   font-weight: 500;
   flex: 1;
 }
@@ -301,9 +302,9 @@ const onClose = () => {
 
 .team-btn {
   padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border);
-  background: var(--background);
-  color: var(--text);
+  border: 1px solid #333;
+  background: #1a1a1a;
+  color: #fff;
   border-radius: 4px;
   cursor: pointer;
   font-size: 0.75rem;
@@ -335,12 +336,12 @@ const onClose = () => {
 }
 
 .team-btn.none.active {
-  background: var(--secondary);
-  color: var(--text);
+  background: #333;
+  color: #fff;
 }
 
 .team-btn:hover:not(.active) {
-  background: var(--secondary);
+  background: #333;
 }
 
 .team-btn.blue:hover:not(.active) {
