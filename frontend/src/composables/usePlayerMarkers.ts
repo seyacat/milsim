@@ -236,8 +236,22 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
 
     const handlePositionUpdate = (data: any) => {
       if (data.action === 'positionUpdate' && data.data) {
-        // Show all players including themselves
-        updatePlayerMarker(data.data)
+        // Check if this is the current user's position
+        if (data.data.userId === currentUser.value?.id) {
+          // This is the current user - update user marker instead
+          if (!userMarker.value) {
+            createUserMarker(data.data.lat, data.data.lng)
+          } else {
+            updateUserMarkerPosition({
+              lat: data.data.lat,
+              lng: data.data.lng,
+              accuracy: data.data.accuracy
+            })
+          }
+        } else {
+          // This is another player
+          updatePlayerMarker(data.data)
+        }
       }
     }
 
@@ -245,7 +259,22 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     const handlePlayerPositionsResponse = (data: any) => {
       if (data.action === 'playerPositionsResponse' && data.data.positions) {
         data.data.positions.forEach((position: any) => {
-          updatePlayerMarker(position)
+          // Check if this is the current user's position
+          if (position.userId === currentUser.value?.id) {
+            // This is the current user - update user marker instead
+            if (!userMarker.value) {
+              createUserMarker(position.lat, position.lng)
+            } else {
+              updateUserMarkerPosition({
+                lat: position.lat,
+                lng: position.lng,
+                accuracy: position.accuracy
+              })
+            }
+          } else {
+            // This is another player
+            updatePlayerMarker(position)
+          }
         })
       }
     }

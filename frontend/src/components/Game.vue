@@ -136,7 +136,9 @@ const {
   socketRef,
   connectWebSocket,
   emitGameAction,
-  disconnectWebSocket
+  disconnectWebSocket,
+  checkConnection,
+  forceReconnect
 } = useWebSocket()
 
 const {
@@ -182,6 +184,7 @@ const currentPosition = ref<any>(null)
 const isOwner = ref(false)
 const localTimerInterval = ref<NodeJS.Timeout | null>(null)
 const lastTimeUpdate = ref<Date | null>(null)
+const connectionHealthInterval = ref<NodeJS.Timeout | null>(null)
 
 // Player markers composable - will be initialized after map is ready
 const playerMarkersComposable = ref<any>(null)
@@ -870,6 +873,8 @@ onMounted(async () => {
 
     setupGlobalFunctions()
     
+    // Start connection health check
+    startConnectionHealthCheck()
 
   } catch (error) {
     console.error('Error initializing game:', error)
@@ -880,8 +885,29 @@ onMounted(async () => {
   }
 })
 
+// Connection health check
+const startConnectionHealthCheck = () => {
+  stopConnectionHealthCheck()
+  connectionHealthInterval.value = setInterval(() => {
+    if (socketRef.value && !socketRef.value.connected) {
+      console.log('Connection health check: WebSocket disconnected, attempting to reconnect...')
+      checkConnection()
+    }
+  }, 10000) // Check every 10 seconds
+}
+
+const stopConnectionHealthCheck = () => {
+  if (connectionHealthInterval.value) {
+    clearInterval(connectionHealthInterval.value)
+    connectionHealthInterval.value = null
+  }
+}
+
 onUnmounted(() => {
   console.log('GameOwner - onUnmounted called, cleaning up resources')
+  
+  // Stop connection health check first
+  stopConnectionHealthCheck()
   
   // Stop local timer first
   stopLocalTimer()

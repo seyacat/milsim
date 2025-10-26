@@ -8,6 +8,9 @@ import { useToast } from './useToast.js'
 let globalSocketRef: Socket | null = null
 let globalIsConnecting = false
 let connectionCount = 0
+let globalReconnectAttempts = 0
+const MAX_RECONNECT_ATTEMPTS = 5
+const RECONNECT_DELAY = 2000 // 2 seconds
 
 // Función para configurar los listeners del socket
 const setupSocketListeners = (
@@ -33,7 +36,10 @@ const setupSocketListeners = (
 ) => {
   socket.on('connect', () => {
     globalIsConnecting = false
+    globalReconnectAttempts = 0 // Reset reconnection attempts on successful connection
+    console.log('WebSocket connected successfully, joining game:', gameId)
     socket.emit('joinGame', { gameId })
+    addToast({ message: 'Conectado al servidor', type: 'success' })
   })
 
   socket.on('gameUpdate', (data: { game: Game; type?: string }) => {
@@ -87,12 +93,39 @@ const setupSocketListeners = (
     const errorMessage = 'Error de conexión WebSocket: ' + error.message
     addToast({ message: errorMessage, type: 'error' })
     callbacks.onError(errorMessage)
+    
+    // Attempt reconnection
+    if (globalReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      globalReconnectAttempts++
+      console.log(`Attempting reconnection ${globalReconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}...`)
+      setTimeout(() => {
+        if (socket.disconnected) {
+          socket.connect()
+        }
+      }, RECONNECT_DELAY)
+    } else {
+      console.error('Max reconnection attempts reached')
+      addToast({ message: 'No se pudo reconectar al servidor', type: 'error' })
+    }
   })
 
   socket.on('disconnect', (reason) => {
+    console.log('WebSocket disconnected:', reason)
+    
     if (reason === 'io server disconnect' || reason === 'transport close') {
       addToast({ message: 'Conexión perdida con el servidor', type: 'error' })
       callbacks.onError('Conexión perdida con el servidor')
+      
+      // Attempt reconnection for unexpected disconnections
+      if (reason === 'transport close' && globalReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+        globalReconnectAttempts++
+        console.log(`Attempting reconnection after disconnect ${globalReconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}...`)
+        setTimeout(() => {
+          if (socket.disconnected) {
+            socket.connect()
+          }
+        }, RECONNECT_DELAY)
+      }
     }
   })
 
@@ -215,11 +248,16 @@ export const useWebSocket = () => {
       const wsUrl = `${protocol}//${window.location.host}`
       
       
-      // Use exact same configuration as React
+      // Use exact same configuration as React with reconnection options
       const socket = io(wsUrl, {
         auth: {
           token: token  // No Bearer prefix, just the raw token
-        }
+        },
+        reconnection: true,
+        reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
+        reconnectionDelay: RECONNECT_DELAY,
+        reconnectionDelayMax: 10000,
+        timeout: 20000
       })
       globalSocketRef = socket
       socketRef.value = socket
@@ -267,11 +305,31 @@ export const useWebSocket = () => {
         socketRef.value.disconnect()
         globalSocketRef = null
         globalIsConnecting = false
+        globalReconnectAttempts = 0
         connectionCount = 0
       }
       
       socketRef.value = null
       isConnecting.value = false
+    }
+  }
+
+  const checkConnection = () => {
+    if (socketRef.value && !socketRef.value.connected) {
+      console.log('WebSocket not connected, attempting to reconnect...')
+      socketRef.value.connect()
+      return false
+    }
+    return socketRef.value?.connected || false
+  }
+
+  const forceReconnect = () => {
+    if (socketRef.value) {
+      console.log('Forcing WebSocket reconnection...')
+      socketRef.value.disconnect()
+      setTimeout(() => {
+        socketRef.value?.connect()
+      }, 1000)
     }
   }
 
@@ -283,6 +341,8 @@ export const useWebSocket = () => {
     socketRef,
     connectWebSocket,
     emitGameAction,
-    disconnectWebSocket
+    disconnectWebSocket,
+    checkConnection,
+    forceReconnect
   }
 }
