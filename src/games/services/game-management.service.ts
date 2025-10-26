@@ -154,7 +154,7 @@ export class GameManagementService {
   async updateGame(gameId: number, updateData: { name?: string }, userId: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
-      relations: ['owner'],
+      relations: ['owner', 'controlPoints'],
     });
 
     if (!game) {

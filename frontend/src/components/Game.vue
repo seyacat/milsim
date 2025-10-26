@@ -438,8 +438,9 @@ const handleDeactivateBombWrapper = (controlPointId: number) => {
 
 // WebSocket callbacks
 const onGameUpdate = (game: Game) => {
-  console.log('GameOwner - onGameUpdate called')
+  console.log('GameOwner - onGameUpdate called with control points:', game.controlPoints?.length || 0)
   currentGame.value = game
+  console.log('Game update - calling handleGameStateChange for status:', game.status)
   handleGameStateChange(game)
   
   // Handle local timer based on game status
@@ -453,6 +454,8 @@ const onGameUpdate = (game: Game) => {
   // This is especially important when transitioning between paused and running states
   const oldControlPoints = currentGame.value?.controlPoints || []
   const newControlPoints = game.controlPoints || []
+  
+  console.log('Control points - old:', oldControlPoints.length, 'new:', newControlPoints.length)
   
   // Check if control points actually changed (added, removed, or modified)
   const oldIds = new Set(oldControlPoints.map(cp => cp.id))
@@ -468,6 +471,8 @@ const onGameUpdate = (game: Game) => {
   const shouldRenderControlPoints =
     controlPointsChanged ||
     currentGame.value?.status !== game.status
+  
+  console.log('Should render control points:', shouldRenderControlPoints, 'changed:', controlPointsChanged, 'status changed:', currentGame.value?.status !== game.status)
   
   if (shouldRenderControlPoints) {
     renderControlPoints(newControlPoints, {
@@ -488,9 +493,11 @@ const onGameUpdate = (game: Game) => {
   
   // Player markers are automatically updated by the composable via WebSocket events
   // No need to manually call updatePlayerMarkers() here as it would clear existing markers
-  // Update timers after markers are rendered
+  // Update timers after markers are rendered and game state changes
+  // Use currentGame.value instead of game parameter to ensure we have the latest control points
   setTimeout(() => {
-    updateAllTimerDisplays(game)
+    console.log('Game update - updating all timers for game status:', game.status, 'with control points:', currentGame.value?.controlPoints?.length || 0)
+    updateAllTimerDisplays(currentGame.value)
     updateAllBombTimerDisplays()
   }, 100)
 
@@ -532,6 +539,7 @@ const onControlPointCreated = (controlPoint: ControlPoint) => {
     })
     // Update timers after markers are rendered
     setTimeout(() => {
+      console.log('Control point created - updating all timers')
       updateAllTimerDisplays(currentGame.value)
       updateAllBombTimerDisplays()
     }, 100)
@@ -560,6 +568,7 @@ const onControlPointUpdated = (controlPoint: ControlPoint) => {
     })
     // Update timers after marker is updated
     setTimeout(() => {
+      console.log('Control point updated - updating all timers')
       updateAllTimerDisplays(currentGame.value)
       updateAllBombTimerDisplays()
     }, 100)
@@ -587,6 +596,7 @@ const onControlPointDeleted = (controlPointId: number) => {
     })
     // Update timers after markers are rendered
     setTimeout(() => {
+      console.log('Control point deleted - updating all timers')
       updateAllTimerDisplays(currentGame.value)
       updateAllBombTimerDisplays()
     }, 100)
@@ -684,6 +694,7 @@ onMounted(async () => {
           updateControlPointTimes(data.controlPointTimes, currentGame.value)
           // Update timers after markers are rendered
           setTimeout(() => {
+            console.log('Game time update - updating all timers')
             updateAllTimerDisplays(currentGame.value)
           }, 100)
         }
@@ -700,6 +711,7 @@ onMounted(async () => {
           updateControlPointTimes(data.controlPointTimes, currentGame.value)
           // Update timers after markers are rendered
           setTimeout(() => {
+            console.log('Time update - updating all timers')
             updateAllTimerDisplays(currentGame.value)
           }, 100)
         }
@@ -844,6 +856,7 @@ onMounted(async () => {
       
       // Update timers after initial markers are rendered
       setTimeout(() => {
+        console.log('Initial setup - updating all timers')
         updateAllTimerDisplays(currentGame.value)
         updateAllBombTimerDisplays()
       }, 100)

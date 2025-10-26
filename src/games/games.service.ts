@@ -250,7 +250,7 @@ export class GamesService {
   async pauseGame(gameId: number, userId: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
-      relations: ['owner'],
+      relations: ['owner', 'controlPoints'],
     });
 
     if (!game) {
@@ -291,7 +291,7 @@ export class GamesService {
   async resumeGame(gameId: number, userId: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
-      relations: ['owner'],
+      relations: ['owner', 'controlPoints'],
     });
 
     if (!game) {
@@ -332,7 +332,7 @@ export class GamesService {
   async endGame(gameId: number, userId: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
-      relations: ['owner'],
+      relations: ['owner', 'controlPoints'],
     });
 
     if (!game) {
@@ -413,7 +413,7 @@ export class GamesService {
   async endGameAutomatically(gameId: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
-      relations: ['owner'],
+      relations: ['owner', 'controlPoints'],
     });
 
     if (!game) {
