@@ -41,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import type { Game, User } from '../types'
 import { useToast } from '../composables/useToast.js'
 
@@ -55,6 +55,7 @@ interface Props {
 const props = defineProps<Props>()
 const selectedTeam = ref<string | null>(null)
 const { addToast } = useToast()
+const currentGameData = ref<Game | null>(props.currentGame)
 
 // Definir todos los equipos posibles
 const allTeams = [
@@ -66,12 +67,12 @@ const allTeams = [
 
 // Computed property para equipos disponibles basados en teamCount del juego
 const availableTeams = computed(() => {
-  const teamCount = props.currentGame?.teamCount || 2
+  const teamCount = currentGameData.value?.teamCount || 2
   const teams = allTeams.slice(0, teamCount)
   
   // Calcular número de jugadores por equipo
   teams.forEach(team => {
-    team.playerCount = props.currentGame?.players?.filter(p => p.team === team.id).length || 0
+    team.playerCount = currentGameData.value?.players?.filter(p => p.team === team.id).length || 0
   })
   
   return teams
@@ -80,11 +81,11 @@ const availableTeams = computed(() => {
 const selectTeam = (teamId: string) => {
   console.log('TeamSelection - selectTeam called with:', teamId)
   console.log('TeamSelection - props.socket:', props.socket)
-  console.log('TeamSelection - props.currentGame:', props.currentGame)
+  console.log('TeamSelection - currentGameData:', currentGameData.value)
   
   // Get the socket value (it's a ref)
   const socket = props.socket?.value || props.socket
-  const currentGame = props.currentGame
+  const currentGame = currentGameData.value
   
   console.log('TeamSelection - Extracted socket:', socket)
   console.log('TeamSelection - Extracted currentGame:', currentGame)
@@ -145,6 +146,62 @@ const selectTeam = (teamId: string) => {
   console.log('TeamSelection - Closing dialog')
   props.onTeamSelected(teamId)
 }
+
+// Listen for WebSocket updates
+const setupSocketListeners = () => {
+  const socket = props.socket?.value || props.socket
+  if (!socket) return
+
+  // Listen for game updates that might include team count changes
+  socket.on('gameUpdate', (data: { game: any; type?: string }) => {
+    if (data.game) {
+      console.log('TeamSelection - Game update received:', data.game)
+      currentGameData.value = data.game
+    }
+  })
+
+  // Listen for team count updates
+  socket.on('gameAction', (data: { action: string; data: any }) => {
+    if (data.action === 'teamCountUpdated' && data.data.game) {
+      console.log('TeamSelection - Team count updated:', data.data.game)
+      currentGameData.value = data.data.game
+    }
+  })
+}
+
+// Clean up socket listeners
+const cleanupSocketListeners = () => {
+  const socket = props.socket?.value || props.socket
+  if (!socket) return
+  
+  socket.off('gameUpdate')
+  socket.off('gameAction')
+}
+
+onMounted(() => {
+  setupSocketListeners()
+})
+
+onUnmounted(() => {
+  cleanupSocketListeners()
+})
+
+// Re-setup listeners when socket changes
+watch(() => props.socket, (newSocket, oldSocket) => {
+  if (oldSocket) {
+    cleanupSocketListeners()
+  }
+  if (newSocket) {
+    setupSocketListeners()
+  }
+})
+
+// Update currentGameData when props change
+watch(() => props.currentGame, (newGame) => {
+  if (newGame) {
+    currentGameData.value = newGame
+  }
+}, { immediate: true })
 </script>
 
 <style scoped>
