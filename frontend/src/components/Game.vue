@@ -521,7 +521,8 @@ const onGameUpdate = (game: Game) => {
   
   
   if (shouldRenderControlPoints) {
-    renderControlPoints(newControlPoints, {
+    // Only pass handlers for owners, players should get empty handlers
+    const handlers = isOwner.value ? {
       handleControlPointMove,
       handleControlPointUpdate: handleControlPointUpdateWrapper,
       handleControlPointDelete: handleControlPointDeleteWrapper,
@@ -534,7 +535,9 @@ const onGameUpdate = (game: Game) => {
       handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
       handleActivateBomb: handleActivateBombWrapper,
       handleDeactivateBomb: handleDeactivateBombWrapper
-    })
+    } : {}
+    
+    renderControlPoints(newControlPoints, handlers)
   }
   
   // Player markers are automatically updated by the composable via WebSocket events
@@ -593,7 +596,8 @@ const onControlPointCreated = (controlPoint: ControlPoint) => {
   
   if (currentGame.value) {
     currentGame.value.controlPoints = [...(currentGame.value.controlPoints || []), controlPoint]
-    renderControlPoints(currentGame.value.controlPoints, {
+    // Only pass handlers for owners, players should get empty handlers
+    const handlers = isOwner.value ? {
       handleControlPointMove,
       handleControlPointUpdate: handleControlPointUpdateWrapper,
       handleControlPointDelete: handleControlPointDeleteWrapper,
@@ -606,7 +610,9 @@ const onControlPointCreated = (controlPoint: ControlPoint) => {
       handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
       handleActivateBomb: handleActivateBombWrapper,
       handleDeactivateBomb: handleDeactivateBombWrapper
-    })
+    } : {}
+    
+    renderControlPoints(currentGame.value.controlPoints, handlers)
     // Update timers after markers are rendered
     setTimeout(() => {
       console.log('Control point created - updating all timers')
@@ -650,7 +656,8 @@ const onControlPointDeleted = (controlPointId: number) => {
     currentGame.value.controlPoints = (currentGame.value.controlPoints || []).filter(cp =>
       cp.id !== controlPointId
     )
-    renderControlPoints(currentGame.value.controlPoints, {
+    // Only pass handlers for owners, players should get empty handlers
+    const handlers = isOwner.value ? {
       handleControlPointMove,
       handleControlPointUpdate: handleControlPointUpdateWrapper,
       handleControlPointDelete: handleControlPointDeleteWrapper,
@@ -663,7 +670,9 @@ const onControlPointDeleted = (controlPointId: number) => {
       handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
       handleActivateBomb: handleActivateBombWrapper,
       handleDeactivateBomb: handleDeactivateBombWrapper
-    })
+    } : {}
+    
+    renderControlPoints(currentGame.value.controlPoints, handlers)
     // Update timers after markers are rendered
     setTimeout(() => {
       console.log('Control point deleted - updating all timers')
@@ -871,7 +880,8 @@ onMounted(async () => {
     setTimeout(async () => {
       await initializeMap(onMapClick)
       await setMapView(currentGame.value?.controlPoints || [])
-      await renderControlPoints(currentGame.value?.controlPoints || [], {
+      // Only pass handlers for owners, players should get empty handlers
+      const handlers = isOwner.value ? {
         handleControlPointMove,
         handleControlPointUpdate: handleControlPointUpdateWrapper,
         handleControlPointDelete: handleControlPointDeleteWrapper,
@@ -884,7 +894,14 @@ onMounted(async () => {
         handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
         handleActivateBomb: handleActivateBombWrapper,
         handleDeactivateBomb: handleDeactivateBombWrapper
-      })
+      } : {}
+      
+      await renderControlPoints(currentGame.value?.controlPoints || [], handlers)
+      
+      // Set global variables for player popup access
+      ;(window as any).mapInstance = mapInstance.value
+      ;(window as any).socketRef = socketRef.value
+      ;(window as any).currentGame = currentGame.value
       
       // Initialize player markers AFTER map is ready
       console.log('Game.vue - Initializing usePlayerMarkers with isOwner:', isOwner.value, 'currentUser:', currentUser.value?.id)

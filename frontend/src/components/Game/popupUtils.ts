@@ -290,3 +290,178 @@ export const createPopupContent = (
   
   return container
 }
+
+// Create player popup content with challenge inputs
+export const createPlayerPopupContent = (controlPoint: ControlPoint): HTMLElement => {
+  const container = document.createElement('div')
+  
+  // Create the player popup HTML structure
+  container.innerHTML = `
+    <div class="control-point-player-menu">
+      <div class="control-point-player-content">
+        <h4 class="player-title">${controlPoint.name || 'Punto de Control'}</h4>
+        
+        ${controlPoint.ownedByTeam ? `
+          <div class="ownership-section">
+            <div class="ownership-status" style="background: ${getTeamColor(controlPoint.ownedByTeam)}; color: white; padding: 5px; border-radius: 4px; margin-bottom: 10px; text-align: center; font-weight: bold">
+              Controlado por: ${getTeamName(controlPoint.ownedByTeam)}
+            </div>
+            <div class="hold-time" style="font-size: 12px; color: #ccc; text-align: center; margin-bottom: 10px">
+              Tiempo: ${controlPoint.displayTime || '00:00'}
+            </div>
+          </div>
+        ` : ''}
+        
+        <!-- Code Challenge Input -->
+        ${controlPoint.hasCodeChallenge ? `
+          <div class="challenge-section" style="margin-bottom: 15px">
+            <h5 style="margin: 0 0 8px 0; font-size: 14px; color: #ccc">Desafío de Código</h5>
+            <div class="player-form-group">
+              <input type="text" id="playerCodeInput_${controlPoint.id}" class="player-form-input" placeholder="Ingresar código">
+              <button class="player-btn player-btn-primary" id="submitCodeBtn_${controlPoint.id}">
+                Ingresar Código
+              </button>
+            </div>
+          </div>
+        ` : ''}
+        
+        <!-- Bomb Challenge Inputs -->
+        ${controlPoint.hasBombChallenge ? `
+          <div class="challenge-section" style="margin-bottom: 15px">
+            <h5 style="margin: 0 0 8px 0; font-size: 14px; color: #ccc">Desafío de Bomba</h5>
+            ${controlPoint.bombStatus?.isActive ? `
+              <!-- Bomb is active - show deactivation input -->
+              <div class="player-form-group">
+                <input type="text" id="playerDisarmCodeInput_${controlPoint.id}" class="player-form-input" placeholder="Código de desactivación">
+                <button class="player-btn player-btn-danger" id="deactivateBombBtn_${controlPoint.id}">
+                  Desactivar
+                </button>
+              </div>
+            ` : `
+              <!-- Bomb is not active - show activation input -->
+              <div class="player-form-group">
+                <input type="text" id="playerArmCodeInput_${controlPoint.id}" class="player-form-input" placeholder="Código de activación">
+                <button class="player-btn player-btn-warning" id="activateBombBtn_${controlPoint.id}">
+                  Activar
+                </button>
+              </div>
+            `}
+          </div>
+        ` : ''}
+        
+        <!-- Position Challenge Info -->
+        ${controlPoint.hasPositionChallenge ? `
+          <div class="challenge-section">
+            <h5 style="margin: 0 0 8px 0; font-size: 14px; color: #ccc">Desafío de Posición</h5>
+            <p style="font-size: 12px; color: #999; margin: 0">
+              Acércate al punto para capturarlo automáticamente
+            </p>
+          </div>
+        ` : ''}
+        
+        <!-- Close button -->
+        <div style="margin-top: 15px">
+          <button class="player-btn player-btn-secondary" id="closePlayerPopupBtn_${controlPoint.id}">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  `
+  
+  // Add event listeners for player actions
+  const codeInput = container.querySelector(`#playerCodeInput_${controlPoint.id}`) as HTMLInputElement
+  const submitCodeBtn = container.querySelector(`#submitCodeBtn_${controlPoint.id}`) as HTMLButtonElement
+  const armCodeInput = container.querySelector(`#playerArmCodeInput_${controlPoint.id}`) as HTMLInputElement
+  const activateBombBtn = container.querySelector(`#activateBombBtn_${controlPoint.id}`) as HTMLButtonElement
+  const disarmCodeInput = container.querySelector(`#playerDisarmCodeInput_${controlPoint.id}`) as HTMLInputElement
+  const deactivateBombBtn = container.querySelector(`#deactivateBombBtn_${controlPoint.id}`) as HTMLButtonElement
+  const closeBtn = container.querySelector(`#closePlayerPopupBtn_${controlPoint.id}`) as HTMLButtonElement
+  
+  // Handle code challenge submission
+  if (submitCodeBtn && codeInput) {
+    submitCodeBtn.addEventListener('click', () => {
+      const code = codeInput.value.trim()
+      if (code) {
+        // Emit takeControlPoint event with code
+        if ((window as any).socketRef) {
+          (window as any).socketRef.emit('gameAction', {
+            gameId: (window as any).currentGame?.id,
+            action: 'takeControlPoint',
+            data: {
+              controlPointId: controlPoint.id,
+              code: code
+            }
+          })
+        }
+        // Close popup after submission
+        const map = (window as any).mapInstance
+        if (map) {
+          map.closePopup()
+        }
+      }
+    })
+  }
+  
+  // Handle bomb activation
+  if (activateBombBtn && armCodeInput) {
+    activateBombBtn.addEventListener('click', () => {
+      const armedCode = armCodeInput.value.trim()
+      if (armedCode) {
+        // Emit activateBomb event with armed code
+        if ((window as any).socketRef) {
+          (window as any).socketRef.emit('gameAction', {
+            gameId: (window as any).currentGame?.id,
+            action: 'activateBomb',
+            data: {
+              controlPointId: controlPoint.id,
+              armedCode: armedCode
+            }
+          })
+        }
+        // Close popup after submission
+        const map = (window as any).mapInstance
+        if (map) {
+          map.closePopup()
+        }
+      }
+    })
+  }
+  
+  // Handle bomb deactivation
+  if (deactivateBombBtn && disarmCodeInput) {
+    deactivateBombBtn.addEventListener('click', () => {
+      const disarmedCode = disarmCodeInput.value.trim()
+      if (disarmedCode) {
+        // Emit deactivateBomb event with disarmed code
+        if ((window as any).socketRef) {
+          (window as any).socketRef.emit('gameAction', {
+            gameId: (window as any).currentGame?.id,
+            action: 'deactivateBomb',
+            data: {
+              controlPointId: controlPoint.id,
+              disarmedCode: disarmedCode
+            }
+          })
+        }
+        // Close popup after submission
+        const map = (window as any).mapInstance
+        if (map) {
+          map.closePopup()
+        }
+      }
+    })
+  }
+  
+  // Handle close button
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      const map = (window as any).mapInstance
+      if (map) {
+        map.closePopup()
+      }
+    })
+  }
+  
+  return container
+}

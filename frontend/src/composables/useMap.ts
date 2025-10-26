@@ -1,6 +1,6 @@
 import { ref, onUnmounted } from 'vue'
 import { ControlPoint } from '../types/index.js'
-import { createPopupContent } from '../components/Game/popupUtils.js'
+import { createPopupContent, createPlayerPopupContent } from '../components/Game/popupUtils.js'
 
 export const useMap = () => {
   const mapInstance = ref<any>(null)
@@ -248,7 +248,7 @@ export const useMap = () => {
       
       marker.setIcon(customIcon)
 
-      // Add popup - for owner with edit controls, for player with info only
+      // Add popup - for owner with edit controls, for player with challenge inputs
       if (Object.keys(handlers).length > 0) {
         // Owner view - with edit controls
         const popupContent = createPopupContent(controlPoint, (marker as any)._leaflet_id, handlers)
@@ -258,18 +258,8 @@ export const useMap = () => {
           closeButton: true
         })
       } else {
-        // Player view - info only
-        const popupContent = `
-          <div class="control-point-info-popup">
-            <h4>${controlPoint.name || 'Punto de Control'}</h4>
-            <p class="team-info">
-              ${controlPoint.ownedByTeam ? `Equipo: ${controlPoint.ownedByTeam.toUpperCase()}` : 'Sin equipo asignado'}
-            </p>
-            ${controlPoint.hasPositionChallenge ? '<p class="challenge-info position">Desafío de Posición</p>' : ''}
-            ${controlPoint.hasCodeChallenge ? '<p class="challenge-info code">Desafío de Código</p>' : ''}
-            ${controlPoint.hasBombChallenge ? '<p class="challenge-info bomb">Desafío de Bomba</p>' : ''}
-          </div>
-        `
+        // Player view - with challenge inputs
+        const popupContent = createPlayerPopupContent(controlPoint)
         marker.bindPopup(popupContent, {
           closeOnClick: false,
           autoClose: false,
@@ -646,18 +636,8 @@ export const useMap = () => {
           closeButton: true
         })
       } else {
-        // Player view - info only
-        const popupContent = `
-          <div class="control-point-info-popup">
-            <h4>${controlPoint.name || 'Punto de Control'}</h4>
-            <p class="team-info">
-              ${controlPoint.ownedByTeam ? `Equipo: ${controlPoint.ownedByTeam.toUpperCase()}` : 'Sin equipo asignado'}
-            </p>
-            ${controlPoint.hasPositionChallenge ? '<p class="challenge-info position">Desafío de Posición</p>' : ''}
-            ${controlPoint.hasCodeChallenge ? '<p class="challenge-info code">Desafío de Código</p>' : ''}
-            ${controlPoint.hasBombChallenge ? '<p class="challenge-info bomb">Desafío de Bomba</p>' : ''}
-          </div>
-        `
+        // Player view - with challenge inputs
+        const popupContent = createPlayerPopupContent(controlPoint)
         marker.bindPopup(popupContent, {
           closeOnClick: false,
           autoClose: false,
