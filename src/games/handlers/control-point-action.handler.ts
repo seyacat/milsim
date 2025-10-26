@@ -34,9 +34,8 @@ export class ControlPointActionHandler {
     });
 
     // Send the control point data to all clients (without codes)
-    this.broadcastUtilitiesHandler.broadcastGameAction(
+    this.broadcastUtilitiesHandler.broadcastControlPointCreated(
       gameId,
-      'controlPointCreated',
       { controlPoint: newControlPoint },
       server,
       client.id,
@@ -46,9 +45,8 @@ export class ControlPointActionHandler {
     if (user) {
       const game = await this.gamesService.findOne(gameId, user.id);
       if (game.owner && game.owner.id === user.id) {
-        this.broadcastUtilitiesHandler.broadcastGameAction(
+        this.broadcastUtilitiesHandler.broadcastControlPointCreated(
           gameId,
-          'controlPointCreated',
           { controlPoint: newControlPoint }, // Full data with codes
           server,
           client.id,
@@ -88,9 +86,8 @@ export class ControlPointActionHandler {
       const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
       // Send the control point data to all clients (without codes)
-      this.broadcastUtilitiesHandler.broadcastGameAction(
+      this.broadcastUtilitiesHandler.broadcastControlPointUpdated(
         gameId,
-        'controlPointUpdated',
         { controlPoint: updatedControlPoint },
         server,
         client.id,
@@ -100,9 +97,8 @@ export class ControlPointActionHandler {
       if (user) {
         const game = await this.gamesService.findOne(gameId, user.id);
         if (game.owner && game.owner.id === user.id) {
-          this.broadcastUtilitiesHandler.broadcastGameAction(
+          this.broadcastUtilitiesHandler.broadcastControlPointUpdated(
             gameId,
-            'controlPointUpdated',
             { controlPoint: updatedControlPoint }, // Full data with codes
             server,
             client.id,
@@ -133,9 +129,8 @@ export class ControlPointActionHandler {
       const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
       // Send the control point data to all clients (without codes)
-      this.broadcastUtilitiesHandler.broadcastGameAction(
+      this.broadcastUtilitiesHandler.broadcastControlPointUpdated(
         gameId,
-        'controlPointUpdated',
         { controlPoint: updatedControlPoint },
         server,
         client.id,
@@ -145,9 +140,8 @@ export class ControlPointActionHandler {
       if (user) {
         const game = await this.gamesService.findOne(gameId, user.id);
         if (game.owner && game.owner.id === user.id) {
-          this.broadcastUtilitiesHandler.broadcastGameAction(
+          this.broadcastUtilitiesHandler.broadcastControlPointUpdated(
             gameId,
-            'controlPointUpdated',
             { controlPoint: updatedControlPoint }, // Full data with codes
             server,
             client.id,
@@ -166,10 +160,9 @@ export class ControlPointActionHandler {
     await this.gamesService.deleteControlPoint(data.controlPointId);
 
     // Broadcast the deletion to all clients using normalized function
-    this.broadcastUtilitiesHandler.broadcastGameAction(
+    this.broadcastUtilitiesHandler.broadcastControlPointDeleted(
       gameId,
-      'controlPointDeleted',
-      { controlPointId: data.controlPointId },
+      data.controlPointId,
       server,
       client.id,
     );
@@ -202,9 +195,8 @@ export class ControlPointActionHandler {
         }
 
         // Send the control point data to all clients (without codes)
-        this.broadcastUtilitiesHandler.broadcastGameAction(
+        this.broadcastUtilitiesHandler.broadcastControlPointTaken(
           gameId,
-          'controlPointTaken',
           {
             controlPointId: data.controlPointId,
             userId: user.id,
@@ -219,9 +211,8 @@ export class ControlPointActionHandler {
         // Send the full control point data (with codes) only to the owner
         const game = await this.gamesService.findOne(gameId, user.id);
         if (game.owner && game.owner.id === user.id) {
-          this.broadcastUtilitiesHandler.broadcastGameAction(
+          this.broadcastUtilitiesHandler.broadcastControlPointTaken(
             gameId,
-            'controlPointTaken',
             {
               controlPointId: data.controlPointId,
               userId: user.id,
@@ -276,9 +267,8 @@ export class ControlPointActionHandler {
         const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
         // Send the control point data to all clients (without codes)
-        this.broadcastUtilitiesHandler.broadcastGameAction(
+        this.broadcastUtilitiesHandler.broadcastControlPointTeamAssigned(
           gameId,
-          'controlPointTeamAssigned',
           {
             controlPointId: data.controlPointId,
             team: data.team,
@@ -289,9 +279,8 @@ export class ControlPointActionHandler {
         );
 
         // Send the full control point data (with codes) only to the owner using normalized function
-        this.broadcastUtilitiesHandler.broadcastGameAction(
+        this.broadcastUtilitiesHandler.broadcastControlPointTeamAssigned(
           gameId,
-          'controlPointTeamAssigned',
           {
             controlPointId: data.controlPointId,
             team: data.team,

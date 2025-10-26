@@ -51,6 +51,7 @@
         @resume-game="resumeGame"
       />
 
+
       <!-- Team Selection (Only for Players in stopped state) -->
       <TeamSelection
         v-if="!isOwner && showTeamSelection && currentGame?.status === 'stopped' && currentUser && socketRef"
@@ -149,7 +150,14 @@ const {
   handleToggleChallenge,
   handleUpdateChallenge,
   handleActivateBomb,
-  handleDeactivateBomb
+  handleDeactivateBomb,
+  onControlPointCreated: onControlPointCreatedFromComposable,
+  onControlPointUpdated: onControlPointUpdatedFromComposable,
+  onControlPointDeleted: onControlPointDeletedFromComposable,
+  onControlPointTeamAssigned: onControlPointTeamAssignedFromComposable,
+  onControlPointTaken: onControlPointTakenFromComposable,
+  onBombActivated: onBombActivatedFromComposable,
+  onBombDeactivated: onBombDeactivatedFromComposable
 } = useControlPoints()
 
 const {
@@ -450,14 +458,43 @@ const handleDeactivateBombWrapper = (controlPointId: number) => {
 // WebSocket callbacks
 const onGameUpdate = (game: Game) => {
   const previousStatus = currentGame.value?.status
-  currentGame.value = game
+  console.log('[GAME_UPDATE] Received game update:', {
+    previousStatus,
+    newStatus: game.status,
+    gameId: game.id,
+    instanceId: game.instanceId
+  })
+  
+  // Force update the game state to ensure reactivity
+  currentGame.value = { ...game }
   handleGameStateChange(game)
   
   // Handle local timer based on game status
   if (game.status === 'running') {
+    console.log('[GAME_UPDATE] Starting local timer for running game')
     startLocalTimer()
   } else {
+    console.log('[GAME_UPDATE] Stopping local timer for non-running game, status:', game.status)
     stopLocalTimer()
+  }
+  
+  // Force UI update for player controls to ensure pause state is respected
+  // This is especially important after restart to ensure the player respects pause state
+  if (!isOwner.value && game.status === 'paused') {
+    console.log('[GAME_UPDATE] Player detected pause state, forcing UI update')
+    // Force reactivity by reassigning the object
+    currentGame.value = { ...currentGame.value }
+    
+    // Additional check: ensure the timer is stopped when game is paused
+    stopLocalTimer()
+    
+    // Force a small delay to ensure Vue reactivity updates the UI
+    setTimeout(() => {
+      if (currentGame.value && currentGame.value.status === 'paused') {
+        console.log('[GAME_UPDATE] Confirming pause state is still active after delay')
+        currentGame.value = { ...currentGame.value }
+      }
+    }, 100)
   }
   
   // Always render control points when game state changes to ensure markers are properly restored
@@ -799,6 +836,7 @@ onMounted(async () => {
       },
       // Add direct listener for playerTeamUpdated events
       onGameAction: (data: any) => {
+        console.log('GameOwner - Game action received:', data.action, data)
         if (data.action === 'playerTeamUpdated' && data.data) {
           console.log('GameOwner - Direct gameAction playerTeamUpdated received:', data.data)
         }
@@ -808,7 +846,13 @@ onMounted(async () => {
         console.log('GameOwner - Direct playerTeamUpdated event received:', data)
         // This callback is handled by usePlayerMarkers composable
         // No need to duplicate the logic here
-      }
+      },
+      // Handle control point taken events
+      onControlPointTaken: onControlPointTakenFromComposable,
+      // Handle bomb activated events
+      onBombActivated: onBombActivatedFromComposable,
+      // Handle bomb deactivated events
+      onBombDeactivated: onBombDeactivatedFromComposable
     })
 
     // Initialize map after component is mounted and data is loaded
@@ -879,15 +923,26 @@ onMounted(async () => {
   }
 })
 
-// Connection health check
+// Connection health check with enhanced reconnection logic
 const startConnectionHealthCheck = () => {
   stopConnectionHealthCheck()
   connectionHealthInterval.value = setInterval(() => {
     if (socketRef.value && !socketRef.value.connected) {
       console.log('Connection health check: WebSocket disconnected, attempting to reconnect...')
-      checkConnection()
+      
+      // Force a full reconnection instead of just checking
+      forceReconnect()
+      
+      // Also try to refresh the game state after reconnection
+      setTimeout(() => {
+        if (socketRef.value?.connected && currentGame.value) {
+          console.log('Connection health check: Requesting fresh game state after reconnection')
+          // Request fresh game state to ensure synchronization
+          socketRef.value.emit('getGameState', { gameId: currentGame.value.id })
+        }
+      }, 2000)
     }
-  }, 10000) // Check every 10 seconds
+  }, 15000) // Check every 15 seconds
 }
 
 const stopConnectionHealthCheck = () => {
@@ -938,6 +993,7 @@ onUnmounted(() => {
   
   console.log('GameOwner - cleanup completed')
 })
+
 </script>
 
 <style scoped>
@@ -978,4 +1034,5 @@ onUnmounted(() => {
   padding: 20px;
 }
 </style>
+
 

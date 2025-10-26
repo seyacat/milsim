@@ -11,15 +11,15 @@ interface UsePlayerMarkersProps {
 }
 
 export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: UsePlayerMarkersProps) => {
-  console.log('usePlayerMarkers - Initializing with isOwner:', isOwner, 'currentUser:', currentUser.value?.id)
   
   const playerMarkers = ref<Map<number, L.Marker>>(new Map())
   const playerMarkersRef = ref<Map<number, L.Marker>>(new Map())
 
   // Create player marker icon
-  const createPlayerMarkerIcon = (team: TeamColor) => {
+  const createPlayerMarkerIcon = (team: TeamColor, isCurrentUser: boolean = false) => {
+    const className = isCurrentUser ? `player-marker current-user ${team}` : `player-marker ${team}`
     return L.divIcon({
-      className: `player-marker ${team}`,
+      className,
       html: '', // Empty HTML - CSS handles the display
       iconSize: [24, 24],
       iconAnchor: [12, 12]
@@ -101,7 +101,8 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       // Create new marker if it doesn't exist
       const targetIsOwner = game.value.owner && userId === game.value.owner.id
       const team = targetPlayer?.team || 'none'
-      const icon = createPlayerMarkerIcon(team)
+      const isCurrentUser = userId === currentUser.value?.id
+      const icon = createPlayerMarkerIcon(team, isCurrentUser)
       
       marker = L.marker([lat, lng], { icon }).addTo(map.value)
       playerMarkersRef.value.set(userId, marker)
@@ -162,7 +163,8 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     const marker = playerMarkersRef.value.get(userId)
     if (marker) {
       // Update the existing marker's icon instead of recreating it
-      const newIcon = createPlayerMarkerIcon(team)
+      const isCurrentUser = userId === currentUser.value?.id
+      const newIcon = createPlayerMarkerIcon(team, isCurrentUser)
       marker.setIcon(newIcon)
       
       // Update popup with current info
@@ -239,13 +241,10 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
 
     // Handle player team updates
     const handlePlayerTeamUpdated = (data: any) => {
-      console.log('usePlayerMarkers - handlePlayerTeamUpdated called with:', data)
       if (data.action === 'playerTeamUpdated' && data.data) {
         const { playerId, team, userId } = data.data
-        console.log('usePlayerMarkers - Parsed playerTeamUpdated data:', { playerId, team, userId, currentUserId: currentUser.value?.id })
         
         if (playerId && team) {
-          console.log('usePlayerMarkers - Updating player marker:', { playerId, team, userId })
           
           // Update the player marker for the target player
           updatePlayerMarkerTeam(playerId, team)
@@ -257,16 +256,13 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     
     // Add direct listener for playerTeamUpdated events (in case they come through different channels)
     const handleDirectPlayerTeamUpdated = (data: any) => {
-      console.log('usePlayerMarkers - Received direct playerTeamUpdated event:', data)
       if (data && data.playerId && data.team && data.userId) {
-        console.log('usePlayerMarkers - Direct event - Updating player marker:', { playerId: data.playerId, team: data.team, userId: data.userId })
         
         // Update the player marker for the target player
         updatePlayerMarkerTeam(data.playerId, data.team)
         
         // If this is the current user's team change, show toast
         if (data.userId === currentUser.value?.id) {
-          console.log('usePlayerMarkers - Direct event - This is current user, showing toast')
           
           // Show toast for current user team change
           const teamNames: Record<string, string> = {
@@ -286,82 +282,82 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       }
     }
     
-    // Add handler for gameAction events that contain playerTeamUpdated
-    const handleGameActionWithPlayerTeamUpdated = (data: any) => {
-      console.log('usePlayerMarkers - handleGameActionWithPlayerTeamUpdated called with:', data)
-      if (data && data.action === 'playerTeamUpdated' && data.data) {
-        console.log('usePlayerMarkers - Processing playerTeamUpdated from gameAction')
-        handleDirectPlayerTeamUpdated(data.data)
-      }
-    }
-    
     // Enhanced direct playerTeamUpdated handler with more detailed logging
     const enhancedHandleDirectPlayerTeamUpdated = (data: any) => {
-      console.log('usePlayerMarkers - ENHANCED: Received direct playerTeamUpdated event:', data)
-      console.log('usePlayerMarkers - ENHANCED: Current user ID:', currentUser.value?.id)
       handleDirectPlayerTeamUpdated(data)
     }
     
-    // Single handler for all gameAction events
-    const handleAllGameActions = (data: any) => {
-      console.log('usePlayerMarkers - handleAllGameActions called with action:', data?.action, data)
-      
+    // Listen for specific events directly
+    newSocket.on('positionUpdate', (data: any) => {
+      if (data && data.userId && data.lat && data.lng) {
+        updatePlayerMarker(data)
+      }
+    })
+
+    newSocket.on('playerPositionsResponse', (data: any) => {
+      if (data && data.positions) {
+        data.positions.forEach((position: any) => {
+          updatePlayerMarker(position)
+        })
+      }
+    })
+
+    newSocket.on('playerInactive', (data: any) => {
+      if (data && data.userId) {
+        removePlayerMarker(data.userId)
+      }
+    })
+
+    newSocket.on('playerTeamUpdated', enhancedHandleDirectPlayerTeamUpdated)
+    newSocket.on('gameUpdate', handleGameUpdate)
+
+    // DEPRECATED: Keep gameAction listener for backward compatibility
+    // This should be removed once all events are migrated to specific types
+    newSocket.on('gameAction', (data: any) => {
       // Handle position updates
       if (data.action === 'positionUpdate' && data.data) {
-        handlePositionUpdate(data)
+        updatePlayerMarker(data.data)
       }
       
       // Handle player positions response
       if (data.action === 'playerPositionsResponse' && data.data.positions) {
-        handlePlayerPositionsResponse(data)
+        data.data.positions.forEach((position: any) => {
+          updatePlayerMarker(position)
+        })
       }
       
       // Handle player inactive
-      if (data.action === 'playerInactive') {
-        handlePlayerInactive(data)
+      if (data.action === 'playerInactive' && data.data) {
+        removePlayerMarker(data.data.userId)
       }
       
       // Handle player team updates
       if (data.action === 'playerTeamUpdated' && data.data) {
-        console.log('usePlayerMarkers - handleAllGameActions: Processing playerTeamUpdated', data)
         handleDirectPlayerTeamUpdated(data.data)
       }
-    }
-
-    // Use single handler for all gameAction events
-    newSocket.on('gameAction', handleAllGameActions)
-    newSocket.on('gameUpdate', handleGameUpdate)
-    // Keep direct listeners as backup - use enhanced handler
-    newSocket.on('playerTeamUpdated', enhancedHandleDirectPlayerTeamUpdated)
-    
-    // Debug: log all gameAction events to see if playerTeamUpdated is arriving
-    newSocket.on('gameAction', (data: any) => {
-      if (data.action === 'playerTeamUpdated') {
-        console.log('usePlayerMarkers - DEBUG: Received playerTeamUpdated event via gameAction:', data)
-      }
-    })
-    
-    // Debug: log direct playerTeamUpdated events
-    newSocket.on('playerTeamUpdated', (data: any) => {
-      console.log('usePlayerMarkers - DEBUG: Received direct playerTeamUpdated event:', data)
     })
     
     // Debug: log ALL socket events to see what's arriving
     newSocket.onAny((eventName: string, ...args: any[]) => {
-      if (eventName === 'gameAction' || eventName === 'playerTeamUpdated') {
+      if (eventName === 'gameAction' || eventName === 'playerTeamUpdated' || eventName === 'positionUpdate' ||
+          eventName === 'playerPositionsResponse' || eventName === 'playerInactive' ||
+          eventName === 'gameStateChanged' || eventName === 'teamCountUpdated' ||
+          eventName === 'timeAdded' || eventName === 'gameTimeUpdated') {
         console.log('usePlayerMarkers - DEBUG: Received socket event:', eventName, args)
       }
     })
     
     // Debug: log when socket listeners are set up
-    console.log('usePlayerMarkers - Socket listeners set up for playerTeamUpdated events')
 
     // Clean up socket listeners when composable is destroyed
     onCleanup(() => {
       if (newSocket) {
-        newSocket.off('gameAction', handleAllGameActions)
+        newSocket.off('gameAction')
         newSocket.off('gameUpdate', handleGameUpdate)
-        newSocket.off('playerTeamUpdated', handleDirectPlayerTeamUpdated)
+        newSocket.off('playerTeamUpdated', enhancedHandleDirectPlayerTeamUpdated)
+        newSocket.off('positionUpdate')
+        newSocket.off('playerPositionsResponse')
+        newSocket.off('playerInactive')
       }
     })
     
@@ -407,12 +403,28 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     }
   }
 
+  // Clear all player markers (for game restart)
+  const clearAllPlayerMarkers = () => {
+    if (!map.value) return
+    
+    playerMarkersRef.value.forEach((marker, userId) => {
+      if (marker) {
+        map.value!.removeLayer(marker as unknown as L.Layer)
+      }
+    })
+    playerMarkersRef.value.clear()
+    
+    // Update state to reflect cleared markers
+    playerMarkers.value = new Map()
+  }
+
   return {
     playerMarkers: playerMarkersRef,
     updatePlayerMarkers,
     updatePlayerMarker,
     updatePlayerMarkerTeam,
     updatePlayerMarkerTeamByUserId,
-    removePlayerMarker
+    removePlayerMarker,
+    clearAllPlayerMarkers
   }
 }

@@ -6,6 +6,35 @@ export const useControlPoints = () => {
   const showControlPointMenu = ref(false)
   const controlPointMenuPosition = ref({ lat: 0, lng: 0 })
 
+  // Callbacks for specific WebSocket events
+  const onControlPointCreated = (controlPoint: any) => {
+    console.log('Control point created:', controlPoint)
+  }
+
+  const onControlPointUpdated = (controlPoint: any) => {
+    console.log('Control point updated:', controlPoint)
+  }
+
+  const onControlPointDeleted = (controlPointId: number) => {
+    console.log('Control point deleted:', controlPointId)
+  }
+
+  const onControlPointTeamAssigned = (data: any) => {
+    console.log('Control point team assigned:', data)
+  }
+
+  const onControlPointTaken = (data: any) => {
+    console.log('Control point taken:', data)
+  }
+
+  const onBombActivated = (data: any) => {
+    console.log('Bomb activated:', data)
+  }
+
+  const onBombDeactivated = (data: any) => {
+    console.log('Bomb deactivated:', data)
+  }
+
   const createControlPoint = (
     socketRef: any,
     currentGame: any,
@@ -308,6 +337,14 @@ export const useControlPoints = () => {
     handleToggleChallenge,
     handleUpdateChallenge,
     handleActivateBomb,
-    handleDeactivateBomb
+    handleDeactivateBomb,
+    // Callbacks for specific WebSocket events
+    onControlPointCreated,
+    onControlPointUpdated,
+    onControlPointDeleted,
+    onControlPointTeamAssigned,
+    onControlPointTaken,
+    onBombActivated,
+    onBombDeactivated
   }
 }

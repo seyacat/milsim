@@ -25,46 +25,29 @@ export class GameStateHandler {
 
         // If playerId is not provided, find or create the player by userId
         if (!playerId) {
-          console.log(`[GAME_STATE_HANDLER] Finding player by userId: ${targetUserId} in game: ${gameId}`);
           const players = await this.gamesService.getPlayersByGame(gameId);
-          console.log(`[GAME_STATE_HANDLER] Found ${players.length} players in game`);
           const player = players.find(p => p.user.id === targetUserId);
           if (player) {
             playerId = player.id;
-            console.log(`[GAME_STATE_HANDLER] Found existing player: ${playerId} for user: ${targetUserId}`);
           } else {
             // Player not found in current game instance, create a new player entry
-            console.log(`[GAME_STATE_HANDLER] Player not found, creating new player for user: ${targetUserId}`);
             const newPlayer = await this.gamesService.joinGame(gameId, targetUserId);
             playerId = newPlayer.id;
-            console.log(`[GAME_STATE_HANDLER] Created new player: ${playerId} for user: ${targetUserId}`);
           }
         }
 
         const updatedPlayer = await this.gamesService.updatePlayerTeam(playerId, data.team);
-        console.log(`[GAME_STATE_HANDLER] Player team updated: playerId=${playerId}, team=${data.team}, userId=${updatedPlayer.user.id}`);
 
-        // Broadcast the team update to all clients using direct playerTeamUpdated event
-        console.log(`[GAME_STATE_HANDLER] Broadcasting playerTeamUpdated event for game ${gameId}`);
-        console.log(`[GAME_STATE_HANDLER] Event data:`, {
-          playerId: playerId,
-          userId: updatedPlayer.user.id,
-          userName: updatedPlayer.user.name,
-          team: data.team,
-        });
-        
-        // Send as direct playerTeamUpdated event (no duplicate gameAction)
-        const directEventData = {
-          playerId: playerId,
-          userId: updatedPlayer.user.id,
-          userName: updatedPlayer.user.name,
-          team: data.team,
-          timestamp: new Date().toISOString(),
-        };
-        
-        console.log(`[GAME_STATE_HANDLER] Broadcasting direct playerTeamUpdated event to game ${gameId}`);
-        server.to(`game_${gameId}`).emit('playerTeamUpdated', directEventData);
-        console.log(`[GAME_STATE_HANDLER] playerTeamUpdated event broadcasted successfully`);
+        // Broadcast the team update to all clients using specific event
+        this.broadcastUtilities.broadcastPlayerTeamUpdated(
+          gameId,
+          playerId,
+          updatedPlayer.user.id,
+          data.team,
+          updatedPlayer.user.name,
+          server,
+          client.id,
+        );
 
         // Recalculate position challenge data internally when teams change
         // This ensures the internal state is updated but doesn't force frontend notifications
@@ -90,10 +73,9 @@ export class GameStateHandler {
     if (user) {
       try {
         const startedGame = await this.gamesService.startGame(gameId, user.id);
-        this.broadcastUtilities.broadcastGameAction(
+        this.broadcastUtilities.broadcastGameStateChange(
           gameId,
-          'gameStateChanged',
-          { game: startedGame },
+          startedGame,
           server,
           client.id,
         );
@@ -121,10 +103,12 @@ export class GameStateHandler {
     if (user) {
       try {
         const pausedGame = await this.gamesService.pauseGame(gameId, user.id);
-        this.broadcastUtilities.broadcastGameAction(
+        
+        console.log(`[PAUSE_GAME] Game ${gameId} paused by user ${user.id}, broadcasting to all players`);
+        
+        this.broadcastUtilities.broadcastGameStateChange(
           gameId,
-          'gameStateChanged',
-          { game: pausedGame },
+          pausedGame,
           server,
           client.id,
         );
@@ -152,10 +136,9 @@ export class GameStateHandler {
     if (user) {
       try {
         const resumedGame = await this.gamesService.resumeGame(gameId, user.id);
-        this.broadcastUtilities.broadcastGameAction(
+        this.broadcastUtilities.broadcastGameStateChange(
           gameId,
-          'gameStateChanged',
-          { game: resumedGame },
+          resumedGame,
           server,
           client.id,
         );
@@ -183,10 +166,9 @@ export class GameStateHandler {
     if (user) {
       try {
         const endedGame = await this.gamesService.endGame(gameId, user.id);
-        this.broadcastUtilities.broadcastGameAction(
+        this.broadcastUtilities.broadcastGameStateChange(
           gameId,
-          'gameStateChanged',
-          { game: endedGame },
+          endedGame,
           server,
           client.id,
         );
@@ -213,10 +195,9 @@ export class GameStateHandler {
     if (user) {
       try {
         const restartedGame = await this.gamesService.restartGame(gameId, user.id);
-        this.broadcastUtilities.broadcastGameAction(
+        this.broadcastUtilities.broadcastGameStateChange(
           gameId,
-          'gameStateChanged',
-          { game: restartedGame },
+          restartedGame,
           server,
           client.id,
         );
@@ -244,10 +225,9 @@ export class GameStateHandler {
           data.teamCount,
           user.id,
         );
-        this.broadcastUtilities.broadcastGameAction(
+        this.broadcastUtilities.broadcastTeamCountUpdated(
           gameId,
-          'teamCountUpdated',
-          { game: updatedGame },
+          updatedGame,
           server,
           client.id,
         );
@@ -273,10 +253,9 @@ export class GameStateHandler {
         const game = await this.gamesService.findOne(gameId, user.id);
         if (game.owner && game.owner.id === user.id) {
           const updatedGame = await this.gamesService.addTime(gameId, data.seconds);
-          this.broadcastUtilities.broadcastGameAction(
+          this.broadcastUtilities.broadcastTimeAdded(
             gameId,
-            'timeAdded',
-            { game: updatedGame },
+            updatedGame,
             server,
             client.id,
           );
@@ -307,10 +286,9 @@ export class GameStateHandler {
             data.timeInSeconds,
             user.id,
           );
-          this.broadcastUtilities.broadcastGameAction(
+          this.broadcastUtilities.broadcastGameTimeUpdated(
             gameId,
-            'gameTimeUpdated',
-            { game: updatedGame },
+            updatedGame,
             server,
             client.id,
           );

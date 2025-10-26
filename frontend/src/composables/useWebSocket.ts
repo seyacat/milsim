@@ -32,16 +32,27 @@ const setupSocketListeners = (
     onControlPointTeamAssigned?: (data: any) => void
     onPlayerTeamUpdated?: (data: any) => void
     onGameAction?: (data: any) => void
+    onControlPointTaken?: (data: any) => void
+    onBombActivated?: (data: any) => void
+    onBombDeactivated?: (data: any) => void
   },
   addToast: any
 ) => {
   socket.on('connect', () => {
     globalIsConnecting = false
     globalReconnectAttempts = 0 // Reset reconnection attempts on successful connection
-    console.log('WebSocket connected successfully, joining game:', gameId)
+    
+    // Always rejoin the game when reconnecting to ensure we're in the right state
     socket.emit('joinGame', { gameId })
-    console.log('useWebSocket - joinGame event emitted for game:', gameId)
     addToast({ message: 'Conectado al servidor', type: 'success' })
+  })
+
+  // Handle reconnection events specifically
+  socket.on('reconnect', (attemptNumber) => {
+    
+    // Rejoin the game to ensure we're properly synchronized
+    socket.emit('joinGame', { gameId })
+    addToast({ message: 'Reconectado al servidor', type: 'success' })
   })
 
   socket.on('gameUpdate', (data: { game: Game; type?: string }) => {
@@ -57,10 +68,52 @@ const setupSocketListeners = (
     }
   })
 
-  // Note: gameAction events are now handled by individual composables (usePlayerMarkers, etc.)
-  // This listener is kept only for specific actions that need centralized handling
+  // Listen for specific game state change events
+  socket.on('gameStateChanged', (data: any) => {
+    if (data.game) {
+      console.log('[WEBSOCKET] Received gameStateChanged event:', {
+        gameId: data.game.id,
+        status: data.game.status,
+        from: data.from
+      })
+      callbacks.onGameUpdate(data.game)
+    }
+  })
+
+  // Listen for team count updated events
+  socket.on('teamCountUpdated', (data: any) => {
+    if (data.game) {
+      console.log('[WEBSOCKET] Received teamCountUpdated event:', {
+        gameId: data.game.id,
+        teamCount: data.game.teamCount
+      })
+      callbacks.onGameUpdate(data.game)
+    }
+  })
+
+  // Listen for time added events
+  socket.on('timeAdded', (data: any) => {
+    if (data.game) {
+      console.log('[WEBSOCKET] Received timeAdded event:', {
+        gameId: data.game.id
+      })
+      callbacks.onGameUpdate(data.game)
+    }
+  })
+
+  // Listen for game time updated events
+  socket.on('gameTimeUpdated', (data: any) => {
+    if (data.game) {
+      console.log('[WEBSOCKET] Received gameTimeUpdated event:', {
+        gameId: data.game.id
+      })
+      callbacks.onGameUpdate(data.game)
+    }
+  })
+
+  // DEPRECATED: Keep gameAction listener for backward compatibility
+  // This should be removed once all events are migrated to specific types
   socket.on('gameAction', (data: { action: string; data: any }) => {
-    console.log('useWebSocket - Received gameAction:', data.action, data)
     
     // Log specific info for playerTeamUpdated events
     if (data.action === 'playerTeamUpdated') {
@@ -69,6 +122,11 @@ const setupSocketListeners = (
     
     // Only handle specific actions that need centralized processing
     if (data.action === 'gameStateChanged' && data.data.game) {
+      console.log('[WEBSOCKET] Received gameStateChanged event via gameAction:', {
+        gameId: data.data.game.id,
+        status: data.data.game.status,
+        action: data.action
+      })
       callbacks.onGameUpdate(data.data.game)
     }
     
@@ -106,7 +164,6 @@ const setupSocketListeners = (
     // Attempt reconnection
     if (globalReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
       globalReconnectAttempts++
-      console.log(`Attempting reconnection ${globalReconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}...`)
       setTimeout(() => {
         if (socket.disconnected) {
           socket.connect()
@@ -119,7 +176,6 @@ const setupSocketListeners = (
   })
 
   socket.on('disconnect', (reason) => {
-    console.log('WebSocket disconnected:', reason)
     
     if (reason === 'io server disconnect' || reason === 'transport close') {
       addToast({ message: 'Conexión perdida con el servidor', type: 'error' })
@@ -128,7 +184,6 @@ const setupSocketListeners = (
       // Attempt reconnection for unexpected disconnections
       if (reason === 'transport close' && globalReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
         globalReconnectAttempts++
-        console.log(`Attempting reconnection after disconnect ${globalReconnectAttempts}/${MAX_RECONNECT_ATTEMPTS}...`)
         setTimeout(() => {
           if (socket.disconnected) {
             socket.connect()
@@ -210,12 +265,44 @@ const setupSocketListeners = (
 
   // Handle player team updates
   socket.on('playerTeamUpdated', (data: any) => {
-    console.log('useWebSocket - Received direct playerTeamUpdated event:', data)
     if (callbacks.onPlayerTeamUpdated) {
-      console.log('useWebSocket - Calling onPlayerTeamUpdated callback with data:', data)
       callbacks.onPlayerTeamUpdated(data)
     } else {
       console.log('useWebSocket - No onPlayerTeamUpdated callback registered')
+    }
+  })
+
+  // Handle control point taken events
+  socket.on('controlPointTaken', (data: any) => {
+    if (callbacks.onControlPointTaken) {
+      callbacks.onControlPointTaken(data)
+    } else {
+      console.log('useWebSocket - No onControlPointTaken callback registered')
+    }
+  })
+
+  // Handle bomb activated events
+  socket.on('bombActivated', (data: any) => {
+    if (callbacks.onBombActivated) {
+      callbacks.onBombActivated(data)
+    } else {
+      console.log('useWebSocket - No onBombActivated callback registered')
+    }
+  })
+
+  // Handle bomb deactivated events
+  socket.on('bombDeactivated', (data: any) => {
+    if (callbacks.onBombDeactivated) {
+      callbacks.onBombDeactivated(data)
+    } else {
+      console.log('useWebSocket - No onBombDeactivated callback registered')
+    }
+  })
+
+  // Handle position update events (direct position updates from players)
+  socket.on('positionUpdate', (data: any) => {
+    if (callbacks.onPlayerPosition) {
+      callbacks.onPlayerPosition(data)
     }
   })
 }
@@ -243,9 +330,23 @@ export const useWebSocket = () => {
       onControlPointTeamAssigned?: (data: any) => void
       onPlayerTeamUpdated?: (data: any) => void
       onGameAction?: (data: any) => void
+      onControlPointTaken?: (data: any) => void
+      onBombActivated?: (data: any) => void
+      onBombDeactivated?: (data: any) => void
     }
   ) => {
-    // Usar la conexión global si ya existe
+    // Clean up any existing connection that might be in a bad state
+    if (globalSocketRef && (!globalSocketRef.connected || globalSocketRef.disconnected)) {
+      try {
+        globalSocketRef.disconnect()
+      } catch (error) {
+        console.error('Error cleaning up old socket:', error)
+      }
+      globalSocketRef = null
+      connectionCount = 0
+    }
+
+    // Usar la conexión global si ya existe y está realmente connected
     if (globalSocketRef && globalSocketRef.connected) {
       socketRef.value = globalSocketRef
       connectionCount++
@@ -337,8 +438,12 @@ export const useWebSocket = () => {
 
   const checkConnection = () => {
     if (socketRef.value && !socketRef.value.connected) {
-      console.log('WebSocket not connected, attempting to reconnect...')
-      socketRef.value.connect()
+      try {
+        socketRef.value.connect()
+      } catch (error) {
+        console.error('Error during WebSocket reconnection:', error)
+        addToast({ message: 'Error al reconectar WebSocket', type: 'error' })
+      }
       return false
     }
     return socketRef.value?.connected || false
@@ -346,12 +451,32 @@ export const useWebSocket = () => {
 
   const forceReconnect = () => {
     if (socketRef.value) {
-      console.log('Forcing WebSocket reconnection...')
-      socketRef.value.disconnect()
-      setTimeout(() => {
-        socketRef.value?.connect()
-      }, 1000)
+      try {
+        socketRef.value.disconnect()
+        setTimeout(() => {
+          try {
+            socketRef.value?.connect()
+          } catch (error) {
+            console.error('Error during forced WebSocket reconnection:', error)
+            addToast({ message: 'Error al forzar reconexión WebSocket', type: 'error' })
+          }
+        }, 1000)
+      } catch (error) {
+        console.error('Error during WebSocket disconnection:', error)
+        addToast({ message: 'Error al desconectar WebSocket', type: 'error' })
+      }
     }
+  }
+
+  // Enhanced connection health check with automatic recovery
+  const startConnectionHealthCheck = () => {
+    const healthCheckInterval = setInterval(() => {
+      if (socketRef.value && !socketRef.value.connected) {
+        checkConnection()
+      }
+    }, 10000) // Check every 10 seconds
+
+    return () => clearInterval(healthCheckInterval)
   }
 
   onUnmounted(() => {

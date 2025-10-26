@@ -648,15 +648,9 @@ export class PositionChallengeService {
           }
 
           // Send control point taken event for position challenge
-          this.broadcastUtilitiesHandler.broadcastGameAction(
+          this.broadcastUtilitiesHandler.broadcastControlPointTaken(
             gameId,
-            'controlPointTaken',
-            {
-              controlPointId,
-              team: winningTeam,
-              controlPoint: updatedControlPoint,
-              positionChallenge: true, // Mark as position challenge control change
-            },
+            updatedControlPoint,
             this.gamesGateway.server,
             'server',
           );

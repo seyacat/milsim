@@ -405,7 +405,6 @@ export const useMap = () => {
     handlers: any = {}
   ) => {
     if (!mapInstance.value) {
-      console.log('Map instance not available for rendering control points')
       return
     }
 
@@ -512,7 +511,6 @@ export const useMap = () => {
   const updateControlPointMarker = async (controlPoint: ControlPoint, handlers: any = {}) => {
     const marker = controlPointMarkers.value.get(controlPoint.id)
     if (!marker || !mapInstance.value) {
-      console.log('Control point marker not found for update:', controlPoint.id)
       return
     }
 
@@ -634,7 +632,6 @@ export const useMap = () => {
         })
       }
       
-      console.log('Control point marker updated successfully:', controlPoint.id)
     } catch (error) {
       console.error('Error updating control point marker:', error)
     }

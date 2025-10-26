@@ -109,10 +109,8 @@ export class TimerManagementService {
               timer.remainingTime <= 0
             ) {
               // Time's up - end the game automatically (system action)
-              console.log(`[TIMER_MANAGEMENT] Time's up for game ${gameId}, ending game automatically`);
               this.gamesService.endGameAutomatically(gameId)
                 .then(() => {
-                  console.log(`[TIMER_MANAGEMENT] Game ${gameId} ended automatically due to time expiration`);
                 })
                 .catch(error => {
                   console.error(`[TIMER_MANAGEMENT] Error ending game ${gameId} automatically:`, error);

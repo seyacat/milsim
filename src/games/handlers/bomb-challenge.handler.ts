@@ -31,9 +31,8 @@ export class BombChallengeHandler {
         const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
         // Broadcast bomb activated action to all clients in the game room using normalized function
-        this.broadcastUtilitiesHandler.broadcastGameAction(
+        this.broadcastUtilitiesHandler.broadcastBombActivated(
           gameId,
-          'bombActivated',
           {
             controlPointId: data.controlPointId,
             userId: user.id,
@@ -49,9 +48,8 @@ export class BombChallengeHandler {
         // Send the full control point data (with codes) only to the owner
         const game = await this.gamesService.findOne(gameId, user.id);
         if (game.owner && game.owner.id === user.id) {
-          this.broadcastUtilitiesHandler.broadcastGameAction(
+          this.broadcastUtilitiesHandler.broadcastBombActivated(
             gameId,
-            'bombActivated',
             {
               controlPointId: data.controlPointId,
               userId: user.id,
@@ -96,9 +94,8 @@ export class BombChallengeHandler {
         const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
         // Broadcast bomb deactivated action to all clients in the game room using normalized function
-        this.broadcastUtilitiesHandler.broadcastGameAction(
+        this.broadcastUtilitiesHandler.broadcastBombDeactivated(
           gameId,
-          'bombDeactivated',
           {
             controlPointId: data.controlPointId,
             userId: user.id,
@@ -114,9 +111,8 @@ export class BombChallengeHandler {
         // Send the full control point data (with codes) only to the owner
         const game = await this.gamesService.findOne(gameId, user.id);
         if (game.owner && game.owner.id === user.id) {
-          this.broadcastUtilitiesHandler.broadcastGameAction(
+          this.broadcastUtilitiesHandler.broadcastBombDeactivated(
             gameId,
-            'bombDeactivated',
             {
               controlPointId: data.controlPointId,
               userId: user.id,
@@ -168,9 +164,8 @@ export class BombChallengeHandler {
         const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
         // Broadcast bomb activated action to all clients in the game room using normalized function
-        this.broadcastUtilitiesHandler.broadcastGameAction(
+        this.broadcastUtilitiesHandler.broadcastBombActivated(
           gameId,
-          'bombActivated',
           {
             controlPointId: data.controlPointId,
             userId: user.id,
@@ -185,9 +180,8 @@ export class BombChallengeHandler {
         // No need for additional controlPointUpdated broadcast
 
         // Send the full control point data (with codes) only to the owner using normalized function
-        this.broadcastUtilitiesHandler.broadcastGameAction(
+        this.broadcastUtilitiesHandler.broadcastBombActivated(
           gameId,
-          'bombActivated',
           {
             controlPointId: data.controlPointId,
             userId: user.id,
@@ -239,9 +233,8 @@ export class BombChallengeHandler {
         const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
         // Broadcast bomb deactivated action to all clients in the game room using normalized function
-        this.broadcastUtilitiesHandler.broadcastGameAction(
+        this.broadcastUtilitiesHandler.broadcastBombDeactivated(
           gameId,
-          'bombDeactivated',
           {
             controlPointId: data.controlPointId,
             userId: user.id,
@@ -256,9 +249,8 @@ export class BombChallengeHandler {
         // No need for additional controlPointUpdated broadcast
 
         // Send the full control point data (with codes) only to the owner using normalized function
-        this.broadcastUtilitiesHandler.broadcastGameAction(
+        this.broadcastUtilitiesHandler.broadcastBombDeactivated(
           gameId,
-          'bombDeactivated',
           {
             controlPointId: data.controlPointId,
             userId: user.id,

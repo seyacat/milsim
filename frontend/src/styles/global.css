@@ -368,6 +368,37 @@ body {
 }
 
 /* Current user marker - circle with black border, team color fill, and person emoji */
+.leaflet-marker-icon.player-marker.current-user::before {
+  border: 2px solid #000000 !important;
+}
+
+/* Team colors for current user markers with black border */
+.player-marker.current-user.blue::before {
+  background: rgba(52, 152, 219, 0.5) !important;
+  border: 2px solid #000000 !important;
+}
+
+.player-marker.current-user.red::before {
+  background: rgba(231, 76, 60, 0.5) !important;
+  border: 2px solid #000000 !important;
+}
+
+.player-marker.current-user.green::before {
+  background: rgba(39, 174, 96, 0.5) !important;
+  border: 2px solid #000000 !important;
+}
+
+.player-marker.current-user.yellow::before {
+  background: rgba(241, 196, 15, 0.5) !important;
+  border: 2px solid #000000 !important;
+}
+
+.player-marker.current-user.none::before {
+  background: rgba(149, 165, 166, 0.5) !important;
+  border: 2px solid #000000 !important;
+}
+
+/* Current user marker - circle with black border, team color fill, and person emoji */
 .leaflet-marker-icon.user-marker {
   background: transparent !important;
   border: none !important;

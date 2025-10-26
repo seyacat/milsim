@@ -244,6 +244,12 @@ export class GamesService {
       this.startPositionChallengeInterval(gameId);
     }
 
+    // Force broadcast game update to ensure all players receive the state change
+    // This is critical to ensure players respect pause state after restart
+    if (this.gamesGateway) {
+      this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
+    }
+
     return updatedGame;
   }
 
@@ -285,6 +291,12 @@ export class GamesService {
     // Force broadcast time update on pause
     this.timerManagementService.forceTimeBroadcast(gameId);
 
+    // Force broadcast game update to ensure all players receive the state change
+    // This is critical to ensure players respect pause state after restart
+    if (this.gamesGateway) {
+      this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
+    }
+
     return updatedGame;
   }
 
@@ -325,6 +337,12 @@ export class GamesService {
 
     // Force broadcast time update on resume
     this.timerManagementService.forceTimeBroadcast(gameId);
+
+    // Force broadcast game update to ensure all players receive the state change
+    // This is critical to ensure players respect pause state after restart
+    if (this.gamesGateway) {
+      this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
+    }
 
     return updatedGame;
   }
@@ -405,6 +423,14 @@ export class GamesService {
       restartedBy: userId,
       timestamp: new Date(),
     });
+
+    console.log(`[RESTART_GAME] Game ${gameId} restarted, new instanceId: ${gameInstance.id}, status: stopped`);
+
+    // Force broadcast game update to ensure all players receive the state change
+    // This is critical to ensure players respect pause state after restart
+    if (this.gamesGateway) {
+      this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
+    }
 
     return updatedGame;
   }

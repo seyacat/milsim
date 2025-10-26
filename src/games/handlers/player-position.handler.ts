@@ -28,9 +28,8 @@ export class PlayerPositionHandler {
       });
 
       // Broadcast position update to all clients in the game using normalized function
-      this.broadcastUtilities.broadcastGameAction(
+      this.broadcastUtilities.broadcastPositionUpdate(
         gameId,
-        'positionUpdate',
         {
           userId: user.id,
           userName: user.name,
@@ -107,10 +106,9 @@ export class PlayerPositionHandler {
         }
 
         // Send positions back to the requesting owner using normalized function
-        this.broadcastUtilities.broadcastGameAction(
+        this.broadcastUtilities.broadcastPlayerPositionsResponse(
           gameId,
-          'playerPositionsResponse',
-          { positions },
+          positions,
           server,
           client.id,
         );
@@ -134,13 +132,9 @@ export class PlayerPositionHandler {
       
       if (timeSinceLastUpdate > inactiveThreshold) {
         // Player is inactive, notify all clients in the game using normalized function
-        this.broadcastUtilities.broadcastGameAction(
+        this.broadcastUtilities.broadcastPlayerInactive(
           gameId,
-          'playerInactive',
-          {
-            userId: userId,
-            inactiveSince: position.lastUpdate,
-          },
+          userId,
           server,
           'server',
         );

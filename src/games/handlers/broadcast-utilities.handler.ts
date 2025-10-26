@@ -1,176 +1,359 @@
 import { GamesService } from '../games.service';
+import {
+  GameStateChangedEvent,
+  TeamCountUpdatedEvent,
+  TimeAddedEvent,
+  GameTimeUpdatedEvent,
+  ControlPointCreatedEvent,
+  ControlPointUpdatedEvent,
+  ControlPointDeletedEvent,
+  ControlPointTeamAssignedEvent,
+  ControlPointTakenEvent,
+  PlayerTeamUpdatedEvent,
+  PositionUpdateEvent,
+  PlayerPositionsResponseEvent,
+  PlayerInactiveEvent,
+  GameTimeEvent,
+  TimeUpdateEvent,
+  ControlPointTimeUpdateEvent,
+  BombTimeUpdateEvent,
+  ActiveBombTimersEvent,
+  PositionChallengeUpdateEvent,
+  BombActivatedEvent,
+  BombDeactivatedEvent,
+  BaseWebSocketEvent
+} from '../types/websocket-events';
 
 export class BroadcastUtilitiesHandler {
   constructor(private readonly gamesService: GamesService) {}
 
   /**
-   * Normalized function to broadcast control point updates with complete information
+   * Broadcast game state changes as specific events
    */
-  async broadcastControlPointUpdate(
+  broadcastGameStateChange(
     gameId: number,
-    controlPoint: any,
-    action: string,
-    additionalData: any = {},
-    server: any,
-  ) {
-    try {
-      // Remove sensitive code data for non-owner clients
-      const { code, armedCode, disarmedCode, ...safeControlPoint } = controlPoint;
-
-      // Ensure coordinates are always present and properly formatted
-      // Use fallback values if coordinates are missing
-      const latitude = safeControlPoint.latitude ? parseFloat(safeControlPoint.latitude) : 0;
-      const longitude = safeControlPoint.longitude ? parseFloat(safeControlPoint.longitude) : 0;
-      
-      if (isNaN(latitude) || isNaN(longitude)) {
-        console.error(`[BROADCAST_CONTROL_POINT_UPDATE] Control point ${controlPoint.id} has invalid coordinates:`, {
-          originalLatitude: safeControlPoint.latitude,
-          originalLongitude: safeControlPoint.longitude,
-          parsedLatitude: latitude,
-          parsedLongitude: longitude,
-          controlPoint: safeControlPoint
-        });
-        throw new Error(`Control point ${controlPoint.id} has invalid coordinates`);
-      }
-
-      // Calculate bomb status for this control point
-      let bombStatus: any = null;
-      if (controlPoint.hasBombChallenge && controlPoint.game?.instanceId) {
-        const bombTimeData = await this.gamesService.getBombTime(controlPoint.id);
-        if (bombTimeData) {
-          bombStatus = {
-            isActive: bombTimeData.isActive,
-            remainingTime: bombTimeData.remainingTime,
-            totalTime: bombTimeData.totalTime,
-            activatedByUserId: bombTimeData.activatedByUserId,
-            activatedByUserName: bombTimeData.activatedByUserName,
-            activatedByTeam: bombTimeData.activatedByTeam,
-          };
-        }
-      }
-
-      // Create enhanced control point data with bomb status and validated coordinates
-      const enhancedControlPoint = {
-        ...safeControlPoint,
-        latitude,
-        longitude,
-        bombStatus,
-      };
-
-
-      // Broadcast to all clients (without codes)
-      const broadcastData = {
-        action,
-        data: {
-          ...additionalData,
-          controlPoint: enhancedControlPoint,
-        },
-        from: 'server',
-        timestamp: new Date().toISOString(),
-      };
-
-      server.to(`game_${gameId}`).emit('gameAction', broadcastData);
-
-      // If this control point has position challenge, send current position challenge data
-      if (safeControlPoint.hasPositionChallenge) {
-        await this.sendPositionChallengeUpdate(gameId, safeControlPoint.id, server);
-      }
-
-      return enhancedControlPoint;
-    } catch (error) {
-      console.error(`[BROADCAST_CONTROL_POINT_UPDATE] Error broadcasting control point update:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * Send position challenge update for a specific control point
-   */
-  private sendPositionChallengeUpdate(gameId: number, controlPointId: number, server: any) {
-    // This method would need access to positionChallengeService
-    // For now, we'll leave this as a placeholder that can be implemented later
-    // The actual implementation should be in ControlPointActionHandler
-  }
-
-  // Method to broadcast game updates to all connected clients in a game
-  broadcastGameUpdate(gameId: number, game: any, server: any) {
-    server.to(`game_${gameId}`).emit('gameUpdate', {
-      type: 'gameUpdated',
-      game,
-      timestamp: new Date().toISOString(),
-    });
-  }
-
-  /**
-   * Normalized function to broadcast game actions with consistent structure
-   */
-  broadcastGameAction(
-    gameId: number,
-    action: string,
-    data: any,
+    game: any,
     server: any,
     from: string = 'server',
-  ) {
-    const broadcastData = {
-      action,
-      data,
+  ): void {
+    const eventData: GameStateChangedEvent = {
+      game,
       from,
       timestamp: new Date().toISOString(),
     };
 
-    console.log(`[BROADCAST_UTILITIES] Broadcasting gameAction: action=${action}, gameId=${gameId}, data=`, data);
-    console.log(`[BROADCAST_UTILITIES] Broadcasting to room: game_${gameId}`);
-    
-    // Get the room and check how many clients are in it
-    const room = server.sockets.adapter.rooms.get(`game_${gameId}`);
-    const clientCount = room ? room.size : 0;
-    console.log(`[BROADCAST_UTILITIES] Room game_${gameId} has ${clientCount} clients`);
-    
-    server.to(`game_${gameId}`).emit('gameAction', broadcastData);
-    console.log(`[BROADCAST_UTILITIES] gameAction broadcasted successfully`);
+    server.to(`game_${gameId}`).emit('gameStateChanged', eventData);
   }
 
   /**
-   * Normalized function to broadcast time updates with consistent structure
+   * Broadcast team count updates as specific events
+   */
+  broadcastTeamCountUpdated(
+    gameId: number,
+    game: any,
+    server: any,
+    from: string = 'server',
+  ): void {
+    const eventData: TeamCountUpdatedEvent = {
+      game,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('teamCountUpdated', eventData);
+  }
+
+  /**
+   * Broadcast time added events as specific events
+   */
+  broadcastTimeAdded(
+    gameId: number,
+    game: any,
+    server: any,
+    from: string = 'server',
+  ): void {
+    const eventData: TimeAddedEvent = {
+      game,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('timeAdded', eventData);
+  }
+
+  /**
+   * Broadcast game time updates as specific events
+   */
+  broadcastGameTimeUpdated(
+    gameId: number,
+    game: any,
+    server: any,
+    from: string = 'server',
+  ): void {
+    const eventData: GameTimeUpdatedEvent = {
+      game,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('gameTimeUpdated', eventData);
+  }
+
+  /**
+   * Broadcast control point created events
+   */
+  broadcastControlPointCreated(
+    gameId: number,
+    controlPoint: any,
+    server: any,
+    from: string = 'server',
+  ): void {
+    const eventData: ControlPointCreatedEvent = {
+      controlPoint,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('controlPointCreated', eventData);
+  }
+
+  /**
+   * Broadcast control point updated events
+   */
+  broadcastControlPointUpdated(
+    gameId: number,
+    controlPoint: any,
+    server: any,
+    from: string = 'server',
+  ): void {
+    const eventData: ControlPointUpdatedEvent = {
+      controlPoint,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('controlPointUpdated', eventData);
+  }
+
+  /**
+   * Broadcast control point deleted events
+   */
+  broadcastControlPointDeleted(
+    gameId: number,
+    controlPointId: number,
+    server: any,
+    from: string = 'server',
+  ): void {
+    const eventData: ControlPointDeletedEvent = {
+      controlPointId,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('controlPointDeleted', eventData);
+  }
+
+  /**
+   * Broadcast control point team assigned events
+   */
+  broadcastControlPointTeamAssigned(
+    gameId: number,
+    controlPoint: any,
+    server: any,
+    from: string = 'server',
+  ): void {
+    const eventData: ControlPointTeamAssignedEvent = {
+      controlPoint,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('controlPointTeamAssigned', eventData);
+  }
+
+  /**
+   * Broadcast control point taken events
+   */
+  broadcastControlPointTaken(
+    gameId: number,
+    controlPoint: any,
+    server: any,
+    from: string = 'server',
+  ): void {
+    const eventData: ControlPointTakenEvent = {
+      controlPoint,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('controlPointTaken', eventData);
+  }
+
+  /**
+   * Broadcast player team updated events
+   */
+  broadcastPlayerTeamUpdated(
+    gameId: number,
+    playerId: number,
+    userId: number,
+    team: string,
+    userName?: string,
+    server?: any,
+    from: string = 'server',
+  ): void {
+    const eventData: PlayerTeamUpdatedEvent = {
+      playerId,
+      userId,
+      team,
+      userName,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    if (server) {
+      server.to(`game_${gameId}`).emit('playerTeamUpdated', eventData);
+    }
+  }
+
+  /**
+   * Broadcast position update events
+   */
+  broadcastPositionUpdate(
+    gameId: number,
+    positionData: {
+      userId: number;
+      userName: string;
+      lat: number;
+      lng: number;
+      accuracy: number;
+    },
+    server: any,
+    from: string = 'server',
+  ): void {
+    const eventData: PositionUpdateEvent = {
+      ...positionData,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('positionUpdate', eventData);
+  }
+
+  /**
+   * Broadcast player positions response events
+   */
+  broadcastPlayerPositionsResponse(
+    gameId: number,
+    positions: Array<{
+      userId: number;
+      userName: string;
+      lat: number;
+      lng: number;
+      accuracy: number;
+    }>,
+    server: any,
+    from: string = 'server',
+  ): void {
+    const eventData: PlayerPositionsResponseEvent = {
+      positions,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('playerPositionsResponse', eventData);
+  }
+
+  /**
+   * Broadcast player inactive events
+   */
+  broadcastPlayerInactive(
+    gameId: number,
+    userId: number,
+    server: any,
+    from: string = 'server',
+  ): void {
+    const eventData: PlayerInactiveEvent = {
+      userId,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('playerInactive', eventData);
+  }
+
+  /**
+   * Broadcast game time events
+   */
+  broadcastGameTime(
+    gameId: number,
+    timeData: {
+      remainingTime: number | null;
+      totalTime: number | null;
+      playedTime: number;
+      controlPointTimes: Array<{
+        controlPointId: number;
+        currentHoldTime: number;
+        currentTeam: string | null;
+        displayTime: string;
+      }>;
+    },
+    server: any,
+    from: string = 'server',
+  ): void {
+    const eventData: GameTimeEvent = {
+      ...timeData,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('gameTime', eventData);
+  }
+
+  /**
+   * Broadcast time update events
    */
   async broadcastTimeUpdate(
     gameId: number,
     timeData: {
       remainingTime: number | null;
-      playedTime: number;
       totalTime: number | null;
+      playedTime: number;
     },
     server: any,
-  ) {
+    from: string = 'server',
+  ): Promise<void> {
     try {
       // Get control point times for this game
       const controlPointTimes = await this.gamesService.getControlPointTimes(gameId);
 
-      // Broadcast combined time update with consistent structure
-      server.to(`game_${gameId}`).emit('timeUpdate', {
+      const eventData: TimeUpdateEvent = {
         ...timeData,
         controlPointTimes,
+        from,
         timestamp: new Date().toISOString(),
-      });
+      };
+
+      server.to(`game_${gameId}`).emit('timeUpdate', eventData);
     } catch (error) {
       console.error(
         `[BROADCAST_TIME_UPDATE] Error broadcasting time update for game ${gameId}:`,
         error,
       );
       // Fallback: broadcast with consistent structure
-      console.error('[WEBSOCKET_SEND] Evento: timeUpdate');
-      server.to(`game_${gameId}`).emit('timeUpdate', {
+      const eventData: TimeUpdateEvent = {
         ...timeData,
         controlPointTimes: [],
+        from,
         timestamp: new Date().toISOString(),
-      });
+      };
+      server.to(`game_${gameId}`).emit('timeUpdate', eventData);
     }
   }
 
   /**
-   * Normalized function to broadcast control point time updates
+   * Broadcast control point time update events
    */
-  async broadcastControlPointTimeUpdate(
+  broadcastControlPointTimeUpdate(
     controlPointId: number,
     timeData: {
       currentHoldTime: number;
@@ -178,39 +361,31 @@ export class BroadcastUtilitiesHandler {
       displayTime: string;
     },
     server: any,
-  ) {
-    try {
-      // Find the game that contains this control point
-      const controlPoint = await this.gamesService.getControlPointWithGame(controlPointId);
+    from: string = 'server',
+  ): void {
+    const eventData: ControlPointTimeUpdateEvent = {
+      controlPointId,
+      ...timeData,
+      from,
+      timestamp: new Date().toISOString(),
+    };
 
-      const broadcastData = {
-        controlPointId,
-        ...timeData,
-        timestamp: new Date().toISOString(),
-      };
-
-      if (controlPoint && controlPoint.game) {
-        // Broadcast to the specific game room
-        server.to(`game_${controlPoint.game.id}`).emit('controlPointTimeUpdate', broadcastData);
-      } else {
-        // Fallback: broadcast to all connected clients
-        server.emit('controlPointTimeUpdate', broadcastData);
-      }
-    } catch (error) {
-      console.error('Error broadcasting control point time update:', error);
-      // Fallback: broadcast to all connected clients with consistent structure
-      server.emit('controlPointTimeUpdate', {
-        controlPointId,
-        ...timeData,
-        timestamp: new Date().toISOString(),
+    // Find the game that contains this control point
+    this.gamesService.getControlPointWithGame(controlPointId)
+      .then(controlPoint => {
+        if (controlPoint && controlPoint.game) {
+          server.to(`game_${controlPoint.game.id}`).emit('controlPointTimeUpdate', eventData);
+        }
+      })
+      .catch(error => {
+        console.error('Error broadcasting control point time update:', error);
       });
-    }
   }
 
   /**
-   * Normalized function to broadcast bomb time updates
+   * Broadcast bomb time update events
    */
-  async broadcastBombTimeUpdate(
+  broadcastBombTimeUpdate(
     controlPointId: number,
     bombTimeData: {
       remainingTime: number;
@@ -222,48 +397,143 @@ export class BroadcastUtilitiesHandler {
       exploded?: boolean;
     },
     server: any,
-  ) {
-    try {
-      // Find the game that contains this control point
-      const controlPoint = await this.gamesService.getControlPointWithGame(controlPointId);
+    from: string = 'server',
+  ): void {
+    const eventData: BombTimeUpdateEvent = {
+      controlPointId,
+      ...bombTimeData,
+      from,
+      timestamp: new Date().toISOString(),
+    };
 
-      const broadcastData = {
-        controlPointId,
-        ...bombTimeData,
-        timestamp: new Date().toISOString(),
-      };
-
-      if (controlPoint && controlPoint.game) {
-        // Broadcast to the specific game room
-        server.to(`game_${controlPoint.game.id}`).emit('bombTimeUpdate', broadcastData);
-      } else {
-        // Fallback: broadcast to all connected clients
-        server.emit('bombTimeUpdate', broadcastData);
-      }
-    } catch (error) {
-      console.error('Error broadcasting bomb time update:', error);
-      // Fallback: broadcast to all connected clients with consistent structure
-      server.emit('bombTimeUpdate', {
-        controlPointId,
-        ...bombTimeData,
-        timestamp: new Date().toISOString(),
+    // Find the game that contains this control point
+    this.gamesService.getControlPointWithGame(controlPointId)
+      .then(controlPoint => {
+        if (controlPoint && controlPoint.game) {
+          server.to(`game_${controlPoint.game.id}`).emit('bombTimeUpdate', eventData);
+        }
+      })
+      .catch(error => {
+        console.error('Error broadcasting bomb time update:', error);
       });
-    }
   }
 
   /**
-   * Normalized function to broadcast position challenge updates
+   * Broadcast active bomb timers events
+   */
+  broadcastActiveBombTimers(
+    gameId: number,
+    timers: Array<{
+      controlPointId: number;
+      remainingTime: number;
+      totalTime: number;
+      isActive: boolean;
+      activatedByUserId?: number;
+      activatedByUserName?: string;
+      activatedByTeam?: string;
+    }>,
+    server: any,
+    from: string = 'server',
+  ): void {
+    const eventData: ActiveBombTimersEvent = {
+      timers,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('activeBombTimers', eventData);
+  }
+
+  /**
+   * Broadcast position challenge update events
    */
   broadcastPositionChallengeUpdate(
     gameId: number,
     controlPointId: number,
     teamPoints: Record<string, number>,
     server: any,
-  ) {
-    server.to(`game_${gameId}`).emit('positionChallengeUpdate', {
+    from: string = 'server',
+  ): void {
+    const eventData: PositionChallengeUpdateEvent = {
       controlPointId,
       teamPoints,
+      from,
       timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('positionChallengeUpdate', eventData);
+  }
+
+  /**
+   * Broadcast bomb activated events
+   */
+  broadcastBombActivated(
+    gameId: number,
+    bombData: any,
+    server: any,
+    from: string = 'server',
+  ): void {
+    const eventData: BombActivatedEvent = {
+      ...bombData,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('bombActivated', eventData);
+  }
+
+  /**
+   * Broadcast bomb deactivated events
+   */
+  broadcastBombDeactivated(
+    gameId: number,
+    bombData: any,
+    server: any,
+    from: string = 'server',
+  ): void {
+    const eventData: BombDeactivatedEvent = {
+      ...bombData,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('bombDeactivated', eventData);
+  }
+
+  /**
+   * Broadcast game updates to all connected clients in a game
+   */
+  broadcastGameUpdate(gameId: number, game: any, server: any): void {
+    const eventData: BaseWebSocketEvent = {
+      from: 'server',
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('gameUpdate', {
+      type: 'gameUpdated',
+      game,
+      ...eventData,
     });
+  }
+
+  /**
+   * DEPRECATED: Normalized function to broadcast game actions with consistent structure
+   * Use specific event types instead
+   */
+  broadcastGameAction(
+    gameId: number,
+    action: string,
+    data: any,
+    server: any,
+    from: string = 'server',
+  ): void {
+    const broadcastData = {
+      action,
+      data,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('gameAction', broadcastData);
   }
 }

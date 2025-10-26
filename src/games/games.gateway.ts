@@ -155,16 +155,13 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // Join the room for this specific game
       client.join(`game_${gameId}`);
-      console.log(`[JOIN_GAME_WS] Client ${client.id} (user ${user.id}) joined room game_${gameId}`);
       
       // Check room membership after joining
       const room = this.server.sockets.adapter.rooms.get(`game_${gameId}`);
       const clientCount = room ? room.size : 0;
-      console.log(`[JOIN_GAME_WS] Room game_${gameId} now has ${clientCount} clients`);
       
       // Verify this specific client is in the room
       const isClientInRoom = room?.has(client.id);
-      console.log(`[JOIN_GAME_WS] Client ${client.id} is in room: ${isClientInRoom}`);
 
       // Track game connection
       if (!this.gameConnections.has(gameId)) {
@@ -217,10 +214,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
         });
 
         if (positions.length > 0) {
-          this.broadcastUtilitiesHandler.broadcastGameAction(
+          this.broadcastUtilitiesHandler.broadcastPlayerPositionsResponse(
             gameId,
-            'playerPositionsResponse',
-            { positions },
+            positions,
             this.server,
             'server',
           );
@@ -323,7 +319,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleGameAction(client: Socket, payload: { gameId: number; action: string; data: any }) {
     const { gameId, action, data } = payload;
 
-    console.log(`[GAMES_GATEWAY] Received gameAction: action=${action}, gameId=${gameId}, data=`, data);
 
     try {
       switch (action) {
@@ -364,11 +359,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           break;
 
         case 'updatePlayerTeam':
-          console.log(`[GAMES_GATEWAY] Processing updatePlayerTeam action for game ${gameId}`, data);
           await this.gameStateHandler.handleUpdatePlayerTeam(
             client, gameId, data, this.connectedUsers, this.server
           );
-          console.log(`[GAMES_GATEWAY] updatePlayerTeam action completed for game ${gameId}`);
           break;
 
         case 'startGame':
