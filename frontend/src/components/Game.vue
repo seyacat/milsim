@@ -656,6 +656,16 @@ onMounted(async () => {
               type: 'success'
             })
           }
+          
+          // Update the current game players data to reflect the team change
+          if (currentGame.value && currentGame.value.players) {
+            const playerIndex = currentGame.value.players.findIndex(p => p.id === data.playerId)
+            if (playerIndex !== -1) {
+              currentGame.value.players[playerIndex].team = data.team
+              // Trigger reactivity by reassigning the array
+              currentGame.value.players = [...currentGame.value.players]
+            }
+          }
         }
       }
     })

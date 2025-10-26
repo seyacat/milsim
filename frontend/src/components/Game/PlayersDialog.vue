@@ -64,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Player, TeamColor } from '../../types/index.js'
 
 interface Props {
@@ -108,6 +108,55 @@ watch(() => props.players, (players) => {
     playersData.value = []
   }
 }, { immediate: true })
+
+// Listen for player team updates via WebSocket
+const setupSocketListeners = () => {
+  if (!props.socket) return
+
+  // Listen for game updates that might include player team changes
+  props.socket.on('gameUpdate', (data: { game: any; type?: string }) => {
+    if (data.game && data.game.players) {
+      // Update local players data with the latest from server
+      playersData.value = [...data.game.players].sort((a, b) =>
+        (a.user?.name || '').localeCompare(b.user?.name || '')
+      )
+    }
+  })
+}
+
+const updatePlayerTeamInLocalData = (playerId: number, team: TeamColor) => {
+  const playerIndex = playersData.value.findIndex(p => p.id === playerId)
+  if (playerIndex !== -1) {
+    playersData.value[playerIndex].team = team
+    // Trigger reactivity by reassigning the array
+    playersData.value = [...playersData.value]
+  }
+}
+
+// Clean up socket listeners
+const cleanupSocketListeners = () => {
+  if (!props.socket) return
+  
+  props.socket.off('gameUpdate')
+}
+
+onMounted(() => {
+  setupSocketListeners()
+})
+
+onUnmounted(() => {
+  cleanupSocketListeners()
+})
+
+// Re-setup listeners when socket changes
+watch(() => props.socket, (newSocket, oldSocket) => {
+  if (oldSocket) {
+    cleanupSocketListeners()
+  }
+  if (newSocket) {
+    setupSocketListeners()
+  }
+})
 
 const loadPlayersData = () => {
   isLoading.value = true

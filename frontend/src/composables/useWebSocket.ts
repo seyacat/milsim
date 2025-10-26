@@ -26,6 +26,7 @@ const setupSocketListeners = (
     onActiveBombTimers?: (data: any) => void
     onPositionChallengeUpdate?: (data: any) => void
     onControlPointTeamAssigned?: (data: any) => void
+    onPlayerTeamUpdated?: (data: any) => void
   },
   addToast: any
 ) => {
@@ -56,6 +57,8 @@ const setupSocketListeners = (
       callbacks.onControlPointTeamAssigned(data.data)
     } else if (data.action === 'controlPointUpdated' && callbacks.onControlPointUpdated) {
       callbacks.onControlPointUpdated(data.data.controlPoint)
+    } else if (data.action === 'playerTeamUpdated' && callbacks.onPlayerTeamUpdated) {
+      callbacks.onPlayerTeamUpdated(data.data)
     }
   })
 
@@ -176,6 +179,7 @@ export const useWebSocket = () => {
       onActiveBombTimers?: (data: any) => void
       onPositionChallengeUpdate?: (data: any) => void
       onControlPointTeamAssigned?: (data: any) => void
+      onPlayerTeamUpdated?: (data: any) => void
     }
   ) => {
     // Usar la conexión global si ya existe
