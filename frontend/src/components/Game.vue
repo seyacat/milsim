@@ -197,11 +197,18 @@ const {
   stopGPSTracking
 } = useGPSTracking(currentGame, socketRef)
 
-// Watch for GPS position changes to update user marker
+// Watch for GPS position changes to update player marker
 watch(() => currentPositionFromComposable.value, (position) => {
-  if (position && playerMarkersComposable.value) {
-    console.log('GameOwner - updating user marker with GPS position:', position)
-    playerMarkersComposable.value.updateUserMarkerPosition(position)
+  if (position && playerMarkersComposable.value && currentUser.value) {
+    console.log('GameOwner - updating player marker with GPS position:', position)
+    // Update the current user's marker with GPS position
+    playerMarkersComposable.value.updatePlayerMarker({
+      userId: currentUser.value.id,
+      userName: currentUser.value.name,
+      lat: position.lat,
+      lng: position.lng,
+      accuracy: position.accuracy
+    })
   }
 })
 
@@ -647,30 +654,10 @@ const setupGlobalFunctions = () => {
     }
   }
   
-  // Global function to update current user's marker team
-  ;(window as any).updateCurrentUserMarkerTeam = () => {
-    console.log('Game.vue - updateCurrentUserMarkerTeam called')
-    if (playerMarkersComposable.value) {
-      playerMarkersComposable.value.updateUserMarkerTeam()
-    }
-  }
-  
-  // Global function to update current user's marker with specific team
-  ;(window as any).updateCurrentUserMarkerTeamWithTeam = (team: string) => {
-    console.log('Game.vue - updateCurrentUserMarkerTeamWithTeam called with team:', team)
-    if (playerMarkersComposable.value) {
-      // Update the current game data first
-      if (currentGame.value && currentGame.value.players) {
-        const currentPlayer = currentGame.value.players.find(p => p.user?.id === currentUser.value?.id)
-        if (currentPlayer) {
-          currentPlayer.team = team
-          // Trigger reactivity by reassigning the array
-          currentGame.value.players = [...currentGame.value.players]
-        }
-      }
-      // Then update the marker
-      playerMarkersComposable.value.updateUserMarkerTeam()
-    }
+  // Global function to show team change toast
+  ;(window as any).showTeamChangeToast = (message: string) => {
+    console.log('Game.vue - showTeamChangeToast called:', message)
+    addToast({ message, type: 'success' })
   }
 }
 
@@ -810,53 +797,17 @@ onMounted(async () => {
           })
         }
       },
-      onPlayerTeamUpdated: (data: any) => {
-        console.log('GameOwner - Player team updated received:', data)
-        console.log('GameOwner - Current user ID:', currentUser.value?.id)
-        console.log('GameOwner - Is this current user?', data.userId === currentUser.value?.id)
-        
-        if (data && data.team) {
-          // Get team name for toast message
-          const teamNames: Record<string, string> = {
-            'red': 'Rojo',
-            'blue': 'Azul',
-            'green': 'Verde',
-            'yellow': 'Amarillo',
-            'none': 'Sin Equipo'
-          }
-          const teamName = teamNames[data.team] || data.team
-          
-          // Show toast only if it's the current user
-          if (data.userId === currentUser.value?.id) {
-            console.log('GameOwner - Showing toast for current user team change')
-            addToast({
-              message: `Te has unido al equipo ${teamName}`,
-              type: 'success'
-            })
-            
-            // Update the user's marker team color
-            console.log('GameOwner - Updating user marker team color')
-            if (playerMarkersComposable.value) {
-              playerMarkersComposable.value.updateUserMarkerTeam()
-            }
-          }
-          
-          // Update the current game players data to reflect the team change
-          if (currentGame.value && currentGame.value.players) {
-            const playerIndex = currentGame.value.players.findIndex(p => p.id === data.playerId)
-            if (playerIndex !== -1) {
-              currentGame.value.players[playerIndex].team = data.team
-              // Trigger reactivity by reassigning the array
-              currentGame.value.players = [...currentGame.value.players]
-            }
-          }
-        }
-      },
       // Add direct listener for playerTeamUpdated events
       onGameAction: (data: any) => {
         if (data.action === 'playerTeamUpdated' && data.data) {
           console.log('GameOwner - Direct gameAction playerTeamUpdated received:', data.data)
         }
+      },
+      // Handle player team updates
+      onPlayerTeamUpdated: (data: any) => {
+        console.log('GameOwner - Direct playerTeamUpdated event received:', data)
+        // This callback is handled by usePlayerMarkers composable
+        // No need to duplicate the logic here
       }
     })
 
@@ -881,6 +832,7 @@ onMounted(async () => {
       })
       
       // Initialize player markers AFTER map is ready
+      console.log('Game.vue - Initializing usePlayerMarkers with isOwner:', isOwner.value, 'currentUser:', currentUser.value?.id)
       playerMarkersComposable.value = usePlayerMarkers({
         game: currentGame,
         map: mapInstance,
@@ -970,11 +922,6 @@ onUnmounted(() => {
         }
       })
       playerMarkersComposable.value.playerMarkers.clear()
-      
-      // Remove user marker
-      if (playerMarkersComposable.value.userMarker && mapInstance.value) {
-        mapInstance.value.removeLayer(playerMarkersComposable.value.userMarker as unknown as L.Layer)
-      }
     } catch (error) {
       console.error('Error cleaning up player markers:', error)
     }
@@ -987,7 +934,7 @@ onUnmounted(() => {
   delete (window as any).createControlPoint
   delete (window as any).editControlPoint
   delete (window as any).deleteControlPoint
-  delete (window as any).updateCurrentUserMarkerTeam
+  delete (window as any).showTeamChangeToast
   
   console.log('GameOwner - cleanup completed')
 })

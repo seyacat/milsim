@@ -11,51 +11,19 @@ interface UsePlayerMarkersProps {
 }
 
 export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: UsePlayerMarkersProps) => {
+  console.log('usePlayerMarkers - Initializing with isOwner:', isOwner, 'currentUser:', currentUser.value?.id)
   
   const playerMarkers = ref<Map<number, L.Marker>>(new Map())
-  const userMarker = ref<L.Marker | null>(null)
   const playerMarkersRef = ref<Map<number, L.Marker>>(new Map())
 
   // Create player marker icon
-  const createPlayerMarkerIcon = (team: TeamColor, isUser: boolean = false) => {
-    const className = isUser ? 'user-marker' : 'player-marker'
-
+  const createPlayerMarkerIcon = (team: TeamColor) => {
     return L.divIcon({
-      className: `${className} ${team}`,
+      className: `player-marker ${team}`,
       html: '', // Empty HTML - CSS handles the display
       iconSize: [24, 24],
       iconAnchor: [12, 12]
     })
-  }
-
-  // Create user marker
-  const createUserMarker = (lat: number, lng: number, accuracy: number = 0) => {
-    if (!map.value) return
-
-    // Remove existing user marker
-    if (userMarker.value) {
-      map.value.removeLayer(userMarker.value as unknown as L.Layer)
-    }
-
-    const currentPlayer = game.value?.players?.find(p => p.user?.id === currentUser.value?.id)
-    const team = currentPlayer?.team || 'none'
-    
-    const icon = createPlayerMarkerIcon(team, true)
-
-    const marker: L.Marker = L.marker([lat, lng], { icon }).addTo(map.value)
-    
-    // Store accuracy for popup info
-    ;(marker as any).accuracy = accuracy
-    
-    // Create popup with custom class for positioning
-    const popup = L.popup({
-      className: 'user-marker-popup'
-    }).setContent(`<strong>Tú.</strong><br><small>Precisión: ${Math.round(accuracy)}m</small>`)
-    
-    marker.bindPopup(popup)
-    
-    userMarker.value = marker
-    return marker
   }
 
   // Update player markers
@@ -133,7 +101,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       // Create new marker if it doesn't exist
       const targetIsOwner = game.value.owner && userId === game.value.owner.id
       const team = targetPlayer?.team || 'none'
-      const icon = createPlayerMarkerIcon(team, false)
+      const icon = createPlayerMarkerIcon(team)
       
       marker = L.marker([lat, lng], { icon }).addTo(map.value)
       playerMarkersRef.value.set(userId, marker)
@@ -167,35 +135,6 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     }
   }
 
-  // Update user marker team
-  const updateUserMarkerTeam = () => {
-    console.log('usePlayerMarkers - updateUserMarkerTeam called')
-    if (!userMarker.value || !map.value) {
-      console.log('usePlayerMarkers - userMarker or map not available')
-      return
-    }
-
-    const currentPlayer = game.value?.players?.find(p => p.user?.id === currentUser.value?.id)
-    const team = currentPlayer?.team || 'none'
-    console.log('usePlayerMarkers - Current player team:', { team, currentPlayer })
-    
-    // Update the existing marker's icon instead of recreating it
-    const newIcon = createPlayerMarkerIcon(team, true)
-    console.log('usePlayerMarkers - Setting new icon for team:', team)
-    userMarker.value.setIcon(newIcon)
-    
-    // Update popup with current info
-    const currentPosition = userMarker.value.getLatLng()
-    const currentAccuracy = (userMarker.value as any).accuracy || 0
-    
-    const popup = L.popup({
-      className: 'user-marker-popup'
-    }).setContent(`<strong>Tú.</strong><br><small>Precisión: ${Math.round(currentAccuracy)}m</small>`)
-    
-    userMarker.value.bindPopup(popup)
-    console.log('usePlayerMarkers - User marker team updated successfully')
-  }
-
   // Update player marker with new team
   const updatePlayerMarkerTeam = (playerId: number, team: TeamColor) => {
     
@@ -223,7 +162,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     const marker = playerMarkersRef.value.get(userId)
     if (marker) {
       // Update the existing marker's icon instead of recreating it
-      const newIcon = createPlayerMarkerIcon(team, false)
+      const newIcon = createPlayerMarkerIcon(team)
       marker.setIcon(newIcon)
       
       // Update popup with current info
@@ -260,22 +199,8 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
 
     const handlePositionUpdate = (data: any) => {
       if (data.action === 'positionUpdate' && data.data) {
-        // Check if this is the current user's position
-        if (data.data.userId === currentUser.value?.id) {
-          // This is the current user - update user marker instead
-          if (!userMarker.value) {
-            createUserMarker(data.data.lat, data.data.lng, data.data.accuracy)
-          } else {
-            updateUserMarkerPosition({
-              lat: data.data.lat,
-              lng: data.data.lng,
-              accuracy: data.data.accuracy
-            })
-          }
-        } else {
-          // This is another player
-          updatePlayerMarker(data.data)
-        }
+        // Update player marker for all users (no differentiation)
+        updatePlayerMarker(data.data)
       }
     }
 
@@ -283,22 +208,8 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     const handlePlayerPositionsResponse = (data: any) => {
       if (data.action === 'playerPositionsResponse' && data.data.positions) {
         data.data.positions.forEach((position: any) => {
-          // Check if this is the current user's position
-          if (position.userId === currentUser.value?.id) {
-            // This is the current user - update user marker instead
-            if (!userMarker.value) {
-              createUserMarker(position.lat, position.lng, position.accuracy)
-            } else {
-              updateUserMarkerPosition({
-                lat: position.lat,
-                lng: position.lng,
-                accuracy: position.accuracy
-              })
-            }
-          } else {
-            // This is another player
-            updatePlayerMarker(position)
-          }
+          // Update player marker for all users (no differentiation)
+          updatePlayerMarker(position)
         })
       }
     }
@@ -328,7 +239,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
 
     // Handle player team updates
     const handlePlayerTeamUpdated = (data: any) => {
-      console.log('usePlayerMarkers - Received gameAction event:', data)
+      console.log('usePlayerMarkers - handlePlayerTeamUpdated called with:', data)
       if (data.action === 'playerTeamUpdated' && data.data) {
         const { playerId, team, userId } = data.data
         console.log('usePlayerMarkers - Parsed playerTeamUpdated data:', { playerId, team, userId, currentUserId: currentUser.value?.id })
@@ -338,34 +249,122 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
           
           // Update the player marker for the target player
           updatePlayerMarkerTeam(playerId, team)
-          
-          // If this is the current user's team change, also update their user marker
-          if (userId === currentUser.value?.id) {
-            console.log('usePlayerMarkers - This is current user, updating user marker')
-            updateUserMarkerTeam()
-          }
         }
       } else {
         console.log('usePlayerMarkers - Invalid playerTeamUpdated data:', data)
       }
     }
+    
+    // Add direct listener for playerTeamUpdated events (in case they come through different channels)
+    const handleDirectPlayerTeamUpdated = (data: any) => {
+      console.log('usePlayerMarkers - Received direct playerTeamUpdated event:', data)
+      if (data && data.playerId && data.team && data.userId) {
+        console.log('usePlayerMarkers - Direct event - Updating player marker:', { playerId: data.playerId, team: data.team, userId: data.userId })
+        
+        // Update the player marker for the target player
+        updatePlayerMarkerTeam(data.playerId, data.team)
+        
+        // If this is the current user's team change, show toast
+        if (data.userId === currentUser.value?.id) {
+          console.log('usePlayerMarkers - Direct event - This is current user, showing toast')
+          
+          // Show toast for current user team change
+          const teamNames: Record<string, string> = {
+            'red': 'Rojo',
+            'blue': 'Azul',
+            'green': 'Verde',
+            'yellow': 'Amarillo',
+            'none': 'Sin Equipo'
+          }
+          const teamName = teamNames[data.team] || data.team
+          
+          // Use window method to show toast (since we don't have access to addToast here)
+          if ((window as any).showTeamChangeToast) {
+            (window as any).showTeamChangeToast(`Te has unido al equipo ${teamName}`)
+          }
+        }
+      }
+    }
+    
+    // Add handler for gameAction events that contain playerTeamUpdated
+    const handleGameActionWithPlayerTeamUpdated = (data: any) => {
+      console.log('usePlayerMarkers - handleGameActionWithPlayerTeamUpdated called with:', data)
+      if (data && data.action === 'playerTeamUpdated' && data.data) {
+        console.log('usePlayerMarkers - Processing playerTeamUpdated from gameAction')
+        handleDirectPlayerTeamUpdated(data.data)
+      }
+    }
+    
+    // Enhanced direct playerTeamUpdated handler with more detailed logging
+    const enhancedHandleDirectPlayerTeamUpdated = (data: any) => {
+      console.log('usePlayerMarkers - ENHANCED: Received direct playerTeamUpdated event:', data)
+      console.log('usePlayerMarkers - ENHANCED: Current user ID:', currentUser.value?.id)
+      handleDirectPlayerTeamUpdated(data)
+    }
+    
+    // Single handler for all gameAction events
+    const handleAllGameActions = (data: any) => {
+      console.log('usePlayerMarkers - handleAllGameActions called with action:', data?.action, data)
+      
+      // Handle position updates
+      if (data.action === 'positionUpdate' && data.data) {
+        handlePositionUpdate(data)
+      }
+      
+      // Handle player positions response
+      if (data.action === 'playerPositionsResponse' && data.data.positions) {
+        handlePlayerPositionsResponse(data)
+      }
+      
+      // Handle player inactive
+      if (data.action === 'playerInactive') {
+        handlePlayerInactive(data)
+      }
+      
+      // Handle player team updates
+      if (data.action === 'playerTeamUpdated' && data.data) {
+        console.log('usePlayerMarkers - handleAllGameActions: Processing playerTeamUpdated', data)
+        handleDirectPlayerTeamUpdated(data.data)
+      }
+    }
 
-    newSocket.on('gameAction', handlePositionUpdate)
+    // Use single handler for all gameAction events
+    newSocket.on('gameAction', handleAllGameActions)
     newSocket.on('gameUpdate', handleGameUpdate)
-    newSocket.on('gameAction', handlePlayerPositionsResponse)
-    newSocket.on('gameAction', handlePlayerInactive)
-    newSocket.on('gameAction', handlePlayerTeamUpdated)
+    // Keep direct listeners as backup - use enhanced handler
+    newSocket.on('playerTeamUpdated', enhancedHandleDirectPlayerTeamUpdated)
+    
+    // Debug: log all gameAction events to see if playerTeamUpdated is arriving
+    newSocket.on('gameAction', (data: any) => {
+      if (data.action === 'playerTeamUpdated') {
+        console.log('usePlayerMarkers - DEBUG: Received playerTeamUpdated event via gameAction:', data)
+      }
+    })
+    
+    // Debug: log direct playerTeamUpdated events
+    newSocket.on('playerTeamUpdated', (data: any) => {
+      console.log('usePlayerMarkers - DEBUG: Received direct playerTeamUpdated event:', data)
+    })
+    
+    // Debug: log ALL socket events to see what's arriving
+    newSocket.onAny((eventName: string, ...args: any[]) => {
+      if (eventName === 'gameAction' || eventName === 'playerTeamUpdated') {
+        console.log('usePlayerMarkers - DEBUG: Received socket event:', eventName, args)
+      }
+    })
+    
+    // Debug: log when socket listeners are set up
+    console.log('usePlayerMarkers - Socket listeners set up for playerTeamUpdated events')
 
     // Clean up socket listeners when composable is destroyed
     onCleanup(() => {
       if (newSocket) {
-        newSocket.off('gameAction', handlePositionUpdate)
+        newSocket.off('gameAction', handleAllGameActions)
         newSocket.off('gameUpdate', handleGameUpdate)
-        newSocket.off('gameAction', handlePlayerPositionsResponse)
-        newSocket.off('gameAction', handlePlayerInactive)
-        newSocket.off('gameAction', handlePlayerTeamUpdated)
+        newSocket.off('playerTeamUpdated', handleDirectPlayerTeamUpdated)
       }
     })
+    
   }, { immediate: true })
 
   // Update markers when game changes (only when players actually change)
@@ -408,30 +407,12 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     }
   }
 
-  // Update user marker with GPS position
-  const updateUserMarkerPosition = (position: { lat: number; lng: number; accuracy: number }) => {
-    if (!userMarker.value || !map.value) return
-    
-    userMarker.value.setLatLng([position.lat, position.lng])
-    
-    // Update popup with accuracy info
-    const popup = L.popup({
-      className: 'user-marker-popup'
-    }).setContent(`<strong>Tú.</strong><br><small>Precisión: ${Math.round(position.accuracy)}m</small>`)
-    
-    userMarker.value.bindPopup(popup)
-  }
-
   return {
     playerMarkers: playerMarkersRef,
-    userMarker,
     updatePlayerMarkers,
     updatePlayerMarker,
-    updateUserMarkerTeam,
     updatePlayerMarkerTeam,
     updatePlayerMarkerTeamByUserId,
-    createUserMarker,
-    removePlayerMarker,
-    updateUserMarkerPosition
+    removePlayerMarker
   }
 }

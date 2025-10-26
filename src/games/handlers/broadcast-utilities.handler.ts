@@ -119,6 +119,13 @@ export class BroadcastUtilitiesHandler {
     };
 
     console.log(`[BROADCAST_UTILITIES] Broadcasting gameAction: action=${action}, gameId=${gameId}, data=`, data);
+    console.log(`[BROADCAST_UTILITIES] Broadcasting to room: game_${gameId}`);
+    
+    // Get the room and check how many clients are in it
+    const room = server.sockets.adapter.rooms.get(`game_${gameId}`);
+    const clientCount = room ? room.size : 0;
+    console.log(`[BROADCAST_UTILITIES] Room game_${gameId} has ${clientCount} clients`);
+    
     server.to(`game_${gameId}`).emit('gameAction', broadcastData);
     console.log(`[BROADCAST_UTILITIES] gameAction broadcasted successfully`);
   }

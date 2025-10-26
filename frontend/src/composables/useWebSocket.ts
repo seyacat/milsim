@@ -57,21 +57,19 @@ const setupSocketListeners = (
     }
   })
 
+  // Note: gameAction events are now handled by individual composables (usePlayerMarkers, etc.)
+  // This listener is kept only for specific actions that need centralized handling
   socket.on('gameAction', (data: { action: string; data: any }) => {
     console.log('useWebSocket - Received gameAction:', data.action, data)
     
+    // Log specific info for playerTeamUpdated events
+    if (data.action === 'playerTeamUpdated') {
+      console.log('useWebSocket - Processing playerTeamUpdated gameAction:', data)
+    }
+    
+    // Only handle specific actions that need centralized processing
     if (data.action === 'gameStateChanged' && data.data.game) {
       callbacks.onGameUpdate(data.data.game)
-    } else if (data.action === 'positionUpdate' && callbacks.onPlayerPosition) {
-      callbacks.onPlayerPosition(data)
-    } else if (data.action === 'controlPointTeamAssigned' && callbacks.onControlPointTeamAssigned) {
-      callbacks.onControlPointTeamAssigned(data.data)
-    } else if (data.action === 'controlPointUpdated' && callbacks.onControlPointUpdated) {
-      callbacks.onControlPointUpdated(data.data.controlPoint)
-    } else if (data.action === 'playerTeamUpdated' && callbacks.onPlayerTeamUpdated) {
-      console.log('useWebSocket - Received playerTeamUpdated event, calling onPlayerTeamUpdated callback')
-      console.log('useWebSocket - playerTeamUpdated data:', data.data)
-      callbacks.onPlayerTeamUpdated(data.data)
     }
     
     // Call the general gameAction callback for all gameAction events
@@ -207,6 +205,17 @@ const setupSocketListeners = (
       callbacks.onControlPointTeamAssigned(data)
     } else {
       console.log('No onControlPointTeamAssigned callback registered')
+    }
+  })
+
+  // Handle player team updates
+  socket.on('playerTeamUpdated', (data: any) => {
+    console.log('useWebSocket - Received direct playerTeamUpdated event:', data)
+    if (callbacks.onPlayerTeamUpdated) {
+      console.log('useWebSocket - Calling onPlayerTeamUpdated callback with data:', data)
+      callbacks.onPlayerTeamUpdated(data)
+    } else {
+      console.log('useWebSocket - No onPlayerTeamUpdated callback registered')
     }
   })
 }
