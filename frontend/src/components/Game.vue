@@ -438,9 +438,7 @@ const handleDeactivateBombWrapper = (controlPointId: number) => {
 
 // WebSocket callbacks
 const onGameUpdate = (game: Game) => {
-  console.log('GameOwner - onGameUpdate called with control points:', game.controlPoints?.length || 0)
   currentGame.value = game
-  console.log('Game update - calling handleGameStateChange for status:', game.status)
   handleGameStateChange(game)
   
   // Handle local timer based on game status
@@ -455,7 +453,6 @@ const onGameUpdate = (game: Game) => {
   const oldControlPoints = currentGame.value?.controlPoints || []
   const newControlPoints = game.controlPoints || []
   
-  console.log('Control points - old:', oldControlPoints.length, 'new:', newControlPoints.length)
   
   // Check if control points actually changed (added, removed, or modified)
   const oldIds = new Set(oldControlPoints.map(cp => cp.id))
@@ -472,7 +469,6 @@ const onGameUpdate = (game: Game) => {
     controlPointsChanged ||
     currentGame.value?.status !== game.status
   
-  console.log('Should render control points:', shouldRenderControlPoints, 'changed:', controlPointsChanged, 'status changed:', currentGame.value?.status !== game.status)
   
   if (shouldRenderControlPoints) {
     renderControlPoints(newControlPoints, {
@@ -496,7 +492,6 @@ const onGameUpdate = (game: Game) => {
   // Update timers after markers are rendered and game state changes
   // Use currentGame.value instead of game parameter to ensure we have the latest control points
   setTimeout(() => {
-    console.log('Game update - updating all timers for game status:', game.status, 'with control points:', currentGame.value?.controlPoints?.length || 0)
     updateAllTimerDisplays(currentGame.value)
     updateAllBombTimerDisplays()
   }, 100)
@@ -635,7 +630,6 @@ const setupGlobalFunctions = () => {
 
 // Lifecycle
 onMounted(async () => {
-  console.log('GameOwner - onMounted called')
   try {
     const user = await AuthService.getCurrentUser()
     if (!user) {
@@ -677,7 +671,6 @@ onMounted(async () => {
     teamCount.value = game.teamCount || 2
 
     // Initialize WebSocket
-    console.log('GameOwner - Initializing WebSocket connection')
     connectWebSocket(parseInt(gameId), {
       onGameUpdate,
       onControlPointCreated,
@@ -726,11 +719,9 @@ onMounted(async () => {
         handleBombTimeUpdate(data)
       },
       onActiveBombTimers: (data: any) => {
-        console.log('GameOwner - Active bomb timers received:', data)
         handleActiveBombTimers(data)
       },
       onPositionChallengeUpdate: (data: any) => {
-        console.log('GameOwner - Position challenge update received:', data)
         if (data.controlPointId && data.teamPoints) {
           updatePositionChallengePieChart(data.controlPointId, data.teamPoints)
         }
@@ -828,7 +819,6 @@ onMounted(async () => {
       })
       
       // Initialize player markers AFTER map is ready
-      console.log('GameOwner - initializing player markers after map is ready')
       playerMarkersComposable.value = usePlayerMarkers({
         game: currentGame,
         map: mapInstance,
@@ -838,7 +828,6 @@ onMounted(async () => {
       })
       
       // Start GPS tracking for owner
-      console.log('GameOwner - starting GPS tracking')
       startGPSTracking()
       
       // Player markers are automatically updated by the composable when initialized

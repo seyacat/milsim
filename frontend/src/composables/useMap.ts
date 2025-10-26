@@ -409,7 +409,6 @@ export const useMap = () => {
       return
     }
 
-    console.log('Rendering control points:', controlPoints.length, 'points with handlers:', Object.keys(handlers).length > 0)
 
     // Create a set of current control point IDs
     const currentControlPointIds = new Set(controlPoints.map(cp => cp.id))
@@ -465,17 +464,14 @@ export const useMap = () => {
       let marker = controlPointMarkers.value.get(controlPoint.id)
       
       if (!marker) {
-        console.log('Creating new marker for control point:', controlPoint.id, controlPoint.name)
         // Create new marker if it doesn't exist
         marker = await createControlPointMarker(controlPoint, handlers)
         if (marker) {
           controlPointMarkers.value.set(controlPoint.id, marker)
-          console.log('Marker created successfully for control point:', controlPoint.id)
         } else {
           console.log('Failed to create marker for control point:', controlPoint.id)
         }
       } else {
-        console.log('Updating existing marker for control point:', controlPoint.id)
         // Update existing marker with handlers
         await updateControlPointMarker(controlPoint, handlers)
       }
@@ -511,7 +507,6 @@ export const useMap = () => {
       }
     }
     
-    console.log('Control points rendering completed. Total markers:', controlPointMarkers.value.size)
   }
 
   const updateControlPointMarker = async (controlPoint: ControlPoint, handlers: any = {}) => {

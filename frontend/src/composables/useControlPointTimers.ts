@@ -36,11 +36,6 @@ export const useControlPointTimers = () => {
     const timerElement = document.getElementById(`timer_${controlPointId}`)
     const timeData = controlPointTimes.value[controlPointId]
     
-    console.log(`Updating timer display for CP ${controlPointId}:`, {
-      timerElement: !!timerElement,
-      timeData,
-      gameStatus: currentGame?.status
-    })
     
     if (!timerElement || !timeData) {
       if (timerElement) timerElement.style.display = 'none'
@@ -51,7 +46,6 @@ export const useControlPointTimers = () => {
     // Show timer if control point is owned, regardless of game status
     const shouldShow = timeData.currentTeam !== null
     
-    console.log(`Should show timer for CP ${controlPointId}:`, shouldShow, 'currentTeam:', timeData.currentTeam, 'gameStatus:', currentGame?.status)
     
     if (shouldShow) {
       // Format time as MM:SS
@@ -61,10 +55,8 @@ export const useControlPointTimers = () => {
       
       timerElement.textContent = timeText
       timerElement.style.display = 'block'
-      console.log(`Timer displayed for CP ${controlPointId}:`, timeText, 'gameStatus:', currentGame?.status)
     } else {
       timerElement.style.display = 'none'
-      console.log(`Timer hidden for CP ${controlPointId} - no team assigned`)
     }
   }
 
@@ -75,7 +67,6 @@ export const useControlPointTimers = () => {
       return
     }
     
-    console.log('Updating all timer displays for', currentGame.controlPoints.length, 'control points, game status:', currentGame.status)
     
     currentGame.controlPoints.forEach(controlPoint => {
       updateControlPointTimerDisplay(controlPoint.id, currentGame)
@@ -89,7 +80,6 @@ export const useControlPointTimers = () => {
       localTimerRef.value = null
     }
 
-    console.log('Starting control point timer interval for game:', currentGame?.status)
 
     localTimerRef.value = setInterval(() => {
       if (currentGame?.status === 'running') {
