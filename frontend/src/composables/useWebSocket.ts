@@ -31,6 +31,7 @@ const setupSocketListeners = (
     onPositionChallengeUpdate?: (data: any) => void
     onControlPointTeamAssigned?: (data: any) => void
     onPlayerTeamUpdated?: (data: any) => void
+    onGameAction?: (data: any) => void
   },
   addToast: any
 ) => {
@@ -39,6 +40,7 @@ const setupSocketListeners = (
     globalReconnectAttempts = 0 // Reset reconnection attempts on successful connection
     console.log('WebSocket connected successfully, joining game:', gameId)
     socket.emit('joinGame', { gameId })
+    console.log('useWebSocket - joinGame event emitted for game:', gameId)
     addToast({ message: 'Conectado al servidor', type: 'success' })
   })
 
@@ -56,6 +58,8 @@ const setupSocketListeners = (
   })
 
   socket.on('gameAction', (data: { action: string; data: any }) => {
+    console.log('useWebSocket - Received gameAction:', data.action, data)
+    
     if (data.action === 'gameStateChanged' && data.data.game) {
       callbacks.onGameUpdate(data.data.game)
     } else if (data.action === 'positionUpdate' && callbacks.onPlayerPosition) {
@@ -65,7 +69,14 @@ const setupSocketListeners = (
     } else if (data.action === 'controlPointUpdated' && callbacks.onControlPointUpdated) {
       callbacks.onControlPointUpdated(data.data.controlPoint)
     } else if (data.action === 'playerTeamUpdated' && callbacks.onPlayerTeamUpdated) {
+      console.log('useWebSocket - Received playerTeamUpdated event, calling onPlayerTeamUpdated callback')
+      console.log('useWebSocket - playerTeamUpdated data:', data.data)
       callbacks.onPlayerTeamUpdated(data.data)
+    }
+    
+    // Call the general gameAction callback for all gameAction events
+    if (callbacks.onGameAction) {
+      callbacks.onGameAction(data)
     }
   })
 
@@ -222,6 +233,7 @@ export const useWebSocket = () => {
       onPositionChallengeUpdate?: (data: any) => void
       onControlPointTeamAssigned?: (data: any) => void
       onPlayerTeamUpdated?: (data: any) => void
+      onGameAction?: (data: any) => void
     }
   ) => {
     // Usar la conexión global si ya existe

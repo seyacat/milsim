@@ -37,8 +37,16 @@ export class GameStateHandler {
         }
 
         const updatedPlayer = await this.gamesService.updatePlayerTeam(playerId, data.team);
+        console.log(`[GAME_STATE_HANDLER] Player team updated: playerId=${playerId}, team=${data.team}, userId=${updatedPlayer.user.id}`);
 
         // Broadcast the team update to all clients using normalized function
+        console.log(`[GAME_STATE_HANDLER] Broadcasting playerTeamUpdated event for game ${gameId}`);
+        console.log(`[GAME_STATE_HANDLER] Event data:`, {
+          playerId: playerId,
+          userId: updatedPlayer.user.id,
+          userName: updatedPlayer.user.name,
+          team: data.team,
+        });
         this.broadcastUtilities.broadcastGameAction(
           gameId,
           'playerTeamUpdated',
@@ -51,6 +59,7 @@ export class GameStateHandler {
           server,
           client.id,
         );
+        console.log(`[GAME_STATE_HANDLER] playerTeamUpdated event broadcasted successfully`);
 
         // Recalculate position challenge data internally when teams change
         // This ensures the internal state is updated but doesn't force frontend notifications

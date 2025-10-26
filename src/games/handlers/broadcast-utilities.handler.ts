@@ -118,7 +118,9 @@ export class BroadcastUtilitiesHandler {
       timestamp: new Date().toISOString(),
     };
 
+    console.log(`[BROADCAST_UTILITIES] Broadcasting gameAction: action=${action}, gameId=${gameId}, data=`, data);
     server.to(`game_${gameId}`).emit('gameAction', broadcastData);
+    console.log(`[BROADCAST_UTILITIES] gameAction broadcasted successfully`);
   }
 
   /**

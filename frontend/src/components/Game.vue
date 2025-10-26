@@ -646,6 +646,32 @@ const setupGlobalFunctions = () => {
       handleControlPointDeleteWrapper(controlPointId, 0)
     }
   }
+  
+  // Global function to update current user's marker team
+  ;(window as any).updateCurrentUserMarkerTeam = () => {
+    console.log('Game.vue - updateCurrentUserMarkerTeam called')
+    if (playerMarkersComposable.value) {
+      playerMarkersComposable.value.updateUserMarkerTeam()
+    }
+  }
+  
+  // Global function to update current user's marker with specific team
+  ;(window as any).updateCurrentUserMarkerTeamWithTeam = (team: string) => {
+    console.log('Game.vue - updateCurrentUserMarkerTeamWithTeam called with team:', team)
+    if (playerMarkersComposable.value) {
+      // Update the current game data first
+      if (currentGame.value && currentGame.value.players) {
+        const currentPlayer = currentGame.value.players.find(p => p.user?.id === currentUser.value?.id)
+        if (currentPlayer) {
+          currentPlayer.team = team
+          // Trigger reactivity by reassigning the array
+          currentGame.value.players = [...currentGame.value.players]
+        }
+      }
+      // Then update the marker
+      playerMarkersComposable.value.updateUserMarkerTeam()
+    }
+  }
 }
 
 // Lifecycle
@@ -786,6 +812,9 @@ onMounted(async () => {
       },
       onPlayerTeamUpdated: (data: any) => {
         console.log('GameOwner - Player team updated received:', data)
+        console.log('GameOwner - Current user ID:', currentUser.value?.id)
+        console.log('GameOwner - Is this current user?', data.userId === currentUser.value?.id)
+        
         if (data && data.team) {
           // Get team name for toast message
           const teamNames: Record<string, string> = {
@@ -799,10 +828,17 @@ onMounted(async () => {
           
           // Show toast only if it's the current user
           if (data.userId === currentUser.value?.id) {
+            console.log('GameOwner - Showing toast for current user team change')
             addToast({
               message: `Te has unido al equipo ${teamName}`,
               type: 'success'
             })
+            
+            // Update the user's marker team color
+            console.log('GameOwner - Updating user marker team color')
+            if (playerMarkersComposable.value) {
+              playerMarkersComposable.value.updateUserMarkerTeam()
+            }
           }
           
           // Update the current game players data to reflect the team change
@@ -814,6 +850,12 @@ onMounted(async () => {
               currentGame.value.players = [...currentGame.value.players]
             }
           }
+        }
+      },
+      // Add direct listener for playerTeamUpdated events
+      onGameAction: (data: any) => {
+        if (data.action === 'playerTeamUpdated' && data.data) {
+          console.log('GameOwner - Direct gameAction playerTeamUpdated received:', data.data)
         }
       }
     })
@@ -945,6 +987,7 @@ onUnmounted(() => {
   delete (window as any).createControlPoint
   delete (window as any).editControlPoint
   delete (window as any).deleteControlPoint
+  delete (window as any).updateCurrentUserMarkerTeam
   
   console.log('GameOwner - cleanup completed')
 })

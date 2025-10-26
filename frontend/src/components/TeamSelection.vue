@@ -145,6 +145,35 @@ const selectTeam = (teamId: string) => {
   // Cerrar el diálogo inmediatamente después de la selección
   console.log('TeamSelection - Closing dialog')
   props.onTeamSelected(teamId)
+  
+  // Update current user's marker immediately after team selection
+  // This ensures the marker updates even if the WebSocket event doesn't arrive
+  setTimeout(() => {
+    console.log('TeamSelection - Attempting to update user marker immediately with team:', teamId)
+    
+    // Try to update the user marker directly through the global function
+    if (window.updateCurrentUserMarkerTeam) {
+      console.log('TeamSelection - Calling updateCurrentUserMarkerTeam')
+      window.updateCurrentUserMarkerTeam()
+    }
+    
+    // Also try to update the current game data locally to trigger reactivity
+    if (currentGameData.value && currentGameData.value.players) {
+      const currentPlayer = currentGameData.value.players.find(p => p.user?.id === props.currentUser?.id)
+      if (currentPlayer) {
+        console.log('TeamSelection - Updating current player team locally:', teamId)
+        currentPlayer.team = teamId
+        // Trigger reactivity by reassigning the array
+        currentGameData.value.players = [...currentGameData.value.players]
+      }
+    }
+    
+    // Force update the user marker with the new team immediately
+    if (window.updateCurrentUserMarkerTeamWithTeam) {
+      console.log('TeamSelection - Calling updateCurrentUserMarkerTeamWithTeam with team:', teamId)
+      window.updateCurrentUserMarkerTeamWithTeam(teamId)
+    }
+  }, 100)
 }
 
 // Listen for WebSocket updates
