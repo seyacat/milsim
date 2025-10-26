@@ -10,6 +10,7 @@
     >📍</button>
     <button class="btn btn-secondary" @click="centerOnSite" title="Centrar en Site">🏠</button>
     <button
+      v-if="shouldShowTeamsButton"
       class="btn btn-secondary"
       @click="handleTeamsButton"
       :title="isOwner ? 'Gestionar equipos' : 'Seleccionar equipo'"
@@ -21,6 +22,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
 import { useToast } from '../../composables/useToast.js'
+import { computed } from 'vue'
 
 const router = useRouter()
 const { addToast } = useToast()
@@ -28,6 +30,7 @@ const { addToast } = useToast()
 const props = defineProps<{
   currentPosition: any
   isOwner?: boolean
+  currentGame?: any
 }>()
 
 const emit = defineEmits<{
@@ -53,6 +56,12 @@ const centerOnUser = () => {
 const centerOnSite = () => {
   emit('centerOnSite')
 }
+
+const shouldShowTeamsButton = computed(() => {
+  // Owners always see the button, players only in stopped state
+  if (props.isOwner) return true
+  return props.currentGame?.status === 'stopped'
+})
 
 const handleTeamsButton = () => {
   if (props.isOwner) {

@@ -32,6 +32,7 @@
       <MapControlsPanel
         :current-position="currentPositionFromComposable"
         :is-owner="isOwner"
+        :current-game="currentGame"
         @center-on-user="centerOnUser"
         @center-on-site="centerOnSite"
         @show-players-dialog="showPlayersDialog = true"
@@ -50,9 +51,9 @@
         @resume-game="resumeGame"
       />
 
-      <!-- Team Selection (Only for Players) -->
+      <!-- Team Selection (Only for Players in stopped state) -->
       <TeamSelection
-        v-if="!isOwner && showTeamSelection && currentGame && currentUser && socketRef"
+        v-if="!isOwner && showTeamSelection && currentGame?.status === 'stopped' && currentUser && socketRef"
         :currentGame="currentGame"
         :currentUser="currentUser"
         :socket="socketRef"
@@ -438,6 +439,7 @@ const handleDeactivateBombWrapper = (controlPointId: number) => {
 
 // WebSocket callbacks
 const onGameUpdate = (game: Game) => {
+  const previousStatus = currentGame.value?.status
   currentGame.value = game
   handleGameStateChange(game)
   
@@ -503,6 +505,12 @@ const onGameUpdate = (game: Game) => {
     stopLocalTimer()
   }
 
+  // Close results dialog when game transitions from finished to stopped (restart)
+  if (previousStatus === 'finished' && game.status === 'stopped') {
+    console.log('Game restarted, closing results dialog')
+    showResultsDialog.value = false
+  }
+
   // Show team selection when game transitions to stopped state and player doesn't have a team
   if (!isOwner.value && game.status === 'stopped') {
     const currentPlayer = game.players?.find(p => p.user?.id === currentUser.value?.id)
@@ -512,6 +520,15 @@ const onGameUpdate = (game: Game) => {
       console.log('Game stopped, showing team selection for player without team')
       showTeamSelection.value = true
     }
+  } else if (game.status !== 'stopped') {
+    // Hide team selection when game is not in stopped state
+    showTeamSelection.value = false
+  }
+
+  // Close team selection dialog when game transitions from stopped to running
+  if (previousStatus === 'stopped' && game.status === 'running') {
+    console.log('Game started, closing team selection dialog')
+    showTeamSelection.value = false
   }
 }
 
