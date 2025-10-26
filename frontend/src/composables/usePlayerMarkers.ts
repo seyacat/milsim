@@ -122,7 +122,11 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       <strong>${userName || 'Jugador'}</strong><br>
       ${targetIsOwner ? 'Propietario' : 'Jugador'}${teamInfo}<br>
       <small>Precisión: ${Math.round(accuracy)}m</small>
-    `)
+    `, {
+      closeOnClick: false,
+      autoClose: false,
+      closeButton: true
+    })
 
     // Only update state if markers actually changed
     const currentMarkers = playerMarkersRef.value
@@ -177,7 +181,11 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
         <strong>${targetPlayer?.user?.name || 'Jugador'}</strong><br>
         ${targetIsOwner ? 'Propietario' : 'Jugador'}${teamInfo}<br>
         <small>Precisión: ${Math.round(currentAccuracy)}m</small>
-      `)
+      `, {
+        closeOnClick: false,
+        autoClose: false,
+        closeButton: true
+      })
       
       // Only update state if the marker actually changed
       // This prevents unnecessary re-renders when only updating icon

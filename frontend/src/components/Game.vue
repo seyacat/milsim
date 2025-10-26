@@ -229,9 +229,6 @@ const onMapClick = async (latlng: { lat: number; lng: number }) => {
   
   if (!mapInstance.value) return
   
-  // Close any existing popup first
-  mapInstance.value.closePopup()
-  
   // Create menu content similar to React implementation
   const menuContent = `
     <div id="controlPointMenu">
@@ -250,6 +247,10 @@ const onMapClick = async (latlng: { lat: number; lng: number }) => {
     .setLatLng([latlng.lat, latlng.lng])
     .setContent(menuContent)
     .openOn(mapInstance.value)
+  
+  // Configure the popup to not auto-close so our map handler can manage it
+  popup.options.closeOnClick = false
+  popup.options.autoClose = false
   
   // Add global function for the button
   ;(window as any).createControlPoint = (lat: number, lng: number) => {

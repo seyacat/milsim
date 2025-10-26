@@ -35,9 +35,17 @@ export const useMap = () => {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       }).addTo(mapInstance.value)
 
-      // Add click handler for creating control points
+      // Add click handler for creating control points and closing popups on blur
       mapInstance.value.on('click', (e: any) => {
-        onMapClick(e.latlng)
+        // Check if there's an open popup by looking at the map's popup property
+        const hasOpenPopup = mapInstance.value._popup && mapInstance.value._popup.isOpen()
+        if (hasOpenPopup) {
+          // Close any open popup when clicking outside
+          mapInstance.value.closePopup()
+        } else {
+          // Only trigger onMapClick if no popup was open
+          onMapClick(e.latlng)
+        }
       })
 
     } catch (error) {
@@ -238,8 +246,8 @@ export const useMap = () => {
           </div>
         `
         marker.bindPopup(popupContent, {
-          closeOnClick: true,
-          autoClose: true,
+          closeOnClick: false,
+          autoClose: false,
           closeButton: true
         })
       }
@@ -626,8 +634,8 @@ export const useMap = () => {
           </div>
         `
         marker.bindPopup(popupContent, {
-          closeOnClick: true,
-          autoClose: true,
+          closeOnClick: false,
+          autoClose: false,
           closeButton: true
         })
       }
