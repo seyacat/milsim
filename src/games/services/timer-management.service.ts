@@ -5,6 +5,7 @@ import { Game } from '../entities/game.entity';
 import { GameInstance } from '../entities/game-instance.entity';
 import { ControlPoint } from '../entities/control-point.entity';
 import { GamesGateway } from '../games.gateway';
+import { GamesService } from '../games.service';
 import { TimerCalculationService } from './timer-calculation.service';
 
 interface GameTimer {
@@ -46,6 +47,8 @@ export class TimerManagementService {
     private controlPointsRepository: Repository<ControlPoint>,
     @Inject(forwardRef(() => GamesGateway))
     private gamesGateway: GamesGateway,
+    @Inject(forwardRef(() => GamesService))
+    private gamesService: GamesService,
     private timerCalculationService: TimerCalculationService,
   ) {
     // Restart timers for running games when service initializes
@@ -106,7 +109,14 @@ export class TimerManagementService {
               timer.remainingTime <= 0
             ) {
               // Time's up - end the game automatically (system action)
-              // Note: This will be handled by the game management service
+              console.log(`[TIMER_MANAGEMENT] Time's up for game ${gameId}, ending game automatically`);
+              this.gamesService.endGameAutomatically(gameId)
+                .then(() => {
+                  console.log(`[TIMER_MANAGEMENT] Game ${gameId} ended automatically due to time expiration`);
+                })
+                .catch(error => {
+                  console.error(`[TIMER_MANAGEMENT] Error ending game ${gameId} automatically:`, error);
+                });
             }
           })
           .catch(console.error);
