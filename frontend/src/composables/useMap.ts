@@ -118,13 +118,38 @@ export const useMap = () => {
     try {
       const L = await import('leaflet')
       
+      console.log('createControlPointMarker - Received control point:', controlPoint)
+      console.log('createControlPointMarker - Control point properties:', {
+        id: controlPoint.id,
+        name: controlPoint.name,
+        latitude: controlPoint.latitude,
+        longitude: controlPoint.longitude,
+        hasLatitude: 'latitude' in controlPoint,
+        hasLongitude: 'longitude' in controlPoint,
+        allKeys: Object.keys(controlPoint)
+      })
+      
       // Validate coordinates and convert to numbers if needed
-      const lat = typeof controlPoint.latitude === 'string'
+      let lat = typeof controlPoint.latitude === 'string'
         ? parseFloat(controlPoint.latitude)
         : controlPoint.latitude
-      const lng = typeof controlPoint.longitude === 'string'
+      let lng = typeof controlPoint.longitude === 'string'
         ? parseFloat(controlPoint.longitude)
         : controlPoint.longitude
+
+      // Fallback: check if coordinates might be in different properties
+      if (isNaN(lat) || isNaN(lng)) {
+        console.warn('Primary coordinates invalid, checking for alternative properties')
+        // Check for alternative property names that might be used
+        const altLat = (controlPoint as any).lat || (controlPoint as any).Latitude
+        const altLng = (controlPoint as any).lng || (controlPoint as any).Longitude
+        
+        if (altLat !== undefined && altLng !== undefined) {
+          lat = typeof altLat === 'string' ? parseFloat(altLat) : altLat
+          lng = typeof altLng === 'string' ? parseFloat(altLng) : altLng
+          console.log('Using alternative coordinates:', lat, lng)
+        }
+      }
 
       // Check if coordinates are valid numbers
       if (isNaN(lat) || isNaN(lng)) {

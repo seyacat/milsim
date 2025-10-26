@@ -197,15 +197,109 @@ const setupSocketListeners = (
   socket.onAny((eventName, ...args) => {
   })
 
-  // Handle control point specific events
-  socket.on('controlPointCreated', (data: { controlPoint: ControlPoint }) => {
-    callbacks.onControlPointCreated(data.controlPoint)
+  // Handle control point specific events with proper typing
+  socket.on('controlPointCreated', (data: { controlPoint: any }) => {
+    console.log('useWebSocket - controlPointCreated event received - RAW DATA:', data)
+    console.log('useWebSocket - controlPointCreated event structure:', {
+      hasControlPoint: 'controlPoint' in data,
+      controlPointKeys: data.controlPoint ? Object.keys(data.controlPoint) : 'no controlPoint',
+      controlPointValues: data.controlPoint ? data.controlPoint : 'no controlPoint',
+      dataKeys: Object.keys(data)
+    })
+    
+    // Extract control point data from the correct structure - data is {controlPoint: {...}}
+    const controlPointData = data.controlPoint?.controlPoint || data.controlPoint
+    
+    console.log('useWebSocket - controlPointData to process:', controlPointData)
+    
+    // Debug the actual control point data structure
+    if (controlPointData) {
+      console.log('useWebSocket - controlPointData detailed structure:', {
+        id: controlPointData.id,
+        name: controlPointData.name,
+        latitude: controlPointData.latitude,
+        longitude: controlPointData.longitude,
+        latitudeType: typeof controlPointData.latitude,
+        longitudeType: typeof controlPointData.longitude,
+        hasLatitude: 'latitude' in controlPointData,
+        hasLongitude: 'longitude' in controlPointData
+      })
+    }
+    
+    // Validate that we have required coordinates
+    const latitude = controlPointData?.latitude ? parseFloat(controlPointData.latitude) : 0
+    const longitude = controlPointData?.longitude ? parseFloat(controlPointData.longitude) : 0
+    
+    if (!controlPointData || !controlPointData.id || !controlPointData.name || latitude === 0 || longitude === 0) {
+      console.error('useWebSocket - Invalid control point data received:', controlPointData)
+      console.error('useWebSocket - Original data structure:', data)
+      return
+    }
+    
+    // Map backend ControlPoint entity to frontend ControlPoint interface
+    const controlPoint: ControlPoint = {
+      id: controlPointData.id,
+      name: controlPointData.name,
+      description: controlPointData.description || undefined,
+      latitude: latitude,
+      longitude: longitude,
+      type: controlPointData.type as 'site' | 'control_point',
+      ownedByTeam: controlPointData.ownedByTeam,
+      hasBombChallenge: controlPointData.hasBombChallenge || false,
+      hasPositionChallenge: controlPointData.hasPositionChallenge || false,
+      hasCodeChallenge: controlPointData.hasCodeChallenge || false,
+      bombTimer: undefined, // Not provided by backend
+      bombStatus: undefined, // Not provided by backend
+      currentTeam: undefined, // Not provided by backend
+      currentHoldTime: undefined, // Not provided by backend
+      displayTime: undefined, // Not provided by backend
+      lastTimeUpdate: undefined, // Not provided by backend
+      minDistance: controlPointData.minDistance || undefined,
+      minAccuracy: controlPointData.minAccuracy || undefined,
+      code: controlPointData.code || undefined,
+      bombTime: controlPointData.bombTime || undefined,
+      armedCode: controlPointData.armedCode || undefined,
+      disarmedCode: controlPointData.disarmedCode || undefined
+    }
+    console.log('useWebSocket - Processed control point:', controlPoint)
+    console.log('useWebSocket - Processed coordinates:', {
+      latitude: controlPoint.latitude,
+      longitude: controlPoint.longitude,
+      hasValidCoordinates: controlPoint.latitude !== 0 && controlPoint.longitude !== 0
+    })
+    callbacks.onControlPointCreated(controlPoint)
   })
 
   // Note: controlPointUpdated events now come through gameAction handler above
   // This direct listener is kept for backward compatibility
-  socket.on('controlPointUpdated', (data: { controlPoint: ControlPoint }) => {
-    callbacks.onControlPointUpdated(data.controlPoint)
+  socket.on('controlPointUpdated', (data: { controlPoint: any }) => {
+    console.log('useWebSocket - controlPointUpdated event received:', data)
+    // Ensure the control point has the expected structure
+    const controlPoint: ControlPoint = {
+      id: data.controlPoint.id,
+      name: data.controlPoint.name,
+      description: data.controlPoint.description,
+      latitude: data.controlPoint.latitude,
+      longitude: data.controlPoint.longitude,
+      type: data.controlPoint.type,
+      ownedByTeam: data.controlPoint.ownedByTeam,
+      hasBombChallenge: data.controlPoint.hasBombChallenge || false,
+      hasPositionChallenge: data.controlPoint.hasPositionChallenge || false,
+      hasCodeChallenge: data.controlPoint.hasCodeChallenge || false,
+      bombTimer: data.controlPoint.bombTimer,
+      bombStatus: data.controlPoint.bombStatus,
+      currentTeam: data.controlPoint.currentTeam,
+      currentHoldTime: data.controlPoint.currentHoldTime,
+      displayTime: data.controlPoint.displayTime,
+      lastTimeUpdate: data.controlPoint.lastTimeUpdate,
+      minDistance: data.controlPoint.minDistance,
+      minAccuracy: data.controlPoint.minAccuracy,
+      code: data.controlPoint.code,
+      bombTime: data.controlPoint.bombTime,
+      armedCode: data.controlPoint.armedCode,
+      disarmedCode: data.controlPoint.disarmedCode
+    }
+    callbacks.onControlPointUpdated(controlPoint)
   })
 
   socket.on('controlPointDeleted', (data: { controlPointId: number }) => {

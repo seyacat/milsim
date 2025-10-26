@@ -581,6 +581,16 @@ const onGameUpdate = (game: Game) => {
 }
 
 const onControlPointCreated = (controlPoint: ControlPoint) => {
+  console.log('onControlPointCreated - Received control point:', controlPoint)
+  console.log('onControlPointCreated - Control point coordinates:', {
+    id: controlPoint.id,
+    name: controlPoint.name,
+    latitude: controlPoint.latitude,
+    longitude: controlPoint.longitude,
+    hasLatitude: 'latitude' in controlPoint,
+    hasLongitude: 'longitude' in controlPoint
+  })
+  
   if (currentGame.value) {
     currentGame.value.controlPoints = [...(currentGame.value.controlPoints || []), controlPoint]
     renderControlPoints(currentGame.value.controlPoints, {

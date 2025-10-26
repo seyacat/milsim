@@ -1,3 +1,5 @@
+import { ControlPoint } from '../entities/control-point.entity';
+
 export interface BaseWebSocketEvent {
   from: string;
   timestamp: string;
@@ -20,11 +22,11 @@ export interface GameTimeUpdatedEvent extends BaseWebSocketEvent {
 }
 
 export interface ControlPointCreatedEvent extends BaseWebSocketEvent {
-  controlPoint: any;
+  controlPoint: ControlPoint;
 }
 
 export interface ControlPointUpdatedEvent extends BaseWebSocketEvent {
-  controlPoint: any;
+  controlPoint: ControlPoint;
 }
 
 export interface ControlPointDeletedEvent extends BaseWebSocketEvent {
@@ -32,11 +34,11 @@ export interface ControlPointDeletedEvent extends BaseWebSocketEvent {
 }
 
 export interface ControlPointTeamAssignedEvent extends BaseWebSocketEvent {
-  controlPoint: any;
+  controlPoint: ControlPoint;
 }
 
 export interface ControlPointTakenEvent extends BaseWebSocketEvent {
-  controlPoint: any;
+  controlPoint: ControlPoint;
 }
 
 export interface PlayerTeamUpdatedEvent extends BaseWebSocketEvent {
@@ -159,7 +161,7 @@ export interface BombActivatedEvent extends BaseWebSocketEvent {
   userId: number;
   userName: string;
   activatedByOwner?: boolean;
-  controlPoint?: any;
+  controlPoint?: ControlPoint;
 }
 
 export interface BombDeactivatedEvent extends BaseWebSocketEvent {
@@ -167,7 +169,7 @@ export interface BombDeactivatedEvent extends BaseWebSocketEvent {
   userId: number;
   userName: string;
   deactivatedByOwner?: boolean;
-  controlPoint?: any;
+  controlPoint?: ControlPoint;
 }
 
 export interface ForceDisconnectEvent extends BaseWebSocketEvent {
