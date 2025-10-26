@@ -18,14 +18,14 @@
         :current-user="currentUser"
         :current-game="currentGame"
         :gps-status="gpsStatusFromComposable"
+        :default-time-value="defaultTimeValue"
+        @time-select="updateGameTime"
       />
 
       <!-- Location Info - Bottom Left -->
       <LocationInfoPanel
         :gps-status="gpsStatusFromComposable"
         :current-position="currentPositionFromComposable"
-        :default-time-value="defaultTimeValue"
-        @time-select="updateGameTime"
       />
 
       <!-- Map Controls - Top Right -->
@@ -594,10 +594,51 @@ onMounted(async () => {
       onJoinSuccess,
       onError,
       onGameTime: (data: any) => {
-        console.log('Game time data received:', data)
         // Handle control point timer updates from server
         if (data.controlPointTimes && Array.isArray(data.controlPointTimes)) {
-          console.log('Control point times received:', data.controlPointTimes)
+          updateControlPointTimes(data.controlPointTimes, currentGame.value)
+          // Update timers after markers are rendered
+          setTimeout(() => {
+            updateAllTimerDisplays(currentGame.value)
+          }, 100)
+        }
+        
+        // Update main game timer information
+        if (currentGame.value) {
+          if (data.remainingTime !== undefined) {
+            currentGame.value.remainingTime = data.remainingTime
+          }
+          if (data.totalTime !== undefined) {
+            currentGame.value.totalTime = data.totalTime
+          }
+          if (data.playedTime !== undefined) {
+            currentGame.value.playedTime = data.playedTime
+          }
+          // Force reactivity by reassigning the object
+          currentGame.value = { ...currentGame.value }
+        }
+      },
+      onTimeUpdate: (data: any) => {
+        // Handle time updates from server (broadcast every 20 seconds)
+        console.log('GameOwner - Time update received:', data)
+        
+        // Update main game timer information
+        if (currentGame.value) {
+          if (data.remainingTime !== undefined) {
+            currentGame.value.remainingTime = data.remainingTime
+          }
+          if (data.totalTime !== undefined) {
+            currentGame.value.totalTime = data.totalTime
+          }
+          if (data.playedTime !== undefined) {
+            currentGame.value.playedTime = data.playedTime
+          }
+          // Force reactivity by reassigning the object
+          currentGame.value = { ...currentGame.value }
+        }
+        
+        // Handle control point timer updates from server
+        if (data.controlPointTimes && Array.isArray(data.controlPointTimes)) {
           updateControlPointTimes(data.controlPointTimes, currentGame.value)
           // Update timers after markers are rendered
           setTimeout(() => {

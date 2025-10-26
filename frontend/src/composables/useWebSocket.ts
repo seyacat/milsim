@@ -21,6 +21,7 @@ const setupSocketListeners = (
     onJoinSuccess: (user: User) => void
     onError: (error: string) => void
     onGameTime: (data: any) => void
+    onTimeUpdate?: (data: any) => void
     onPlayerPosition?: (data: any) => void
     onBombTimeUpdate?: (data: any) => void
     onActiveBombTimers?: (data: any) => void
@@ -119,6 +120,13 @@ const setupSocketListeners = (
     callbacks.onGameTime(data)
   })
 
+  // Handle time updates (broadcast every 20 seconds)
+  socket.on('timeUpdate', (data: any) => {
+    if (callbacks.onTimeUpdate) {
+      callbacks.onTimeUpdate(data)
+    }
+  })
+
   // Handle individual control point time updates
   socket.on('controlPointTimeUpdate', (data: any) => {
     // Forward to gameTime handler for processing
@@ -174,6 +182,7 @@ export const useWebSocket = () => {
       onJoinSuccess: (user: User) => void
       onError: (error: string) => void
       onGameTime: (data: any) => void
+      onTimeUpdate?: (data: any) => void
       onPlayerPosition?: (data: any) => void
       onBombTimeUpdate?: (data: any) => void
       onActiveBombTimers?: (data: any) => void
