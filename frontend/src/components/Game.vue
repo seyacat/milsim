@@ -179,6 +179,8 @@ const teamCount = ref(2)
 const gpsStatus = ref('Desconectado')
 const currentPosition = ref<any>(null)
 const isOwner = ref(false)
+const localTimerInterval = ref<NodeJS.Timeout | null>(null)
+const lastTimeUpdate = ref<Date | null>(null)
 
 // Player markers composable - will be initialized after map is ready
 const playerMarkersComposable = ref<any>(null)
@@ -304,6 +306,55 @@ const hideTeamSelection = () => {
   showTeamSelection.value = false
 }
 
+// Local timer functions
+const startLocalTimer = () => {
+  stopLocalTimer()
+  
+  localTimerInterval.value = setInterval(() => {
+    if (currentGame.value && currentGame.value.status === 'running') {
+      // Increment played time
+      if (currentGame.value.playedTime !== undefined) {
+        currentGame.value.playedTime += 1
+      }
+      
+      // Decrement remaining time if it exists
+      if (currentGame.value.remainingTime !== undefined && currentGame.value.remainingTime !== null) {
+        currentGame.value.remainingTime = Math.max(0, currentGame.value.remainingTime - 1)
+      }
+      
+      // Force reactivity by reassigning the object
+      currentGame.value = { ...currentGame.value }
+    }
+  }, 1000)
+}
+
+const stopLocalTimer = () => {
+  if (localTimerInterval.value) {
+    clearInterval(localTimerInterval.value)
+    localTimerInterval.value = null
+  }
+}
+
+const updateLocalTimerFromServer = (data: any) => {
+  // Update last time update timestamp
+  lastTimeUpdate.value = new Date()
+  
+  // Update game state with server data
+  if (currentGame.value) {
+    if (data.remainingTime !== undefined) {
+      currentGame.value.remainingTime = data.remainingTime
+    }
+    if (data.totalTime !== undefined) {
+      currentGame.value.totalTime = data.totalTime
+    }
+    if (data.playedTime !== undefined) {
+      currentGame.value.playedTime = data.playedTime
+    }
+    // Force reactivity by reassigning the object
+    currentGame.value = { ...currentGame.value }
+  }
+}
+
 // Control point handlers
 const handleControlPointMove = (controlPointId: number, markerId: number) => {
   console.log('Move control point:', controlPointId, markerId)
@@ -390,6 +441,14 @@ const onGameUpdate = (game: Game) => {
   console.log('GameOwner - onGameUpdate called')
   currentGame.value = game
   handleGameStateChange(game)
+  
+  // Handle local timer based on game status
+  if (game.status === 'running') {
+    startLocalTimer()
+  } else {
+    stopLocalTimer()
+  }
+  
   renderControlPoints(game.controlPoints || [], {
     handleControlPointMove,
     handleControlPointUpdate: handleControlPointUpdateWrapper,
@@ -418,6 +477,7 @@ const onGameUpdate = (game: Game) => {
   if (game.status === 'finished') {
     console.log('Game finished, showing results dialog for all users')
     showResultsDialog.value = true
+    stopLocalTimer()
   }
 
   // Show team selection when game transitions to stopped state and player doesn't have a team
@@ -594,6 +654,9 @@ onMounted(async () => {
       onJoinSuccess,
       onError,
       onGameTime: (data: any) => {
+        // Update local timer with server data
+        updateLocalTimerFromServer(data)
+        
         // Handle control point timer updates from server
         if (data.controlPointTimes && Array.isArray(data.controlPointTimes)) {
           updateControlPointTimes(data.controlPointTimes, currentGame.value)
@@ -602,40 +665,13 @@ onMounted(async () => {
             updateAllTimerDisplays(currentGame.value)
           }, 100)
         }
-        
-        // Update main game timer information
-        if (currentGame.value) {
-          if (data.remainingTime !== undefined) {
-            currentGame.value.remainingTime = data.remainingTime
-          }
-          if (data.totalTime !== undefined) {
-            currentGame.value.totalTime = data.totalTime
-          }
-          if (data.playedTime !== undefined) {
-            currentGame.value.playedTime = data.playedTime
-          }
-          // Force reactivity by reassigning the object
-          currentGame.value = { ...currentGame.value }
-        }
       },
       onTimeUpdate: (data: any) => {
         // Handle time updates from server (broadcast every 20 seconds)
         console.log('GameOwner - Time update received:', data)
         
-        // Update main game timer information
-        if (currentGame.value) {
-          if (data.remainingTime !== undefined) {
-            currentGame.value.remainingTime = data.remainingTime
-          }
-          if (data.totalTime !== undefined) {
-            currentGame.value.totalTime = data.totalTime
-          }
-          if (data.playedTime !== undefined) {
-            currentGame.value.playedTime = data.playedTime
-          }
-          // Force reactivity by reassigning the object
-          currentGame.value = { ...currentGame.value }
-        }
+        // Update local timer with server data
+        updateLocalTimerFromServer(data)
         
         // Handle control point timer updates from server
         if (data.controlPointTimes && Array.isArray(data.controlPointTimes)) {
@@ -779,6 +815,9 @@ onMounted(async () => {
 
 onUnmounted(() => {
   console.log('GameOwner - onUnmounted called, cleaning up resources')
+  
+  // Stop local timer first
+  stopLocalTimer()
   
   // Stop GPS tracking first
   stopGPSTracking()
