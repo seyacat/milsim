@@ -24,6 +24,17 @@ export class ControlPointActionHandler {
     server: any,
   ) {
     const user = connectedUsers.get(client.id);
+    
+    if (!user) {
+      throw new ConflictException('Usuario no autenticado');
+    }
+
+    // Check if user is the owner of the game
+    const game = await this.gamesService.findOne(gameId, user.id);
+    if (!game.owner || game.owner.id !== user.id) {
+      throw new ConflictException('Solo el propietario del juego puede crear puntos de control');
+    }
+
     const newControlPoint = await this.gamesService.createControlPoint({
       name: data.name,
       description: data.description || '',
@@ -42,17 +53,12 @@ export class ControlPointActionHandler {
     );
 
     // Send the full control point data (with codes) only to the owner
-    if (user) {
-      const game = await this.gamesService.findOne(gameId, user.id);
-      if (game.owner && game.owner.id === user.id) {
-        this.broadcastUtilitiesHandler.broadcastControlPointCreated(
-          gameId,
-          { controlPoint: newControlPoint }, // Full data with codes
-          server,
-          client.id,
-        );
-      }
-    }
+    this.broadcastUtilitiesHandler.broadcastControlPointCreated(
+      gameId,
+      { controlPoint: newControlPoint }, // Full data with codes
+      server,
+      client.id,
+    );
   }
 
   async handleUpdateControlPoint(
