@@ -498,6 +498,11 @@ const onGameUpdate = (game: Game) => {
     remainingTime: game.remainingTime
   })
   
+  // STRONG LOGGING FOR GAME FINISHED STATE
+  if (game.status === 'finished') {
+    console.log('[GAME_UPDATE] *** GAME FINISHED DETECTED *** - Showing results dialog for all users')
+  }
+  
   // Force update the game state to ensure reactivity
   // Always use server values for game state
   currentGame.value = { ...game }

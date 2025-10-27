@@ -573,6 +573,11 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.broadcastUtilitiesHandler.broadcastGameUpdate(gameId, game, this.server);
   }
 
+  // Method to broadcast game state changes to all connected clients in a game
+  broadcastGameStateChange(gameId: number, game: any) {
+    this.broadcastUtilitiesHandler.broadcastGameStateChange(gameId, game, this.server);
+  }
+
   // Method to broadcast time updates to all connected clients in a game
   async broadcastTimeUpdate(
     gameId: number,

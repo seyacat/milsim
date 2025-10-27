@@ -135,9 +135,7 @@ export class TimerCalculationService {
       }
     }
 
-    // DEBUG: Log the calculated time to identify where 4900 is coming from
-    if (totalElapsedTime === 4900) {
-    }
+    
 
     return totalElapsedTime;
   }
@@ -260,6 +258,12 @@ export class TimerCalculationService {
     });
     const isCurrentlyRunning = game && game.status === 'running';
 
+    // Get the control point to check current ownership
+    const controlPoint = await this.controlPointsRepository.findOne({
+      where: { id: controlPointId },
+    });
+    const currentOwnerTeam = controlPoint?.ownedByTeam || null;
+
     const timeline = [
       ...history
         .filter(event => event.eventType === 'control_point_taken' && event.data)
@@ -268,6 +272,7 @@ export class TimerCalculationService {
           timestamp: event.timestamp,
           controlPointId: event.data.controlPointId,
           team: event.data.team,
+          initialState: event.data.initialState || false,
         })),
       ...history
         .filter(event =>
@@ -286,6 +291,33 @@ export class TimerCalculationService {
     let currentTeam: string | null = null;
     let gameState: 'running' | 'paused' | 'ended' = 'paused';
     let currentHoldStart: Date | null = null;
+    let gameStartTime: Date | null = null;
+
+    // Find the game start time
+    const gameStartEvent = timeline.find(event => event.type === 'game_state' && event.state === 'game_started');
+    if (gameStartEvent) {
+      gameStartTime = gameStartEvent.timestamp;
+    }
+
+    // Check if there are any initial state assignments for this control point
+    const initialAssignments = timeline.filter(
+      event =>
+        event.type === 'capture' &&
+        event.controlPointId === controlPointId &&
+        event.initialState === true
+    );
+
+    // If there are initial assignments and the team matches, add time from game start to first capture
+    if (initialAssignments.length > 0 && gameStartTime) {
+      const firstInitialAssignment = initialAssignments[0];
+      if (firstInitialAssignment.type === 'capture' && firstInitialAssignment.team === team) {
+        // Add time from game start to first capture event
+        const initialTime = Math.floor(
+          (firstInitialAssignment.timestamp.getTime() - gameStartTime.getTime()) / 1000
+        );
+        totalHoldTime += initialTime;
+      }
+    }
 
     for (let i = 0; i < timeline.length; i++) {
       const event = timeline[i];
