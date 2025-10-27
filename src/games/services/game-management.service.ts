@@ -175,7 +175,9 @@ export class GameManagementService {
 
     // Broadcast the update to all connected clients
     if (this.gamesGateway) {
-      this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
+      // Get the complete game with player relations for broadcasting
+      const gameWithPlayers: Game = await this.findOne(gameId);
+      this.gamesGateway.broadcastGameUpdate(gameId, gameWithPlayers);
     }
 
     return updatedGame;
@@ -218,6 +220,11 @@ export class GameManagementService {
       }
     } else {
       updatedGame.players = [];
+    }
+    
+    // Broadcast the update to all connected clients
+    if (this.gamesGateway) {
+      this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
     }
     
     return updatedGame;

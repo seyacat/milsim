@@ -496,6 +496,16 @@ const onGameUpdate = (game: Game) => {
     remainingTime: game.remainingTime
   })
   
+  // STRONG LOGGING FOR PLAYER DATA
+  console.log('[GAME_UPDATE] Player data details:', {
+    players: game.players?.map(p => ({
+      id: p.id,
+      userId: p.user?.id,
+      userName: p.user?.name,
+      team: p.team
+    })) || []
+  })
+  
   // STRONG LOGGING FOR GAME FINISHED STATE
   if (game.status === 'finished') {
     console.log('[GAME_UPDATE] *** GAME FINISHED DETECTED *** - Showing results dialog for all users')

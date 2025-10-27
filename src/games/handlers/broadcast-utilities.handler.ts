@@ -1,4 +1,5 @@
 import { GamesService } from '../games.service';
+import { Game } from '../entities/game.entity';
 import {
   GameStateChangedEvent,
   TeamCountUpdatedEvent,
@@ -32,7 +33,7 @@ export class BroadcastUtilitiesHandler {
    */
   broadcastGameStateChange(
     gameId: number,
-    game: any,
+    game: Game,
     server: any,
     from: string = 'server',
   ): void {
@@ -50,7 +51,7 @@ export class BroadcastUtilitiesHandler {
    */
   broadcastTeamCountUpdated(
     gameId: number,
-    game: any,
+    game: Game,
     server: any,
     from: string = 'server',
   ): void {
@@ -68,7 +69,7 @@ export class BroadcastUtilitiesHandler {
    */
   broadcastTimeAdded(
     gameId: number,
-    game: any,
+    game: Game,
     server: any,
     from: string = 'server',
   ): void {
@@ -86,7 +87,7 @@ export class BroadcastUtilitiesHandler {
    */
   broadcastGameTimeUpdated(
     gameId: number,
-    game: any,
+    game: Game,
     server: any,
     from: string = 'server',
   ): void {
@@ -510,7 +511,7 @@ export class BroadcastUtilitiesHandler {
   /**
    * Broadcast game updates to all connected clients in a game
    */
-  broadcastGameUpdate(gameId: number, game: any, server: any): void {
+  broadcastGameUpdate(gameId: number, game: Game, server: any): void {
     const eventData: BaseWebSocketEvent = {
       from: 'server',
       timestamp: new Date().toISOString(),

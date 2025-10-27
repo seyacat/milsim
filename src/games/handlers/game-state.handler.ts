@@ -1,5 +1,6 @@
 import { Socket } from 'socket.io';
 import { GamesService } from '../games.service';
+import { Game } from '../entities/game.entity';
 import { PositionChallengeService } from '../services/position-challenge.service';
 import { BroadcastUtilitiesHandler } from './broadcast-utilities.handler';
 
@@ -73,9 +74,11 @@ export class GameStateHandler {
     if (user) {
       try {
         const startedGame = await this.gamesService.startGame(gameId, user.id);
+        // Get the complete game with player relations for broadcasting
+        const gameWithPlayers: Game = await this.gamesService.findOne(gameId, user.id);
         this.broadcastUtilities.broadcastGameStateChange(
           gameId,
-          startedGame,
+          gameWithPlayers,
           server,
           client.id,
         );
@@ -103,11 +106,11 @@ export class GameStateHandler {
     if (user) {
       try {
         const pausedGame = await this.gamesService.pauseGame(gameId, user.id);
-        
-        
+        // Get the complete game with player relations for broadcasting
+        const gameWithPlayers: Game = await this.gamesService.findOne(gameId, user.id);
         this.broadcastUtilities.broadcastGameStateChange(
           gameId,
-          pausedGame,
+          gameWithPlayers,
           server,
           client.id,
         );
@@ -135,9 +138,11 @@ export class GameStateHandler {
     if (user) {
       try {
         const resumedGame = await this.gamesService.resumeGame(gameId, user.id);
+        // Get the complete game with player relations for broadcasting
+        const gameWithPlayers: Game = await this.gamesService.findOne(gameId, user.id);
         this.broadcastUtilities.broadcastGameStateChange(
           gameId,
-          resumedGame,
+          gameWithPlayers,
           server,
           client.id,
         );
@@ -165,9 +170,11 @@ export class GameStateHandler {
     if (user) {
       try {
         const endedGame = await this.gamesService.endGame(gameId, user.id);
+        // Get the complete game with player relations for broadcasting
+        const gameWithPlayers: Game = await this.gamesService.findOne(gameId, user.id);
         this.broadcastUtilities.broadcastGameStateChange(
           gameId,
-          endedGame,
+          gameWithPlayers,
           server,
           client.id,
         );
@@ -194,9 +201,11 @@ export class GameStateHandler {
     if (user) {
       try {
         const restartedGame = await this.gamesService.restartGame(gameId, user.id);
+        // Get the complete game with player relations for broadcasting
+        const gameWithPlayers: Game = await this.gamesService.findOne(gameId, user.id);
         this.broadcastUtilities.broadcastGameStateChange(
           gameId,
-          restartedGame,
+          gameWithPlayers,
           server,
           client.id,
         );
@@ -224,9 +233,11 @@ export class GameStateHandler {
           data.teamCount,
           user.id,
         );
+        // Get the complete game with player relations for broadcasting
+        const gameWithPlayers: Game = await this.gamesService.findOne(gameId, user.id);
         this.broadcastUtilities.broadcastTeamCountUpdated(
           gameId,
-          updatedGame,
+          gameWithPlayers,
           server,
           client.id,
         );
@@ -252,9 +263,11 @@ export class GameStateHandler {
         const game = await this.gamesService.findOne(gameId, user.id);
         if (game.owner && game.owner.id === user.id) {
           const updatedGame = await this.gamesService.addTime(gameId, data.seconds);
+          // Get the complete game with player relations for broadcasting
+          const gameWithPlayers: Game = await this.gamesService.findOne(gameId, user.id);
           this.broadcastUtilities.broadcastTimeAdded(
             gameId,
-            updatedGame,
+            gameWithPlayers,
             server,
             client.id,
           );
@@ -285,9 +298,11 @@ export class GameStateHandler {
             data.timeInSeconds,
             user.id,
           );
+          // Get the complete game with player relations for broadcasting
+          const gameWithPlayers: Game = await this.gamesService.findOne(gameId, user.id);
           this.broadcastUtilities.broadcastGameTimeUpdated(
             gameId,
-            updatedGame,
+            gameWithPlayers,
             server,
             client.id,
           );

@@ -122,7 +122,13 @@ const setupSocketListeners = () => {
 
   // Listen for game updates that might include player team changes
   props.socket.on('gameUpdate', (data: { game: any; type?: string }) => {
-    console.log('PlayersDialog - gameUpdate received:', data)
+    console.log('PlayersDialog - gameUpdate received:', {
+      hasGame: !!data.game,
+      hasPlayers: !!(data.game && data.game.players),
+      playersCount: data.game?.players?.length || 0,
+      gameStatus: data.game?.status,
+      type: data.type
+    })
     if (data.game && data.game.players) {
       console.log('PlayersDialog - updating players data from gameUpdate:', data.game.players.length, 'players')
       // Update local players data with the latest from server

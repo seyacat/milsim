@@ -9,6 +9,7 @@ import {
 import { Inject, forwardRef } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { GamesService } from './games.service';
+import { Game } from './entities/game.entity';
 import { WebsocketAuthService } from '../auth/websocket-auth.service';
 import { ConnectionTrackerService } from '../connection-tracker.service';
 import { PositionChallengeService } from './services/position-challenge.service';
@@ -182,12 +183,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Get updated game data
       const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-      // Notify only the joining client about the updated player list
-      // Removed broadcast to all players to prevent PIE chart disappearance
-      client.emit('gameUpdate', {
-        type: 'playerJoined',
-        game: updatedGame,
-      });
+      // Notify all clients about the updated player list
+      // Broadcast to all players to ensure team management shows updated players
+      this.broadcastGameUpdate(gameId, updatedGame);
 
       // Check if user is owner and send stored positions
       const currentGame = await this.gamesService.findOne(gameId, user.id);
@@ -296,14 +294,14 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Get updated game data
       const game = await this.gamesService.findOne(gameId, user.id);
 
-      // Get updated game data
-      const updatedGame = await this.gamesService.findOne(gameId, user.id);
+      // Get updated game data with player relations
+      const gameWithPlayers = await this.gamesService.findOne(gameId, user.id);
 
       // Notify only the leaving client about the updated player list
       // Removed broadcast to all players to prevent PIE chart disappearance
       client.emit('gameUpdate', {
         type: 'playerLeft',
-        game: updatedGame,
+        game: gameWithPlayers,
       });
 
       client.emit('leaveSuccess', {
@@ -569,12 +567,12 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   // Method to broadcast game updates to all connected clients in a game
-  broadcastGameUpdate(gameId: number, game: any) {
+  broadcastGameUpdate(gameId: number, game: Game) {
     this.broadcastUtilitiesHandler.broadcastGameUpdate(gameId, game, this.server);
   }
 
   // Method to broadcast game state changes to all connected clients in a game
-  broadcastGameStateChange(gameId: number, game: any) {
+  broadcastGameStateChange(gameId: number, game: Game) {
     this.broadcastUtilitiesHandler.broadcastGameStateChange(gameId, game, this.server);
   }
 

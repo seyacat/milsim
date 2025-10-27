@@ -24,6 +24,19 @@ import { GameResultsService } from './services/game-results.service';
 
 @Injectable()
 export class GamesService {
+  /**
+   * Helper method to broadcast game update with player relations
+   */
+  private async broadcastGameUpdateWithPlayers(gameId: number): Promise<void> {
+    if (this.gamesGateway) {
+      try {
+        const gameWithPlayers: Game = await this.findOne(gameId);
+        this.gamesGateway.broadcastGameUpdate(gameId, gameWithPlayers);
+      } catch (error) {
+        console.error(`Error broadcasting game update for game ${gameId}:`, error);
+      }
+    }
+  }
   constructor(
     @InjectRepository(Game)
     private gamesRepository: Repository<Game>,
@@ -251,9 +264,7 @@ export class GamesService {
 
     // Force broadcast game update to ensure all players receive the state change
     // This is critical to ensure players respect pause state after restart
-    if (this.gamesGateway) {
-      this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
-    }
+    await this.broadcastGameUpdateWithPlayers(gameId);
 
     return updatedGame;
   }
@@ -298,9 +309,7 @@ export class GamesService {
 
     // Force broadcast game update to ensure all players receive the state change
     // This is critical to ensure players respect pause state after restart
-    if (this.gamesGateway) {
-      this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
-    }
+    await this.broadcastGameUpdateWithPlayers(gameId);
 
     return updatedGame;
   }
@@ -345,9 +354,7 @@ export class GamesService {
 
     // Force broadcast game update to ensure all players receive the state change
     // This is critical to ensure players respect pause state after restart
-    if (this.gamesGateway) {
-      this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
-    }
+    await this.broadcastGameUpdateWithPlayers(gameId);
 
     return updatedGame;
   }
@@ -390,6 +397,9 @@ export class GamesService {
     // Force broadcast final time update on game end
     this.timerManagementService.forceTimeBroadcast(gameId);
 
+    // Force broadcast game update to ensure all players receive the state change
+    await this.broadcastGameUpdateWithPlayers(gameId);
+
     return updatedGame;
   }
 
@@ -430,11 +440,11 @@ export class GamesService {
     // Force broadcast the game update to ensure frontend receives the current game.totalTime
     // This is critical for the dropdown to show the correct value after restart
     if (this.gamesGateway) {
-      this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
+      await this.broadcastGameUpdateWithPlayers(gameId);
       
       // Force additional broadcast to ensure all clients receive the update
       setTimeout(() => {
-        this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
+        void this.broadcastGameUpdateWithPlayers(gameId);
       }, 100);
     }
 
@@ -448,9 +458,7 @@ export class GamesService {
 
     // Force broadcast game update to ensure all players receive the state change
     // This is critical to ensure players respect pause state after restart
-    if (this.gamesGateway) {
-      this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
-    }
+    await this.broadcastGameUpdateWithPlayers(gameId);
 
     // Force broadcast timer updates to reset all control point timers
     // This ensures timers are hidden when game transitions from finished to stopped
@@ -493,21 +501,23 @@ export class GamesService {
 
     // BROADCAST GAME STATE CHANGE FORCEFULLY TO ALL PLAYERS
     if (this.gamesGateway) {
-      
       // Broadcast as game update - FORCE BROADCAST TO ALL PLAYERS
-      this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
+      await this.broadcastGameUpdateWithPlayers(gameId);
       
       // Broadcast as game state change - SPECIFIC EVENT FOR STATE CHANGES
-      this.gamesGateway.broadcastGameStateChange(gameId, updatedGame);
+      const gameWithPlayers: Game = await this.findOne(gameId);
+      this.gamesGateway.broadcastGameStateChange(gameId, gameWithPlayers);
       
       // Force additional broadcast to ensure all players receive it
       setTimeout(() => {
-        this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
+        void this.broadcastGameUpdateWithPlayers(gameId);
       }, 100);
       
       // Also broadcast as gameStateChanged event for better compatibility
       setTimeout(() => {
-        this.gamesGateway.broadcastGameStateChange(gameId, updatedGame);
+        void this.findOne(gameId).then((refreshedGame: Game) => {
+          this.gamesGateway.broadcastGameStateChange(gameId, refreshedGame);
+        });
       }, 200);
     }
 
@@ -861,20 +871,28 @@ export class GamesService {
       const connectedUsers = this.gamesGateway.getConnectedUsersForGame?.(gameId);
       
       if (!connectedUsers || connectedUsers.size === 0) {
+        console.log(`[INCLUDE_PLAYERS] No connected users found for game ${gameId}`);
         return;
       }
+
+      console.log(`[INCLUDE_PLAYERS] Including ${connectedUsers.size} connected players in new game instance for game ${gameId}`);
 
       // Add each connected user to the new game instance
       for (const [socketId, user] of connectedUsers.entries()) {
         try {
           await this.playerManagementService.joinGame(gameId, user.id);
+          console.log(`[INCLUDE_PLAYERS] Successfully included user ${user.id} (${user.name}) in new game instance`);
         } catch (error) {
           // Log error but continue with other users
-          console.error(`Error including user ${user.id} in new game instance:`, error);
+          console.error(`[INCLUDE_PLAYERS] Error including user ${user.id} in new game instance:`, error);
         }
       }
+
+      // Broadcast the updated game state to all clients
+      await this.broadcastGameUpdateWithPlayers(gameId);
+      console.log(`[INCLUDE_PLAYERS] Game update broadcasted for game ${gameId}`);
     } catch (error) {
-      console.error(`Error including connected players in new game instance for game ${gameId}:`, error);
+      console.error(`[INCLUDE_PLAYERS] Error including connected players in new game instance for game ${gameId}:`, error);
     }
   }
 }
