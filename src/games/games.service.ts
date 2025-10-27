@@ -466,26 +466,20 @@ export class GamesService {
 
     // BROADCAST GAME STATE CHANGE FORCEFULLY TO ALL PLAYERS
     if (this.gamesGateway) {
-      console.log(`[GAME_END_AUTOMATICALLY] Broadcasting game finished state to all players for game ${gameId}`);
-      console.log(`[GAME_END_AUTOMATICALLY] Game status: ${updatedGame.status}, instanceId: ${updatedGame.instanceId}`);
       
       // Broadcast as game update - FORCE BROADCAST TO ALL PLAYERS
-      console.log(`[GAME_END_AUTOMATICALLY] Sending gameUpdate event for game ${gameId}`);
       this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
       
       // Broadcast as game state change - SPECIFIC EVENT FOR STATE CHANGES
-      console.log(`[GAME_END_AUTOMATICALLY] Sending gameStateChanged event for game ${gameId}`);
       this.gamesGateway.broadcastGameStateChange(gameId, updatedGame);
       
       // Force additional broadcast to ensure all players receive it
       setTimeout(() => {
-        console.log(`[GAME_END_AUTOMATICALLY] Sending delayed gameUpdate event for game ${gameId}`);
         this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
       }, 100);
       
       // Also broadcast as gameStateChanged event for better compatibility
       setTimeout(() => {
-        console.log(`[GAME_END_AUTOMATICALLY] Sending delayed gameStateChanged event for game ${gameId}`);
         this.gamesGateway.broadcastGameStateChange(gameId, updatedGame);
       }, 200);
     }

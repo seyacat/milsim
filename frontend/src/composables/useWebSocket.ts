@@ -76,11 +76,6 @@ const setupSocketListeners = (
   })
 
   socket.on('gameUpdate', (data: { game: Game; type?: string }) => {
-    console.log('[WEBSOCKET] Received gameUpdate event:', {
-      gameId: data.game?.id,
-      status: data.game?.status,
-      type: data.type
-    })
     if (data.game) {
       callbacks.onGameUpdate(data.game)
     }
@@ -95,12 +90,6 @@ const setupSocketListeners = (
 
   // Listen for specific game state change events
   socket.on('gameStateChanged', (data: GameStateChangedEvent) => {
-    console.log('[WEBSOCKET] Received gameStateChanged event:', {
-      gameId: data.game?.id,
-      status: data.game?.status,
-      from: data.from,
-      timestamp: data.timestamp
-    })
     if (data.game) {
       callbacks.onGameUpdate(data.game)
     }
