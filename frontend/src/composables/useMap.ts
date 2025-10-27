@@ -8,6 +8,7 @@ export const useMap = () => {
   const controlPointMarkers = ref<Map<number, any>>(new Map())
   const positionCircles = ref<Map<number, any>>(new Map())
   const pieCharts = ref<Map<number, any>>(new Map())
+  const pendingPositionChallengeUpdates = ref<Map<number, Record<string, number>>>(new Map())
 
   const initializeMap = async (onMapClick: (latlng: { lat: number; lng: number }) => void) => {
     if (!mapRef.value) return
@@ -346,7 +347,12 @@ export const useMap = () => {
   }
 
   const createPositionChallengePieChart = async (marker: any, controlPoint: ControlPoint, positionCircle: any) => {
-    if (!mapInstance.value) return
+    console.log('createPositionChallengePieChart called for CP:', controlPoint.id, 'with owner:', controlPoint.ownedByTeam)
+    
+    if (!mapInstance.value) {
+      console.log('No map instance available')
+      return
+    }
 
     try {
       const L = await import('leaflet')
@@ -355,6 +361,7 @@ export const useMap = () => {
       const pieChartClass = `pie-cp-${controlPoint.id}`
       const containers = mapInstance.value.getPanes()?.overlayPane?.querySelectorAll(`.${pieChartClass}`)
       if (containers) {
+        console.log('Removing existing pie chart containers:', containers.length)
         containers.forEach((container: Element) => {
           container.remove()
         })
@@ -362,6 +369,7 @@ export const useMap = () => {
 
       // Remove existing pie chart if it exists
       if (marker.pieSvg) {
+        console.log('Removing existing pieSvg layer')
         mapInstance.value.removeLayer(marker.pieSvg)
         marker.pieSvg = null
         marker.pieElement = null
@@ -373,9 +381,13 @@ export const useMap = () => {
       const centerLatLng = positionCircle.getLatLng()
       const radiusPixels = mapInstance.value.latLngToLayerPoint(bounds.getNorthEast()).distanceTo(mapInstance.value.latLngToLayerPoint(centerLatLng))
       
+      console.log('Circle bounds:', bounds, 'radiusPixels:', radiusPixels)
+      
       // Set SVG dimensions to match circle
       const svgWidth = radiusPixels * 2
       const svgHeight = radiusPixels * 2
+
+      console.log('SVG dimensions:', svgWidth, 'x', svgHeight)
 
       // Create SVG element as Leaflet overlay
       const svgElement = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
@@ -385,6 +397,7 @@ export const useMap = () => {
       svgElement.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`)
       svgElement.style.pointerEvents = 'none'
       svgElement.style.zIndex = '1000'
+      svgElement.style.opacity = '0.5'
 
       // Create Leaflet SVG overlay that moves with the map
       const svgOverlay = L.svgOverlay(svgElement, bounds, {
@@ -395,6 +408,15 @@ export const useMap = () => {
       
       // Force the overlay to be on top of other layers
       svgOverlay.bringToFront()
+
+      console.log('SVG overlay created and added to map')
+      console.log('SVG element details:', {
+        width: svgWidth,
+        height: svgHeight,
+        viewBox: `0 0 ${svgWidth} ${svgHeight}`,
+        bounds: bounds,
+        center: centerLatLng
+      })
 
       // Store SVG overlay reference for later updates
       marker.pieSvg = svgOverlay
@@ -407,10 +429,23 @@ export const useMap = () => {
         svgHeight,
         radiusPixels
       }
-    } catch (error) {
-      console.error('Error creating position challenge pie chart:', error)
+
+      console.log('Pie chart data stored:', marker.pieData)
+      console.log('SVG element children count:', svgElement.children.length)
+      
+      // Check if there are pending updates for this control point
+      if (pendingPositionChallengeUpdates.value.has(controlPoint.id)) {
+        console.log('Processing pending position challenge update for CP:', controlPoint.id)
+        const pendingTeamPoints = pendingPositionChallengeUpdates.value.get(controlPoint.id)
+        pendingPositionChallengeUpdates.value.delete(controlPoint.id)
+        if (pendingTeamPoints) {
+          updatePositionChallengePieChart(controlPoint.id, pendingTeamPoints)
+        }
+      }
+      } catch (error) {
+        console.error('Error creating position challenge pie chart:', error)
+      }
     }
-  }
 
   const renderControlPoints = async (
     controlPoints: ControlPoint[],
@@ -500,7 +535,15 @@ export const useMap = () => {
         
         // Create or update PIE chart for position challenge
         if (circle && marker) {
+          console.log('Creating PIE chart for control point:', controlPoint.id, 'with owner:', controlPoint.ownedByTeam)
           await createPositionChallengePieChart(marker, controlPoint, circle)
+          
+          // If control point has an owner, create a default PIE chart with 60 points
+          if (controlPoint.ownedByTeam) {
+            const teamPoints = { [controlPoint.ownedByTeam]: 60 }
+            console.log('Initializing PIE chart with 60 points for team:', controlPoint.ownedByTeam)
+            updatePositionChallengePieChart(controlPoint.id, teamPoints)
+          }
         }
       } else {
         // Remove position circle and PIE chart if position challenge is no longer active
@@ -646,91 +689,143 @@ export const useMap = () => {
   }
 
   const updatePositionChallengePieChart = (controlPointId: number, teamPoints: Record<string, number>) => {
+    console.log('updatePositionChallengePieChart called for CP:', controlPointId, 'with teamPoints:', teamPoints)
+    
     const marker = controlPointMarkers.value.get(controlPointId)
-    if (!marker || !marker.pieElement || !marker.pieData) return
+    if (!marker) {
+      console.log('No marker found for control point:', controlPointId, '- storing update for later')
+      // Store the update for when the marker becomes available
+      pendingPositionChallengeUpdates.value.set(controlPointId, teamPoints)
+      return
+    }
+    if (!marker.pieElement) {
+      console.log('No pieElement found for control point:', controlPointId, '- storing update for later')
+      // Store the update for when the pie element becomes available
+      pendingPositionChallengeUpdates.value.set(controlPointId, teamPoints)
+      return
+    }
+    if (!marker.pieData) {
+      console.log('No pieData found for control point:', controlPointId, '- storing update for later')
+      // Store the update for when the pie data becomes available
+      pendingPositionChallengeUpdates.value.set(controlPointId, teamPoints)
+      return
+    }
 
     const totalPoints = Object.values(teamPoints).reduce((sum, points) => sum + points, 0)
+    console.log('Total points calculated:', totalPoints)
     
-    // Only update if we have points and position challenge is active
-    if (totalPoints > 0) {
-      const teamColors: Record<string, string> = {
-        'blue': '#2196F3',
-        'red': '#F44336',
-        'green': '#4CAF50',
-        'yellow': '#FFEB3B'
-      }
-
-      // Clear existing pie slices
-      marker.pieElement.innerHTML = ''
-
-      let currentAngle = 0
-      
-      // Create pie slices for each team with points
-      Object.entries(teamPoints).forEach(([team, points]) => {
-        if (points > 0) {
-          const percentage = points / totalPoints
-          const angle = percentage * 360
-          const endAngle = currentAngle + angle
-          
-          // Convert angles to radians
-          const startRad = (currentAngle - 90) * Math.PI / 180
-          const endRad = (endAngle - 90) * Math.PI / 180
-          
-          // Get stored dimensions
-          const { svgWidth, svgHeight, radiusPixels } = marker.pieData
-          const svgCenterX = svgWidth / 2
-          const svgCenterY = svgHeight / 2
-          
-          // Calculate start and end points
-          const startX = svgCenterX + radiusPixels * Math.cos(startRad)
-          const startY = svgCenterY + radiusPixels * Math.sin(startRad)
-          const endX = svgCenterX + radiusPixels * Math.cos(endRad)
-          const endY = svgCenterY + radiusPixels * Math.sin(endRad)
-          
-          // Determine if the arc is large (more than 180 degrees)
-          const largeArcFlag = angle > 180 ? 1 : 0
-          
-          // Create path for pie slice
-          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-          let pathData = ''
-          
-          if (Math.abs(angle - 360) < 0.001) {
-            // Full circle - create a complete circle
-            pathData = `
-              M ${svgCenterX} ${svgCenterY}
-              L ${startX} ${startY}
-              A ${radiusPixels} ${radiusPixels} 0 1 1 ${endX} ${endY}
-              Z
-            `
-          } else {
-            // Partial circle
-            pathData = `
-              M ${svgCenterX} ${svgCenterY}
-              L ${startX} ${startY}
-              A ${radiusPixels} ${radiusPixels} 0 ${largeArcFlag} 1 ${endX} ${endY}
-              Z
-            `
-          }
-          
-          path.setAttribute('d', pathData)
-          path.setAttribute('fill', teamColors[team] || '#9E9E9E')
-          path.setAttribute('stroke', '#fff')
-          path.setAttribute('stroke-width', '1')
-          
-          marker.pieElement.appendChild(path)
-          currentAngle = endAngle
-        }
-      })
-      
-      // Update stored team points
-      marker.pieData.teamPoints = teamPoints
-    } else {
-      // If no points, clear the pie chart but keep the SVG overlay
-      if (marker.pieElement) {
-        marker.pieElement.innerHTML = ''
-        marker.pieData.teamPoints = {}
-      }
+    // Always update the pie chart when we receive data, even if totalPoints is 0
+    // This ensures the pie chart is cleared properly when needed
+    const teamColors: Record<string, string> = {
+      'blue': '#2196F3',
+      'red': '#F44336',
+      'green': '#4CAF50',
+      'yellow': '#FFEB3B'
     }
+
+    // Clear existing pie slices
+    marker.pieElement.innerHTML = ''
+    console.log('Cleared existing pie slices')
+
+    // Only render pie slices if we have points
+    if (totalPoints > 0) {
+      console.log('Rendering pie slices with totalPoints:', totalPoints)
+      
+      // Get stored dimensions
+      const { svgWidth, svgHeight, radiusPixels } = marker.pieData
+      const svgCenterX = svgWidth / 2
+      const svgCenterY = svgHeight / 2
+      
+      // If we have exactly 60 points (full control), create a simple circle
+      if (totalPoints === 60) {
+        console.log('Creating full circle for 60 points')
+        
+        // Create a simple circle for full control
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+        circle.setAttribute('cx', svgCenterX.toString())
+        circle.setAttribute('cy', svgCenterY.toString())
+        circle.setAttribute('r', (radiusPixels - 2).toString()) // Slightly smaller than the position circle
+        circle.setAttribute('fill', teamColors[Object.keys(teamPoints)[0]] || '#9E9E9E')
+        circle.setAttribute('stroke', '#fff')
+        circle.setAttribute('stroke-width', '2')
+        circle.setAttribute('opacity', '0.5')
+        
+        console.log('Circle element created:', {
+          cx: svgCenterX,
+          cy: svgCenterY,
+          r: radiusPixels - 2,
+          fill: teamColors[Object.keys(teamPoints)[0]] || '#9E9E9E'
+        })
+        
+        marker.pieElement.appendChild(circle)
+        console.log('Circle appended to SVG, children count:', marker.pieElement.children.length)
+      } else {
+        // For partial points, use pie slices
+        let currentAngle = 0
+        
+        // Create pie slices for each team with points
+        Object.entries(teamPoints).forEach(([team, points]) => {
+          if (points > 0) {
+            const percentage = points / totalPoints
+            const angle = percentage * 360
+            const endAngle = currentAngle + angle
+            
+            console.log(`Creating slice for team ${team}: ${points} points (${angle} degrees)`)
+            
+            // Convert angles to radians
+            const startRad = (currentAngle - 90) * Math.PI / 180
+            const endRad = (endAngle - 90) * Math.PI / 180
+            
+            // Calculate start and end points
+            const startX = svgCenterX + radiusPixels * Math.cos(startRad)
+            const startY = svgCenterY + radiusPixels * Math.sin(startRad)
+            const endX = svgCenterX + radiusPixels * Math.cos(endRad)
+            const endY = svgCenterY + radiusPixels * Math.sin(endRad)
+            
+            // Determine if the arc is large (more than 180 degrees)
+            const largeArcFlag = angle > 180 ? 1 : 0
+            
+            // Create path for pie slice
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path')
+            let pathData = ''
+            
+            if (Math.abs(angle - 360) < 0.001) {
+              // Full circle - create a complete circle
+              pathData = `
+                M ${svgCenterX} ${svgCenterY}
+                L ${startX} ${startY}
+                A ${radiusPixels} ${radiusPixels} 0 1 1 ${endX} ${endY}
+                Z
+              `
+            } else {
+              // Partial circle
+              pathData = `
+                M ${svgCenterX} ${svgCenterY}
+                L ${startX} ${startY}
+                A ${radiusPixels} ${radiusPixels} 0 ${largeArcFlag} 1 ${endX} ${endY}
+                Z
+              `
+            }
+            
+            path.setAttribute('d', pathData)
+            path.setAttribute('fill', teamColors[team] || '#9E9E9E')
+            path.setAttribute('stroke', '#fff')
+            path.setAttribute('stroke-width', '1')
+            path.setAttribute('opacity', '0.5')
+            
+            marker.pieElement.appendChild(path)
+            currentAngle = endAngle
+          }
+        })
+      }
+      console.log('Finished rendering pie slices')
+    } else {
+      console.log('No points to render, keeping pie chart empty')
+    }
+    
+    // Always update stored team points, even if empty
+    marker.pieData.teamPoints = teamPoints
+    console.log('Updated stored team points:', teamPoints)
   }
 
   const enableControlPointDrag = (controlPointId: number) => {
@@ -753,6 +848,15 @@ export const useMap = () => {
     }
   }
 
+  const processPendingPositionChallengeUpdates = () => {
+    console.log('Processing all pending position challenge updates:', pendingPositionChallengeUpdates.value.size)
+    for (const [controlPointId, teamPoints] of pendingPositionChallengeUpdates.value.entries()) {
+      console.log('Processing pending update for CP:', controlPointId, 'with teamPoints:', teamPoints)
+      updatePositionChallengePieChart(controlPointId, teamPoints)
+    }
+    pendingPositionChallengeUpdates.value.clear()
+  }
+
   const destroyMap = () => {
     if (mapInstance.value) {
       try {
@@ -773,6 +877,7 @@ export const useMap = () => {
         controlPointMarkers.value.clear()
         positionCircles.value.clear()
         pieCharts.value.clear()
+        pendingPositionChallengeUpdates.value.clear()
         
         // Remove the map
         mapInstance.value.remove()
@@ -798,12 +903,14 @@ export const useMap = () => {
     controlPointMarkers,
     positionCircles,
     pieCharts,
+    pendingPositionChallengeUpdates,
     initializeMap,
     setMapView,
     centerOnPosition,
     renderControlPoints,
     updateControlPointMarker,
     updatePositionChallengePieChart,
+    processPendingPositionChallengeUpdates,
     enableControlPointDrag,
     disableControlPointDrag,
     closePopup,

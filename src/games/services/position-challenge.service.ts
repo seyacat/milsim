@@ -293,6 +293,7 @@ export class PositionChallengeService {
 
       // Broadcast position challenge updates to frontend
       for (const [controlPointId, teamPoints] of teamPointsByControlPoint.entries()) {
+        console.log(`[POSITION_CHALLENGE] Broadcasting update for CP ${controlPointId}:`, teamPoints);
         this.gamesGateway.broadcastPositionChallengeUpdate(gameId, controlPointId, teamPoints);
       }
     } catch (error) {
@@ -725,10 +726,15 @@ export class PositionChallengeService {
     controlPointId: number,
   ): Promise<Record<string, number>> {
     try {
-      const history = await this.timerCalculationService.getGameHistoryWithCache(gameInstanceId);
+      // Get control point to check ownership
+      const controlPoint = await this.controlPointsRepository.findOne({
+        where: { id: controlPointId },
+      });
+
+      const gameHistory = await this.timerCalculationService.getGameHistoryWithCache(gameInstanceId);
 
       // Find the most recent control_point_taken event for this control point
-      const controlTakenEvents = history
+      const recentControlTakenEvents = gameHistory
         .filter(
           event =>
             event.eventType === 'control_point_taken' &&
@@ -738,33 +744,27 @@ export class PositionChallengeService {
         .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Newest first
 
       // Find game start event
-      const gameStartEvents = history.filter(event => event.eventType === 'game_started');
+      const gameStartEvents = gameHistory.filter(event => event.eventType === 'game_started');
 
       // Determine the reset timestamp
-      let resetTimestamp: Date | null = null;
+      let resetTime: Date | null = null;
 
-      if (controlTakenEvents.length > 0) {
+      if (recentControlTakenEvents.length > 0) {
         // Use the most recent control_point_taken event
-        resetTimestamp = controlTakenEvents[0].timestamp;
+        resetTime = recentControlTakenEvents[0].timestamp;
       } else if (gameStartEvents.length > 0) {
         // Use game start event
-        resetTimestamp = gameStartEvents[0].timestamp;
+        resetTime = gameStartEvents[0].timestamp;
       } else {
-        // No reset events found, check if control point has an owner
-        const controlPoint = await this.controlPointsRepository.findOne({
-          where: { id: controlPointId },
-        });
-
-        // If control point has an owner, return 60 points for that team
+        // No reset events found, check if control point has owner
         if (controlPoint && controlPoint.ownedByTeam) {
           return { [controlPoint.ownedByTeam]: 60 };
         }
-
         return {};
       }
 
       // Get position challenge events for this control point, sorted by newest first
-      const positionChallengeEvents = history
+      const positionEvents = gameHistory
         .filter(
           event =>
             event.eventType === 'position_challenge_scored' &&
@@ -774,13 +774,13 @@ export class PositionChallengeService {
         .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()); // Newest first
 
       // Track points for each team, but stop counting when a team reaches 60
-      const teamPointsSinceReset = new Map<string, number>();
+      const teamPoints = new Map<string, number>();
       let winningTeam: string | null = null;
 
       // Process events from newest to oldest, stopping when we reach reset timestamp
-      for (const event of positionChallengeEvents) {
+      for (const event of positionEvents) {
         // Stop if we reach the reset timestamp
-        if (event.timestamp < resetTimestamp) {
+        if (resetTime && event.timestamp < resetTime) {
           break;
         }
 
@@ -791,11 +791,11 @@ export class PositionChallengeService {
 
         // Add points from this event to each team
         for (const player of event.data.players) {
-          const currentPoints = teamPointsSinceReset.get(player.team) || 0;
+          const currentPoints = teamPoints.get(player.team) || 0;
           const newPoints = currentPoints + player.points;
 
           // Always add points to track progress
-          teamPointsSinceReset.set(player.team, newPoints);
+          teamPoints.set(player.team, newPoints);
 
           // Check if this team just reached 60 points
           if (newPoints >= 60 && currentPoints < 60 && !winningTeam) {
@@ -804,18 +804,17 @@ export class PositionChallengeService {
         }
       }
 
-      // If no events were processed but control point has an owner, return 60 points for that team
-      if (teamPointsSinceReset.size === 0) {
-        const controlPoint = await this.controlPointsRepository.findOne({
-          where: { id: controlPointId },
-        });
+      // Return the calculated points (even if there are points in dispute)
+      const calculatedPoints = Object.fromEntries(teamPoints);
 
-        if (controlPoint && controlPoint.ownedByTeam) {
-          return { [controlPoint.ownedByTeam]: 60 };
-        }
+      // ONLY return 60 points for owner if NO points were calculated
+      if (Object.keys(calculatedPoints).length === 0 && controlPoint && controlPoint.ownedByTeam) {
+        return { [controlPoint.ownedByTeam]: 60 };
       }
 
-      return Object.fromEntries(teamPointsSinceReset);
+      // Return the calculated points (could show dispute between teams)
+      return calculatedPoints;
+
     } catch (error) {
       console.error(
         `[POSITION_CHALLENGE] Error calculating team points since reset for control point ${controlPointId}:`,

@@ -906,8 +906,12 @@ onMounted(async () => {
         bombTimersComposable.value?.handleActiveBombTimers(data)
       },
       onPositionChallengeUpdate: (data: any) => {
+        console.log('POSITION_CHALLENGE_UPDATE received:', data)
         if (data.controlPointId && data.teamPoints) {
+          console.log('Updating PIE chart for control point:', data.controlPointId, 'with teamPoints:', data.teamPoints)
           updatePositionChallengePieChart(data.controlPointId, data.teamPoints)
+        } else {
+          console.log('POSITION_CHALLENGE_UPDATE missing required data:', data)
         }
       },
       onControlPointUpdated: (controlPoint: ControlPoint) => {
