@@ -298,6 +298,21 @@ const centerOnUser = async () => {
 
 const centerOnSite = async () => {
   if (currentGame.value?.controlPoints?.length) {
+    // Find the first control point of type "site"
+    const firstSite = currentGame.value.controlPoints.find(cp => cp.type === 'site')
+    
+    if (firstSite) {
+      // Center on the specific site control point
+      const lat = typeof firstSite.latitude === 'string' ? parseFloat(firstSite.latitude) : firstSite.latitude
+      const lng = typeof firstSite.longitude === 'string' ? parseFloat(firstSite.longitude) : firstSite.longitude
+      
+      if (!isNaN(lat) && !isNaN(lng)) {
+        await centerOnPosition(lat, lng, 16)
+        return
+      }
+    }
+    
+    // Fallback: center on all control points if no site is found
     await setMapView(currentGame.value.controlPoints)
   }
 }
