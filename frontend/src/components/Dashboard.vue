@@ -17,7 +17,7 @@
         <div style="flex: 1; min-width: 250px">
           <input
             type="text"
-            placeholder="Search by name..."
+            placeholder="Search by name, description or owner..."
             class="form-input"
             style="width: 100%"
             v-model="searchTerm"
@@ -97,7 +97,8 @@ const currentUser = computed(() => AuthService.getCurrentUser())
 const filteredGames = computed(() => {
   const filtered = allGames.value.filter(game => {
     const matchesSearch = game.name.toLowerCase().includes(searchTerm.value.toLowerCase()) ||
-                         (game.description && game.description.toLowerCase().includes(searchTerm.value.toLowerCase()))
+                         (game.description && game.description.toLowerCase().includes(searchTerm.value.toLowerCase())) ||
+                         (game.owner?.name && game.owner.name.toLowerCase().includes(searchTerm.value.toLowerCase()))
     
     const matchesOwnGames = !showOnlyOwnGames.value || isGameOwner(game)
     
