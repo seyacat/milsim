@@ -691,6 +691,40 @@ export const useMap = () => {
       console.log('useMap - Setting new icon on marker')
       marker.setIcon(customIcon)
 
+      // Handle position circles and PIE charts when position challenge is toggled
+      if (controlPoint.hasPositionChallenge && controlPoint.minDistance) {
+        let circle = positionCircles.value.get(controlPoint.id)
+        if (!circle) {
+          // Create new position circle if it doesn't exist
+          console.log('useMap - Creating position circle for control point:', controlPoint.id)
+          circle = await createPositionCircle(controlPoint)
+          if (circle) {
+            positionCircles.value.set(controlPoint.id, circle)
+          }
+        }
+        
+        // Create or update PIE chart for position challenge
+        if (circle && marker) {
+          console.log('useMap - Creating PIE chart for control point:', controlPoint.id, 'with owner:', controlPoint.ownedByTeam)
+          await createPositionChallengePieChart(marker, controlPoint, circle)
+        }
+      } else {
+        // Remove position circle and PIE chart if position challenge is no longer active
+        const circle = positionCircles.value.get(controlPoint.id)
+        if (circle) {
+          console.log('useMap - Removing position circle for control point:', controlPoint.id)
+          mapInstance.value.removeLayer(circle)
+          positionCircles.value.delete(controlPoint.id)
+        }
+        
+        const pieChart = pieCharts.value.get(controlPoint.id)
+        if (pieChart) {
+          console.log('useMap - Removing PIE chart for control point:', controlPoint.id)
+          mapInstance.value.removeLayer(pieChart)
+          pieCharts.value.delete(controlPoint.id)
+        }
+      }
+
       // Always update popup content to ensure it reflects current control point state
       
       if (Object.keys(handlers).length > 0) {
