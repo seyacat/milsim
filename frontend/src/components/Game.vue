@@ -223,7 +223,6 @@ const {
 // Watch for GPS position changes to update player marker
 watch(() => currentPositionFromComposable.value, (position) => {
   if (position && playerMarkersComposable.value && currentUser.value) {
-    console.log('GameOwner - updating player marker with GPS position:', position)
     // Update the current user's marker with GPS position
     playerMarkersComposable.value.updatePlayerMarker({
       userId: currentUser.value.id,
@@ -244,7 +243,6 @@ const defaultTimeValue = 1200 // 20 minutes
 
 // Map event handlers
 const onMapClick = async (latlng: { lat: number; lng: number }) => {
-  console.log('Map clicked at:', latlng)
   
   if (!mapInstance.value) return
   
