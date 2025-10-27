@@ -40,8 +40,8 @@
       <label class="panel-label">Tiempo:</label>
       <select
         class="panel-select"
+        v-model="selectedTime"
         @change="handleTimeSelect"
-        :value="currentGame.totalTime || defaultTimeValue"
       >
         <option value="20">20 seg (test)</option>
         <option value="300">5 min</option>
@@ -57,10 +57,11 @@
 <script setup lang="ts">
 import { User, Game } from '../../types/index.js'
 import { useToast } from '../../composables/useToast.js'
+import { ref, watch } from 'vue'
 
 const { addToast } = useToast()
 
-defineProps<{
+const props = defineProps<{
   currentUser: User
   currentGame: Game
   gpsStatus: string
@@ -71,6 +72,43 @@ defineProps<{
 const emit = defineEmits<{
   timeSelect: [timeInSeconds: number]
 }>()
+
+const selectedTime = ref<string>('1200')
+const isUserSelecting = ref(false)
+const lastGameId = ref<string | number | null>(null)
+
+// Watch for game instance changes to reset selection state
+watch(() => props.currentGame?.id, (newGameId) => {
+  if (newGameId && newGameId !== lastGameId.value) {
+    lastGameId.value = newGameId
+    isUserSelecting.value = false // Reset selection flag on new game instance
+  }
+})
+
+// Watch for changes in currentGame.totalTime to keep dropdown synchronized
+// Only update if the user is not currently selecting a value OR if the game instance changed
+watch(() => props.currentGame?.totalTime, (newTotalTime, oldTotalTime) => {
+  const currentGameId = props.currentGame?.id
+  
+  // Always update when game instance changes (restart/new game)
+  if (currentGameId !== lastGameId.value) {
+    lastGameId.value = currentGameId
+    isUserSelecting.value = false
+    if (newTotalTime !== undefined && newTotalTime !== null) {
+      selectedTime.value = newTotalTime.toString()
+    } else if (props.defaultTimeValue !== undefined) {
+      selectedTime.value = props.defaultTimeValue.toString()
+    }
+  }
+  // Update only if user is not selecting and value actually changed
+  else if (!isUserSelecting.value && newTotalTime !== oldTotalTime) {
+    if (newTotalTime !== undefined && newTotalTime !== null) {
+      selectedTime.value = newTotalTime.toString()
+    } else if (props.defaultTimeValue !== undefined) {
+      selectedTime.value = props.defaultTimeValue.toString()
+    }
+  }
+}, { immediate: true })
 
 const getStatusText = (status: string) => {
   const statusMap: Record<string, string> = {
@@ -86,10 +124,15 @@ const enableGameNameEdit = () => {
   addToast({ message: 'Funcionalidad de edición de nombre en desarrollo', type: 'info' })
 }
 
-const handleTimeSelect = (event: Event) => {
-  const target = event.target as HTMLSelectElement
-  const timeInSeconds = parseInt(target.value)
+const handleTimeSelect = () => {
+  isUserSelecting.value = true
+  const timeInSeconds = parseInt(selectedTime.value)
   emit('timeSelect', timeInSeconds)
+  
+  // Reset the flag after a short delay to allow server updates
+  setTimeout(() => {
+    isUserSelecting.value = false
+  }, 1000)
 }
 
 const formatTime = (seconds: number): string => {
