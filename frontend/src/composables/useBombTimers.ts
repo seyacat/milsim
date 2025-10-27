@@ -1,14 +1,20 @@
-import { ref, onUnmounted } from 'vue'
+import { ref, watch } from 'vue'
+import type { BombTimeUpdateEvent, ActiveBombTimersEvent } from '../types/websocket-events'
 
 export interface BombTimerData {
   controlPointId: number
   remainingTime: number
+  totalTime: number
   isActive: boolean
+  activatedByUserId?: number
+  activatedByUserName?: string
+  activatedByTeam?: string
 }
 
 export const useBombTimers = (currentGame?: any) => {
   const activeBombTimers = ref<Map<number, BombTimerData>>(new Map())
   let localTimer: NodeJS.Timeout | null = null
+  const isPaused = ref(false)
 
   // Clean up timer on unmount
   const cleanup = () => {
@@ -18,47 +24,62 @@ export const useBombTimers = (currentGame?: any) => {
     }
   }
 
-  // Handle bomb time updates from server
-  const handleBombTimeUpdate = (data: BombTimerData) => {
-    // Update the active bomb timers
-    activeBombTimers.value.set(data.controlPointId, data)
+  // Handle bomb time updates from server - ALWAYS replace with server value
+  const handleBombTimeUpdate = (data: BombTimeUpdateEvent) => {
+    // Always use server values directly - replace local state completely
+    const bombTimerData: BombTimerData = {
+      controlPointId: data.controlPointId,
+      remainingTime: data.remainingTime,
+      totalTime: data.totalTime,
+      isActive: data.isActive,
+      activatedByUserId: data.activatedByUserId,
+      activatedByUserName: data.activatedByUserName,
+      activatedByTeam: data.activatedByTeam
+    }
+
+    // Update the active bomb timers with server data
+    activeBombTimers.value.set(data.controlPointId, bombTimerData)
 
     // Update bomb timer display immediately
-    updateBombTimerDisplay(data.controlPointId, currentGame)
+    updateBombTimerDisplay(data.controlPointId)
 
-    // Start or stop local timer based on active bombs
-    if (data.isActive && !localTimer) {
+    // Start or stop local timer based on active bombs and game state
+    const hasActiveBombs = Array.from(activeBombTimers.value.values()).some(timer => timer.isActive)
+    
+    if (hasActiveBombs && !localTimer && currentGame?.value?.status === 'running') {
       startBombTimerInterval()
-    } else if (!data.isActive) {
-      // Check if there are any active bombs after this update
-      setTimeout(() => {
-        const hasActiveBombs = Array.from(activeBombTimers.value.values()).some(timer => timer.isActive)
-        if (!hasActiveBombs && localTimer) {
-          stopBombTimerInterval()
-        }
-      }, 0)
+    } else if (!hasActiveBombs && localTimer) {
+      stopBombTimerInterval()
     }
   }
 
-  // Handle active bomb timers response
-  const handleActiveBombTimers = (serverBombTimers: BombTimerData[]) => {
+  // Handle active bomb timers response - ALWAYS replace with server values
+  const handleActiveBombTimers = (serverBombTimers: ActiveBombTimersEvent['timers']) => {
     const newTimers = new Map<number, BombTimerData>()
     
     if (serverBombTimers && Array.isArray(serverBombTimers)) {
       serverBombTimers.forEach(bombTimer => {
-        newTimers.set(bombTimer.controlPointId, bombTimer)
+        newTimers.set(bombTimer.controlPointId, {
+          controlPointId: bombTimer.controlPointId,
+          remainingTime: bombTimer.remainingTime,
+          totalTime: bombTimer.totalTime,
+          isActive: bombTimer.isActive,
+          activatedByUserId: bombTimer.activatedByUserId,
+          activatedByUserName: bombTimer.activatedByUserName,
+          activatedByTeam: bombTimer.activatedByTeam
+        })
       })
     }
     
     activeBombTimers.value = newTimers
 
     // Update all bomb timer displays
-    updateAllBombTimerDisplays(currentGame)
+    updateAllBombTimerDisplays()
 
-    // Start or stop local timer based on active bombs
+    // Start or stop local timer based on active bombs and game state
     const hasActiveBombs = Array.from(newTimers.values()).some(timer => timer.isActive)
     
-    if (hasActiveBombs && !localTimer) {
+    if (hasActiveBombs && !localTimer && currentGame?.value?.status === 'running') {
       startBombTimerInterval()
     } else if (!hasActiveBombs && localTimer) {
       stopBombTimerInterval()
@@ -66,7 +87,7 @@ export const useBombTimers = (currentGame?: any) => {
   }
 
   // Update bomb timer display for a specific control point
-  const updateBombTimerDisplay = (controlPointId: number, currentGame: any = null) => {
+  const updateBombTimerDisplay = (controlPointId: number) => {
     const bombTimerElement = document.getElementById(`bomb_timer_${controlPointId}`)
     const bombTimerData = activeBombTimers.value.get(controlPointId)
     
@@ -75,9 +96,8 @@ export const useBombTimers = (currentGame?: any) => {
       return
     }
 
-    // Show bomb timer only if bomb is active AND game is NOT stopped
-    // Hide bomb timers only when game is stopped
-    const shouldShow = bombTimerData?.isActive && currentGame?.status !== 'stopped'
+    // Show bomb timer only if bomb is active AND game is running
+    const shouldShow = bombTimerData?.isActive && currentGame?.value?.status === 'running'
     
     if (shouldShow) {
       // Validate bomb timer data
@@ -109,7 +129,7 @@ export const useBombTimers = (currentGame?: any) => {
   }
 
   // Update all bomb timer displays
-  const updateAllBombTimerDisplays = (currentGame: any = null) => {
+  const updateAllBombTimerDisplays = () => {
     // Hide all bomb timers first
     activeBombTimers.value.forEach((bombTimer, controlPointId) => {
       const bombTimerElement = document.getElementById(`bomb_timer_${controlPointId}`)
@@ -118,11 +138,10 @@ export const useBombTimers = (currentGame?: any) => {
       }
     })
 
-    // Show bomb timers for active bombs only if game is NOT stopped
-    // Hide bomb timers only when game is stopped
+    // Show bomb timers for active bombs only if game is running
     activeBombTimers.value.forEach((bombTimer, controlPointId) => {
-      if (bombTimer.isActive && currentGame?.status !== 'stopped') {
-        updateBombTimerDisplay(controlPointId, currentGame)
+      if (bombTimer.isActive && currentGame?.value?.status === 'running') {
+        updateBombTimerDisplay(controlPointId)
       }
     })
   }
@@ -134,39 +153,42 @@ export const useBombTimers = (currentGame?: any) => {
     }
 
     localTimer = setInterval(() => {
-      // Decrement all active bomb timers by 1 second
-      const newTimers = new Map<number, BombTimerData>()
-      let hasActiveBombs = false
+      // Only decrement timers if game is running and not paused
+      if (currentGame?.value?.status === 'running' && !isPaused.value) {
+        // Decrement all active bomb timers by 1 second
+        const newTimers = new Map<number, BombTimerData>()
+        let hasActiveBombs = false
 
-      activeBombTimers.value.forEach((bombTimer, controlPointId) => {
-        if (bombTimer.isActive && bombTimer.remainingTime > 0) {
-          const newRemainingTime = bombTimer.remainingTime - 1
-          newTimers.set(controlPointId, {
-            ...bombTimer,
-            remainingTime: newRemainingTime
-          })
-          hasActiveBombs = true
-        } else if (bombTimer.isActive && bombTimer.remainingTime <= 0) {
-          // Bomb timer expired - keep it but mark as inactive
-          newTimers.set(controlPointId, {
-            ...bombTimer,
-            isActive: false
-          })
-        } else {
-          newTimers.set(controlPointId, bombTimer)
+        activeBombTimers.value.forEach((bombTimer, controlPointId) => {
+          if (bombTimer.isActive && bombTimer.remainingTime > 0) {
+            const newRemainingTime = bombTimer.remainingTime - 1
+            newTimers.set(controlPointId, {
+              ...bombTimer,
+              remainingTime: newRemainingTime
+            })
+            hasActiveBombs = true
+          } else if (bombTimer.isActive && bombTimer.remainingTime <= 0) {
+            // Bomb timer expired - keep it but mark as inactive
+            newTimers.set(controlPointId, {
+              ...bombTimer,
+              isActive: false
+            })
+          } else {
+            newTimers.set(controlPointId, bombTimer)
+          }
+        })
+
+        // Update the active bomb timers
+        activeBombTimers.value = newTimers
+
+        // Stop timer if no more active bombs
+        if (!hasActiveBombs && localTimer) {
+          stopBombTimerInterval()
         }
-      })
 
-      // Update the active bomb timers
-      activeBombTimers.value = newTimers
-
-      // Stop timer if no more active bombs
-      if (!hasActiveBombs && localTimer) {
-        stopBombTimerInterval()
+        // Update all bomb timer displays immediately
+        updateAllBombTimerDisplays()
       }
-
-      // Update all bomb timer displays immediately
-      updateAllBombTimerDisplays(currentGame)
     }, 1000)
   }
 
@@ -175,6 +197,36 @@ export const useBombTimers = (currentGame?: any) => {
     if (localTimer) {
       clearInterval(localTimer)
       localTimer = null
+    }
+  }
+
+  // Pause bomb timer interval
+  const pauseBombTimer = () => {
+    isPaused.value = true
+  }
+
+  // Resume bomb timer interval
+  const resumeBombTimer = () => {
+    isPaused.value = false
+  }
+
+  // Handle game state changes
+  const handleGameStateChange = (game: any) => {
+    if (game.status === 'paused') {
+      pauseBombTimer()
+    } else if (game.status === 'running') {
+      resumeBombTimer()
+      
+      // Check if we need to start the timer when game resumes
+      const hasActiveBombs = Array.from(activeBombTimers.value.values()).some(timer => timer.isActive)
+      if (hasActiveBombs && !localTimer) {
+        startBombTimerInterval()
+      }
+    } else if (game.status === 'stopped' || game.status === 'finished') {
+      stopBombTimerInterval()
+      // Clear all bomb timers when game stops
+      activeBombTimers.value.clear()
+      updateAllBombTimerDisplays()
     }
   }
 
@@ -198,14 +250,17 @@ export const useBombTimers = (currentGame?: any) => {
     }
   }
 
-  // Clean up timer on unmount - only if we're in a component context
-  try {
-    onUnmounted(() => {
-      cleanup()
+  // Watch for currentGame changes to handle page refreshes
+  if (currentGame) {
+    watch(() => currentGame.value?.status, (newStatus: string, oldStatus: string) => {
+      if (newStatus === 'running' && oldStatus !== 'running') {
+        // Game just started or resumed - check if we need to start bomb timer
+        const hasActiveBombs = Array.from(activeBombTimers.value.values()).some(timer => timer.isActive)
+        if (hasActiveBombs && !localTimer) {
+          startBombTimerInterval()
+        }
+      }
     })
-  } catch (error) {
-    // If onUnmounted fails, it means we're not in a component context
-    // We'll handle cleanup manually when needed
   }
 
   return {
@@ -215,6 +270,10 @@ export const useBombTimers = (currentGame?: any) => {
     updateBombTimerDisplay,
     updateAllBombTimerDisplays,
     requestActiveBombTimers,
-    setupBombTimerListeners
+    setupBombTimerListeners,
+    handleGameStateChange,
+    pauseBombTimer,
+    resumeBombTimer,
+    cleanup
   }
 }

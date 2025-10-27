@@ -505,6 +505,7 @@ const onGameUpdate = (game: Game) => {
   // Always use server values for game state
   currentGame.value = { ...game }
   handleGameStateChange(game)
+  bombTimersComposable.value?.handleGameStateChange(game)
   
   // Handle local timer based on game status
   if (game.status === 'running') {
@@ -1284,6 +1285,15 @@ onUnmounted(() => {
       playerMarkersComposable.value.playerMarkers.clear()
     } catch (error) {
       console.error('Error cleaning up player markers:', error)
+    }
+  }
+  
+  // Clean up bomb timers if composable exists
+  if (bombTimersComposable.value) {
+    try {
+      bombTimersComposable.value.cleanup()
+    } catch (error) {
+      console.error('Error cleaning up bomb timers:', error)
     }
   }
   
