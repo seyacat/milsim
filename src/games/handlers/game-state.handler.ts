@@ -104,7 +104,6 @@ export class GameStateHandler {
       try {
         const pausedGame = await this.gamesService.pauseGame(gameId, user.id);
         
-        console.log(`[PAUSE_GAME] Game ${gameId} paused by user ${user.id}, broadcasting to all players`);
         
         this.broadcastUtilities.broadcastGameStateChange(
           gameId,

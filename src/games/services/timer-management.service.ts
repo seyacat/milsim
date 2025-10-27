@@ -109,6 +109,9 @@ export class TimerManagementService {
               timer.remainingTime <= 0
             ) {
               // Time's up - end the game automatically (system action)
+              // Stop the timer immediately to prevent further updates
+              this.stopGameTimer(gameId);
+              
               this.gamesService.endGameAutomatically(gameId)
                 .then(() => {
                 })

@@ -35,13 +35,13 @@
       GPS: <span>{{ gpsStatus }}</span>
     </div>
 
-    <!-- Time selector for stopped state -->
-    <div v-if="currentGame.status === 'stopped'" class="time-select-container">
+    <!-- Time selector for stopped state - Only for owner -->
+    <div v-if="currentGame.status === 'stopped' && isOwner" class="time-select-container">
       <label class="panel-label">Tiempo:</label>
       <select
         class="panel-select"
         @change="handleTimeSelect"
-        :value="defaultTimeValue"
+        :value="currentGame.totalTime || defaultTimeValue"
       >
         <option value="20">20 seg (test)</option>
         <option value="300">5 min</option>
@@ -65,6 +65,7 @@ defineProps<{
   currentGame: Game
   gpsStatus: string
   defaultTimeValue?: number
+  isOwner?: boolean
 }>()
 
 const emit = defineEmits<{

@@ -135,6 +135,10 @@ export class TimerCalculationService {
       }
     }
 
+    // DEBUG: Log the calculated time to identify where 4900 is coming from
+    if (totalElapsedTime === 4900) {
+    }
+
     return totalElapsedTime;
   }
 

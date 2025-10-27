@@ -424,7 +424,6 @@ export class GamesService {
       timestamp: new Date(),
     });
 
-    console.log(`[RESTART_GAME] Game ${gameId} restarted, new instanceId: ${gameInstance.id}, status: stopped`);
 
     // Force broadcast game update to ensure all players receive the state change
     // This is critical to ensure players respect pause state after restart

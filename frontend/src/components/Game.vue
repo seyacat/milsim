@@ -19,6 +19,7 @@
         :current-game="currentGame"
         :gps-status="gpsStatusFromComposable"
         :default-time-value="defaultTimeValue"
+        :is-owner="isOwner"
         @time-select="updateGameTime"
       />
 
@@ -95,7 +96,9 @@ import {
   ControlPointTakenEvent,
   BombActivatedEvent,
   BombDeactivatedEvent,
-  ControlPointTeamAssignedEvent
+  ControlPointTeamAssignedEvent,
+  TimeUpdateEvent,
+  GameTimeEvent
 } from '../types/websocket-events.js'
 import { useToast } from '../composables/useToast.js'
 import { useMap } from '../composables/useMap'
@@ -349,7 +352,8 @@ const startLocalTimer = () => {
   
   localTimerInterval.value = setInterval(() => {
     if (currentGame.value && currentGame.value.status === 'running') {
-      // Increment played time
+      // Always increment played time locally by 1 second
+      // Server updates will override this value when received
       if (currentGame.value.playedTime !== undefined) {
         currentGame.value.playedTime += 1
       }
@@ -372,12 +376,19 @@ const stopLocalTimer = () => {
   }
 }
 
-const updateLocalTimerFromServer = (data: any) => {
+const updateLocalTimerFromServer = (data: TimeUpdateEvent | GameTimeEvent) => {
   // Update last time update timestamp
   lastTimeUpdate.value = new Date()
   
-  // Update game state with server data
+  // Update game state with server data - ALWAYS use server values directly
   if (currentGame.value) {
+    console.log('Game.vue - Updating timer from server:', {
+      playedTime: data.playedTime,
+      remainingTime: data.remainingTime,
+      totalTime: data.totalTime
+    })
+    
+    // Always use server values when provided
     if (data.remainingTime !== undefined) {
       currentGame.value.remainingTime = data.remainingTime
     }
@@ -482,10 +493,13 @@ const onGameUpdate = (game: Game) => {
     gameId: game.id,
     instanceId: game.instanceId,
     playersCount: game.players?.length || 0,
-    controlPointsCount: game.controlPoints?.length || 0
+    controlPointsCount: game.controlPoints?.length || 0,
+    playedTime: game.playedTime,
+    remainingTime: game.remainingTime
   })
   
   // Force update the game state to ensure reactivity
+  // Always use server values for game state
   currentGame.value = { ...game }
   handleGameStateChange(game)
   
@@ -790,7 +804,7 @@ onMounted(async () => {
       onControlPointDeleted,
       onJoinSuccess,
       onError,
-      onGameTime: (data: any) => {
+      onGameTime: (data: GameTimeEvent) => {
         // Update local timer with server data
         updateLocalTimerFromServer(data)
         
@@ -804,11 +818,11 @@ onMounted(async () => {
           }, 100)
         }
       },
-      onTimeUpdate: (data: any) => {
+      onTimeUpdate: (data: TimeUpdateEvent) => {
         // Handle time updates from server (broadcast every 20 seconds)
         console.log('GameOwner - Time update received:', data)
         
-        // Update local timer with server data
+        // Update local timer with server data - ALWAYS use server values
         updateLocalTimerFromServer(data)
         
         // Handle control point timer updates from server

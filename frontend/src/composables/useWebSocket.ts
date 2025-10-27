@@ -91,11 +91,6 @@ const setupSocketListeners = (
   // Listen for specific game state change events
   socket.on('gameStateChanged', (data: GameStateChangedEvent) => {
     if (data.game) {
-      console.log('[WEBSOCKET] Received gameStateChanged event:', {
-        gameId: data.game.id,
-        status: data.game.status,
-        from: data.from
-      })
       callbacks.onGameUpdate(data.game)
     }
   })
@@ -103,10 +98,6 @@ const setupSocketListeners = (
   // Listen for team count updated events
   socket.on('teamCountUpdated', (data: TeamCountUpdatedEvent) => {
     if (data.game) {
-      console.log('[WEBSOCKET] Received teamCountUpdated event:', {
-        gameId: data.game.id,
-        teamCount: data.game.teamCount
-      })
       callbacks.onGameUpdate(data.game)
     }
   })
@@ -114,9 +105,6 @@ const setupSocketListeners = (
   // Listen for time added events
   socket.on('timeAdded', (data: TimeAddedEvent) => {
     if (data.game) {
-      console.log('[WEBSOCKET] Received timeAdded event:', {
-        gameId: data.game.id
-      })
       callbacks.onGameUpdate(data.game)
     }
   })
@@ -124,9 +112,6 @@ const setupSocketListeners = (
   // Listen for game time updated events
   socket.on('gameTimeUpdated', (data: GameTimeUpdatedEvent) => {
     if (data.game) {
-      console.log('[WEBSOCKET] Received gameTimeUpdated event:', {
-        gameId: data.game.id
-      })
       callbacks.onGameUpdate(data.game)
     }
   })
@@ -142,11 +127,6 @@ const setupSocketListeners = (
     
     // Only handle specific actions that need centralized processing
     if (data.action === 'gameStateChanged' && data.data.game) {
-      console.log('[WEBSOCKET] Received gameStateChanged event via gameAction:', {
-        gameId: data.data.game.id,
-        status: data.data.game.status,
-        action: data.action
-      })
       callbacks.onGameUpdate(data.data.game)
     }
     
@@ -219,31 +199,13 @@ const setupSocketListeners = (
 
   // Handle control point specific events with proper typing
   socket.on('controlPointCreated', (data: ControlPointCreatedEvent) => {
-    console.log('useWebSocket - controlPointCreated event received - RAW DATA:', data)
-    console.log('useWebSocket - controlPointCreated event structure:', {
-      hasControlPoint: 'controlPoint' in data,
-      controlPointKeys: data.controlPoint ? Object.keys(data.controlPoint) : 'no controlPoint',
-      controlPointValues: data.controlPoint ? data.controlPoint : 'no controlPoint',
-      dataKeys: Object.keys(data)
-    })
     
     // Extract control point data from the correct structure - data is {controlPoint: {...}}
     const controlPointData = data.controlPoint
     
-    console.log('useWebSocket - controlPointData to process:', controlPointData)
     
     // Debug the actual control point data structure
     if (controlPointData) {
-      console.log('useWebSocket - controlPointData detailed structure:', {
-        id: controlPointData.id,
-        name: controlPointData.name,
-        latitude: controlPointData.latitude,
-        longitude: controlPointData.longitude,
-        latitudeType: typeof controlPointData.latitude,
-        longitudeType: typeof controlPointData.longitude,
-        hasLatitude: 'latitude' in controlPointData,
-        hasLongitude: 'longitude' in controlPointData
-      })
     }
     
     // Validate that we have required coordinates
@@ -286,19 +248,12 @@ const setupSocketListeners = (
       armedCode: controlPointData.armedCode || undefined,
       disarmedCode: controlPointData.disarmedCode || undefined
     }
-    console.log('useWebSocket - Processed control point:', controlPoint)
-    console.log('useWebSocket - Processed coordinates:', {
-      latitude: controlPoint.latitude,
-      longitude: controlPoint.longitude,
-      hasValidCoordinates: controlPoint.latitude !== 0 && controlPoint.longitude !== 0
-    })
     callbacks.onControlPointCreated(controlPoint)
   })
 
   // Note: controlPointUpdated events now come through gameAction handler above
   // This direct listener is kept for backward compatibility
   socket.on('controlPointUpdated', (data: ControlPointUpdatedEvent) => {
-    console.log('useWebSocket - controlPointUpdated event received:', data)
     // Ensure the control point has the expected structure
     const controlPointData = data.controlPoint
     
@@ -382,8 +337,6 @@ const setupSocketListeners = (
   // Note: controlPointTeamAssigned events now come through gameAction handler above
   // This direct listener is kept for backward compatibility
   socket.on('controlPointTeamAssigned', (data: ControlPointTeamAssignedEvent) => {
-    console.log('useWebSocket - controlPointTeamAssigned event received:', data)
-    console.log('useWebSocket - controlPointTeamAssigned - controlPoint data:', data.controlPoint)
     
     // Extract control point data from the event structure
     const controlPointData = data.controlPoint
@@ -424,7 +377,6 @@ const setupSocketListeners = (
       disarmedCode: controlPointData.disarmedCode || undefined
     }
     
-    console.log('useWebSocket - Processed control point for team assignment:', controlPoint)
     
     if (callbacks.onControlPointTeamAssigned) {
       callbacks.onControlPointTeamAssigned(data)
@@ -444,7 +396,6 @@ const setupSocketListeners = (
 
   // Handle control point taken events
   socket.on('controlPointTaken', (data: ControlPointTakenEvent) => {
-    console.log('useWebSocket - controlPointTaken event received:', data)
     if (callbacks.onControlPointTaken) {
       callbacks.onControlPointTaken(data)
     } else {
@@ -454,7 +405,6 @@ const setupSocketListeners = (
 
   // Handle bomb activated events
   socket.on('bombActivated', (data: BombActivatedEvent) => {
-    console.log('useWebSocket - bombActivated event received:', data)
     if (callbacks.onBombActivated) {
       callbacks.onBombActivated(data)
     } else {
@@ -464,7 +414,6 @@ const setupSocketListeners = (
 
   // Handle bomb deactivated events
   socket.on('bombDeactivated', (data: BombDeactivatedEvent) => {
-    console.log('useWebSocket - bombDeactivated event received:', data)
     if (callbacks.onBombDeactivated) {
       callbacks.onBombDeactivated(data)
     } else {
