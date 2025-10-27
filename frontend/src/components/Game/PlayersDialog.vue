@@ -100,7 +100,6 @@ watch(() => props.isOpen, (isOpen) => {
 
 // Update players data when props change
 watch(() => props.players, (players) => {
-  console.log('PlayersDialog - props.players changed:', players?.length, 'players')
   if (players) {
     playersData.value = [...players].sort((a, b) =>
       (a.user?.name || '').localeCompare(b.user?.name || '')
@@ -122,15 +121,7 @@ const setupSocketListeners = () => {
 
   // Listen for game updates that might include player team changes
   props.socket.on('gameUpdate', (data: { game: any; type?: string }) => {
-    console.log('PlayersDialog - gameUpdate received:', {
-      hasGame: !!data.game,
-      hasPlayers: !!(data.game && data.game.players),
-      playersCount: data.game?.players?.length || 0,
-      gameStatus: data.game?.status,
-      type: data.type
-    })
     if (data.game && data.game.players) {
-      console.log('PlayersDialog - updating players data from gameUpdate:', data.game.players.length, 'players')
       // Update local players data with the latest from server
       playersData.value = [...data.game.players].sort((a, b) =>
         (a.user?.name || '').localeCompare(b.user?.name || '')

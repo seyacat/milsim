@@ -202,9 +202,7 @@ const playerMarkersComposable = ref<any>(null)
 // GPS tracking for owner
 const gpsTrackingComposable = useGPSTracking(currentGame, socketRef, (position) => {
   // Callback para actualizar el marcador del jugador local inmediatamente
-  console.log('Game.vue - GPS callback ejecutado, playerMarkersComposable:', !!playerMarkersComposable.value, 'currentUser:', !!currentUser.value)
   if (playerMarkersComposable.value && currentUser.value) {
-    console.log('Game.vue - Actualizando marcador local con posición GPS:', position)
     playerMarkersComposable.value.updatePlayerMarker({
       userId: currentUser.value.id,
       userName: currentUser.value.name,
@@ -213,7 +211,6 @@ const gpsTrackingComposable = useGPSTracking(currentGame, socketRef, (position) 
       accuracy: position.accuracy
     })
   } else {
-    console.log('Game.vue - No se puede actualizar marcador local: playerMarkersComposable o currentUser no disponibles')
   }
 })
 const {
@@ -240,7 +237,6 @@ watch(() => currentPositionFromComposable.value, (position) => {
 
 // Watch for changes in currentGame.players to debug team count changes
 watch(() => currentGame.value?.players, (players) => {
-  console.log('Game.vue - currentGame.players changed:', players?.length || 0, 'players')
 }, { deep: true })
 
 const gameId = route.params.gameId as string
@@ -408,11 +404,6 @@ const updateLocalTimerFromServer = (data: TimeUpdateEvent | GameTimeEvent) => {
   
   // Update game state with server data - ALWAYS use server values directly
   if (currentGame.value) {
-    console.log('Game.vue - Updating timer from server:', {
-      playedTime: data.playedTime,
-      remainingTime: data.remainingTime,
-      totalTime: data.totalTime
-    })
     
     // Always use server values when provided, with proper null handling
     if (data.remainingTime !== undefined) {
@@ -516,26 +507,8 @@ const handleDeactivateBombWrapper = (controlPointId: number) => {
 // WebSocket callbacks
 const onGameUpdate = (game: Game) => {
   const previousStatus = currentGame.value?.status
-  console.log('[GAME_UPDATE] Received game update:', {
-    previousStatus,
-    newStatus: game.status,
-    gameId: game.id,
-    instanceId: game.instanceId,
-    playersCount: game.players?.length || 0,
-    controlPointsCount: game.controlPoints?.length || 0,
-    playedTime: game.playedTime,
-    remainingTime: game.remainingTime
-  })
   
   // STRONG LOGGING FOR PLAYER DATA
-  console.log('[GAME_UPDATE] Player data details:', {
-    players: game.players?.map(p => ({
-      id: p.id,
-      userId: p.user?.id,
-      userName: p.user?.name,
-      team: p.team
-    })) || []
-  })
   
   // STRONG LOGGING FOR GAME FINISHED STATE
   if (game.status === 'finished') {
@@ -550,7 +523,6 @@ const onGameUpdate = (game: Game) => {
   
   // Handle local timer based on game status
   if (game.status === 'running') {
-    console.log('[GAME_UPDATE] Starting local timer for running game')
     startLocalTimer()
   } else {
     console.log('[GAME_UPDATE] Stopping local timer for non-running game, status:', game.status)
@@ -889,7 +861,6 @@ onMounted(async () => {
           updateControlPointTimes(data.controlPointTimes, currentGame.value)
           // Update timers after markers are rendered
           setTimeout(() => {
-            console.log('Game time update - updating all timers')
             updateAllTimerDisplays(currentGame.value)
           }, 100)
         } else if (data.controlPointId && data.currentHoldTime !== undefined) {
@@ -897,14 +868,11 @@ onMounted(async () => {
           updateIndividualControlPointTime(data.controlPointId, data.currentHoldTime, data.currentTeam)
           // Update timers after markers are rendered
           setTimeout(() => {
-            console.log('Individual control point time update - updating all timers')
             updateAllTimerDisplays(currentGame.value)
           }, 100)
         }
       },
       onTimeUpdate: (data: TimeUpdateEvent) => {
-        // Handle time updates from server (broadcast every 20 seconds)
-        console.log('GameOwner - Time update received:', data)
         
         // Update local timer with server data - ALWAYS use server values
         updateLocalTimerFromServer(data)
@@ -920,7 +888,6 @@ onMounted(async () => {
         }
       },
       onPlayerPosition: (data: any) => {
-        console.log('GameOwner - Player position received:', data)
         // This callback is handled by usePlayerMarkers composable
         // No need to duplicate the logic here
       },
@@ -932,9 +899,7 @@ onMounted(async () => {
         bombTimersComposable.value?.handleActiveBombTimers(data)
       },
       onPositionChallengeUpdate: (data: any) => {
-        console.log('POSITION_CHALLENGE_UPDATE received:', data)
         if (data.controlPointId && data.teamPoints) {
-          console.log('Updating PIE chart for control point:', data.controlPointId, 'with teamPoints:', data.teamPoints)
           updatePositionChallengePieChart(data.controlPointId, data.teamPoints)
         } else {
           console.log('POSITION_CHALLENGE_UPDATE missing required data:', data)
@@ -1248,7 +1213,6 @@ onMounted(async () => {
       ;(window as any).currentGame = currentGame.value
       
       // Initialize player markers AFTER map is ready
-      console.log('Game.vue - Initializing usePlayerMarkers with isOwner:', isOwner.value, 'currentUser:', currentUser.value?.id)
       playerMarkersComposable.value = usePlayerMarkers({
         game: currentGame,
         map: mapInstance,
@@ -1258,7 +1222,6 @@ onMounted(async () => {
       })
       
       // Actualizar marcador local después de inicializar player markers
-      console.log('Game.vue - Actualizando marcador local después de inicializar player markers')
       gpsTrackingComposable.updateLocalMarker()
       
       // Start GPS tracking for owner
@@ -1282,7 +1245,6 @@ onMounted(async () => {
       
       // Update timers after initial markers are rendered
       setTimeout(() => {
-        console.log('Initial setup - updating all timers, game status:', currentGame.value?.status)
         updateAllTimerDisplays(currentGame.value)
         bombTimersComposable.value?.updateAllBombTimerDisplays(currentGame.value)
       }, 100)

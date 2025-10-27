@@ -340,16 +340,6 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       }
     })
     
-    // Debug: log ALL socket events to see what's arriving
-    newSocket.onAny((eventName: string, ...args: any[]) => {
-      if (eventName === 'gameAction' || eventName === 'playerTeamUpdated' || eventName === 'positionUpdate' ||
-          eventName === 'playerPositionsResponse' || eventName === 'playerInactive' ||
-          eventName === 'gameStateChanged' || eventName === 'teamCountUpdated' ||
-          eventName === 'timeAdded' || eventName === 'gameTimeUpdated') {
-        console.log('usePlayerMarkers - DEBUG: Received socket event:', eventName, args)
-      }
-    })
-    
     // Debug: log when socket listeners are set up
 
     // Clean up socket listeners when composable is destroyed
