@@ -2,6 +2,53 @@ import { ref, onUnmounted } from 'vue'
 import { ControlPoint } from '../types/index.js'
 import { createPopupContent, createPlayerPopupContent } from '../components/Game/popupUtils.js'
 
+// Global error handler for Leaflet zoom animation errors
+const setupLeafletErrorHandler = () => {
+  const originalErrorHandler = window.onerror
+  
+  window.onerror = function(message, source, lineno, colno, error) {
+    // Check if this is the specific Leaflet zoom animation error
+    if (typeof message === 'string' &&
+        message.includes('Cannot read properties of null') &&
+        message.includes('_latLngToNewLayerPoint') &&
+        message.includes('_animateZoom')) {
+      
+      console.warn('Leaflet zoom animation error detected, cleaning up map...')
+      
+      // Find and clean up any problematic map elements
+      const mapContainers = document.querySelectorAll('.leaflet-container')
+      mapContainers.forEach(container => {
+        try {
+          // Remove all Leaflet layers and elements
+          const layers = container.querySelectorAll('.leaflet-layer, .leaflet-marker-pane, .leaflet-popup-pane')
+          layers.forEach(layer => {
+            try {
+              layer.remove()
+            } catch (e) {
+              console.warn('Error removing Leaflet layer:', e)
+            }
+          })
+          
+          // Clear the container content
+          container.innerHTML = ''
+        } catch (e) {
+          console.warn('Error cleaning map container:', e)
+        }
+      })
+      
+      // Prevent the error from propagating further
+      return true
+    }
+    
+    // Call original error handler if exists
+    if (originalErrorHandler) {
+      return originalErrorHandler(message, source, lineno, colno, error)
+    }
+    
+    return false
+  }
+}
+
 export const useMap = () => {
   const mapInstance = ref<any>(null)
   const mapRef = ref<HTMLDivElement | null>(null)
@@ -14,6 +61,9 @@ export const useMap = () => {
     if (!mapRef.value) return
 
     try {
+      // Setup Leaflet error handler before initializing map
+      setupLeafletErrorHandler()
+      
       const L = await import('leaflet')
       
       // Fix for default markers in Leaflet
@@ -89,7 +139,16 @@ export const useMap = () => {
             const lng = typeof cp.longitude === 'string' ? parseFloat(cp.longitude) : cp.longitude
             return [lat, lng]
           }))
-          mapInstance.value.fitBounds(bounds)
+          
+          // Add error handling for fitBounds operation
+          try {
+            mapInstance.value.fitBounds(bounds)
+          } catch (fitBoundsError) {
+            console.warn('Error in fitBounds operation, using fallback:', fitBoundsError)
+            // Fallback to center view
+            const center = bounds.getCenter()
+            mapInstance.value.setView([center.lat, center.lng], 13)
+          }
         } else {
           mapInstance.value.setView([0, 0], 2)
         }
@@ -106,7 +165,16 @@ export const useMap = () => {
 
     try {
       const L = await import('leaflet')
-      mapInstance.value.setView([lat, lng], zoom)
+      
+      // Add error handling for setView operation
+      try {
+        mapInstance.value.setView([lat, lng], zoom)
+      } catch (setViewError) {
+        console.warn('Error in setView operation, using fallback:', setViewError)
+        // Fallback to direct pan and zoom without animation
+        mapInstance.value.panTo([lat, lng])
+        mapInstance.value.setZoom(zoom, { animate: false })
+      }
     } catch (error) {
       console.error('Error centering on position:', error)
     }
@@ -947,38 +1015,63 @@ export const useMap = () => {
   }
 
   const destroyMap = () => {
-    if (mapInstance.value) {
-      try {
-        // Stop any ongoing animations first
-        if (mapInstance.value._animatingZoom) {
+    if (!mapInstance.value) return
+    
+    try {
+      // Stop any ongoing animations first with null checks
+      if (mapInstance.value._animatingZoom && typeof mapInstance.value._stop === 'function') {
+        try {
           mapInstance.value._stop()
+        } catch (animationError) {
+          console.warn('Error stopping map animations:', animationError)
         }
-        
-        // Remove all event listeners first
-        mapInstance.value.off()
-        
-        // Remove all layers
-        mapInstance.value.eachLayer((layer: any) => {
-          mapInstance.value.removeLayer(layer)
-        })
-        
-        // Clear control point markers
-        controlPointMarkers.value.clear()
-        positionCircles.value.clear()
-        pieCharts.value.clear()
-        pendingPositionChallengeUpdates.value.clear()
-        
-        // Remove the map
-        mapInstance.value.remove()
-        mapInstance.value = null
-        
-        // Clear the map container
-        if (mapRef.value) {
-          mapRef.value.innerHTML = ''
-        }
-      } catch (error) {
-        console.error('Error destroying map:', error)
       }
+      
+      // Remove all event listeners first
+      if (typeof mapInstance.value.off === 'function') {
+        mapInstance.value.off()
+      }
+      
+      // Remove all layers with error handling
+      if (typeof mapInstance.value.eachLayer === 'function') {
+        try {
+          mapInstance.value.eachLayer((layer: any) => {
+            if (layer && typeof mapInstance.value.removeLayer === 'function') {
+              try {
+                mapInstance.value.removeLayer(layer)
+              } catch (layerError) {
+                console.warn('Error removing layer:', layerError)
+              }
+            }
+          })
+        } catch (eachLayerError) {
+          console.warn('Error iterating layers:', eachLayerError)
+        }
+      }
+      
+      // Clear control point markers
+      controlPointMarkers.value.clear()
+      positionCircles.value.clear()
+      pieCharts.value.clear()
+      pendingPositionChallengeUpdates.value.clear()
+      
+      // Remove the map with error handling
+      if (typeof mapInstance.value.remove === 'function') {
+        try {
+          mapInstance.value.remove()
+        } catch (removeError) {
+          console.warn('Error removing map:', removeError)
+        }
+      }
+      
+      mapInstance.value = null
+      
+      // Clear the map container
+      if (mapRef.value) {
+        mapRef.value.innerHTML = ''
+      }
+    } catch (error) {
+      console.error('Error destroying map:', error)
     }
   }
 

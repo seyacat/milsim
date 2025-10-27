@@ -196,6 +196,7 @@ const isOwner = ref(false)
 const localTimerInterval = ref<NodeJS.Timeout | null>(null)
 const lastTimeUpdate = ref<Date | null>(null)
 const connectionHealthInterval = ref<NodeJS.Timeout | null>(null)
+const isDraggingControlPoint = ref(false)
 
 // Player markers composable - will be initialized after map is ready
 const playerMarkersComposable = ref<any>(null)
@@ -246,6 +247,12 @@ const defaultTimeValue = 1200 // 20 minutes
 const onMapClick = async (latlng: { lat: number; lng: number }) => {
   
   if (!mapInstance.value) return
+  
+  // Si estamos en modo de arrastre, no mostrar el popup
+  if (isDraggingControlPoint.value) {
+    isDraggingControlPoint.value = false
+    return
+  }
   
   // Only show "Crear Punto de Control" option if user is the owner
   if (!isOwner.value) {
@@ -426,11 +433,19 @@ const handleControlPointMove = (controlPointId: number, markerId: number) => {
   enableControlPointDrag(controlPointId)
   closePopup()
   
+  // Set dragging flag to true
+  isDraggingControlPoint.value = true
+  
   // Add dragend event listener to disable drag after move
   const marker = controlPointMarkers.value.get(controlPointId)
   if (marker) {
     marker.off('dragend') // Remove any existing listeners
-    marker.on('dragend', () => {
+    marker.on('dragend', (e) => {
+      // Set dragging flag to false after a small delay to ensure the map click event is processed first
+      setTimeout(() => {
+        isDraggingControlPoint.value = false
+      }, 100)
+      
       disableControlPointDrag(controlPointId)
       
       // Get new position and update control point
@@ -444,6 +459,13 @@ const handleControlPointMove = (controlPointId: number, markerId: number) => {
           longitude: newLatLng.lng
         })
         addToast({ message: 'Punto de control movido', type: 'success' })
+        
+        // Remove the marker from the map after updating position
+        // The backend will send a new control point update that will recreate the marker
+        if (mapInstance.value && marker) {
+          mapInstance.value.removeLayer(marker)
+          controlPointMarkers.value.delete(controlPointId)
+        }
       }
     })
   }
