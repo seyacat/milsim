@@ -96,8 +96,10 @@ export const useBombTimers = (currentGame?: any) => {
       return
     }
 
-    // Show bomb timer only if bomb is active AND game is running
-    const shouldShow = bombTimerData?.isActive && currentGame?.value?.status === 'running'
+    // Show bomb timer if bomb is active AND game is NOT stopped
+    // Keep bomb timer visible when paused or finished, only hide when stopped
+    const shouldShow = bombTimerData?.isActive &&
+      currentGame?.value?.status !== 'stopped'
     
     if (shouldShow) {
       // Validate bomb timer data
@@ -138,9 +140,13 @@ export const useBombTimers = (currentGame?: any) => {
       }
     })
 
-    // Show bomb timers for active bombs only if game is running
+    // Show bomb timers for active bombs based on game state:
+    // - Running: Show and count down
+    // - Paused: Show but stopped (like finished)
+    // - Finished: Show but stopped (like paused)
+    // - Stopped: Hide completely
     activeBombTimers.value.forEach((bombTimer, controlPointId) => {
-      if (bombTimer.isActive && currentGame?.value?.status === 'running') {
+      if (bombTimer.isActive && currentGame?.value?.status !== 'stopped') {
         updateBombTimerDisplay(controlPointId)
       }
     })
@@ -222,12 +228,22 @@ export const useBombTimers = (currentGame?: any) => {
       if (hasActiveBombs && !localTimer) {
         startBombTimerInterval()
       }
-    } else if (game.status === 'stopped' || game.status === 'finished') {
+    } else if (game.status === 'finished') {
+      // Finished: stop timer but keep bomb timers visible (like paused)
       stopBombTimerInterval()
-      // Clear all bomb timers when game stops
-      activeBombTimers.value.clear()
+      updateAllBombTimerDisplays()
+    } else if (game.status === 'stopped') {
+      // Stopped: stop timer and hide all bomb timers
+      stopBombTimerInterval()
       updateAllBombTimerDisplays()
     }
+  }
+
+  // Clear all bomb timers completely (for game restart)
+  const clearAllBombTimers = () => {
+    stopBombTimerInterval()
+    activeBombTimers.value.clear()
+    updateAllBombTimerDisplays()
   }
 
   // Request active bomb timers
@@ -274,6 +290,7 @@ export const useBombTimers = (currentGame?: any) => {
     handleGameStateChange,
     pauseBombTimer,
     resumeBombTimer,
+    clearAllBombTimers,
     cleanup
   }
 }

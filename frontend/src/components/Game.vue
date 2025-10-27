@@ -598,10 +598,13 @@ const onGameUpdate = (game: Game) => {
     console.log('Game restarted, closing results dialog')
     showResultsDialog.value = false
     
+    // Clear all bomb timers completely when game transitions from finished to stopped
+    console.log('Clearing all bomb timers due to game state change from finished to stopped')
+    bombTimersComposable.value?.clearAllBombTimers()
+    
     // Hide all timers when game transitions from finished to stopped
     console.log('Hiding all timers due to game state change from finished to stopped')
     updateAllTimerDisplays(game)
-    bombTimersComposable.value?.updateAllBombTimerDisplays(game)
   }
 
   // Show team selection when game transitions to stopped state and player doesn't have a team
@@ -618,10 +621,20 @@ const onGameUpdate = (game: Game) => {
     showTeamSelection.value = false
   }
 
+  // Clear bomb timers when game transitions to stopped state (not from finished)
+  if (game.status === 'stopped' && previousStatus !== 'finished') {
+    console.log('Game stopped, clearing all bomb timers')
+    bombTimersComposable.value?.clearAllBombTimers()
+  }
+
   // Close team selection dialog when game transitions from stopped to running
   if (previousStatus === 'stopped' && game.status === 'running') {
     console.log('Game started, closing team selection dialog')
     showTeamSelection.value = false
+    
+    // Ensure all bomb timers are cleared when new game starts
+    console.log('Ensuring all bomb timers are cleared for new game')
+    bombTimersComposable.value?.clearAllBombTimers()
   }
 }
 
