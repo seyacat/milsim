@@ -258,7 +258,10 @@ export interface ControlPointTakenEvent extends BaseWebSocketEvent {
 }
 
 export interface BombActivatedEvent extends BaseWebSocketEvent {
-  controlPoint: {
+  controlPointId: number;
+  userId: number;
+  userName: string;
+  controlPoint?: {
     id: number;
     name: string;
     description: string | null;
@@ -291,7 +294,10 @@ export interface BombActivatedEvent extends BaseWebSocketEvent {
 }
 
 export interface BombDeactivatedEvent extends BaseWebSocketEvent {
-  controlPoint: {
+  controlPointId: number;
+  userId: number;
+  userName: string;
+  controlPoint?: {
     id: number;
     name: string;
     description: string | null;
