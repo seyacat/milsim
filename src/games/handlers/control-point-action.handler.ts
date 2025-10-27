@@ -203,13 +203,10 @@ export class ControlPointActionHandler {
         // Send the control point data to all clients (without codes)
         this.broadcastUtilitiesHandler.broadcastControlPointTaken(
           gameId,
-          {
-            controlPointId: data.controlPointId,
-            userId: user.id,
-            userName: user.name,
-            team: result.controlPoint.ownedByTeam,
-            controlPoint: result.controlPoint,
-          },
+          result.controlPoint,
+          user.id,
+          user.name,
+          result.controlPoint.ownedByTeam,
           server,
           client.id,
         );
@@ -219,13 +216,10 @@ export class ControlPointActionHandler {
         if (game.owner && game.owner.id === user.id) {
           this.broadcastUtilitiesHandler.broadcastControlPointTaken(
             gameId,
-            {
-              controlPointId: data.controlPointId,
-              userId: user.id,
-              userName: user.name,
-              team: result.controlPoint.ownedByTeam,
-              controlPoint: result.controlPoint, // Full data with codes
-            },
+            result.controlPoint, // Full data with codes
+            user.id,
+            user.name,
+            result.controlPoint.ownedByTeam,
             server,
             client.id,
           );

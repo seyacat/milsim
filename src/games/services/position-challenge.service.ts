@@ -648,9 +648,13 @@ export class PositionChallengeService {
           }
 
           // Send control point taken event for position challenge
+          // For position challenge, we don't have a specific user, so use system user
           this.broadcastUtilitiesHandler.broadcastControlPointTaken(
             gameId,
             updatedControlPoint,
+            0, // system user
+            'Sistema',
+            winningTeam,
             this.gamesGateway.server,
             'server',
           );

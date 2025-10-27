@@ -177,10 +177,17 @@ export class BroadcastUtilitiesHandler {
   broadcastControlPointTaken(
     gameId: number,
     controlPoint: any,
+    userId: number,
+    userName: string,
+    team: string,
     server: any,
     from: string = 'server',
   ): void {
     const eventData: ControlPointTakenEvent = {
+      controlPointId: controlPoint.id,
+      userId,
+      userName,
+      team,
       controlPoint,
       from,
       timestamp: new Date().toISOString(),

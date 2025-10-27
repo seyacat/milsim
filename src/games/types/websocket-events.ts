@@ -1,5 +1,3 @@
-import { ControlPoint } from '../entities/control-point.entity';
-
 export interface BaseWebSocketEvent {
   from: string;
   timestamp: string;
@@ -22,11 +20,55 @@ export interface GameTimeUpdatedEvent extends BaseWebSocketEvent {
 }
 
 export interface ControlPointCreatedEvent extends BaseWebSocketEvent {
-  controlPoint: ControlPoint;
+  controlPoint: {
+    id: number;
+    name: string;
+    description: string | null;
+    latitude: number;
+    longitude: number;
+    status: string;
+    type: string;
+    challengeType: string | null;
+    code: string | null;
+    armedCode: string | null;
+    disarmedCode: string | null;
+    minDistance: number | null;
+    minAccuracy: number | null;
+    hasPositionChallenge: boolean;
+    hasCodeChallenge: boolean;
+    hasBombChallenge: boolean;
+    bombTime: number | null;
+    ownedByTeam: string | null;
+    gameId: number;
+    createdAt: string;
+    updatedAt: string;
+  };
 }
 
 export interface ControlPointUpdatedEvent extends BaseWebSocketEvent {
-  controlPoint: ControlPoint;
+  controlPoint: {
+    id: number;
+    name: string;
+    description: string | null;
+    latitude: number;
+    longitude: number;
+    status: string;
+    type: string;
+    challengeType: string | null;
+    code: string | null;
+    armedCode: string | null;
+    disarmedCode: string | null;
+    minDistance: number | null;
+    minAccuracy: number | null;
+    hasPositionChallenge: boolean;
+    hasCodeChallenge: boolean;
+    hasBombChallenge: boolean;
+    bombTime: number | null;
+    ownedByTeam: string | null;
+    gameId: number;
+    createdAt: string;
+    updatedAt: string;
+  };
 }
 
 export interface ControlPointDeletedEvent extends BaseWebSocketEvent {
@@ -34,11 +76,66 @@ export interface ControlPointDeletedEvent extends BaseWebSocketEvent {
 }
 
 export interface ControlPointTeamAssignedEvent extends BaseWebSocketEvent {
-  controlPoint: ControlPoint;
+  controlPoint: {
+    id: number;
+    name: string;
+    description: string | null;
+    latitude: number;
+    longitude: number;
+    status: string;
+    type: string;
+    challengeType: string | null;
+    code: string | null;
+    armedCode: string | null;
+    disarmedCode: string | null;
+    minDistance: number | null;
+    minAccuracy: number | null;
+    hasPositionChallenge: boolean;
+    hasCodeChallenge: boolean;
+    hasBombChallenge: boolean;
+    bombTime: number | null;
+    ownedByTeam: string | null;
+    gameId: number;
+    createdAt: string;
+    updatedAt: string;
+  };
 }
 
 export interface ControlPointTakenEvent extends BaseWebSocketEvent {
-  controlPoint: ControlPoint;
+  controlPointId: number;
+  userId: number;
+  userName: string;
+  team: string;
+  controlPoint: {
+    id: number;
+    name: string;
+    description: string | null;
+    latitude: number;
+    longitude: number;
+    status: string;
+    type: string;
+    challengeType: string | null;
+    code: string | null;
+    armedCode: string | null;
+    disarmedCode: string | null;
+    minDistance: number | null;
+    minAccuracy: number | null;
+    hasPositionChallenge: boolean;
+    hasCodeChallenge: boolean;
+    hasBombChallenge: boolean;
+    bombTime: number | null;
+    ownedByTeam: string | null;
+    gameId: number;
+    createdAt: string;
+    updatedAt: string;
+    bombStatus?: {
+      isActive: boolean;
+      remainingTime?: number;
+      activatedByUserId?: number;
+      activatedByUserName?: string;
+      activatedByTeam?: string;
+    };
+  };
 }
 
 export interface PlayerTeamUpdatedEvent extends BaseWebSocketEvent {
@@ -160,16 +257,72 @@ export interface BombActivatedEvent extends BaseWebSocketEvent {
   controlPointId: number;
   userId: number;
   userName: string;
-  activatedByOwner?: boolean;
-  controlPoint?: ControlPoint;
+  controlPoint?: {
+    id: number;
+    name: string;
+    description: string | null;
+    latitude: number;
+    longitude: number;
+    status: string;
+    type: string;
+    challengeType: string | null;
+    code: string | null;
+    armedCode: string | null;
+    disarmedCode: string | null;
+    minDistance: number | null;
+    minAccuracy: number | null;
+    hasPositionChallenge: boolean;
+    hasCodeChallenge: boolean;
+    hasBombChallenge: boolean;
+    bombTime: number | null;
+    ownedByTeam: string | null;
+    gameId: number;
+    createdAt: string;
+    updatedAt: string;
+    bombStatus?: {
+      isActive: boolean;
+      remainingTime?: number;
+      activatedByUserId?: number;
+      activatedByUserName?: string;
+      activatedByTeam?: string;
+    };
+  };
 }
 
 export interface BombDeactivatedEvent extends BaseWebSocketEvent {
   controlPointId: number;
   userId: number;
   userName: string;
-  deactivatedByOwner?: boolean;
-  controlPoint?: ControlPoint;
+  controlPoint?: {
+    id: number;
+    name: string;
+    description: string | null;
+    latitude: number;
+    longitude: number;
+    status: string;
+    type: string;
+    challengeType: string | null;
+    code: string | null;
+    armedCode: string | null;
+    disarmedCode: string | null;
+    minDistance: number | null;
+    minAccuracy: number | null;
+    hasPositionChallenge: boolean;
+    hasCodeChallenge: boolean;
+    hasBombChallenge: boolean;
+    bombTime: number | null;
+    ownedByTeam: string | null;
+    gameId: number;
+    createdAt: string;
+    updatedAt: string;
+    bombStatus?: {
+      isActive: boolean;
+      remainingTime?: number;
+      activatedByUserId?: number;
+      activatedByUserName?: string;
+      activatedByTeam?: string;
+    };
+  };
 }
 
 export interface ForceDisconnectEvent extends BaseWebSocketEvent {
