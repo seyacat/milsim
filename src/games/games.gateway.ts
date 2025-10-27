@@ -229,11 +229,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           const currentPositionChallengeData =
             await this.positionChallengeService.getCurrentPositionChallengeData(gameId);
 
-          console.log(`[JOIN_GAME_WS] Sending position challenge data to client ${client.id}:`, currentPositionChallengeData.size, 'control points');
 
           // Send position challenge data for each control point
           for (const [controlPointId, teamPoints] of currentPositionChallengeData.entries()) {
-            console.log(`[JOIN_GAME_WS] Broadcasting CP ${controlPointId} with teamPoints:`, teamPoints);
             this.broadcastUtilitiesHandler.broadcastPositionChallengeUpdate(
               gameId,
               controlPointId,

@@ -293,7 +293,6 @@ export class PositionChallengeService {
 
       // Broadcast position challenge updates to frontend
       for (const [controlPointId, teamPoints] of teamPointsByControlPoint.entries()) {
-        console.log(`[POSITION_CHALLENGE] Broadcasting update for CP ${controlPointId}:`, teamPoints);
         this.gamesGateway.broadcastPositionChallengeUpdate(gameId, controlPointId, teamPoints);
       }
     } catch (error) {

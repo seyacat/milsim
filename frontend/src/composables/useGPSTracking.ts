@@ -73,13 +73,11 @@ export const useGPSTracking = (
 
     // Enviar posición inmediatamente si es la primera actualización y WebSocket está conectado
     if (!hasSentFirstPosition.value && isWebSocketConnected.value) {
-      console.log('[GPS] Enviando primera posición inmediatamente al backend')
       notifyPositionToBackend(newPosition)
       hasSentFirstPosition.value = true
       
       // Notificar actualización de posición localmente para actualizar el marcador propio
       if (onPositionUpdate) {
-        console.log('[GPS] Notificando actualización de posición localmente')
         onPositionUpdate(newPosition)
       }
     }
@@ -181,11 +179,9 @@ export const useGPSTracking = (
     // Obtener posición inicial
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        console.log('[GPS] Posición inicial obtenida, procesando...')
         handlePositionUpdate(position)
       },
       (error) => {
-        console.log('[GPS] Error obteniendo posición inicial:', error.message)
         handlePositionError(error)
       },
       options
@@ -236,21 +232,16 @@ export const useGPSTracking = (
         // Check current connection status
         if (actualSocket.connected) {
           isWebSocketConnected.value = true
-          console.log('[GPS] WebSocket ya está conectado, enviando posición si está disponible')
           sendPositionIfAvailable()
         }
         
         // Listen for connection events
         actualSocket.on('connect', () => {
           isWebSocketConnected.value = true
-          console.log('[GPS] WebSocket conectado, enviando posición si está disponible')
-          console.log('[GPS] currentPosition disponible:', !!currentPosition.value)
-          console.log('[GPS] onPositionUpdate disponible:', !!onPositionUpdate)
           sendPositionIfAvailable()
           
           // Actualizar marcador local inmediatamente cuando WebSocket se conecta
           if (currentPosition.value && onPositionUpdate) {
-            console.log('[GPS] Actualizando marcador local después de conexión WebSocket')
             onPositionUpdate(currentPosition.value)
           } else {
             console.log('[GPS] No se puede actualizar marcador local: currentPosition o onPositionUpdate no disponibles')
@@ -259,7 +250,6 @@ export const useGPSTracking = (
         
         actualSocket.on('disconnect', () => {
           isWebSocketConnected.value = false
-          console.log('[GPS] WebSocket desconectado')
         })
       }
     }
@@ -268,13 +258,11 @@ export const useGPSTracking = (
   // Función para enviar posición si está disponible y WebSocket está conectado
   const sendPositionIfAvailable = () => {
     if (currentPosition.value && isWebSocketConnected.value && !hasSentFirstPosition.value) {
-      console.log('[GPS] Enviando posición disponible al backend después de conexión WebSocket')
       notifyPositionToBackend(currentPosition.value)
       hasSentFirstPosition.value = true
       
       // Notificar actualización de posición localmente para actualizar el marcador propio
       if (onPositionUpdate) {
-        console.log('[GPS] Notificando actualización de posición localmente después de conexión')
         onPositionUpdate(currentPosition.value)
       }
     }
@@ -283,7 +271,6 @@ export const useGPSTracking = (
   // Función para actualizar marcador local manualmente
   const updateLocalMarker = () => {
     if (currentPosition.value && onPositionUpdate) {
-      console.log('[GPS] Actualizando marcador local manualmente')
       onPositionUpdate(currentPosition.value)
     }
   }

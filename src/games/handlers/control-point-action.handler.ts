@@ -390,11 +390,6 @@ export class ControlPointActionHandler {
         throw new Error('Control point not found');
       }
 
-      console.log('[CONTROL_POINT_ACTION] Toggle bomb challenge - current state:', {
-        controlPointId: data.controlPointId,
-        currentHasBombChallenge: currentControlPoint.hasBombChallenge,
-        newHasBombChallenge: !currentControlPoint.hasBombChallenge
-      });
 
       const updatedControlPoint = await this.gamesService.updateControlPoint(
         data.controlPointId,
@@ -403,15 +398,6 @@ export class ControlPointActionHandler {
         },
       );
 
-      console.log('[CONTROL_POINT_ACTION] Toggle bomb challenge - updated control point:', {
-        id: updatedControlPoint.id,
-        name: updatedControlPoint.name,
-        hasBombChallenge: updatedControlPoint.hasBombChallenge,
-        hasPositionChallenge: updatedControlPoint.hasPositionChallenge,
-        hasCodeChallenge: updatedControlPoint.hasCodeChallenge,
-        latitude: updatedControlPoint.latitude,
-        longitude: updatedControlPoint.longitude
-      });
 
       // Broadcast the updated control point to all clients
       this.broadcastUtilitiesHandler.broadcastControlPointUpdated(
