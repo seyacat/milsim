@@ -532,8 +532,26 @@ export const useMap = () => {
   }
 
   const updateControlPointMarker = async (controlPoint: ControlPoint, handlers: any = {}) => {
+    console.log('useMap - updateControlPointMarker called for control point:', controlPoint?.id)
+    console.log('useMap - updateControlPointMarker - controlPoint parameter:', controlPoint)
+    console.log('useMap - updateControlPointMarker - handlers keys:', Object.keys(handlers))
+    console.log('useMap - updateControlPointMarker - control point data:', {
+      id: controlPoint?.id,
+      name: controlPoint?.name,
+      ownedByTeam: controlPoint?.ownedByTeam,
+      hasBombChallenge: controlPoint?.hasBombChallenge,
+      bombStatus: controlPoint?.bombStatus
+    })
+    
+    if (!controlPoint || !controlPoint.id) {
+      console.log('useMap - updateControlPointMarker - invalid control point data')
+      return
+    }
+    
     const marker = controlPointMarkers.value.get(controlPoint.id)
     if (!marker || !mapInstance.value) {
+      console.log('useMap - updateControlPointMarker - marker not found or map not ready')
+      console.log('useMap - updateControlPointMarker - available markers:', Array.from(controlPointMarkers.value.keys()))
       return
     }
 
@@ -627,7 +645,19 @@ export const useMap = () => {
       marker.setIcon(customIcon)
 
       // Always update popup content to ensure it reflects current control point state
+      console.log('useMap - updateControlPointMarker - updating popup content')
+      console.log('useMap - updateControlPointMarker - handlers count:', Object.keys(handlers).length)
+      console.log('useMap - updateControlPointMarker - control point state:', {
+        id: controlPoint.id,
+        ownedByTeam: controlPoint.ownedByTeam,
+        hasCodeChallenge: controlPoint.hasCodeChallenge,
+        hasBombChallenge: controlPoint.hasBombChallenge,
+        bombStatus: controlPoint.bombStatus,
+        hasPositionChallenge: controlPoint.hasPositionChallenge
+      })
+      
       if (Object.keys(handlers).length > 0) {
+        console.log('useMap - updateControlPointMarker - creating owner popup')
         // Owner view - with edit controls
         const popupContent = createPopupContent(controlPoint, marker._leaflet_id, handlers)
         marker.bindPopup(popupContent, {
@@ -636,6 +666,7 @@ export const useMap = () => {
           closeButton: true
         })
       } else {
+        console.log('useMap - updateControlPointMarker - creating player popup')
         // Player view - with challenge inputs
         const popupContent = createPlayerPopupContent(controlPoint)
         marker.bindPopup(popupContent, {

@@ -1,7 +1,27 @@
 import { ref, onUnmounted } from 'vue'
 import { io, Socket } from 'socket.io-client'
 import { AuthService } from '../services/auth.js'
-import { User, Game, ControlPoint } from '../types/index.js'
+import { User, Game, ControlPoint, TeamColor } from '../types/index.js'
+import {
+  ControlPointCreatedEvent,
+  ControlPointUpdatedEvent,
+  ControlPointTakenEvent,
+  BombActivatedEvent,
+  BombDeactivatedEvent,
+  ControlPointTeamAssignedEvent,
+  GameStateChangedEvent,
+  TeamCountUpdatedEvent,
+  TimeAddedEvent,
+  GameTimeUpdatedEvent,
+  GameTimeEvent,
+  TimeUpdateEvent,
+  ControlPointTimeUpdateEvent,
+  BombTimeUpdateEvent,
+  ActiveBombTimersEvent,
+  PositionChallengeUpdateEvent,
+  PlayerTeamUpdatedEvent,
+  PositionUpdateEvent
+} from '../types/websocket-events.js'
 import { useToast } from './useToast.js'
 
 // Singleton pattern for WebSocket connection
@@ -29,12 +49,12 @@ const setupSocketListeners = (
     onBombTimeUpdate?: (data: any) => void
     onActiveBombTimers?: (data: any) => void
     onPositionChallengeUpdate?: (data: any) => void
-    onControlPointTeamAssigned?: (data: any) => void
+    onControlPointTeamAssigned?: (data: ControlPointTeamAssignedEvent) => void
     onPlayerTeamUpdated?: (data: any) => void
     onGameAction?: (data: any) => void
-    onControlPointTaken?: (data: any) => void
-    onBombActivated?: (data: any) => void
-    onBombDeactivated?: (data: any) => void
+    onControlPointTaken?: (data: ControlPointTakenEvent) => void
+    onBombActivated?: (data: BombActivatedEvent) => void
+    onBombDeactivated?: (data: BombDeactivatedEvent) => void
   },
   addToast: any
 ) => {
@@ -69,7 +89,7 @@ const setupSocketListeners = (
   })
 
   // Listen for specific game state change events
-  socket.on('gameStateChanged', (data: any) => {
+  socket.on('gameStateChanged', (data: GameStateChangedEvent) => {
     if (data.game) {
       console.log('[WEBSOCKET] Received gameStateChanged event:', {
         gameId: data.game.id,
@@ -81,7 +101,7 @@ const setupSocketListeners = (
   })
 
   // Listen for team count updated events
-  socket.on('teamCountUpdated', (data: any) => {
+  socket.on('teamCountUpdated', (data: TeamCountUpdatedEvent) => {
     if (data.game) {
       console.log('[WEBSOCKET] Received teamCountUpdated event:', {
         gameId: data.game.id,
@@ -92,7 +112,7 @@ const setupSocketListeners = (
   })
 
   // Listen for time added events
-  socket.on('timeAdded', (data: any) => {
+  socket.on('timeAdded', (data: TimeAddedEvent) => {
     if (data.game) {
       console.log('[WEBSOCKET] Received timeAdded event:', {
         gameId: data.game.id
@@ -102,7 +122,7 @@ const setupSocketListeners = (
   })
 
   // Listen for game time updated events
-  socket.on('gameTimeUpdated', (data: any) => {
+  socket.on('gameTimeUpdated', (data: GameTimeUpdatedEvent) => {
     if (data.game) {
       console.log('[WEBSOCKET] Received gameTimeUpdated event:', {
         gameId: data.game.id
@@ -198,7 +218,7 @@ const setupSocketListeners = (
   })
 
   // Handle control point specific events with proper typing
-  socket.on('controlPointCreated', (data: { controlPoint: any }) => {
+  socket.on('controlPointCreated', (data: ControlPointCreatedEvent) => {
     console.log('useWebSocket - controlPointCreated event received - RAW DATA:', data)
     console.log('useWebSocket - controlPointCreated event structure:', {
       hasControlPoint: 'controlPoint' in data,
@@ -208,7 +228,7 @@ const setupSocketListeners = (
     })
     
     // Extract control point data from the correct structure - data is {controlPoint: {...}}
-    const controlPointData = data.controlPoint?.controlPoint || data.controlPoint
+    const controlPointData = data.controlPoint
     
     console.log('useWebSocket - controlPointData to process:', controlPointData)
     
@@ -227,14 +247,19 @@ const setupSocketListeners = (
     }
     
     // Validate that we have required coordinates
-    const latitude = controlPointData?.latitude ? parseFloat(controlPointData.latitude) : 0
-    const longitude = controlPointData?.longitude ? parseFloat(controlPointData.longitude) : 0
+    const latitude = controlPointData?.latitude ? parseFloat(controlPointData.latitude.toString()) : 0
+    const longitude = controlPointData?.longitude ? parseFloat(controlPointData.longitude.toString()) : 0
     
     if (!controlPointData || !controlPointData.id || !controlPointData.name || latitude === 0 || longitude === 0) {
       console.error('useWebSocket - Invalid control point data received:', controlPointData)
       console.error('useWebSocket - Original data structure:', data)
       return
     }
+    
+    // Convert ownedByTeam from string | null to TeamColor | undefined
+    const ownedByTeam = controlPointData.ownedByTeam && controlPointData.ownedByTeam !== 'none'
+      ? controlPointData.ownedByTeam as TeamColor
+      : undefined
     
     // Map backend ControlPoint entity to frontend ControlPoint interface
     const controlPoint: ControlPoint = {
@@ -244,7 +269,7 @@ const setupSocketListeners = (
       latitude: latitude,
       longitude: longitude,
       type: controlPointData.type as 'site' | 'control_point',
-      ownedByTeam: controlPointData.ownedByTeam,
+      ownedByTeam: ownedByTeam,
       hasBombChallenge: controlPointData.hasBombChallenge || false,
       hasPositionChallenge: controlPointData.hasPositionChallenge || false,
       hasCodeChallenge: controlPointData.hasCodeChallenge || false,
@@ -272,32 +297,39 @@ const setupSocketListeners = (
 
   // Note: controlPointUpdated events now come through gameAction handler above
   // This direct listener is kept for backward compatibility
-  socket.on('controlPointUpdated', (data: { controlPoint: any }) => {
+  socket.on('controlPointUpdated', (data: ControlPointUpdatedEvent) => {
     console.log('useWebSocket - controlPointUpdated event received:', data)
     // Ensure the control point has the expected structure
+    const controlPointData = data.controlPoint
+    
+    // Convert ownedByTeam from string | null to TeamColor | undefined
+    const ownedByTeam = controlPointData.ownedByTeam && controlPointData.ownedByTeam !== 'none'
+      ? controlPointData.ownedByTeam as TeamColor
+      : undefined
+    
     const controlPoint: ControlPoint = {
-      id: data.controlPoint.id,
-      name: data.controlPoint.name,
-      description: data.controlPoint.description,
-      latitude: data.controlPoint.latitude,
-      longitude: data.controlPoint.longitude,
-      type: data.controlPoint.type,
-      ownedByTeam: data.controlPoint.ownedByTeam,
-      hasBombChallenge: data.controlPoint.hasBombChallenge || false,
-      hasPositionChallenge: data.controlPoint.hasPositionChallenge || false,
-      hasCodeChallenge: data.controlPoint.hasCodeChallenge || false,
-      bombTimer: data.controlPoint.bombTimer,
-      bombStatus: data.controlPoint.bombStatus,
-      currentTeam: data.controlPoint.currentTeam,
-      currentHoldTime: data.controlPoint.currentHoldTime,
-      displayTime: data.controlPoint.displayTime,
-      lastTimeUpdate: data.controlPoint.lastTimeUpdate,
-      minDistance: data.controlPoint.minDistance,
-      minAccuracy: data.controlPoint.minAccuracy,
-      code: data.controlPoint.code,
-      bombTime: data.controlPoint.bombTime,
-      armedCode: data.controlPoint.armedCode,
-      disarmedCode: data.controlPoint.disarmedCode
+      id: controlPointData.id,
+      name: controlPointData.name,
+      description: controlPointData.description || undefined,
+      latitude: parseFloat(controlPointData.latitude.toString()),
+      longitude: parseFloat(controlPointData.longitude.toString()),
+      type: controlPointData.type as 'site' | 'control_point',
+      ownedByTeam: ownedByTeam,
+      hasBombChallenge: controlPointData.hasBombChallenge || false,
+      hasPositionChallenge: controlPointData.hasPositionChallenge || false,
+      hasCodeChallenge: controlPointData.hasCodeChallenge || false,
+      bombTimer: undefined,
+      bombStatus: undefined,
+      currentTeam: undefined,
+      currentHoldTime: undefined,
+      displayTime: undefined,
+      lastTimeUpdate: undefined,
+      minDistance: controlPointData.minDistance || undefined,
+      minAccuracy: controlPointData.minAccuracy || undefined,
+      code: controlPointData.code || undefined,
+      bombTime: controlPointData.bombTime || undefined,
+      armedCode: controlPointData.armedCode || undefined,
+      disarmedCode: controlPointData.disarmedCode || undefined
     }
     callbacks.onControlPointUpdated(controlPoint)
   })
@@ -307,41 +339,41 @@ const setupSocketListeners = (
   })
 
   // Handle game time updates for control point timers
-  socket.on('gameTime', (data: any) => {
+  socket.on('gameTime', (data: GameTimeEvent) => {
     callbacks.onGameTime(data)
   })
 
   // Handle time updates (broadcast every 20 seconds)
-  socket.on('timeUpdate', (data: any) => {
+  socket.on('timeUpdate', (data: TimeUpdateEvent) => {
     if (callbacks.onTimeUpdate) {
       callbacks.onTimeUpdate(data)
     }
   })
 
   // Handle individual control point time updates
-  socket.on('controlPointTimeUpdate', (data: any) => {
+  socket.on('controlPointTimeUpdate', (data: ControlPointTimeUpdateEvent) => {
     // Forward to gameTime handler for processing
-    if (data && data.controlPointTimes) {
+    if (data && data.controlPointId) {
       callbacks.onGameTime(data)
     }
   })
 
   // Handle bomb timer updates
-  socket.on('bombTimeUpdate', (data: any) => {
+  socket.on('bombTimeUpdate', (data: BombTimeUpdateEvent) => {
     if (callbacks.onBombTimeUpdate) {
       callbacks.onBombTimeUpdate(data)
     }
   })
 
   // Handle active bomb timers response
-  socket.on('activeBombTimers', (data: any) => {
+  socket.on('activeBombTimers', (data: ActiveBombTimersEvent) => {
     if (callbacks.onActiveBombTimers) {
       callbacks.onActiveBombTimers(data)
     }
   })
 
   // Handle position challenge updates
-  socket.on('positionChallengeUpdate', (data: any) => {
+  socket.on('positionChallengeUpdate', (data: PositionChallengeUpdateEvent) => {
     if (callbacks.onPositionChallengeUpdate) {
       callbacks.onPositionChallengeUpdate(data)
     }
@@ -349,7 +381,51 @@ const setupSocketListeners = (
 
   // Note: controlPointTeamAssigned events now come through gameAction handler above
   // This direct listener is kept for backward compatibility
-  socket.on('controlPointTeamAssigned', (data: any) => {
+  socket.on('controlPointTeamAssigned', (data: ControlPointTeamAssignedEvent) => {
+    console.log('useWebSocket - controlPointTeamAssigned event received:', data)
+    console.log('useWebSocket - controlPointTeamAssigned - controlPoint data:', data.controlPoint)
+    
+    // Extract control point data from the event structure
+    const controlPointData = data.controlPoint
+    const latitude = typeof controlPointData?.latitude === 'string'
+      ? parseFloat(controlPointData.latitude)
+      : controlPointData?.latitude || 0
+    const longitude = typeof controlPointData?.longitude === 'string'
+      ? parseFloat(controlPointData.longitude)
+      : controlPointData?.longitude || 0
+    
+    // Convert ownedByTeam from string | null to TeamColor | undefined
+    const ownedByTeam = controlPointData.ownedByTeam && controlPointData.ownedByTeam !== 'none'
+      ? controlPointData.ownedByTeam as TeamColor
+      : undefined
+    
+    const controlPoint: ControlPoint = {
+      id: controlPointData.id,
+      name: controlPointData.name,
+      description: controlPointData.description || undefined,
+      latitude: latitude,
+      longitude: longitude,
+      type: controlPointData.type as 'site' | 'control_point',
+      ownedByTeam: ownedByTeam,
+      hasBombChallenge: controlPointData.hasBombChallenge || false,
+      hasPositionChallenge: controlPointData.hasPositionChallenge || false,
+      hasCodeChallenge: controlPointData.hasCodeChallenge || false,
+      bombTimer: undefined,
+      bombStatus: undefined,
+      currentTeam: undefined,
+      currentHoldTime: undefined,
+      displayTime: undefined,
+      lastTimeUpdate: undefined,
+      minDistance: controlPointData.minDistance || undefined,
+      minAccuracy: controlPointData.minAccuracy || undefined,
+      code: controlPointData.code || undefined,
+      bombTime: controlPointData.bombTime || undefined,
+      armedCode: controlPointData.armedCode || undefined,
+      disarmedCode: controlPointData.disarmedCode || undefined
+    }
+    
+    console.log('useWebSocket - Processed control point for team assignment:', controlPoint)
+    
     if (callbacks.onControlPointTeamAssigned) {
       callbacks.onControlPointTeamAssigned(data)
     } else {
@@ -358,7 +434,7 @@ const setupSocketListeners = (
   })
 
   // Handle player team updates
-  socket.on('playerTeamUpdated', (data: any) => {
+  socket.on('playerTeamUpdated', (data: PlayerTeamUpdatedEvent) => {
     if (callbacks.onPlayerTeamUpdated) {
       callbacks.onPlayerTeamUpdated(data)
     } else {
@@ -367,7 +443,8 @@ const setupSocketListeners = (
   })
 
   // Handle control point taken events
-  socket.on('controlPointTaken', (data: any) => {
+  socket.on('controlPointTaken', (data: ControlPointTakenEvent) => {
+    console.log('useWebSocket - controlPointTaken event received:', data)
     if (callbacks.onControlPointTaken) {
       callbacks.onControlPointTaken(data)
     } else {
@@ -376,7 +453,8 @@ const setupSocketListeners = (
   })
 
   // Handle bomb activated events
-  socket.on('bombActivated', (data: any) => {
+  socket.on('bombActivated', (data: BombActivatedEvent) => {
+    console.log('useWebSocket - bombActivated event received:', data)
     if (callbacks.onBombActivated) {
       callbacks.onBombActivated(data)
     } else {
@@ -385,7 +463,8 @@ const setupSocketListeners = (
   })
 
   // Handle bomb deactivated events
-  socket.on('bombDeactivated', (data: any) => {
+  socket.on('bombDeactivated', (data: BombDeactivatedEvent) => {
+    console.log('useWebSocket - bombDeactivated event received:', data)
     if (callbacks.onBombDeactivated) {
       callbacks.onBombDeactivated(data)
     } else {
@@ -394,7 +473,7 @@ const setupSocketListeners = (
   })
 
   // Handle position update events (direct position updates from players)
-  socket.on('positionUpdate', (data: any) => {
+  socket.on('positionUpdate', (data: PositionUpdateEvent) => {
     if (callbacks.onPlayerPosition) {
       callbacks.onPlayerPosition(data)
     }
@@ -421,12 +500,12 @@ export const useWebSocket = () => {
       onBombTimeUpdate?: (data: any) => void
       onActiveBombTimers?: (data: any) => void
       onPositionChallengeUpdate?: (data: any) => void
-      onControlPointTeamAssigned?: (data: any) => void
+      onControlPointTeamAssigned?: (data: ControlPointTeamAssignedEvent) => void
       onPlayerTeamUpdated?: (data: any) => void
       onGameAction?: (data: any) => void
-      onControlPointTaken?: (data: any) => void
-      onBombActivated?: (data: any) => void
-      onBombDeactivated?: (data: any) => void
+      onControlPointTaken?: (data: ControlPointTakenEvent) => void
+      onBombActivated?: (data: BombActivatedEvent) => void
+      onBombDeactivated?: (data: BombDeactivatedEvent) => void
     }
   ) => {
     // Clean up any existing connection that might be in a bad state

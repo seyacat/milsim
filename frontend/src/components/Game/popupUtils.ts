@@ -293,6 +293,16 @@ export const createPopupContent = (
 
 // Create player popup content with challenge inputs
 export const createPlayerPopupContent = (controlPoint: ControlPoint): HTMLElement => {
+  console.log('DEBUG: Creating player popup for control point:', {
+    id: controlPoint.id,
+    name: controlPoint.name,
+    hasCodeChallenge: controlPoint.hasCodeChallenge,
+    hasBombChallenge: controlPoint.hasBombChallenge,
+    hasPositionChallenge: controlPoint.hasPositionChallenge,
+    bombStatus: controlPoint.bombStatus,
+    ownedByTeam: controlPoint.ownedByTeam
+  })
+  
   const container = document.createElement('div')
   
   // Create the player popup HTML structure

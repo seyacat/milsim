@@ -91,6 +91,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { AuthService } from '../services/auth.js'
 import { GameService } from '../services/game.js'
 import { User, Game, ControlPoint } from '../types/index.js'
+import {
+  ControlPointTakenEvent,
+  BombActivatedEvent,
+  BombDeactivatedEvent,
+  ControlPointTeamAssignedEvent
+} from '../types/websocket-events.js'
 import { useToast } from '../composables/useToast.js'
 import { useMap } from '../composables/useMap'
 import { useWebSocket } from '../composables/useWebSocket'
@@ -229,7 +235,13 @@ const onMapClick = async (latlng: { lat: number; lng: number }) => {
   
   if (!mapInstance.value) return
   
-  // Create menu content similar to React implementation
+  // Only show "Crear Punto de Control" option if user is the owner
+  if (!isOwner.value) {
+    // For players, don't show any popup
+    return
+  }
+  
+  // Create menu content for owner
   const menuContent = `
     <div id="controlPointMenu">
       <div class="control-point-create-container">
@@ -627,8 +639,8 @@ const onControlPointUpdated = (controlPoint: ControlPoint) => {
     currentGame.value.controlPoints = (currentGame.value.controlPoints || []).map(cp =>
       cp.id === controlPoint.id ? controlPoint : cp
     )
-    // Update the specific control point marker instead of re-rendering all
-    updateControlPointMarker(controlPoint, {
+    // Only pass handlers for owners, players should get empty handlers
+    const handlers = isOwner.value ? {
       handleControlPointMove,
       handleControlPointUpdate: handleControlPointUpdateWrapper,
       handleControlPointDelete: handleControlPointDeleteWrapper,
@@ -641,7 +653,10 @@ const onControlPointUpdated = (controlPoint: ControlPoint) => {
       handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
       handleActivateBomb: handleActivateBombWrapper,
       handleDeactivateBomb: handleDeactivateBombWrapper
-    })
+    } : {}
+    
+    // Update the specific control point marker instead of re-rendering all
+    updateControlPointMarker(controlPoint, handlers)
     // Update timers after marker is updated
     setTimeout(() => {
       console.log('Control point updated - updating all timers')
@@ -819,7 +834,8 @@ onMounted(async () => {
       onControlPointUpdated: (controlPoint: ControlPoint) => {
         console.log('GameOwner - Control point updated received:', controlPoint)
         if (controlPoint) {
-          updateControlPointMarker(controlPoint, {
+          // Only pass handlers for owners, players should get empty handlers
+          const handlers = isOwner.value ? {
             handleControlPointMove,
             handleControlPointUpdate: handleControlPointUpdateWrapper,
             handleControlPointDelete: handleControlPointDeleteWrapper,
@@ -832,13 +848,28 @@ onMounted(async () => {
             handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
             handleActivateBomb: handleActivateBombWrapper,
             handleDeactivateBomb: handleDeactivateBombWrapper
-          })
+          } : {}
+          
+          updateControlPointMarker(controlPoint, handlers)
         }
       },
-      onControlPointTeamAssigned: (data: any) => {
+      onControlPointTeamAssigned: (data: ControlPointTeamAssignedEvent) => {
+        console.log('DEBUG: Control point team assigned received - full data:', data)
+        console.log('DEBUG: Control point team assigned - controlPoint data:', data.controlPoint)
+        console.log('DEBUG: Control point team assigned - controlPoint details:', {
+          id: data.controlPoint?.id,
+          name: data.controlPoint?.name,
+          ownedByTeam: data.controlPoint?.ownedByTeam,
+          hasCodeChallenge: data.controlPoint?.hasCodeChallenge,
+          hasBombChallenge: data.controlPoint?.hasBombChallenge,
+          bombStatus: data.controlPoint?.bombStatus,
+          isOwner: isOwner.value
+        })
         console.log('GameOwner - Control point team assigned received:', data)
         if (data.controlPoint) {
-          updateControlPointMarker(data.controlPoint, {
+          console.log('GameOwner - Control point team assigned - updating marker for control point:', data.controlPoint.id)
+          // Only pass handlers for owners, players should get empty handlers
+          const handlers = isOwner.value ? {
             handleControlPointMove,
             handleControlPointUpdate: handleControlPointUpdateWrapper,
             handleControlPointDelete: handleControlPointDeleteWrapper,
@@ -851,7 +882,11 @@ onMounted(async () => {
             handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
             handleActivateBomb: handleActivateBombWrapper,
             handleDeactivateBomb: handleDeactivateBombWrapper
-          })
+          } : {}
+          
+          updateControlPointMarker(data.controlPoint, handlers)
+        } else {
+          console.log('GameOwner - Control point team assigned - no controlPoint in data')
         }
       },
       // Add direct listener for playerTeamUpdated events
@@ -868,11 +903,254 @@ onMounted(async () => {
         // No need to duplicate the logic here
       },
       // Handle control point taken events
-      onControlPointTaken: onControlPointTakenFromComposable,
+      onControlPointTaken: (data: ControlPointTakenEvent) => {
+        console.log('DEBUG: Control point taken received - full data:', data)
+        console.log('DEBUG: Control point taken received - controlPoint data:', data.controlPoint)
+        
+        // Extract the actual control point data from the nested structure
+        const eventData = data.controlPoint
+        const actualControlPoint = eventData?.controlPoint
+        
+        console.log('DEBUG: Control point taken received:', {
+          controlPointId: eventData?.controlPointId,
+          userId: eventData?.userId,
+          userName: eventData?.userName,
+          team: eventData?.team,
+          controlPointName: actualControlPoint?.name,
+          ownedByTeam: actualControlPoint?.ownedByTeam,
+          hasCodeChallenge: actualControlPoint?.hasCodeChallenge,
+          hasBombChallenge: actualControlPoint?.hasBombChallenge,
+          bombStatus: actualControlPoint?.bombStatus,
+          isOwner: isOwner.value
+        })
+        console.log('GameOwner - Control point taken received:', data)
+        console.log('GameOwner - Control point taken - isOwner:', isOwner.value)
+        
+        if (!actualControlPoint) {
+          console.log('GameOwner - Control point taken - no actual controlPoint in data')
+          return
+        }
+
+        // Convert the control point data to the expected ControlPoint interface with strong typing
+        const controlPointData = actualControlPoint
+        
+        // Validate required fields
+        if (!controlPointData.id || !controlPointData.name || !controlPointData.latitude || !controlPointData.longitude) {
+          console.error('GameOwner - Invalid control point data received:', controlPointData)
+          return
+        }
+
+        // Convert team string to TeamColor with validation
+        const validTeams: TeamColor[] = ['blue', 'red', 'green', 'yellow', 'none']
+        const teamColor: TeamColor | undefined = eventData?.team && validTeams.includes(eventData.team as TeamColor)
+          ? eventData.team as TeamColor
+          : undefined
+
+        const controlPoint: ControlPoint = {
+          id: controlPointData.id,
+          name: controlPointData.name,
+          description: controlPointData.description || undefined,
+          latitude: parseFloat(controlPointData.latitude.toString()),
+          longitude: parseFloat(controlPointData.longitude.toString()),
+          type: controlPointData.type as 'site' | 'control_point',
+          ownedByTeam: teamColor && teamColor !== 'none' ? teamColor : undefined,
+          hasBombChallenge: Boolean(controlPointData.hasBombChallenge),
+          hasPositionChallenge: Boolean(controlPointData.hasPositionChallenge),
+          hasCodeChallenge: Boolean(controlPointData.hasCodeChallenge),
+          bombTimer: undefined,
+          bombStatus: controlPointData.bombStatus ? {
+            isActive: controlPointData.bombStatus.isActive,
+            remainingTime: controlPointData.bombStatus.remainingTime || 0,
+            totalTime: controlPointData.bombTime || 0,
+            activatedByUserId: controlPointData.bombStatus.activatedByUserId,
+            activatedByUserName: controlPointData.bombStatus.activatedByUserName,
+            activatedByTeam: controlPointData.bombStatus.activatedByTeam
+          } : undefined,
+          currentTeam: undefined,
+          currentHoldTime: undefined,
+          displayTime: undefined,
+          lastTimeUpdate: undefined,
+          minDistance: controlPointData.minDistance || undefined,
+          minAccuracy: controlPointData.minAccuracy || undefined,
+          code: controlPointData.code || undefined,
+          bombTime: controlPointData.bombTime || undefined,
+          armedCode: controlPointData.armedCode || undefined,
+          disarmedCode: controlPointData.disarmedCode || undefined
+        }
+
+        console.log('GameOwner - Control point taken - updating marker for control point:', controlPoint.id)
+        
+        // Only pass handlers for owners, players should get empty handlers
+        const handlers = isOwner.value ? {
+          handleControlPointMove,
+          handleControlPointUpdate: handleControlPointUpdateWrapper,
+          handleControlPointDelete: handleControlPointDeleteWrapper,
+          handleAssignTeam: handleAssignTeamWrapper,
+          handleTogglePositionChallenge: handleTogglePositionChallengeWrapper,
+          handleToggleCodeChallenge: handleToggleCodeChallengeWrapper,
+          handleToggleBombChallenge: handleToggleBombChallengeWrapper,
+          handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
+          handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
+          handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
+          handleActivateBomb: handleActivateBombWrapper,
+          handleDeactivateBomb: handleDeactivateBombWrapper
+        } : {}
+        
+        console.log('GameOwner - Control point taken - handlers object keys:', Object.keys(handlers))
+        updateControlPointMarker(controlPoint, handlers)
+      },
       // Handle bomb activated events
-      onBombActivated: onBombActivatedFromComposable,
+      onBombActivated: (data: BombActivatedEvent) => {
+        console.log('DEBUG: Bomb activated received - full data:', data)
+        console.log('DEBUG: Bomb activated received - controlPoint data:', data.controlPoint)
+        console.log('DEBUG: Bomb activated received:', {
+          controlPointId: data.controlPoint?.id,
+          controlPointName: data.controlPoint?.name,
+          ownedByTeam: data.controlPoint?.ownedByTeam,
+          hasCodeChallenge: data.controlPoint?.hasCodeChallenge,
+          hasBombChallenge: data.controlPoint?.hasBombChallenge,
+          bombStatus: data.controlPoint?.bombStatus,
+          isOwner: isOwner.value
+        })
+        console.log('GameOwner - Bomb activated received:', data)
+        console.log('GameOwner - Bomb activated - isOwner:', isOwner.value)
+        if (data.controlPoint) {
+          console.log('GameOwner - Bomb activated - updating marker for control point:', data.controlPoint.id)
+          
+          // Convert the control point data to the expected ControlPoint interface
+          const controlPointData = data.controlPoint
+          const controlPoint: ControlPoint = {
+            id: controlPointData.id,
+            name: controlPointData.name,
+            description: controlPointData.description || undefined,
+            latitude: parseFloat(controlPointData.latitude.toString()),
+            longitude: parseFloat(controlPointData.longitude.toString()),
+            type: controlPointData.type as 'site' | 'control_point',
+            ownedByTeam: controlPointData.ownedByTeam && controlPointData.ownedByTeam !== 'none'
+              ? controlPointData.ownedByTeam as TeamColor
+              : undefined,
+            hasBombChallenge: Boolean(controlPointData.hasBombChallenge),
+            hasPositionChallenge: Boolean(controlPointData.hasPositionChallenge),
+            hasCodeChallenge: Boolean(controlPointData.hasCodeChallenge),
+            bombTimer: undefined,
+            bombStatus: controlPointData.bombStatus ? {
+              isActive: controlPointData.bombStatus.isActive,
+              remainingTime: controlPointData.bombStatus.remainingTime || 0,
+              totalTime: controlPointData.bombTime || 0,
+              activatedByUserId: controlPointData.bombStatus.activatedByUserId,
+              activatedByUserName: controlPointData.bombStatus.activatedByUserName,
+              activatedByTeam: controlPointData.bombStatus.activatedByTeam
+            } : undefined,
+            currentTeam: undefined,
+            currentHoldTime: undefined,
+            displayTime: undefined,
+            lastTimeUpdate: undefined,
+            minDistance: controlPointData.minDistance || undefined,
+            minAccuracy: controlPointData.minAccuracy || undefined,
+            code: controlPointData.code || undefined,
+            bombTime: controlPointData.bombTime || undefined,
+            armedCode: controlPointData.armedCode || undefined,
+            disarmedCode: controlPointData.disarmedCode || undefined
+          }
+          
+          // Only pass handlers for owners, players should get empty handlers
+          const handlers = isOwner.value ? {
+            handleControlPointMove,
+            handleControlPointUpdate: handleControlPointUpdateWrapper,
+            handleControlPointDelete: handleControlPointDeleteWrapper,
+            handleAssignTeam: handleAssignTeamWrapper,
+            handleTogglePositionChallenge: handleTogglePositionChallengeWrapper,
+            handleToggleCodeChallenge: handleToggleCodeChallengeWrapper,
+            handleToggleBombChallenge: handleToggleBombChallengeWrapper,
+            handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
+            handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
+            handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
+            handleActivateBomb: handleActivateBombWrapper,
+            handleDeactivateBomb: handleDeactivateBombWrapper
+          } : {}
+          console.log('GameOwner - Bomb activated - handlers object keys:', Object.keys(handlers))
+          
+          updateControlPointMarker(controlPoint, handlers)
+        } else {
+          console.log('GameOwner - Bomb activated - no controlPoint in data')
+        }
+      },
       // Handle bomb deactivated events
-      onBombDeactivated: onBombDeactivatedFromComposable
+      onBombDeactivated: (data: BombDeactivatedEvent) => {
+        console.log('DEBUG: Bomb deactivated received - full data:', data)
+        console.log('DEBUG: Bomb deactivated received - controlPoint data:', data.controlPoint)
+        console.log('DEBUG: Bomb deactivated received:', {
+          controlPointId: data.controlPoint?.id,
+          controlPointName: data.controlPoint?.name,
+          ownedByTeam: data.controlPoint?.ownedByTeam,
+          hasCodeChallenge: data.controlPoint?.hasCodeChallenge,
+          hasBombChallenge: data.controlPoint?.hasBombChallenge,
+          bombStatus: data.controlPoint?.bombStatus,
+          isOwner: isOwner.value
+        })
+        console.log('GameOwner - Bomb deactivated received:', data)
+        console.log('GameOwner - Bomb deactivated - isOwner:', isOwner.value)
+        if (data.controlPoint) {
+          console.log('GameOwner - Bomb deactivated - updating marker for control point:', data.controlPoint.id)
+          
+          // Convert the control point data to the expected ControlPoint interface
+          const controlPointData = data.controlPoint
+          const controlPoint: ControlPoint = {
+            id: controlPointData.id,
+            name: controlPointData.name,
+            description: controlPointData.description || undefined,
+            latitude: parseFloat(controlPointData.latitude.toString()),
+            longitude: parseFloat(controlPointData.longitude.toString()),
+            type: controlPointData.type as 'site' | 'control_point',
+            ownedByTeam: controlPointData.ownedByTeam && controlPointData.ownedByTeam !== 'none'
+              ? controlPointData.ownedByTeam as TeamColor
+              : undefined,
+            hasBombChallenge: Boolean(controlPointData.hasBombChallenge),
+            hasPositionChallenge: Boolean(controlPointData.hasPositionChallenge),
+            hasCodeChallenge: Boolean(controlPointData.hasCodeChallenge),
+            bombTimer: undefined,
+            bombStatus: controlPointData.bombStatus ? {
+              isActive: controlPointData.bombStatus.isActive,
+              remainingTime: controlPointData.bombStatus.remainingTime || 0,
+              totalTime: controlPointData.bombTime || 0,
+              activatedByUserId: controlPointData.bombStatus.activatedByUserId,
+              activatedByUserName: controlPointData.bombStatus.activatedByUserName,
+              activatedByTeam: controlPointData.bombStatus.activatedByTeam
+            } : undefined,
+            currentTeam: undefined,
+            currentHoldTime: undefined,
+            displayTime: undefined,
+            lastTimeUpdate: undefined,
+            minDistance: controlPointData.minDistance || undefined,
+            minAccuracy: controlPointData.minAccuracy || undefined,
+            code: controlPointData.code || undefined,
+            bombTime: controlPointData.bombTime || undefined,
+            armedCode: controlPointData.armedCode || undefined,
+            disarmedCode: controlPointData.disarmedCode || undefined
+          }
+          
+          // Only pass handlers for owners, players should get empty handlers
+          const handlers = isOwner.value ? {
+            handleControlPointMove,
+            handleControlPointUpdate: handleControlPointUpdateWrapper,
+            handleControlPointDelete: handleControlPointDeleteWrapper,
+            handleAssignTeam: handleAssignTeamWrapper,
+            handleTogglePositionChallenge: handleTogglePositionChallengeWrapper,
+            handleToggleCodeChallenge: handleToggleCodeChallengeWrapper,
+            handleToggleBombChallenge: handleToggleBombChallengeWrapper,
+            handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
+            handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
+            handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
+            handleActivateBomb: handleActivateBombWrapper,
+            handleDeactivateBomb: handleDeactivateBombWrapper
+          } : {}
+          console.log('GameOwner - Bomb deactivated - handlers object keys:', Object.keys(handlers))
+          
+          updateControlPointMarker(controlPoint, handlers)
+        } else {
+          console.log('GameOwner - Bomb deactivated - no controlPoint in data')
+        }
+      }
     })
 
     // Initialize map after component is mounted and data is loaded
@@ -1062,5 +1340,3 @@ onUnmounted(() => {
   padding: 20px;
 }
 </style>
-
-

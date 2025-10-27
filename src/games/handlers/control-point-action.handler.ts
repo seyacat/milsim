@@ -275,11 +275,7 @@ export class ControlPointActionHandler {
         // Send the control point data to all clients (without codes)
         this.broadcastUtilitiesHandler.broadcastControlPointTeamAssigned(
           gameId,
-          {
-            controlPointId: data.controlPointId,
-            team: data.team,
-            controlPoint: updatedControlPoint,
-          },
+          updatedControlPoint,
           server,
           client.id,
         );
@@ -287,11 +283,7 @@ export class ControlPointActionHandler {
         // Send the full control point data (with codes) only to the owner using normalized function
         this.broadcastUtilitiesHandler.broadcastControlPointTeamAssigned(
           gameId,
-          {
-            controlPointId: data.controlPointId,
-            team: data.team,
-            controlPoint: updatedControlPoint, // Full data with codes
-          },
+          updatedControlPoint, // Full data with codes
           server,
           client.id,
         );

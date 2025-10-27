@@ -219,3 +219,106 @@ export interface LeaveErrorEvent extends BaseWebSocketEvent {
 export interface ForceDisconnectEvent extends BaseWebSocketEvent {
   message: string;
 }
+
+export interface ControlPointTakenEvent extends BaseWebSocketEvent {
+  controlPointId: number;
+  userId: number;
+  userName: string;
+  team: string;
+  controlPoint: {
+    id: number;
+    name: string;
+    description: string | null;
+    latitude: number;
+    longitude: number;
+    status: string;
+    type: string;
+    challengeType: string | null;
+    code: string | null;
+    armedCode: string | null;
+    disarmedCode: string | null;
+    minDistance: number | null;
+    minAccuracy: number | null;
+    hasPositionChallenge: boolean;
+    hasCodeChallenge: boolean;
+    hasBombChallenge: boolean;
+    bombTime: number | null;
+    ownedByTeam: string | null;
+    gameId: number;
+    createdAt: string;
+    updatedAt: string;
+    bombStatus?: {
+      isActive: boolean;
+      remainingTime?: number;
+      activatedByUserId?: number;
+      activatedByUserName?: string;
+      activatedByTeam?: string;
+    };
+  };
+}
+
+export interface BombActivatedEvent extends BaseWebSocketEvent {
+  controlPoint: {
+    id: number;
+    name: string;
+    description: string | null;
+    latitude: number;
+    longitude: number;
+    status: string;
+    type: string;
+    challengeType: string | null;
+    code: string | null;
+    armedCode: string | null;
+    disarmedCode: string | null;
+    minDistance: number | null;
+    minAccuracy: number | null;
+    hasPositionChallenge: boolean;
+    hasCodeChallenge: boolean;
+    hasBombChallenge: boolean;
+    bombTime: number | null;
+    ownedByTeam: string | null;
+    gameId: number;
+    createdAt: string;
+    updatedAt: string;
+    bombStatus?: {
+      isActive: boolean;
+      remainingTime?: number;
+      activatedByUserId?: number;
+      activatedByUserName?: string;
+      activatedByTeam?: string;
+    };
+  };
+}
+
+export interface BombDeactivatedEvent extends BaseWebSocketEvent {
+  controlPoint: {
+    id: number;
+    name: string;
+    description: string | null;
+    latitude: number;
+    longitude: number;
+    status: string;
+    type: string;
+    challengeType: string | null;
+    code: string | null;
+    armedCode: string | null;
+    disarmedCode: string | null;
+    minDistance: number | null;
+    minAccuracy: number | null;
+    hasPositionChallenge: boolean;
+    hasCodeChallenge: boolean;
+    hasBombChallenge: boolean;
+    bombTime: number | null;
+    ownedByTeam: string | null;
+    gameId: number;
+    createdAt: string;
+    updatedAt: string;
+    bombStatus?: {
+      isActive: boolean;
+      remainingTime?: number;
+      activatedByUserId?: number;
+      activatedByUserName?: string;
+      activatedByTeam?: string;
+    };
+  };
+}
