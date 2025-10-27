@@ -93,8 +93,8 @@ export class TimerManagementService {
               timer.remainingTime = Math.max(0, timer.totalTime - timer.elapsedTime);
             }
 
-            // Broadcast time update ONLY every 20 seconds
-            if (timer.elapsedTime % 20 === 0 && this.gamesGateway) {
+            // Broadcast time update every 20 seconds AND on the first second
+            if ((timer.elapsedTime % 20 === 0 || timer.elapsedTime === 1) && this.gamesGateway) {
               this.gamesGateway.broadcastTimeUpdate(gameId, {
                 remainingTime: timer.remainingTime,
                 playedTime: timer.elapsedTime,
@@ -268,8 +268,8 @@ export class TimerManagementService {
         // Increment current hold time
         timer.currentHoldTime++;
 
-        // Broadcast time update ONLY every 20 seconds
-        if (timer.currentHoldTime % 20 === 0 && this.gamesGateway) {
+        // Broadcast time update every 20 seconds AND on the first second
+        if ((timer.currentHoldTime % 20 === 0 || timer.currentHoldTime === 1) && this.gamesGateway) {
           this.gamesGateway.broadcastControlPointTimeUpdate(controlPointId, {
             currentHoldTime: timer.currentHoldTime,
             currentTeam: timer.currentTeam,
