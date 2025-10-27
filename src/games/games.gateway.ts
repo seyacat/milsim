@@ -457,6 +457,42 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           );
           break;
 
+        case 'togglePositionChallenge':
+          await this.controlPointActionHandler.handleTogglePositionChallenge(
+            client, gameId, data, this.connectedUsers, this.server
+          );
+          break;
+
+        case 'toggleCodeChallenge':
+          await this.controlPointActionHandler.handleToggleCodeChallenge(
+            client, gameId, data, this.connectedUsers, this.server
+          );
+          break;
+
+        case 'toggleBombChallenge':
+          await this.controlPointActionHandler.handleToggleBombChallenge(
+            client, gameId, data, this.connectedUsers, this.server
+          );
+          break;
+
+        case 'updatePositionChallenge':
+          await this.controlPointActionHandler.handleUpdatePositionChallenge(
+            client, gameId, data, this.connectedUsers, this.server
+          );
+          break;
+
+        case 'updateCodeChallenge':
+          await this.controlPointActionHandler.handleUpdateCodeChallenge(
+            client, gameId, data, this.connectedUsers, this.server
+          );
+          break;
+
+        case 'updateBombChallenge':
+          await this.controlPointActionHandler.handleUpdateBombChallenge(
+            client, gameId, data, this.connectedUsers, this.server
+          );
+          break;
+
         default:
           // For other actions, use normalized broadcast function
           this.broadcastUtilitiesHandler.broadcastGameAction(

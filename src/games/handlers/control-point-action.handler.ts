@@ -310,4 +310,194 @@ export class ControlPointActionHandler {
       );
     }
   }
+
+  async handleTogglePositionChallenge(
+    client: Socket,
+    gameId: number,
+    data: any,
+    connectedUsers: Map<string, any>,
+    server: any,
+  ) {
+    const user = connectedUsers.get(client.id);
+    if (user) {
+      // Get current control point to determine current state
+      const currentControlPoint = await this.gamesService.getControlPointWithGame(data.controlPointId);
+      if (!currentControlPoint) {
+        throw new Error('Control point not found');
+      }
+
+      const updatedControlPoint = await this.gamesService.updateControlPoint(
+        data.controlPointId,
+        {
+          hasPositionChallenge: !currentControlPoint.hasPositionChallenge,
+        },
+      );
+
+      // Broadcast the updated control point to all clients
+      this.broadcastUtilitiesHandler.broadcastControlPointUpdated(
+        gameId,
+        { controlPoint: updatedControlPoint },
+        server,
+        client.id,
+      );
+    }
+  }
+
+  async handleToggleCodeChallenge(
+    client: Socket,
+    gameId: number,
+    data: any,
+    connectedUsers: Map<string, any>,
+    server: any,
+  ) {
+    const user = connectedUsers.get(client.id);
+    if (user) {
+      // Get current control point to determine current state
+      const currentControlPoint = await this.gamesService.getControlPointWithGame(data.controlPointId);
+      if (!currentControlPoint) {
+        throw new Error('Control point not found');
+      }
+
+      const updatedControlPoint = await this.gamesService.updateControlPoint(
+        data.controlPointId,
+        {
+          hasCodeChallenge: !currentControlPoint.hasCodeChallenge,
+        },
+      );
+
+      // Broadcast the updated control point to all clients
+      this.broadcastUtilitiesHandler.broadcastControlPointUpdated(
+        gameId,
+        { controlPoint: updatedControlPoint },
+        server,
+        client.id,
+      );
+    }
+  }
+
+  async handleToggleBombChallenge(
+    client: Socket,
+    gameId: number,
+    data: any,
+    connectedUsers: Map<string, any>,
+    server: any,
+  ) {
+    const user = connectedUsers.get(client.id);
+    if (user) {
+      // Get current control point to determine current state
+      const currentControlPoint = await this.gamesService.getControlPointWithGame(data.controlPointId);
+      if (!currentControlPoint) {
+        throw new Error('Control point not found');
+      }
+
+      console.log('[CONTROL_POINT_ACTION] Toggle bomb challenge - current state:', {
+        controlPointId: data.controlPointId,
+        currentHasBombChallenge: currentControlPoint.hasBombChallenge,
+        newHasBombChallenge: !currentControlPoint.hasBombChallenge
+      });
+
+      const updatedControlPoint = await this.gamesService.updateControlPoint(
+        data.controlPointId,
+        {
+          hasBombChallenge: !currentControlPoint.hasBombChallenge,
+        },
+      );
+
+      console.log('[CONTROL_POINT_ACTION] Toggle bomb challenge - updated control point:', {
+        id: updatedControlPoint.id,
+        name: updatedControlPoint.name,
+        hasBombChallenge: updatedControlPoint.hasBombChallenge,
+        hasPositionChallenge: updatedControlPoint.hasPositionChallenge,
+        hasCodeChallenge: updatedControlPoint.hasCodeChallenge,
+        latitude: updatedControlPoint.latitude,
+        longitude: updatedControlPoint.longitude
+      });
+
+      // Broadcast the updated control point to all clients
+      this.broadcastUtilitiesHandler.broadcastControlPointUpdated(
+        gameId,
+        { controlPoint: updatedControlPoint },
+        server,
+        client.id,
+      );
+    }
+  }
+
+  async handleUpdatePositionChallenge(
+    client: Socket,
+    gameId: number,
+    data: any,
+    connectedUsers: Map<string, any>,
+    server: any,
+  ) {
+    const user = connectedUsers.get(client.id);
+    if (user) {
+      const updatedControlPoint = await this.gamesService.updateControlPoint(
+        data.controlPointId,
+        {
+          minDistance: data.radius,
+        },
+      );
+
+      // Broadcast the updated control point to all clients
+      this.broadcastUtilitiesHandler.broadcastControlPointUpdated(
+        gameId,
+        { controlPoint: updatedControlPoint },
+        server,
+        client.id,
+      );
+    }
+  }
+
+  async handleUpdateCodeChallenge(
+    client: Socket,
+    gameId: number,
+    data: any,
+    connectedUsers: Map<string, any>,
+    server: any,
+  ) {
+    const user = connectedUsers.get(client.id);
+    if (user) {
+      const updatedControlPoint = await this.gamesService.updateControlPoint(
+        data.controlPointId,
+        {
+          code: data.code,
+        },
+      );
+
+      // Broadcast the updated control point to all clients
+      this.broadcastUtilitiesHandler.broadcastControlPointUpdated(
+        gameId,
+        { controlPoint: updatedControlPoint },
+        server,
+        client.id,
+      );
+    }
+  }
+
+  async handleUpdateBombChallenge(
+    client: Socket,
+    gameId: number,
+    data: any,
+    connectedUsers: Map<string, any>,
+    server: any,
+  ) {
+    const user = connectedUsers.get(client.id);
+    if (user) {
+      const updatedControlPoint = await this.gamesService.updateControlPoint(
+        data.controlPointId,
+        {
+          bombTime: data.time,
+        },
+      );
+
+      // Broadcast the updated control point to all clients
+      this.broadcastUtilitiesHandler.broadcastControlPointUpdated(
+        gameId,
+        { controlPoint: updatedControlPoint },
+        server,
+        client.id,
+      );
+    }
+  }
 }

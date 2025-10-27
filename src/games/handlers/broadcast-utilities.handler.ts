@@ -105,10 +105,13 @@ export class BroadcastUtilitiesHandler {
    */
   broadcastControlPointCreated(
     gameId: number,
-    controlPoint: any,
+    controlPointData: any,
     server: any,
     from: string = 'server',
   ): void {
+    // Handle both direct control point object and { controlPoint: ... } structure
+    const controlPoint = controlPointData.controlPoint || controlPointData;
+    
     const eventData: ControlPointCreatedEvent = {
       controlPoint,
       from,
@@ -123,10 +126,13 @@ export class BroadcastUtilitiesHandler {
    */
   broadcastControlPointUpdated(
     gameId: number,
-    controlPoint: any,
+    controlPointData: any,
     server: any,
     from: string = 'server',
   ): void {
+    // Handle both direct control point object and { controlPoint: ... } structure
+    const controlPoint = controlPointData.controlPoint || controlPointData;
+    
     const eventData: ControlPointUpdatedEvent = {
       controlPoint,
       from,
@@ -159,10 +165,13 @@ export class BroadcastUtilitiesHandler {
    */
   broadcastControlPointTeamAssigned(
     gameId: number,
-    controlPoint: any,
+    controlPointData: any,
     server: any,
     from: string = 'server',
   ): void {
+    // Handle both direct control point object and { controlPoint: ... } structure
+    const controlPoint = controlPointData.controlPoint || controlPointData;
+    
     const eventData: ControlPointTeamAssignedEvent = {
       controlPoint,
       from,
@@ -177,13 +186,16 @@ export class BroadcastUtilitiesHandler {
    */
   broadcastControlPointTaken(
     gameId: number,
-    controlPoint: any,
+    controlPointData: any,
     userId: number,
     userName: string,
     team: string,
     server: any,
     from: string = 'server',
   ): void {
+    // Handle both direct control point object and { controlPoint: ... } structure
+    const controlPoint = controlPointData.controlPoint || controlPointData;
+    
     const eventData: ControlPointTakenEvent = {
       controlPointId: controlPoint.id,
       userId,

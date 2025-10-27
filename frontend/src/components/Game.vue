@@ -704,6 +704,16 @@ const onControlPointCreated = (controlPoint: ControlPoint) => {
 }
 
 const onControlPointUpdated = (controlPoint: ControlPoint) => {
+  console.log('Game.vue - onControlPointUpdated callback received:', {
+    id: controlPoint.id,
+    name: controlPoint.name,
+    hasBombChallenge: controlPoint.hasBombChallenge,
+    hasPositionChallenge: controlPoint.hasPositionChallenge,
+    hasCodeChallenge: controlPoint.hasCodeChallenge,
+    latitude: controlPoint.latitude,
+    longitude: controlPoint.longitude
+  })
+  
   if (currentGame.value) {
     currentGame.value.controlPoints = (currentGame.value.controlPoints || []).map(cp =>
       cp.id === controlPoint.id ? controlPoint : cp
@@ -724,6 +734,7 @@ const onControlPointUpdated = (controlPoint: ControlPoint) => {
       handleDeactivateBomb: handleDeactivateBombWrapper
     } : {}
     
+    console.log('Game.vue - Calling updateControlPointMarker with handlers:', Object.keys(handlers))
     // Update the specific control point marker instead of re-rendering all
     updateControlPointMarker(controlPoint, handlers)
     // Update timers after marker is updated

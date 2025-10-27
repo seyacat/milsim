@@ -207,6 +207,15 @@ const setupSocketListeners = (
     
     // Debug the actual control point data structure
     if (controlPointData) {
+      console.log('useWebSocket - controlPointCreated data:', {
+        id: controlPointData.id,
+        name: controlPointData.name,
+        latitude: controlPointData.latitude,
+        longitude: controlPointData.longitude,
+        hasBombChallenge: controlPointData.hasBombChallenge,
+        hasPositionChallenge: controlPointData.hasPositionChallenge,
+        hasCodeChallenge: controlPointData.hasCodeChallenge
+      })
     }
     
     // Validate that we have required coordinates
@@ -255,8 +264,31 @@ const setupSocketListeners = (
   // Note: controlPointUpdated events now come through gameAction handler above
   // This direct listener is kept for backward compatibility
   socket.on('controlPointUpdated', (data: ControlPointUpdatedEvent) => {
-    // Ensure the control point has the expected structure
+    console.log('useWebSocket - controlPointUpdated event received:', data)
+    
+    // Ensure the control point has the expected structure - data is {controlPoint: {...}}
     const controlPointData = data.controlPoint
+    
+    // Debug the control point data structure
+    console.log('useWebSocket - controlPointData structure:', {
+      id: controlPointData?.id,
+      name: controlPointData?.name,
+      latitude: controlPointData?.latitude,
+      longitude: controlPointData?.longitude,
+      hasBombChallenge: controlPointData?.hasBombChallenge,
+      hasPositionChallenge: controlPointData?.hasPositionChallenge,
+      hasCodeChallenge: controlPointData?.hasCodeChallenge
+    })
+    
+    // Validate that we have required coordinates
+    const latitude = controlPointData?.latitude ? parseFloat(controlPointData.latitude.toString()) : 0
+    const longitude = controlPointData?.longitude ? parseFloat(controlPointData.longitude.toString()) : 0
+    
+    if (!controlPointData || !controlPointData.id || !controlPointData.name || latitude === 0 || longitude === 0) {
+      console.error('useWebSocket - Invalid control point data received:', controlPointData)
+      console.error('useWebSocket - Original data structure:', data)
+      return
+    }
     
     // Convert ownedByTeam from string | null to TeamColor | undefined
     const ownedByTeam = controlPointData.ownedByTeam && controlPointData.ownedByTeam !== 'none'
@@ -267,8 +299,8 @@ const setupSocketListeners = (
       id: controlPointData.id,
       name: controlPointData.name,
       description: controlPointData.description || undefined,
-      latitude: parseFloat(controlPointData.latitude.toString()),
-      longitude: parseFloat(controlPointData.longitude.toString()),
+      latitude: latitude,
+      longitude: longitude,
       type: controlPointData.type as 'site' | 'control_point',
       ownedByTeam: ownedByTeam,
       hasBombChallenge: controlPointData.hasBombChallenge || false,
@@ -287,6 +319,8 @@ const setupSocketListeners = (
       armedCode: controlPointData.armedCode || undefined,
       disarmedCode: controlPointData.disarmedCode || undefined
     }
+    
+    console.log('useWebSocket - Processed control point for callback:', controlPoint)
     callbacks.onControlPointUpdated(controlPoint)
   })
 

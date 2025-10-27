@@ -272,6 +272,16 @@ export const useMap = () => {
     let iconColor = '#2196F3' // Default for control_point
     let iconEmoji = '🚩' // Default for control_point
 
+    console.log('useMap - getControlPointIcon called with:', {
+      id: controlPoint.id,
+      name: controlPoint.name,
+      hasBombChallenge: controlPoint.hasBombChallenge,
+      hasPositionChallenge: controlPoint.hasPositionChallenge,
+      hasCodeChallenge: controlPoint.hasCodeChallenge,
+      ownedByTeam: controlPoint.ownedByTeam,
+      type: controlPoint.type
+    })
+
     // Check ownership first - override color based on team
     if (controlPoint.ownedByTeam) {
       const teamColors: Record<string, string> = {
@@ -281,30 +291,38 @@ export const useMap = () => {
         'yellow': '#FFEB3B'
       }
       iconColor = teamColors[controlPoint.ownedByTeam] || '#2196F3'
+      console.log('useMap - Using team color:', iconColor, 'for team:', controlPoint.ownedByTeam)
     } else {
       // When not owned by any team, use gray color
       iconColor = '#9E9E9E'
+      console.log('useMap - Using default gray color (no team)')
     }
 
     // If bomb challenge is active, use bomb emoji
     if (controlPoint.hasBombChallenge) {
       iconEmoji = '💣'
+      console.log('useMap - Using bomb emoji (hasBombChallenge is true)')
     } else {
+      console.log('useMap - hasBombChallenge is false, using type-based emoji')
       switch (controlPoint.type) {
         case 'site':
           // Only use orange color for site if not owned by a team
           if (!controlPoint.ownedByTeam) {
             iconColor = '#FF9800'
+            console.log('useMap - Using site color (orange)')
           }
           iconEmoji = '🏠'
+          console.log('useMap - Using site emoji')
           break
         case 'control_point':
         default:
           iconEmoji = '🚩'
+          console.log('useMap - Using control point emoji')
           break
       }
     }
 
+    console.log('useMap - Final icon properties:', { iconColor, iconEmoji })
     return { iconColor, iconEmoji }
   }
 
@@ -561,13 +579,23 @@ export const useMap = () => {
   }
 
   const updateControlPointMarker = async (controlPoint: ControlPoint, handlers: any = {}) => {
+    console.log('useMap - updateControlPointMarker called:', {
+      id: controlPoint.id,
+      name: controlPoint.name,
+      hasBombChallenge: controlPoint.hasBombChallenge,
+      hasPositionChallenge: controlPoint.hasPositionChallenge,
+      hasCodeChallenge: controlPoint.hasCodeChallenge,
+      ownedByTeam: controlPoint.ownedByTeam
+    })
     
     if (!controlPoint || !controlPoint.id) {
+      console.log('useMap - Invalid control point data')
       return
     }
     
     const marker = controlPointMarkers.value.get(controlPoint.id)
     if (!marker || !mapInstance.value) {
+      console.log('useMap - Marker not found or map not available for control point:', controlPoint.id)
       return
     }
 
@@ -576,6 +604,8 @@ export const useMap = () => {
       
       // Get updated control point icon properties
       const { iconColor, iconEmoji } = getControlPointIcon(controlPoint)
+      
+      console.log('useMap - Updated icon properties:', { iconColor, iconEmoji })
       
       // Create updated custom icon
       const customIcon = L.divIcon({
@@ -658,6 +688,7 @@ export const useMap = () => {
         iconAnchor: [10, 10]
       })
       
+      console.log('useMap - Setting new icon on marker')
       marker.setIcon(customIcon)
 
       // Always update popup content to ensure it reflects current control point state
@@ -670,6 +701,7 @@ export const useMap = () => {
           autoClose: false,
           closeButton: true
         })
+        console.log('useMap - Updated owner popup content')
       } else {
         // Player view - with challenge inputs
         const popupContent = createPlayerPopupContent(controlPoint)
@@ -678,7 +710,10 @@ export const useMap = () => {
           autoClose: false,
           closeButton: true
         })
+        console.log('useMap - Updated player popup content')
       }
+      
+      console.log('useMap - Control point marker update completed successfully')
       
     } catch (error) {
       console.error('Error updating control point marker:', error)
