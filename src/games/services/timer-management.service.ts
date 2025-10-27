@@ -222,12 +222,21 @@ export class TimerManagementService {
         return null;
       }
 
+      // Get the game instance to use its totalTime for game logic
+      const gameInstance = await this.gameInstancesRepository.findOne({
+        where: { id: game.instanceId },
+      });
+
+      if (!gameInstance) {
+        return null;
+      }
+
       // Calculate elapsed time from game history events
       const elapsedTime = await this.timerCalculationService.calculateElapsedTimeFromEvents(game.instanceId);
 
       return {
-        remainingTime: game.totalTime ? Math.max(0, game.totalTime - elapsedTime) : null,
-        totalTime: game.totalTime,
+        remainingTime: gameInstance.totalTime ? Math.max(0, gameInstance.totalTime - elapsedTime) : null,
+        totalTime: gameInstance.totalTime, // Use gameInstance.totalTime for game logic
         playedTime: elapsedTime,
       };
     } catch (error) {
@@ -634,12 +643,19 @@ export class TimerManagementService {
 
       for (const game of runningGames) {
         if (game.instanceId) {
-          // Restart game timer
-          await this.startGameTimer(game.id, game.totalTime, game.instanceId);
+          // Get the game instance to use its totalTime for game logic
+          const gameInstance = await this.gameInstancesRepository.findOne({
+            where: { id: game.instanceId },
+          });
 
-          // Restart control point timers
-          if (game.controlPoints && game.controlPoints.length > 0) {
-            await this.startAllControlPointTimers(game.id);
+          if (gameInstance) {
+            // Restart game timer with gameInstance.totalTime
+            await this.startGameTimer(game.id, gameInstance.totalTime, game.instanceId);
+
+            // Restart control point timers
+            if (game.controlPoints && game.controlPoints.length > 0) {
+              await this.startAllControlPointTimers(game.id);
+            }
           }
         }
       }

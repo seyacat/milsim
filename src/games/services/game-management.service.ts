@@ -247,13 +247,15 @@ export class GameManagementService {
     }
 
     // Create a new game instance with the same settings as the game
+    // IMPORTANT: gameInstance.totalTime should be synchronized with game.totalTime for game logic
+    // but the dropdown uses game.totalTime independently
     const gameInstance = this.gameInstancesRepository.create({
       name: game.name,
       description: game.description,
       status: game.status,
       maxPlayers: game.maxPlayers,
       teamCount: game.teamCount,
-      totalTime: game.totalTime,
+      totalTime: game.totalTime, // Copy game.totalTime to gameInstance.totalTime for game logic
       game: { id: gameId },
     });
 

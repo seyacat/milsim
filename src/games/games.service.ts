@@ -200,8 +200,9 @@ export class GamesService {
       gameInstance = await this.gameManagementService.createGameInstance(gameId);
     }
 
-    // Update game instance with start time
+    // Update game instance with start time and totalTime from game entity
     gameInstance.gameStartTime = new Date();
+    gameInstance.totalTime = game.totalTime; // Sync with game.totalTime for game logic
     await this.gameInstancesRepository.save(gameInstance);
 
     // Update game status and set instanceId (if not already set)
@@ -237,7 +238,8 @@ export class GamesService {
 
     // ALWAYS start timer for running games, even if totalTime is null (indefinite games)
     if (game.status === 'running') {
-      void this.timerManagementService.startGameTimer(gameId, game.totalTime, gameInstance.id);
+      // Use gameInstance.totalTime for game logic (already synchronized with game.totalTime)
+      void this.timerManagementService.startGameTimer(gameId, gameInstance.totalTime, gameInstance.id);
       // Start all control point timers
       void this.timerManagementService.startAllControlPointTimers(gameId);
       // Start position challenge interval
@@ -415,11 +417,23 @@ export class GamesService {
     // Create new game instance and assign it to the game
     const gameInstance = await this.gameManagementService.createGameInstance(gameId);
 
-
     // Update game status to stopped and set new instanceId
     game.status = 'stopped';
     game.instanceId = gameInstance.id;
+    // Keep the game's totalTime value for the dropdown synchronization
+    // The game.totalTime should remain unchanged so the dropdown shows the correct value
     const updatedGame = await this.gamesRepository.save(game);
+
+    // Force broadcast the game update to ensure frontend receives the current game.totalTime
+    // This is critical for the dropdown to show the correct value after restart
+    if (this.gamesGateway) {
+      this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
+      
+      // Force additional broadcast to ensure all clients receive the update
+      setTimeout(() => {
+        this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
+      }, 100);
+    }
 
     // Add game restarted event to history
     await this.gameManagementService.addGameHistory(gameInstance.id, 'game_restarted', {
@@ -597,7 +611,7 @@ export class GamesService {
 
     // Update the appropriate entity based on game status
     if (game.status === 'running' && game.instanceId) {
-      // Update game instance when game is running
+      // Update game instance when game is running - this is what the game logic uses
       const gameInstance = await this.gameInstancesRepository.findOne({
         where: { id: game.instanceId },
       });
@@ -607,7 +621,7 @@ export class GamesService {
         await this.gameInstancesRepository.save(gameInstance);
       }
     } else {
-      // Update game entity when game is stopped
+      // Update game entity when game is stopped - this is what the dropdown uses
       game.totalTime = effectiveTime;
       await this.gamesRepository.save(game);
     }
@@ -774,10 +788,10 @@ export class GamesService {
           });
 
           if (gameInstance && gameInstance.gameStartTime) {
-            // Restart the timer with the existing game instance
+            // Restart the timer with the existing game instance using gameInstance.totalTime
             void this.timerManagementService.startGameTimer(
               game.id,
-              game.totalTime,
+              gameInstance.totalTime,
               game.instanceId,
             );
           }
