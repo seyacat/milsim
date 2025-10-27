@@ -76,7 +76,9 @@ const setupSocketListeners = (
   })
 
   socket.on('gameUpdate', (data: { game: Game; type?: string }) => {
+    console.log('[WEBSOCKET_DEBUG] Received gameUpdate event:', data)
     if (data.game) {
+      console.log('[WEBSOCKET_DEBUG] Game status in gameUpdate:', data.game.status)
       callbacks.onGameUpdate(data.game)
     }
   })
@@ -90,7 +92,9 @@ const setupSocketListeners = (
 
   // Listen for specific game state change events
   socket.on('gameStateChanged', (data: GameStateChangedEvent) => {
+    console.log('[WEBSOCKET_DEBUG] Received gameStateChanged event:', data)
     if (data.game) {
+      console.log('[WEBSOCKET_DEBUG] Game status in gameStateChanged:', data.game.status)
       callbacks.onGameUpdate(data.game)
     }
   })
@@ -127,6 +131,8 @@ const setupSocketListeners = (
     
     // Only handle specific actions that need centralized processing
     if (data.action === 'gameStateChanged' && data.data.game) {
+      console.log('[WEBSOCKET_DEBUG] Received gameStateChanged via gameAction:', data)
+      console.log('[WEBSOCKET_DEBUG] Game status in gameAction:', data.data.game.status)
       callbacks.onGameUpdate(data.data.game)
     }
     

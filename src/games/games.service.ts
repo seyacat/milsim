@@ -415,6 +415,7 @@ export class GamesService {
     // Create new game instance and assign it to the game
     const gameInstance = await this.gameManagementService.createGameInstance(gameId);
 
+
     // Update game status to stopped and set new instanceId
     game.status = 'stopped';
     game.instanceId = gameInstance.id;
@@ -433,6 +434,12 @@ export class GamesService {
     if (this.gamesGateway) {
       this.gamesGateway.broadcastGameUpdate(gameId, updatedGame);
     }
+
+    // Force broadcast timer updates to reset all control point timers
+    // This ensures timers are hidden when game transitions from finished to stopped
+    this.timerManagementService.forceTimeBroadcast(gameId).catch(error => {
+      console.error(`Error broadcasting timer updates for game ${gameId}:`, error);
+    });
 
     return updatedGame;
   }

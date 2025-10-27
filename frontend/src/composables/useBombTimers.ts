@@ -6,7 +6,7 @@ export interface BombTimerData {
   isActive: boolean
 }
 
-export const useBombTimers = () => {
+export const useBombTimers = (currentGame?: any) => {
   const activeBombTimers = ref<Map<number, BombTimerData>>(new Map())
   let localTimer: NodeJS.Timeout | null = null
 
@@ -16,7 +16,7 @@ export const useBombTimers = () => {
     activeBombTimers.value.set(data.controlPointId, data)
 
     // Update bomb timer display immediately
-    updateBombTimerDisplay(data.controlPointId)
+    updateBombTimerDisplay(data.controlPointId, currentGame)
 
     // Start or stop local timer based on active bombs
     if (data.isActive && !localTimer) {
@@ -45,7 +45,7 @@ export const useBombTimers = () => {
     activeBombTimers.value = newTimers
 
     // Update all bomb timer displays
-    updateAllBombTimerDisplays()
+    updateAllBombTimerDisplays(currentGame)
 
     // Start or stop local timer based on active bombs
     const hasActiveBombs = Array.from(newTimers.values()).some(timer => timer.isActive)
@@ -58,7 +58,7 @@ export const useBombTimers = () => {
   }
 
   // Update bomb timer display for a specific control point
-  const updateBombTimerDisplay = (controlPointId: number) => {
+  const updateBombTimerDisplay = (controlPointId: number, currentGame: any = null) => {
     const bombTimerElement = document.getElementById(`bomb_timer_${controlPointId}`)
     const bombTimerData = activeBombTimers.value.get(controlPointId)
     
@@ -67,8 +67,11 @@ export const useBombTimers = () => {
       return
     }
 
-    // Show bomb timer only if bomb is active
-    if (bombTimerData?.isActive) {
+    // Show bomb timer only if bomb is active AND game is NOT stopped
+    // Hide bomb timers only when game is stopped
+    const shouldShow = bombTimerData?.isActive && currentGame?.status !== 'stopped'
+    
+    if (shouldShow) {
       // Validate bomb timer data
       if (typeof bombTimerData.remainingTime !== 'number' || isNaN(bombTimerData.remainingTime)) {
         console.error(`[BOMB_TIMER] Invalid remainingTime for control point ${controlPointId}:`, bombTimerData.remainingTime)
@@ -98,7 +101,7 @@ export const useBombTimers = () => {
   }
 
   // Update all bomb timer displays
-  const updateAllBombTimerDisplays = () => {
+  const updateAllBombTimerDisplays = (currentGame: any = null) => {
     // Hide all bomb timers first
     activeBombTimers.value.forEach((bombTimer, controlPointId) => {
       const bombTimerElement = document.getElementById(`bomb_timer_${controlPointId}`)
@@ -107,10 +110,11 @@ export const useBombTimers = () => {
       }
     })
 
-    // Show bomb timers for active bombs
+    // Show bomb timers for active bombs only if game is NOT stopped
+    // Hide bomb timers only when game is stopped
     activeBombTimers.value.forEach((bombTimer, controlPointId) => {
-      if (bombTimer.isActive) {
-        updateBombTimerDisplay(controlPointId)
+      if (bombTimer.isActive && currentGame?.status !== 'stopped') {
+        updateBombTimerDisplay(controlPointId, currentGame)
       }
     })
   }
@@ -154,7 +158,7 @@ export const useBombTimers = () => {
       }
 
       // Update all bomb timer displays immediately
-      updateAllBombTimerDisplays()
+      updateAllBombTimerDisplays(currentGame)
     }, 1000)
   }
 

@@ -178,16 +178,8 @@ const {
   stopControlPointTimerInterval
 } = useControlPointTimers()
 
-// Bomb timers composable
-const {
-  activeBombTimers,
-  handleBombTimeUpdate,
-  handleActiveBombTimers,
-  updateBombTimerDisplay,
-  updateAllBombTimerDisplays,
-  requestActiveBombTimers,
-  setupBombTimerListeners
-} = useBombTimers()
+// Bomb timers composable - will be initialized after currentGame is available
+const bombTimersComposable = ref<any>(null)
 
 // State
 const currentUser = ref<User | null>(null)
@@ -585,7 +577,7 @@ const onGameUpdate = (game: Game) => {
   // Use currentGame.value instead of game parameter to ensure we have the latest control points
   setTimeout(() => {
     updateAllTimerDisplays(currentGame.value)
-    updateAllBombTimerDisplays()
+    bombTimersComposable.value?.updateAllBombTimerDisplays(currentGame.value)
   }, 100)
 
   // Show results dialog automatically when game is finished for all users
@@ -599,6 +591,11 @@ const onGameUpdate = (game: Game) => {
   if (previousStatus === 'finished' && game.status === 'stopped') {
     console.log('Game restarted, closing results dialog')
     showResultsDialog.value = false
+    
+    // Hide all timers when game transitions from finished to stopped
+    console.log('Hiding all timers due to game state change from finished to stopped')
+    updateAllTimerDisplays(game)
+    bombTimersComposable.value?.updateAllBombTimerDisplays(game)
   }
 
   // Show team selection when game transitions to stopped state and player doesn't have a team
@@ -656,7 +653,7 @@ const onControlPointCreated = (controlPoint: ControlPoint) => {
     setTimeout(() => {
       console.log('Control point created - updating all timers')
       updateAllTimerDisplays(currentGame.value)
-      updateAllBombTimerDisplays()
+      bombTimersComposable.value?.updateAllBombTimerDisplays(currentGame.value)
     }, 100)
   }
 }
@@ -688,7 +685,7 @@ const onControlPointUpdated = (controlPoint: ControlPoint) => {
     setTimeout(() => {
       console.log('Control point updated - updating all timers')
       updateAllTimerDisplays(currentGame.value)
-      updateAllBombTimerDisplays()
+      bombTimersComposable.value?.updateAllBombTimerDisplays(currentGame.value)
     }, 100)
   }
 }
@@ -719,7 +716,7 @@ const onControlPointDeleted = (controlPointId: number) => {
     setTimeout(() => {
       console.log('Control point deleted - updating all timers')
       updateAllTimerDisplays(currentGame.value)
-      updateAllBombTimerDisplays()
+      bombTimersComposable.value?.updateAllBombTimerDisplays(currentGame.value)
     }, 100)
   }
 }
@@ -858,10 +855,10 @@ onMounted(async () => {
       },
       onBombTimeUpdate: (data: any) => {
         console.log('GameOwner - Bomb time update received:', data)
-        handleBombTimeUpdate(data)
+        bombTimersComposable.value?.handleBombTimeUpdate(data)
       },
       onActiveBombTimers: (data: any) => {
-        handleActiveBombTimers(data)
+        bombTimersComposable.value?.handleActiveBombTimers(data)
       },
       onPositionChallengeUpdate: (data: any) => {
         if (data.controlPointId && data.teamPoints) {
@@ -1191,21 +1188,24 @@ onMounted(async () => {
       // Player markers are automatically updated by the composable when initialized
       // No need to call updatePlayerMarkers() manually here
       
+      // Initialize bomb timers composable after currentGame is available
+      bombTimersComposable.value = useBombTimers(currentGame)
+      
       // Setup bomb timer listeners
       if (socketRef.value) {
-        setupBombTimerListeners(socketRef.value)
+        bombTimersComposable.value.setupBombTimerListeners(socketRef.value)
       }
       
       // Request active bomb timers
       if (currentGame.value) {
-        requestActiveBombTimers(socketRef.value, currentGame.value.id)
+        bombTimersComposable.value.requestActiveBombTimers(socketRef.value, currentGame.value.id)
       }
       
       // Update timers after initial markers are rendered
       setTimeout(() => {
-        console.log('Initial setup - updating all timers')
+        console.log('Initial setup - updating all timers, game status:', currentGame.value?.status)
         updateAllTimerDisplays(currentGame.value)
-        updateAllBombTimerDisplays()
+        bombTimersComposable.value?.updateAllBombTimerDisplays(currentGame.value)
       }, 100)
     }, 100)
 

@@ -165,14 +165,37 @@ export class TimerManagementService {
   }
 
   // Force broadcast time update (used for important events)
-  forceTimeBroadcast(gameId: number): void {
+  async forceTimeBroadcast(gameId: number): Promise<void> {
     const timer = this.gameTimers.get(gameId);
-    if (timer && this.gamesGateway) {
-      this.gamesGateway.broadcastTimeUpdate(gameId, {
-        remainingTime: timer.remainingTime,
-        playedTime: timer.elapsedTime,
-        totalTime: timer.totalTime,
-      });
+    if (this.gamesGateway) {
+      // Always broadcast game time update
+      if (timer) {
+        this.gamesGateway.broadcastTimeUpdate(gameId, {
+          remainingTime: timer.remainingTime,
+          playedTime: timer.elapsedTime,
+          totalTime: timer.totalTime,
+        });
+      } else {
+        // Get time data from database when no active timer exists
+        const timeData = await this.getGameTime(gameId);
+        if (timeData) {
+          this.gamesGateway.broadcastTimeUpdate(gameId, {
+            remainingTime: timeData.remainingTime,
+            playedTime: timeData.playedTime,
+            totalTime: timeData.totalTime,
+          });
+        }
+      }
+
+      // Always broadcast control point times
+      const controlPointTimes = await this.getControlPointTimes(gameId);
+      if (controlPointTimes.length > 0) {
+        this.gamesGateway.broadcastTimeUpdate(gameId, {
+          remainingTime: null, // Will be populated by broadcastTimeUpdate
+          totalTime: null, // Will be populated by broadcastTimeUpdate
+          playedTime: 0, // Will be populated by broadcastTimeUpdate
+        });
+      }
     }
   }
 
@@ -478,7 +501,44 @@ export class TimerManagementService {
       relations: ['controlPoints'],
     });
 
-    if (!game || !game.instanceId) {
+    if (!game) {
+      return [];
+    }
+
+    console.log(`[BACKEND_TIMER_DEBUG] Getting control point times for game ${gameId}, status: ${game.status}`)
+    console.log(`[BACKEND_TIMER_DEBUG] Game instance ID: ${game.instanceId}`)
+    console.log(`[BACKEND_TIMER_DEBUG] Game control points count: ${game.controlPoints?.length || 0}`)
+
+    // If game is stopped, return zero times with null teams to hide timers
+    // For paused state, keep the current team ownership but don't increment timers
+    if (game.status === 'stopped') {
+      console.log(`[BACKEND_TIMER_DEBUG] Game ${gameId} is stopped, returning null teams for all control points`)
+      console.log(`[BACKEND_TIMER_DEBUG] Game instance ID: ${game.instanceId}`)
+      
+      const controlPointTimes: Array<{
+        controlPointId: number;
+        currentHoldTime: number;
+        currentTeam: string | null;
+        displayTime: string;
+      }> = [];
+
+      if (game.controlPoints) {
+        for (const controlPoint of game.controlPoints) {
+          controlPointTimes.push({
+            controlPointId: controlPoint.id,
+            currentHoldTime: 0,
+            currentTeam: null, // Force null team to hide timers
+            displayTime: '00:00',
+          });
+        }
+      }
+
+      console.log(`[BACKEND_TIMER_DEBUG] Returning control point times for stopped game:`, controlPointTimes)
+      return controlPointTimes;
+    }
+
+    // Game is running - return actual timer values
+    if (!game.instanceId) {
       return [];
     }
 
