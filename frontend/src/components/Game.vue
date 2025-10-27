@@ -637,29 +637,33 @@ const onGameUpdate = (game: Game) => {
 const onControlPointCreated = (controlPoint: ControlPoint) => {
   
   if (currentGame.value) {
-    currentGame.value.controlPoints = [...(currentGame.value.controlPoints || []), controlPoint]
-    // Only pass handlers for owners, players should get empty handlers
-    const handlers = isOwner.value ? {
-      handleControlPointMove,
-      handleControlPointUpdate: handleControlPointUpdateWrapper,
-      handleControlPointDelete: handleControlPointDeleteWrapper,
-      handleAssignTeam: handleAssignTeamWrapper,
-      handleTogglePositionChallenge: handleTogglePositionChallengeWrapper,
-      handleToggleCodeChallenge: handleToggleCodeChallengeWrapper,
-      handleToggleBombChallenge: handleToggleBombChallengeWrapper,
-      handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
-      handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
-      handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
-      handleActivateBomb: handleActivateBombWrapper,
-      handleDeactivateBomb: handleDeactivateBombWrapper
-    } : {}
-    
-    renderControlPoints(currentGame.value.controlPoints, handlers)
-    // Update timers after markers are rendered
-    setTimeout(() => {
-      updateAllTimerDisplays(currentGame.value)
-      bombTimersComposable.value?.updateAllBombTimerDisplays(currentGame.value)
-    }, 100)
+    // Check if control point already exists to avoid duplicates
+    const existingControlPoint = currentGame.value.controlPoints?.find(cp => cp.id === controlPoint.id)
+    if (!existingControlPoint) {
+      currentGame.value.controlPoints = [...(currentGame.value.controlPoints || []), controlPoint]
+      // Only pass handlers for owners, players should get empty handlers
+      const handlers = isOwner.value ? {
+        handleControlPointMove,
+        handleControlPointUpdate: handleControlPointUpdateWrapper,
+        handleControlPointDelete: handleControlPointDeleteWrapper,
+        handleAssignTeam: handleAssignTeamWrapper,
+        handleTogglePositionChallenge: handleTogglePositionChallengeWrapper,
+        handleToggleCodeChallenge: handleToggleCodeChallengeWrapper,
+        handleToggleBombChallenge: handleToggleBombChallengeWrapper,
+        handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
+        handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
+        handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
+        handleActivateBomb: handleActivateBombWrapper,
+        handleDeactivateBomb: handleDeactivateBombWrapper
+      } : {}
+      
+      renderControlPoints(currentGame.value.controlPoints, handlers)
+      // Update timers after markers are rendered
+      setTimeout(() => {
+        updateAllTimerDisplays(currentGame.value)
+        bombTimersComposable.value?.updateAllBombTimerDisplays(currentGame.value)
+      }, 100)
+    }
   }
 }
 

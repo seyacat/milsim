@@ -116,6 +116,13 @@ export const useMap = () => {
   ) => {
     if (!mapInstance.value) return null
 
+    // Check if marker already exists to prevent duplicates
+    const existingMarker = controlPointMarkers.value.get(controlPoint.id)
+    if (existingMarker) {
+      console.log('Marker already exists for control point:', controlPoint.id)
+      return existingMarker
+    }
+
     try {
       const L = await import('leaflet')
       
@@ -448,7 +455,23 @@ export const useMap = () => {
     controlPointMarkers.value.forEach((marker, controlPointId) => {
       if (!currentControlPointIds.has(controlPointId)) {
         if (marker) {
-          mapInstance.value.removeLayer(marker)
+          // Remove marker from map and clean up any associated layers
+          try {
+            // Remove the marker itself
+            mapInstance.value.removeLayer(marker)
+            
+            // Remove any associated popups
+            if (marker.getPopup()) {
+              marker.unbindPopup()
+            }
+            
+            // Clean up any drag events
+            if (marker.dragging && marker.dragging.enabled()) {
+              marker.dragging.disable()
+            }
+          } catch (error) {
+            console.error('Error removing control point marker:', error)
+          }
         }
         controlPointsToRemove.push(controlPointId)
       }
@@ -550,6 +573,11 @@ export const useMap = () => {
     
     const marker = controlPointMarkers.value.get(controlPoint.id)
     if (!marker || !mapInstance.value) {
+      // If marker doesn't exist, create it instead of updating
+      const newMarker = await createControlPointMarker(controlPoint, handlers)
+      if (newMarker) {
+        controlPointMarkers.value.set(controlPoint.id, newMarker)
+      }
       return
     }
 
