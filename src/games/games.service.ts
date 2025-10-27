@@ -424,6 +424,9 @@ export class GamesService {
     // The game.totalTime should remain unchanged so the dropdown shows the correct value
     const updatedGame = await this.gamesRepository.save(game);
 
+    // Include all connected players in the new game instance
+    await this.includeConnectedPlayersInNewInstance(gameId, gameInstance.id);
+
     // Force broadcast the game update to ensure frontend receives the current game.totalTime
     // This is critical for the dropdown to show the correct value after restart
     if (this.gamesGateway) {
@@ -847,5 +850,31 @@ export class GamesService {
   private stopPositionChallengeInterval(gameId: number): void {
     // This will be handled by the GamesGateway which has access to player positions
     // The gateway will call the positionChallengeService
+  }
+
+  /**
+   * Include all connected players in the new game instance when restarting
+   */
+  private async includeConnectedPlayersInNewInstance(gameId: number, gameInstanceId: number): Promise<void> {
+    try {
+      // Get all connected users for this game from the gateway
+      const connectedUsers = this.gamesGateway.getConnectedUsersForGame?.(gameId);
+      
+      if (!connectedUsers || connectedUsers.size === 0) {
+        return;
+      }
+
+      // Add each connected user to the new game instance
+      for (const [socketId, user] of connectedUsers.entries()) {
+        try {
+          await this.playerManagementService.joinGame(gameId, user.id);
+        } catch (error) {
+          // Log error but continue with other users
+          console.error(`Error including user ${user.id} in new game instance:`, error);
+        }
+      }
+    } catch (error) {
+      console.error(`Error including connected players in new game instance for game ${gameId}:`, error);
+    }
   }
 }

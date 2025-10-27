@@ -707,4 +707,27 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.gameIntervals.delete(gameId);
     }
   }
+
+  /**
+   * Get all connected users for a specific game
+   */
+  getConnectedUsersForGame(gameId: number): Map<string, any> {
+    const connectedUsersForGame = new Map<string, any>();
+    
+    // Get all socket IDs connected to this game
+    const gameConnections = this.gameConnections.get(gameId);
+    if (!gameConnections) {
+      return connectedUsersForGame;
+    }
+
+    // Find user data for each connected socket
+    for (const socketId of gameConnections) {
+      const user = this.connectedUsers.get(socketId);
+      if (user) {
+        connectedUsersForGame.set(socketId, user);
+      }
+    }
+
+    return connectedUsersForGame;
+  }
 }
