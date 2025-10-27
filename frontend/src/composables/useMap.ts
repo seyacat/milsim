@@ -538,12 +538,9 @@ export const useMap = () => {
           console.log('Creating PIE chart for control point:', controlPoint.id, 'with owner:', controlPoint.ownedByTeam)
           await createPositionChallengePieChart(marker, controlPoint, circle)
           
-          // If control point has an owner, create a default PIE chart with 60 points
-          if (controlPoint.ownedByTeam) {
-            const teamPoints = { [controlPoint.ownedByTeam]: 60 }
-            console.log('Initializing PIE chart with 60 points for team:', controlPoint.ownedByTeam)
-            updatePositionChallengePieChart(controlPoint.id, teamPoints)
-          }
+          // Don't initialize with default 60 points - wait for real data from backend
+          // The PIE chart will be updated when positionChallengeUpdate events arrive
+          console.log('PIE chart created for control point:', controlPoint.id, 'waiting for position challenge data')
         }
       } else {
         // Remove position circle and PIE chart if position challenge is no longer active
