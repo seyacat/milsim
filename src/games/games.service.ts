@@ -244,6 +244,9 @@ export class GamesService {
       this.startPositionChallengeInterval(gameId);
     }
 
+    // Force broadcast time update on game start to ensure all clients receive initial timer state
+    this.timerManagementService.forceTimeBroadcast(gameId);
+
     // Force broadcast game update to ensure all players receive the state change
     // This is critical to ensure players respect pause state after restart
     if (this.gamesGateway) {

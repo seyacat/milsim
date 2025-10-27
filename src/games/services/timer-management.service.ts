@@ -259,13 +259,27 @@ export class TimerManagementService {
 
     this.controlPointTimers.set(controlPointId, timer);
 
-    // Send initial time update
+    // Send initial time update for individual control point
     if (this.gamesGateway) {
       this.gamesGateway.broadcastControlPointTimeUpdate(controlPointId, {
         currentHoldTime: timer.currentHoldTime,
         currentTeam: timer.currentTeam,
         displayTime: this.timerCalculationService.formatTime(timer.currentHoldTime),
       });
+
+      // Also broadcast all control point times to ensure frontend has complete state
+      const game = await this.gamesRepository.findOne({
+        where: { instanceId: gameInstanceId },
+      });
+      
+      if (game) {
+        const allControlPointTimes = await this.getControlPointTimes(game.id);
+        this.gamesGateway.broadcastTimeUpdate(game.id, {
+          remainingTime: null, // Will be populated by broadcastTimeUpdate
+          totalTime: null, // Will be populated by broadcastTimeUpdate
+          playedTime: 0, // Will be populated by broadcastTimeUpdate
+        });
+      }
     }
   }
 
@@ -307,6 +321,16 @@ export class TimerManagementService {
       for (const controlPoint of game.controlPoints) {
         await this.startControlPointTimer(controlPoint.id, game.instanceId);
       }
+    }
+
+    // Broadcast all control point times after starting all timers
+    if (this.gamesGateway) {
+      const allControlPointTimes = await this.getControlPointTimes(gameId);
+      this.gamesGateway.broadcastTimeUpdate(gameId, {
+        remainingTime: null, // Will be populated by broadcastTimeUpdate
+        totalTime: null, // Will be populated by broadcastTimeUpdate
+        playedTime: 0, // Will be populated by broadcastTimeUpdate
+      });
     }
   }
 

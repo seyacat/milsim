@@ -31,6 +31,17 @@ export const useControlPointTimers = () => {
     }
   }
 
+  // Update individual control point time
+  const updateIndividualControlPointTime = (controlPointId: number, currentHoldTime: number, currentTeam: string | null) => {
+    const updated = { ...controlPointTimes.value }
+    updated[controlPointId] = {
+      controlPointId,
+      currentHoldTime,
+      currentTeam
+    }
+    controlPointTimes.value = updated
+  }
+
   // Update timer display for a specific control point
   const updateControlPointTimerDisplay = (controlPointId: number, currentGame: Game | null) => {
     const timerElement = document.getElementById(`timer_${controlPointId}`)
@@ -137,6 +148,7 @@ export const useControlPointTimers = () => {
   return {
     controlPointTimes,
     updateControlPointTimes,
+    updateIndividualControlPointTime,
     updateAllTimerDisplays,
     handleGameStateChange,
     stopControlPointTimerInterval

@@ -1,5 +1,14 @@
 import { ref } from 'vue'
 import { useToast } from './useToast.js'
+import { ControlPoint } from '../types/index.js'
+import {
+  ControlPointCreatedEvent,
+  ControlPointUpdatedEvent,
+  ControlPointTakenEvent,
+  BombActivatedEvent,
+  BombDeactivatedEvent,
+  ControlPointTeamAssignedEvent
+} from '../types/websocket-events.js'
 
 export const useControlPoints = () => {
   const { addToast } = useToast()
@@ -7,11 +16,11 @@ export const useControlPoints = () => {
   const controlPointMenuPosition = ref({ lat: 0, lng: 0 })
 
   // Callbacks for specific WebSocket events
-  const onControlPointCreated = (controlPoint: any) => {
+  const onControlPointCreated = (controlPoint: ControlPoint) => {
     console.log('Control point created:', controlPoint)
   }
 
-  const onControlPointUpdated = (controlPoint: any) => {
+  const onControlPointUpdated = (controlPoint: ControlPoint) => {
     console.log('Control point updated:', controlPoint)
   }
 
@@ -19,19 +28,19 @@ export const useControlPoints = () => {
     console.log('Control point deleted:', controlPointId)
   }
 
-  const onControlPointTeamAssigned = (data: any) => {
+  const onControlPointTeamAssigned = (data: ControlPointTeamAssignedEvent) => {
     console.log('Control point team assigned:', data)
   }
 
-  const onControlPointTaken = (data: any) => {
+  const onControlPointTaken = (data: ControlPointTakenEvent) => {
     console.log('Control point taken:', data)
   }
 
-  const onBombActivated = (data: any) => {
+  const onBombActivated = (data: BombActivatedEvent) => {
     console.log('Bomb activated:', data)
   }
 
-  const onBombDeactivated = (data: any) => {
+  const onBombDeactivated = (data: BombDeactivatedEvent) => {
     console.log('Bomb deactivated:', data)
   }
 

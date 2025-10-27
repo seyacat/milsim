@@ -172,6 +172,7 @@ const {
 const {
   controlPointTimes,
   updateControlPointTimes,
+  updateIndividualControlPointTime,
   updateAllTimerDisplays,
   handleGameStateChange,
   stopControlPointTimerInterval
@@ -809,16 +810,26 @@ onMounted(async () => {
       onControlPointDeleted,
       onJoinSuccess,
       onError,
-      onGameTime: (data: GameTimeEvent) => {
+      onGameTime: (data: GameTimeEvent | any) => {
         // Update local timer with server data
         updateLocalTimerFromServer(data)
         
         // Handle control point timer updates from server
+        // Support both formats: array of control point times AND individual control point updates
         if (data.controlPointTimes && Array.isArray(data.controlPointTimes)) {
+          // Format: array of control point times from gameTime/timeUpdate events
           updateControlPointTimes(data.controlPointTimes, currentGame.value)
           // Update timers after markers are rendered
           setTimeout(() => {
             console.log('Game time update - updating all timers')
+            updateAllTimerDisplays(currentGame.value)
+          }, 100)
+        } else if (data.controlPointId && data.currentHoldTime !== undefined) {
+          // Format: individual control point time update from controlPointTimeUpdate events
+          updateIndividualControlPointTime(data.controlPointId, data.currentHoldTime, data.currentTeam)
+          // Update timers after markers are rendered
+          setTimeout(() => {
+            console.log('Individual control point time update - updating all timers')
             updateAllTimerDisplays(currentGame.value)
           }, 100)
         }
@@ -933,33 +944,29 @@ onMounted(async () => {
         console.log('DEBUG: Control point taken received - full data:', data)
         console.log('DEBUG: Control point taken received - controlPoint data:', data.controlPoint)
         
-        // Extract the actual control point data from the nested structure
-        const eventData = data.controlPoint
-        const actualControlPoint = eventData?.controlPoint
+        // The control point data is directly in data.controlPoint (not nested)
+        const controlPointData = data.controlPoint
         
         console.log('DEBUG: Control point taken received:', {
-          controlPointId: eventData?.controlPointId,
-          userId: eventData?.userId,
-          userName: eventData?.userName,
-          team: eventData?.team,
-          controlPointName: actualControlPoint?.name,
-          ownedByTeam: actualControlPoint?.ownedByTeam,
-          hasCodeChallenge: actualControlPoint?.hasCodeChallenge,
-          hasBombChallenge: actualControlPoint?.hasBombChallenge,
-          bombStatus: actualControlPoint?.bombStatus,
+          controlPointId: data.controlPointId,
+          userId: data.userId,
+          userName: data.userName,
+          team: data.team,
+          controlPointName: controlPointData?.name,
+          ownedByTeam: controlPointData?.ownedByTeam,
+          hasCodeChallenge: controlPointData?.hasCodeChallenge,
+          hasBombChallenge: controlPointData?.hasBombChallenge,
+          bombStatus: controlPointData?.bombStatus,
           isOwner: isOwner.value
         })
         console.log('GameOwner - Control point taken received:', data)
         console.log('GameOwner - Control point taken - isOwner:', isOwner.value)
         
-        if (!actualControlPoint) {
-          console.log('GameOwner - Control point taken - no actual controlPoint in data')
+        if (!controlPointData) {
+          console.log('GameOwner - Control point taken - no controlPoint in data')
           return
         }
 
-        // Convert the control point data to the expected ControlPoint interface with strong typing
-        const controlPointData = actualControlPoint
-        
         // Validate required fields
         if (!controlPointData.id || !controlPointData.name || !controlPointData.latitude || !controlPointData.longitude) {
           console.error('GameOwner - Invalid control point data received:', controlPointData)
@@ -968,8 +975,8 @@ onMounted(async () => {
 
         // Convert team string to TeamColor with validation
         const validTeams: TeamColor[] = ['blue', 'red', 'green', 'yellow', 'none']
-        const teamColor: TeamColor | undefined = eventData?.team && validTeams.includes(eventData.team as TeamColor)
-          ? eventData.team as TeamColor
+        const teamColor: TeamColor | undefined = data.team && validTeams.includes(data.team as TeamColor)
+          ? data.team as TeamColor
           : undefined
 
         const controlPoint: ControlPoint = {
