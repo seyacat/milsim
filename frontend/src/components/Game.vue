@@ -347,11 +347,13 @@ const startLocalTimer = () => {
     if (currentGame.value && currentGame.value.status === 'running') {
       // Always increment played time locally by 1 second
       // Server updates will override this value when received
-      if (currentGame.value.playedTime !== undefined) {
+      if (currentGame.value.playedTime !== undefined && currentGame.value.playedTime !== null) {
         currentGame.value.playedTime += 1
+      } else {
+        currentGame.value.playedTime = 1
       }
       
-      // Decrement remaining time if it exists
+      // Decrement remaining time if it exists and is not null
       if (currentGame.value.remainingTime !== undefined && currentGame.value.remainingTime !== null) {
         currentGame.value.remainingTime = Math.max(0, currentGame.value.remainingTime - 1)
       }
@@ -381,7 +383,7 @@ const updateLocalTimerFromServer = (data: TimeUpdateEvent | GameTimeEvent) => {
       totalTime: data.totalTime
     })
     
-    // Always use server values when provided
+    // Always use server values when provided, with proper null handling
     if (data.remainingTime !== undefined) {
       currentGame.value.remainingTime = data.remainingTime
     }
@@ -390,6 +392,9 @@ const updateLocalTimerFromServer = (data: TimeUpdateEvent | GameTimeEvent) => {
     }
     if (data.playedTime !== undefined) {
       currentGame.value.playedTime = data.playedTime
+    } else {
+      // Ensure playedTime always has a value
+      currentGame.value.playedTime = currentGame.value.playedTime || 0
     }
     // Force reactivity by reassigning the object
     currentGame.value = { ...currentGame.value }

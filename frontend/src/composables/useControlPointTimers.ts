@@ -13,16 +13,6 @@ export const useControlPointTimers = () => {
 
   // Update control point times when they come from game data
   const updateControlPointTimes = (controlPointTimesFromGameTime: ControlPointTimeData[], currentGame: Game | null) => {
-    console.log('[FRONTEND_TIMER_DEBUG] updateControlPointTimes called with:', {
-      timesCount: controlPointTimesFromGameTime?.length || 0,
-      gameStatus: currentGame?.status,
-      times: controlPointTimesFromGameTime
-    })
-    
-    // DEBUG: Check if any control point has currentTeam not null
-    const hasNonNullTeams = controlPointTimesFromGameTime?.some(time => time.currentTeam !== null) || false
-    console.log('[FRONTEND_TIMER_DEBUG] Has non-null teams:', hasNonNullTeams)
-    
     if (controlPointTimesFromGameTime && controlPointTimesFromGameTime.length > 0) {
       // Only update specific control points that changed, don't replace the entire state
       const updated = { ...controlPointTimes.value }
@@ -57,15 +47,8 @@ export const useControlPointTimers = () => {
     const timerElement = document.getElementById(`timer_${controlPointId}`)
     const timeData = controlPointTimes.value[controlPointId]
     
-    console.log(`[FRONTEND_TIMER_DEBUG] updateControlPointTimerDisplay for CP ${controlPointId}:`, {
-      hasTimerElement: !!timerElement,
-      hasTimeData: !!timeData,
-      currentTeam: timeData?.currentTeam,
-      gameStatus: currentGame?.status
-    })
     
     if (!timerElement || !timeData) {
-      console.log(`[FRONTEND_TIMER_DEBUG] CP ${controlPointId}: No timer element or time data, hiding timer`)
       if (timerElement) timerElement.style.display = 'none'
       return
     }
@@ -74,15 +57,8 @@ export const useControlPointTimers = () => {
     // Hide timers only when game is stopped
     const shouldShow = timeData.currentTeam !== null && currentGame?.status !== 'stopped'
     
-    console.log(`[FRONTEND_TIMER_DEBUG] CP ${controlPointId}: shouldShow = ${shouldShow} (currentTeam: ${timeData.currentTeam}, gameStatus: ${currentGame?.status})`)
-    
     // Debug logging
     if (currentGame?.status === 'stopped') {
-      console.log(`[TIMER_DEBUG] Control point ${controlPointId} in stopped state:`, {
-        currentTeam: timeData.currentTeam,
-        currentHoldTime: timeData.currentHoldTime,
-        shouldShow: shouldShow
-      })
     }
     
     
@@ -92,19 +68,15 @@ export const useControlPointTimers = () => {
       const seconds = timeData.currentHoldTime % 60
       const timeText = `${minutes}:${seconds.toString().padStart(2, '0')}`
       
-      console.log(`[FRONTEND_TIMER_DEBUG] CP ${controlPointId}: Showing timer with text: ${timeText}`)
       timerElement.textContent = timeText
       timerElement.style.display = 'block'
     } else {
-      console.log(`[FRONTEND_TIMER_DEBUG] CP ${controlPointId}: Hiding timer`)
       timerElement.style.display = 'none'
     }
   }
 
   // Update all timer displays
   const updateAllTimerDisplays = (currentGame: Game | null) => {
-    console.log('[FRONTEND_TIMER_DEBUG] updateAllTimerDisplays called with game status:', currentGame?.status)
-    
     // Get control point IDs from either the game object OR from the stored time data
     let controlPointIds: number[] = []
     
@@ -117,11 +89,8 @@ export const useControlPointTimers = () => {
     }
     
     if (controlPointIds.length === 0) {
-      console.log('[FRONTEND_TIMER_DEBUG] No control points to update')
       return
     }
-    
-    console.log(`[FRONTEND_TIMER_DEBUG] Updating ${controlPointIds.length} control point timers`)
     
     controlPointIds.forEach(controlPointId => {
       updateControlPointTimerDisplay(controlPointId, currentGame)

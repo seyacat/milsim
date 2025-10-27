@@ -27,8 +27,8 @@ export interface Game {
   players: Player[];
   activeConnections: number;
   totalTime: number | null;
-  remainingTime?: number;
-  playedTime?: number;
+  remainingTime: number | null;
+  playedTime: number;
   teamCount: number;
   controlPoints: ControlPoint[];
   createdAt: string;

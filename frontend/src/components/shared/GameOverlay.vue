@@ -23,10 +23,10 @@
         
         <!-- Timer display for running state -->
         <div v-if="currentGame.status === 'running'">
-          Tiempo transcurrido: <span>{{ formatTime(currentGame.playedTime || 0) }}</span>
+          Tiempo transcurrido: <span>{{ formatTime(currentGame.playedTime) }}</span>
         </div>
         <div v-if="currentGame.status === 'running' && currentGame.totalTime && currentGame.totalTime > 0">
-          Tiempo restante: <span>{{ formatTime(currentGame.remainingTime || 0) }}</span>
+          Tiempo restante: <span>{{ formatTime(currentGame.remainingTime) }}</span>
         </div>
       </div>
     </div>
@@ -93,11 +93,15 @@ const handleTimeSelect = (event: Event) => {
 }
 
 const formatTime = (seconds: number): string => {
-  if (seconds <= 0) return '0:00'
+  // Handle null, undefined, or invalid values
+  if (!seconds || seconds <= 0) return '0:00'
   
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const remainingSeconds = seconds % 60
+  // Ensure seconds is a valid number
+  const validSeconds = Math.max(0, Math.floor(Number(seconds)))
+  
+  const hours = Math.floor(validSeconds / 3600)
+  const minutes = Math.floor((validSeconds % 3600) / 60)
+  const remainingSeconds = validSeconds % 60
   
   if (hours > 0) {
     return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`

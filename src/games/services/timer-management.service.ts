@@ -505,15 +505,10 @@ export class TimerManagementService {
       return [];
     }
 
-    console.log(`[BACKEND_TIMER_DEBUG] Getting control point times for game ${gameId}, status: ${game.status}`)
-    console.log(`[BACKEND_TIMER_DEBUG] Game instance ID: ${game.instanceId}`)
-    console.log(`[BACKEND_TIMER_DEBUG] Game control points count: ${game.controlPoints?.length || 0}`)
 
     // If game is stopped, return zero times with null teams to hide timers
     // For paused state, keep the current team ownership but don't increment timers
     if (game.status === 'stopped') {
-      console.log(`[BACKEND_TIMER_DEBUG] Game ${gameId} is stopped, returning null teams for all control points`)
-      console.log(`[BACKEND_TIMER_DEBUG] Game instance ID: ${game.instanceId}`)
       
       const controlPointTimes: Array<{
         controlPointId: number;
@@ -533,7 +528,6 @@ export class TimerManagementService {
         }
       }
 
-      console.log(`[BACKEND_TIMER_DEBUG] Returning control point times for stopped game:`, controlPointTimes)
       return controlPointTimes;
     }
 

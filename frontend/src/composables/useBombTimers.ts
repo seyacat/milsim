@@ -10,6 +10,14 @@ export const useBombTimers = (currentGame?: any) => {
   const activeBombTimers = ref<Map<number, BombTimerData>>(new Map())
   let localTimer: NodeJS.Timeout | null = null
 
+  // Clean up timer on unmount
+  const cleanup = () => {
+    if (localTimer) {
+      clearInterval(localTimer)
+      localTimer = null
+    }
+  }
+
   // Handle bomb time updates from server
   const handleBombTimeUpdate = (data: BombTimerData) => {
     // Update the active bomb timers
@@ -190,10 +198,15 @@ export const useBombTimers = (currentGame?: any) => {
     }
   }
 
-  // Clean up timer on unmount
-  onUnmounted(() => {
-    stopBombTimerInterval()
-  })
+  // Clean up timer on unmount - only if we're in a component context
+  try {
+    onUnmounted(() => {
+      cleanup()
+    })
+  } catch (error) {
+    // If onUnmounted fails, it means we're not in a component context
+    // We'll handle cleanup manually when needed
+  }
 
   return {
     activeBombTimers,
