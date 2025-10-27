@@ -1,6 +1,7 @@
 import { ref, watch, onUnmounted, type Ref } from 'vue'
 import type { Game } from '../types'
 import type { Socket } from 'socket.io-client'
+import type { PositionUpdateData } from '../types/position-types'
 
 interface GPSTrackingConfig {
   detectionInterval: number // Intervalo para detecciones GPS (10 segundos)
@@ -10,7 +11,7 @@ interface GPSTrackingConfig {
 
 interface UseGPSTrackingReturn {
   gpsStatus: Ref<string>
-  currentPosition: Ref<{ lat: number; lng: number; accuracy: number } | null>
+  currentPosition: Ref<PositionUpdateData | null>
   startGPSTracking: () => void
   stopGPSTracking: () => void
 }
@@ -20,13 +21,13 @@ export const useGPSTracking = (
   socket: Ref<Socket | null> | Socket | null
 ): UseGPSTrackingReturn => {
   const gpsStatus = ref('Desconectado')
-  const currentPosition = ref<{ lat: number; lng: number; accuracy: number } | null>(null)
+  const currentPosition = ref<PositionUpdateData | null>(null)
 
   const watchId = ref<number | null>(null)
   const lastDetection = ref<number | null>(null)
   const periodicNotification = ref<NodeJS.Timeout | null>(null)
   const timeout = ref<NodeJS.Timeout | null>(null)
-  const lastKnownPosition = ref<{ lat: number; lng: number; accuracy: number } | null>(null)
+  const lastKnownPosition = ref<PositionUpdateData | null>(null)
   const isSendingPeriodicUpdates = ref<boolean>(true)
 
   // Configuración del seguimiento GPS
@@ -37,7 +38,7 @@ export const useGPSTracking = (
   }
 
   // Notificar posición al backend
-  const notifyPositionToBackend = (position: { lat: number; lng: number; accuracy: number }) => {
+  const notifyPositionToBackend = (position: PositionUpdateData) => {
     const actualSocket = socket && typeof socket === 'object' && 'value' in socket ? socket.value : socket
     if (actualSocket && currentGame.value) {
       actualSocket.emit('gameAction', {
@@ -56,7 +57,7 @@ export const useGPSTracking = (
 
   // Manejar actualización de posición GPS
   const handlePositionUpdate = (position: GeolocationPosition) => {
-    const newPosition = {
+    const newPosition: PositionUpdateData = {
       lat: position.coords.latitude,
       lng: position.coords.longitude,
       accuracy: position.coords.accuracy
@@ -166,7 +167,7 @@ export const useGPSTracking = (
         handlePositionUpdate(position)
         // Notificar posición inicial inmediatamente
         if (position) {
-          const initialPosition = {
+          const initialPosition: PositionUpdateData = {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
             accuracy: position.coords.accuracy

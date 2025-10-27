@@ -1,6 +1,12 @@
 import { Socket } from 'socket.io';
 import { GamesService } from '../games.service';
 import { BroadcastUtilitiesHandler } from './broadcast-utilities.handler';
+import {
+  PlayerPositionData,
+  PositionUpdateData,
+  PositionBroadcastData,
+  PositionChallengeUpdateData
+} from '../types/position-types';
 
 export class PlayerPositionHandler {
   constructor(
@@ -11,32 +17,34 @@ export class PlayerPositionHandler {
   handlePositionUpdate(
     client: Socket,
     gameId: number,
-    data: any,
+    data: PositionUpdateData,
     connectedUsers: Map<string, any>,
-    playerPositions: Map<number, any>,
+    playerPositions: Map<number, PlayerPositionData>,
     server: any,
   ) {
     const user = connectedUsers.get(client.id);
     if (user) {
       // Store the player's position with timestamp
-      playerPositions.set(user.id, {
+      const positionData: PlayerPositionData = {
         lat: data.lat,
         lng: data.lng,
         accuracy: data.accuracy,
         socketId: client.id,
         lastUpdate: new Date(),
-      });
+      };
+      playerPositions.set(user.id, positionData);
 
       // Broadcast position update to all clients in the game using normalized function
+      const broadcastData: PositionBroadcastData = {
+        userId: user.id,
+        userName: user.name,
+        lat: data.lat,
+        lng: data.lng,
+        accuracy: data.accuracy,
+      };
       this.broadcastUtilities.broadcastPositionUpdate(
         gameId,
-        {
-          userId: user.id,
-          userName: user.name,
-          lat: data.lat,
-          lng: data.lng,
-          accuracy: data.accuracy,
-        },
+        broadcastData,
         server,
         client.id,
       );
@@ -46,20 +54,21 @@ export class PlayerPositionHandler {
   handlePositionChallengeUpdate(
     client: Socket,
     gameId: number,
-    data: any,
+    data: PositionChallengeUpdateData,
     connectedUsers: Map<string, any>,
-    playerPositions: Map<number, any>,
+    playerPositions: Map<number, PlayerPositionData>,
   ) {
     const user = connectedUsers.get(client.id);
     if (user) {
       // Store the player's position for position challenge calculations
-      playerPositions.set(user.id, {
+      const positionData: PlayerPositionData = {
         lat: data.lat,
         lng: data.lng,
         accuracy: data.accuracy,
         socketId: client.id,
         lastUpdate: new Date(),
-      });
+      };
+      playerPositions.set(user.id, positionData);
     }
   }
 
@@ -68,7 +77,7 @@ export class PlayerPositionHandler {
     gameId: number,
     data: any,
     connectedUsers: Map<string, any>,
-    playerPositions: Map<number, any>,
+    playerPositions: Map<number, PlayerPositionData>,
     server: any,
   ) {
     const user = connectedUsers.get(client.id);
@@ -77,13 +86,7 @@ export class PlayerPositionHandler {
       const game = await this.gamesService.findOne(gameId, user.id);
       if (game.owner && game.owner.id === user.id) {
         // Collect current positions of all connected players
-        const positions: Array<{
-          userId: number;
-          userName: string;
-          lat: number;
-          lng: number;
-          accuracy: number;
-        }> = [];
+        const positions: PositionBroadcastData[] = [];
 
         // Get all connected users in this game
         const gameRoom = server.sockets.adapter.rooms.get(`game_${gameId}`);
@@ -93,13 +96,14 @@ export class PlayerPositionHandler {
             if (connectedUser && connectedUser.id !== user.id) {
               const position = playerPositions.get(connectedUser.id);
               if (position) {
-                positions.push({
+                const positionData: PositionBroadcastData = {
                   userId: connectedUser.id,
                   userName: connectedUser.name,
                   lat: position.lat,
                   lng: position.lng,
                   accuracy: position.accuracy,
-                });
+                };
+                positions.push(positionData);
               }
             }
           }
@@ -121,7 +125,7 @@ export class PlayerPositionHandler {
    */
   checkInactivePlayers(
     gameId: number,
-    playerPositions: Map<number, any>,
+    playerPositions: Map<number, PlayerPositionData>,
     server: any,
   ): void {
     const now = new Date();
@@ -148,7 +152,7 @@ export class PlayerPositionHandler {
   /**
    * Get current player positions for position challenge processing
    */
-  getCurrentPlayerPositions(playerPositions: Map<number, any>): Map<number, any> {
+  getCurrentPlayerPositions(playerPositions: Map<number, PlayerPositionData>): Map<number, PlayerPositionData> {
     return playerPositions;
   }
 }

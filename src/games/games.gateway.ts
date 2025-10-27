@@ -19,6 +19,7 @@ import { GameStateHandler } from './handlers/game-state.handler';
 import { BombChallengeHandler } from './handlers/bomb-challenge.handler';
 import { PlayerPositionHandler } from './handlers/player-position.handler';
 import { BroadcastUtilitiesHandler } from './handlers/broadcast-utilities.handler';
+import { PlayerPositionData, PositionUpdateData } from './types/position-types';
 
 @WebSocketGateway({
   cors: {
@@ -32,10 +33,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   server: Server;
 
   private connectedUsers = new Map<string, any>(); // socket.id -> user data
-  private playerPositions = new Map<
-    number,
-    { lat: number; lng: number; accuracy: number; socketId: string; lastUpdate: Date }
-  >(); // user.id -> position data
+  private playerPositions = new Map<number, PlayerPositionData>(); // user.id -> position data
   private gameConnections = new Map<number, Set<string>>(); // gameId -> Set of socket IDs
   private gameIntervals = new Map<number, NodeJS.Timeout>(); // gameId -> interval ID
 
@@ -416,13 +414,13 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         case 'positionUpdate':
           this.playerPositionHandler.handlePositionUpdate(
-            client, gameId, data, this.connectedUsers, this.playerPositions, this.server
+            client, gameId, data as PositionUpdateData, this.connectedUsers, this.playerPositions, this.server
           );
           break;
 
         case 'positionChallengeUpdate':
           this.playerPositionHandler.handlePositionChallengeUpdate(
-            client, gameId, data, this.connectedUsers, this.playerPositions
+            client, gameId, data as PositionUpdateData, this.connectedUsers, this.playerPositions
           );
           break;
 
@@ -636,7 +634,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   /**
    * Get current player positions for position challenge processing
    */
-  getCurrentPlayerPositions(): Map<number, any> {
+  getCurrentPlayerPositions(): Map<number, PlayerPositionData> {
     return this.playerPositionHandler.getCurrentPlayerPositions(this.playerPositions);
   }
 

@@ -2,6 +2,7 @@ import { ref, onUnmounted } from 'vue'
 import { io, Socket } from 'socket.io-client'
 import { AuthService } from '../services/auth.js'
 import { User, Game, ControlPoint, TeamColor } from '../types/index.js'
+import type { PositionBroadcastData } from '../types/position-types.js'
 import {
   ControlPointCreatedEvent,
   ControlPointUpdatedEvent,
@@ -45,7 +46,7 @@ const setupSocketListeners = (
     onError: (error: string) => void
     onGameTime: (data: any) => void
     onTimeUpdate?: (data: any) => void
-    onPlayerPosition?: (data: any) => void
+    onPlayerPosition?: (data: PositionBroadcastData) => void
     onBombTimeUpdate?: (data: any) => void
     onActiveBombTimers?: (data: any) => void
     onPositionChallengeUpdate?: (data: any) => void
@@ -424,7 +425,7 @@ const setupSocketListeners = (
   // Handle position update events (direct position updates from players)
   socket.on('positionUpdate', (data: PositionUpdateEvent) => {
     if (callbacks.onPlayerPosition) {
-      callbacks.onPlayerPosition(data)
+      callbacks.onPlayerPosition(data as PositionBroadcastData)
     }
   })
 }
@@ -445,7 +446,7 @@ export const useWebSocket = () => {
       onError: (error: string) => void
       onGameTime: (data: any) => void
       onTimeUpdate?: (data: any) => void
-      onPlayerPosition?: (data: any) => void
+      onPlayerPosition?: (data: PositionBroadcastData) => void
       onBombTimeUpdate?: (data: any) => void
       onActiveBombTimers?: (data: any) => void
       onPositionChallengeUpdate?: (data: any) => void

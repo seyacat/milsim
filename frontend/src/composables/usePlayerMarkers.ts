@@ -1,5 +1,6 @@
 import { ref, watch, onUnmounted, type Ref } from 'vue'
 import type { Game, Player, TeamColor } from '../types'
+import type { PositionBroadcastData } from '../types/position-types'
 import * as L from 'leaflet'
 
 interface UsePlayerMarkersProps {
@@ -76,13 +77,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
   }
 
   // Update individual player marker with real position data
-  const updatePlayerMarker = (positionData: {
-    userId: number
-    userName: string
-    lat: number
-    lng: number
-    accuracy: number
-  }) => {
+  const updatePlayerMarker = (positionData: PositionBroadcastData) => {
     const { userId, userName, lat, lng, accuracy } = positionData
     
     
@@ -210,7 +205,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     const handlePositionUpdate = (data: any) => {
       if (data.action === 'positionUpdate' && data.data) {
         // Update player marker for all users (no differentiation)
-        updatePlayerMarker(data.data)
+        updatePlayerMarker(data.data as PositionBroadcastData)
       }
     }
 
@@ -219,7 +214,7 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       if (data.action === 'playerPositionsResponse' && data.data.positions) {
         data.data.positions.forEach((position: any) => {
           // Update player marker for all users (no differentiation)
-          updatePlayerMarker(position)
+          updatePlayerMarker(position as PositionBroadcastData)
         })
       }
     }
@@ -298,14 +293,14 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     // Listen for specific events directly
     newSocket.on('positionUpdate', (data: any) => {
       if (data && data.userId && data.lat && data.lng) {
-        updatePlayerMarker(data)
+        updatePlayerMarker(data as PositionBroadcastData)
       }
     })
 
     newSocket.on('playerPositionsResponse', (data: any) => {
       if (data && data.positions) {
         data.positions.forEach((position: any) => {
-          updatePlayerMarker(position)
+          updatePlayerMarker(position as PositionBroadcastData)
         })
       }
     })
@@ -324,13 +319,13 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
     newSocket.on('gameAction', (data: any) => {
       // Handle position updates
       if (data.action === 'positionUpdate' && data.data) {
-        updatePlayerMarker(data.data)
+        updatePlayerMarker(data.data as PositionBroadcastData)
       }
       
       // Handle player positions response
       if (data.action === 'playerPositionsResponse' && data.data.positions) {
         data.data.positions.forEach((position: any) => {
-          updatePlayerMarker(position)
+          updatePlayerMarker(position as PositionBroadcastData)
         })
       }
       
