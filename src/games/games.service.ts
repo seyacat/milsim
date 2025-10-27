@@ -871,17 +871,14 @@ export class GamesService {
       const connectedUsers = this.gamesGateway.getConnectedUsersForGame?.(gameId);
       
       if (!connectedUsers || connectedUsers.size === 0) {
-        console.log(`[INCLUDE_PLAYERS] No connected users found for game ${gameId}`);
         return;
       }
 
-      console.log(`[INCLUDE_PLAYERS] Including ${connectedUsers.size} connected players in new game instance for game ${gameId}`);
 
       // Add each connected user to the new game instance
       for (const [socketId, user] of connectedUsers.entries()) {
         try {
           await this.playerManagementService.joinGame(gameId, user.id);
-          console.log(`[INCLUDE_PLAYERS] Successfully included user ${user.id} (${user.name}) in new game instance`);
         } catch (error) {
           // Log error but continue with other users
           console.error(`[INCLUDE_PLAYERS] Error including user ${user.id} in new game instance:`, error);
@@ -890,7 +887,6 @@ export class GamesService {
 
       // Broadcast the updated game state to all clients
       await this.broadcastGameUpdateWithPlayers(gameId);
-      console.log(`[INCLUDE_PLAYERS] Game update broadcasted for game ${gameId}`);
     } catch (error) {
       console.error(`[INCLUDE_PLAYERS] Error including connected players in new game instance for game ${gameId}:`, error);
     }

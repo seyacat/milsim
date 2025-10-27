@@ -200,12 +200,28 @@ const connectionHealthInterval = ref<NodeJS.Timeout | null>(null)
 const playerMarkersComposable = ref<any>(null)
 
 // GPS tracking for owner
+const gpsTrackingComposable = useGPSTracking(currentGame, socketRef, (position) => {
+  // Callback para actualizar el marcador del jugador local inmediatamente
+  console.log('Game.vue - GPS callback ejecutado, playerMarkersComposable:', !!playerMarkersComposable.value, 'currentUser:', !!currentUser.value)
+  if (playerMarkersComposable.value && currentUser.value) {
+    console.log('Game.vue - Actualizando marcador local con posición GPS:', position)
+    playerMarkersComposable.value.updatePlayerMarker({
+      userId: currentUser.value.id,
+      userName: currentUser.value.name,
+      lat: position.lat,
+      lng: position.lng,
+      accuracy: position.accuracy
+    })
+  } else {
+    console.log('Game.vue - No se puede actualizar marcador local: playerMarkersComposable o currentUser no disponibles')
+  }
+})
 const {
   gpsStatus: gpsStatusFromComposable,
   currentPosition: currentPositionFromComposable,
   startGPSTracking,
   stopGPSTracking
-} = useGPSTracking(currentGame, socketRef)
+} = gpsTrackingComposable
 
 // Watch for GPS position changes to update player marker
 watch(() => currentPositionFromComposable.value, (position) => {
@@ -1210,6 +1226,10 @@ onMounted(async () => {
         socket: socketRef,
         isOwner: isOwner.value
       })
+      
+      // Actualizar marcador local después de inicializar player markers
+      console.log('Game.vue - Actualizando marcador local después de inicializar player markers')
+      gpsTrackingComposable.updateLocalMarker()
       
       // Start GPS tracking for owner
       startGPSTracking()
