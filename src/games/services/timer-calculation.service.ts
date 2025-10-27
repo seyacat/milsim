@@ -186,12 +186,12 @@ export class TimerCalculationService {
         })),
       ...history
         .filter(event =>
-          ['game_started', 'game_paused', 'game_resumed', 'game_ended'].includes(event.eventType),
+          ['game_started', 'game_paused', 'game_resumed', 'game_ended', 'game_ended_automatically'].includes(event.eventType),
         )
         .map(event => ({
           type: 'game_state' as const,
           timestamp: event.timestamp,
-          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended',
+          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended' | 'game_ended_automatically',
         })),
     ];
 
@@ -211,7 +211,7 @@ export class TimerCalculationService {
           if (currentTeam && currentTeam === currentOwnerTeam) {
             currentHoldStart = event.timestamp;
           }
-        } else if (event.state === 'game_paused' || event.state === 'game_ended') {
+        } else if (event.state === 'game_paused' || event.state === 'game_ended' || event.state === 'game_ended_automatically') {
           if (currentHoldStart && currentTeam === currentOwnerTeam) {
             const intervalTime = Math.floor(
               (event.timestamp.getTime() - currentHoldStart.getTime()) / 1000,
@@ -276,12 +276,12 @@ export class TimerCalculationService {
         })),
       ...history
         .filter(event =>
-          ['game_started', 'game_paused', 'game_resumed', 'game_ended'].includes(event.eventType),
+          ['game_started', 'game_paused', 'game_resumed', 'game_ended', 'game_ended_automatically'].includes(event.eventType),
         )
         .map(event => ({
           type: 'game_state' as const,
           timestamp: event.timestamp,
-          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended',
+          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended' | 'game_ended_automatically',
         })),
     ];
 
@@ -328,7 +328,7 @@ export class TimerCalculationService {
           if (currentTeam && currentTeam === team) {
             currentHoldStart = event.timestamp;
           }
-        } else if (event.state === 'game_paused' || event.state === 'game_ended') {
+        } else if (event.state === 'game_paused' || event.state === 'game_ended' || event.state === 'game_ended_automatically') {
           if (currentHoldStart && currentTeam === team) {
             const intervalTime = Math.floor(
               (event.timestamp.getTime() - currentHoldStart.getTime()) / 1000,
@@ -388,12 +388,12 @@ export class TimerCalculationService {
         })),
       ...history
         .filter(event =>
-          ['game_started', 'game_paused', 'game_resumed', 'game_ended'].includes(event.eventType),
+          ['game_started', 'game_paused', 'game_resumed', 'game_ended', 'game_ended_automatically'].includes(event.eventType),
         )
         .map(event => ({
           type: 'game_state' as const,
           timestamp: event.timestamp,
-          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended',
+          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended' | 'game_ended_automatically',
         })),
     ];
 
@@ -418,7 +418,7 @@ export class TimerCalculationService {
           if (bombActive && bombStartTime) {
             currentActiveStart = event.timestamp;
           }
-        } else if (event.state === 'game_paused' || event.state === 'game_ended') {
+        } else if (event.state === 'game_paused' || event.state === 'game_ended' || event.state === 'game_ended_automatically') {
           if (currentActiveStart && bombActive) {
             const intervalTime = Math.floor(
               (event.timestamp.getTime() - currentActiveStart.getTime()) / 1000,
