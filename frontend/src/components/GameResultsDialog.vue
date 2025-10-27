@@ -128,7 +128,7 @@ import { GameService } from '../services/game.js'
 interface Props {
   isOpen: boolean
   onClose: () => void
-  currentGame: Game | null
+  currentGame?: Game | null
   gameId?: string | number
 }
 

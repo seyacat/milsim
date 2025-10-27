@@ -891,4 +891,24 @@ export class GamesService {
       console.error(`[INCLUDE_PLAYERS] Error including connected players in new game instance for game ${gameId}:`, error);
     }
   }
+  /**
+   * Get all game instances
+   */
+  async getGameInstances(): Promise<GameInstance[]> {
+    return this.gameInstancesRepository.find({
+      relations: ['game', 'players', 'players.user'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /**
+   * Get game instances by specific game
+   */
+  async getGameInstancesByGame(gameId: number): Promise<GameInstance[]> {
+    return this.gameInstancesRepository.find({
+      where: { game: { id: gameId } },
+      relations: ['game', 'players', 'players.user'],
+      order: { createdAt: 'DESC' },
+    });
+  }
 }

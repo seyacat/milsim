@@ -35,6 +35,22 @@ export interface Game {
   updatedAt: string;
 }
 
+// Game Instance types
+export interface GameInstance {
+  id: number;
+  name: string;
+  description?: string;
+  status: string;
+  maxPlayers: number;
+  teamCount: number;
+  totalTime: number | null;
+  gameStartTime: string | null;
+  createdAt: string;
+  updatedAt: string;
+  game: Game;
+  players: Player[];
+}
+
 // Control Point types
 export interface ControlPoint {
   id: number;

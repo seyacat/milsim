@@ -14,6 +14,7 @@ import { GamesService } from './games.service';
 import { Game } from './entities/game.entity';
 import { Player } from './entities/player.entity';
 import { ControlPoint } from './entities/control-point.entity';
+import { GameInstance } from './entities/game-instance.entity';
 
 @Controller('api/games')
 export class GamesController {
@@ -211,5 +212,34 @@ export class GamesController {
     await this.authService.validateToken(token);
 
     return this.gamesService.getGameResultsReport(+id);
+  }
+
+  @Get('instances')
+  async getGameInstances(
+    @Headers('authorization') authHeader: string,
+  ): Promise<GameInstance[]> {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Token de autorización requerido');
+    }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    await this.authService.validateToken(token);
+
+    return this.gamesService.getGameInstances();
+  }
+
+  @Get(':id/instances')
+  async getGameInstancesByGame(
+    @Param('id') id: string,
+    @Headers('authorization') authHeader: string,
+  ): Promise<GameInstance[]> {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Token de autorización requerido');
+    }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    await this.authService.validateToken(token);
+
+    return this.gamesService.getGameInstancesByGame(+id);
   }
 }

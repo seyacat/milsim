@@ -202,4 +202,31 @@ export class GameService {
       throw new Error(error.message || 'Failed to update game time');
     }
   }
+  static async getGameHistory(): Promise<Game[]> {
+    const response = await fetch(`${API_BASE_URL}/games/history`, {
+      headers: AuthService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch game history');
+    }
+
+    return response.json();
+  }
+
+  static async getGameInstances(gameId?: number): Promise<GameInstance[]> {
+    const url = gameId
+      ? `${API_BASE_URL}/games/${gameId}/instances`
+      : `${API_BASE_URL}/games/instances`;
+    
+    const response = await fetch(url, {
+      headers: AuthService.getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch game instances');
+    }
+
+    return response.json();
+  }
 }

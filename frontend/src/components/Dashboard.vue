@@ -52,15 +52,23 @@
             <span class="game-owner">Owner: {{ game.owner?.name || 'Unknown' }}</span>
             <span :class="`status-${game.status}`">Status: {{ game.status }}</span>
             <span>Players: {{ game.activeConnections || 0 }}</span>
-            <button
-              v-if="isGameOwner(game)"
-              class="btn btn-danger btn-sm"
-              @click.stop="deleteGame(game.id)"
-              title="Delete game"
-            >
-              🗑️
-            </button>
-            <span v-else></span>
+            <div class="game-card-actions">
+              <button
+                class="btn btn-info btn-sm"
+                @click.stop="viewGameHistory(game.id)"
+                title="View Game History"
+              >
+                🕒
+              </button>
+              <button
+                v-if="isGameOwner(game)"
+                class="btn btn-danger btn-sm"
+                @click.stop="deleteGame(game.id)"
+                title="Delete game"
+              >
+                🗑️
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -147,6 +155,10 @@ const enterGame = (game: Game) => {
 
 const createGame = () => {
   router.push('/create-game')
+}
+
+const viewGameHistory = (gameId: number) => {
+  router.push(`/history?gameId=${gameId}`)
 }
 
 const logout = () => {
@@ -245,14 +257,27 @@ const logout = () => {
   background: var(--danger-dark);
 }
 
+.btn-info {
+  background: var(--info);
+  color: white;
+}
+
+.btn-info:hover {
+  background: var(--info-dark);
+}
+
 .btn-sm {
   padding: 0.25rem 0.5rem;
   font-size: 0.8rem;
 }
 
+.history-icon {
+  font-size: 1.2rem;
+}
+
 .games-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: 1rem;
 }
 
@@ -291,5 +316,10 @@ const logout = () => {
 
 .status-finished {
   color: var(--info);
+}
+
+.game-card-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 </style>

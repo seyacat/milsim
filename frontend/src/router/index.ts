@@ -35,6 +35,12 @@ const router = createRouter({
       meta: { requiresAuth: true }
     },
     {
+      path: '/history',
+      name: 'history',
+      component: () => import('../components/GameHistory.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
       path: '/',
       redirect: () => {
         const user = AuthService.getCurrentUser()
