@@ -109,11 +109,7 @@ watch(() => props.players, (players) => {
   }
 }, { immediate: true })
 
-// Watch for team count changes to ensure players data is preserved
-watch(() => props.teamCount, (newCount, oldCount) => {
-  console.log('PlayersDialog - teamCount changed:', oldCount, '->', newCount)
-  console.log('PlayersDialog - current playersData:', playersData.value.length, 'players')
-})
+
 
 // Listen for player team updates via WebSocket
 const setupSocketListeners = () => {
@@ -133,7 +129,6 @@ const setupSocketListeners = () => {
 
   // Listen for specific player team updated events
   props.socket.on('playerTeamUpdated', (data: { playerId: number; userId: number; team: TeamColor; userName?: string }) => {
-    console.log('PlayersDialog - playerTeamUpdated event received:', data)
     updatePlayerTeamInLocalData(data.playerId, data.team)
   })
 }

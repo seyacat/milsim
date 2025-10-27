@@ -277,7 +277,6 @@ const onMapClick = async (latlng: { lat: number; lng: number }) => {
   
   // Add global function for the button
   ;(window as any).createControlPoint = (lat: number, lng: number) => {
-    console.log('Creating control point at:', lat, lng)
     createControlPoint(socketRef, currentGame, lat, lng)
     mapInstance.value?.closePopup()
   }
@@ -423,7 +422,6 @@ const updateLocalTimerFromServer = (data: TimeUpdateEvent | GameTimeEvent) => {
 
 // Control point handlers
 const handleControlPointMove = (controlPointId: number, markerId: number) => {
-  console.log('Move control point:', controlPointId, markerId)
   enableControlPointDrag(controlPointId)
   closePopup()
   
@@ -432,12 +430,10 @@ const handleControlPointMove = (controlPointId: number, markerId: number) => {
   if (marker) {
     marker.off('dragend') // Remove any existing listeners
     marker.on('dragend', () => {
-      console.log('Control point drag ended:', controlPointId)
       disableControlPointDrag(controlPointId)
       
       // Get new position and update control point
       const newLatLng = marker.getLatLng()
-      console.log('New position:', newLatLng)
       
       // Update control point position via WebSocket
       if (currentGame.value) {
@@ -489,7 +485,6 @@ const handleUpdateBombChallengeWrapper = (controlPointId: number, time: number) 
 }
 
 const createControlPointWrapper = (lat: number, lng: number) => {
-  console.log('Creating control point at:', lat, lng)
   createControlPoint(socketRef, currentGame, lat, lng)
   showControlPointMenu.value = false
 }
@@ -523,14 +518,12 @@ const onGameUpdate = (game: Game) => {
   if (game.status === 'running') {
     startLocalTimer()
   } else {
-    console.log('[GAME_UPDATE] Stopping local timer for non-running game, status:', game.status)
     stopLocalTimer()
   }
   
   // Force UI update for player controls to ensure pause state is respected
   // This is especially important after restart to ensure the player respects pause state
   if (!isOwner.value && game.status === 'paused') {
-    console.log('[GAME_UPDATE] Player detected pause state, forcing UI update')
     // Force reactivity by reassigning the object
     currentGame.value = { ...currentGame.value }
     
@@ -540,7 +533,6 @@ const onGameUpdate = (game: Game) => {
     // Force a small delay to ensure Vue reactivity updates the UI
     setTimeout(() => {
       if (currentGame.value && currentGame.value.status === 'paused') {
-        console.log('[GAME_UPDATE] Confirming pause state is still active after delay')
         currentGame.value = { ...currentGame.value }
       }
     }, 100)
@@ -599,22 +591,18 @@ const onGameUpdate = (game: Game) => {
 
   // Show results dialog automatically when game is finished for all users
   if (game.status === 'finished') {
-    console.log('Game finished, showing results dialog for all users')
     showResultsDialog.value = true
     stopLocalTimer()
   }
 
   // Close results dialog when game transitions from finished to stopped (restart)
   if (previousStatus === 'finished' && game.status === 'stopped') {
-    console.log('Game restarted, closing results dialog')
     showResultsDialog.value = false
     
     // Clear all bomb timers completely when game transitions from finished to stopped
-    console.log('Clearing all bomb timers due to game state change from finished to stopped')
     bombTimersComposable.value?.clearAllBombTimers()
     
     // Hide all timers when game transitions from finished to stopped
-    console.log('Hiding all timers due to game state change from finished to stopped')
     updateAllTimerDisplays(game)
   }
 
@@ -624,7 +612,6 @@ const onGameUpdate = (game: Game) => {
     const hasTeam = currentPlayer?.team && currentPlayer.team !== 'none'
     
     if (!hasTeam) {
-      console.log('Game stopped, showing team selection for player without team')
       showTeamSelection.value = true
     }
   } else if (game.status !== 'stopped') {
@@ -634,31 +621,19 @@ const onGameUpdate = (game: Game) => {
 
   // Clear bomb timers when game transitions to stopped state (not from finished)
   if (game.status === 'stopped' && previousStatus !== 'finished') {
-    console.log('Game stopped, clearing all bomb timers')
     bombTimersComposable.value?.clearAllBombTimers()
   }
 
   // Close team selection dialog when game transitions from stopped to running
   if (previousStatus === 'stopped' && game.status === 'running') {
-    console.log('Game started, closing team selection dialog')
     showTeamSelection.value = false
     
     // Ensure all bomb timers are cleared when new game starts
-    console.log('Ensuring all bomb timers are cleared for new game')
     bombTimersComposable.value?.clearAllBombTimers()
   }
 }
 
 const onControlPointCreated = (controlPoint: ControlPoint) => {
-  console.log('onControlPointCreated - Received control point:', controlPoint)
-  console.log('onControlPointCreated - Control point coordinates:', {
-    id: controlPoint.id,
-    name: controlPoint.name,
-    latitude: controlPoint.latitude,
-    longitude: controlPoint.longitude,
-    hasLatitude: 'latitude' in controlPoint,
-    hasLongitude: 'longitude' in controlPoint
-  })
   
   if (currentGame.value) {
     currentGame.value.controlPoints = [...(currentGame.value.controlPoints || []), controlPoint]
@@ -681,7 +656,6 @@ const onControlPointCreated = (controlPoint: ControlPoint) => {
     renderControlPoints(currentGame.value.controlPoints, handlers)
     // Update timers after markers are rendered
     setTimeout(() => {
-      console.log('Control point created - updating all timers')
       updateAllTimerDisplays(currentGame.value)
       bombTimersComposable.value?.updateAllBombTimerDisplays(currentGame.value)
     }, 100)
@@ -689,15 +663,6 @@ const onControlPointCreated = (controlPoint: ControlPoint) => {
 }
 
 const onControlPointUpdated = (controlPoint: ControlPoint) => {
-  console.log('Game.vue - onControlPointUpdated callback received:', {
-    id: controlPoint.id,
-    name: controlPoint.name,
-    hasBombChallenge: controlPoint.hasBombChallenge,
-    hasPositionChallenge: controlPoint.hasPositionChallenge,
-    hasCodeChallenge: controlPoint.hasCodeChallenge,
-    latitude: controlPoint.latitude,
-    longitude: controlPoint.longitude
-  })
   
   if (currentGame.value) {
     currentGame.value.controlPoints = (currentGame.value.controlPoints || []).map(cp =>
@@ -719,12 +684,10 @@ const onControlPointUpdated = (controlPoint: ControlPoint) => {
       handleDeactivateBomb: handleDeactivateBombWrapper
     } : {}
     
-    console.log('Game.vue - Calling updateControlPointMarker with handlers:', Object.keys(handlers))
     // Update the specific control point marker instead of re-rendering all
     updateControlPointMarker(controlPoint, handlers)
     // Update timers after marker is updated
     setTimeout(() => {
-      console.log('Control point updated - updating all timers')
       updateAllTimerDisplays(currentGame.value)
       bombTimersComposable.value?.updateAllBombTimerDisplays(currentGame.value)
     }, 100)
@@ -755,7 +718,6 @@ const onControlPointDeleted = (controlPointId: number) => {
     renderControlPoints(currentGame.value.controlPoints, handlers)
     // Update timers after markers are rendered
     setTimeout(() => {
-      console.log('Control point deleted - updating all timers')
       updateAllTimerDisplays(currentGame.value)
       bombTimersComposable.value?.updateAllBombTimerDisplays(currentGame.value)
     }, 100)
@@ -773,7 +735,6 @@ const onError = (error: string) => {
 // Global functions for control point popup buttons
 const setupGlobalFunctions = () => {
   ;(window as any).createControlPoint = (lat: number, lng: number) => {
-    console.log('Creating control point at:', lat, lng)
     createControlPoint(socketRef, currentGame, lat, lng)
     if (mapInstance.value) {
       mapInstance.value.closePopup()
@@ -781,7 +742,6 @@ const setupGlobalFunctions = () => {
   }
   
   ;(window as any).editControlPoint = (controlPointId: number) => {
-    console.log('Edit control point:', controlPointId)
     addToast({ message: 'Funcionalidad de edición en desarrollo', type: 'info' })
   }
   
@@ -793,7 +753,6 @@ const setupGlobalFunctions = () => {
   
   // Global function to show team change toast
   ;(window as any).showTeamChangeToast = (message: string) => {
-    console.log('Game.vue - showTeamChangeToast called:', message)
     addToast({ message, type: 'success' })
   }
 }
@@ -880,7 +839,6 @@ onMounted(async () => {
           updateControlPointTimes(data.controlPointTimes, currentGame.value)
           // Update timers after markers are rendered
           setTimeout(() => {
-            console.log('Time update - updating all timers')
             updateAllTimerDisplays(currentGame.value)
           }, 100)
         }
@@ -890,7 +848,6 @@ onMounted(async () => {
         // No need to duplicate the logic here
       },
       onBombTimeUpdate: (data: any) => {
-        console.log('GameOwner - Bomb time update received:', data)
         bombTimersComposable.value?.handleBombTimeUpdate(data)
       },
       onActiveBombTimers: (data: any) => {
@@ -904,7 +861,6 @@ onMounted(async () => {
         }
       },
       onControlPointUpdated: (controlPoint: ControlPoint) => {
-        console.log('GameOwner - Control point updated received:', controlPoint)
         if (controlPoint) {
           // Only pass handlers for owners, players should get empty handlers
           const handlers = isOwner.value ? {
@@ -926,20 +882,7 @@ onMounted(async () => {
         }
       },
       onControlPointTeamAssigned: (data: ControlPointTeamAssignedEvent) => {
-        console.log('DEBUG: Control point team assigned received - full data:', data)
-        console.log('DEBUG: Control point team assigned - controlPoint data:', data.controlPoint)
-        console.log('DEBUG: Control point team assigned - controlPoint details:', {
-          id: data.controlPoint?.id,
-          name: data.controlPoint?.name,
-          ownedByTeam: data.controlPoint?.ownedByTeam,
-          hasCodeChallenge: data.controlPoint?.hasCodeChallenge,
-          hasBombChallenge: data.controlPoint?.hasBombChallenge,
-          bombStatus: data.controlPoint?.bombStatus,
-          isOwner: isOwner.value
-        })
-        console.log('GameOwner - Control point team assigned received:', data)
         if (data.controlPoint) {
-          console.log('GameOwner - Control point team assigned - updating marker for control point:', data.controlPoint.id)
           // Only pass handlers for owners, players should get empty handlers
           const handlers = isOwner.value ? {
             handleControlPointMove,
@@ -963,42 +906,23 @@ onMounted(async () => {
       },
       // Add direct listener for playerTeamUpdated events
       onGameAction: (data: any) => {
-        console.log('GameOwner - Game action received:', data.action, data)
         if (data.action === 'playerTeamUpdated' && data.data) {
           console.log('GameOwner - Direct gameAction playerTeamUpdated received:', data.data)
         }
       },
       // Handle player team updates
       onPlayerTeamUpdated: (data: any) => {
-        console.log('GameOwner - Direct playerTeamUpdated event received:', data)
         // This callback is handled by usePlayerMarkers composable
         // No need to duplicate the logic here
       },
       // Handle control point taken events
       onControlPointTaken: (data: ControlPointTakenEvent) => {
-        console.log('DEBUG: Control point taken received - full data:', data)
-        console.log('DEBUG: Control point taken received - controlPoint data:', data.controlPoint)
         
         // The control point data is directly in data.controlPoint (not nested)
         const controlPointData = data.controlPoint
         
-        console.log('DEBUG: Control point taken received:', {
-          controlPointId: data.controlPointId,
-          userId: data.userId,
-          userName: data.userName,
-          team: data.team,
-          controlPointName: controlPointData?.name,
-          ownedByTeam: controlPointData?.ownedByTeam,
-          hasCodeChallenge: controlPointData?.hasCodeChallenge,
-          hasBombChallenge: controlPointData?.hasBombChallenge,
-          bombStatus: controlPointData?.bombStatus,
-          isOwner: isOwner.value
-        })
-        console.log('GameOwner - Control point taken received:', data)
-        console.log('GameOwner - Control point taken - isOwner:', isOwner.value)
         
         if (!controlPointData) {
-          console.log('GameOwner - Control point taken - no controlPoint in data')
           return
         }
 
@@ -1046,7 +970,6 @@ onMounted(async () => {
           disarmedCode: controlPointData.disarmedCode || undefined
         }
 
-        console.log('GameOwner - Control point taken - updating marker for control point:', controlPoint.id)
         
         // Only pass handlers for owners, players should get empty handlers
         const handlers = isOwner.value ? {
@@ -1064,32 +987,15 @@ onMounted(async () => {
           handleDeactivateBomb: handleDeactivateBombWrapper
         } : {}
         
-        console.log('GameOwner - Control point taken - handlers object keys:', Object.keys(handlers))
         updateControlPointMarker(controlPoint, handlers)
       },
       // Handle bomb activated events
       onBombActivated: (data: BombActivatedEvent) => {
-        console.log('DEBUG: Bomb activated received - full data:', data)
-        console.log('DEBUG: Bomb activated received - controlPoint data:', data.controlPoint)
-        console.log('DEBUG: Bomb activated received:', {
-          controlPointId: data.controlPointId,
-          userId: data.userId,
-          userName: data.userName,
-          controlPointName: data.controlPoint?.name,
-          ownedByTeam: data.controlPoint?.ownedByTeam,
-          hasCodeChallenge: data.controlPoint?.hasCodeChallenge,
-          hasBombChallenge: data.controlPoint?.hasBombChallenge,
-          bombStatus: data.controlPoint?.bombStatus,
-          isOwner: isOwner.value
-        })
-        console.log('GameOwner - Bomb activated received:', data)
-        console.log('GameOwner - Bomb activated - isOwner:', isOwner.value)
         
         // Find the control point in the current game
         const controlPointData = currentGame.value?.controlPoints?.find(cp => cp.id === data.controlPointId)
         
         if (!controlPointData) {
-          console.log('GameOwner - Bomb activated - control point not found:', data.controlPointId)
           return
         }
 
@@ -1106,7 +1012,6 @@ onMounted(async () => {
           }
         }
 
-        console.log('GameOwner - Bomb activated - updating marker for control point:', controlPoint.id)
         
         // Only pass handlers for owners, players should get empty handlers
         const handlers = isOwner.value ? {
@@ -1124,32 +1029,15 @@ onMounted(async () => {
           handleDeactivateBomb: handleDeactivateBombWrapper
         } : {}
         
-        console.log('GameOwner - Bomb activated - handlers object keys:', Object.keys(handlers))
         updateControlPointMarker(controlPoint, handlers)
       },
       // Handle bomb deactivated events
       onBombDeactivated: (data: BombDeactivatedEvent) => {
-        console.log('DEBUG: Bomb deactivated received - full data:', data)
-        console.log('DEBUG: Bomb deactivated received - controlPoint data:', data.controlPoint)
-        console.log('DEBUG: Bomb deactivated received:', {
-          controlPointId: data.controlPointId,
-          userId: data.userId,
-          userName: data.userName,
-          controlPointName: data.controlPoint?.name,
-          ownedByTeam: data.controlPoint?.ownedByTeam,
-          hasCodeChallenge: data.controlPoint?.hasCodeChallenge,
-          hasBombChallenge: data.controlPoint?.hasBombChallenge,
-          bombStatus: data.controlPoint?.bombStatus,
-          isOwner: isOwner.value
-        })
-        console.log('GameOwner - Bomb deactivated received:', data)
-        console.log('GameOwner - Bomb deactivated - isOwner:', isOwner.value)
         
         // Find the control point in the current game
         const controlPointData = currentGame.value?.controlPoints?.find(cp => cp.id === data.controlPointId)
         
         if (!controlPointData) {
-          console.log('GameOwner - Bomb deactivated - control point not found:', data.controlPointId)
           return
         }
 
@@ -1159,7 +1047,6 @@ onMounted(async () => {
           bombStatus: undefined // Clear bomb status when deactivated
         }
 
-        console.log('GameOwner - Bomb deactivated - updating marker for control point:', controlPoint.id)
         
         // Only pass handlers for owners, players should get empty handlers
         const handlers = isOwner.value ? {
@@ -1177,7 +1064,6 @@ onMounted(async () => {
           handleDeactivateBomb: handleDeactivateBombWrapper
         } : {}
         
-        console.log('GameOwner - Bomb deactivated - handlers object keys:', Object.keys(handlers))
         updateControlPointMarker(controlPoint, handlers)
       }
     })
@@ -1267,7 +1153,6 @@ const startConnectionHealthCheck = () => {
   stopConnectionHealthCheck()
   connectionHealthInterval.value = setInterval(() => {
     if (socketRef.value && !socketRef.value.connected) {
-      console.log('Connection health check: WebSocket disconnected, attempting to reconnect...')
       
       // Force a full reconnection instead of just checking
       forceReconnect()
@@ -1275,7 +1160,6 @@ const startConnectionHealthCheck = () => {
       // Also try to refresh the game state after reconnection
       setTimeout(() => {
         if (socketRef.value?.connected && currentGame.value) {
-          console.log('Connection health check: Requesting fresh game state after reconnection')
           // Request fresh game state to ensure synchronization
           socketRef.value.emit('getGameState', { gameId: currentGame.value.id })
         }
@@ -1292,7 +1176,6 @@ const stopConnectionHealthCheck = () => {
 }
 
 onUnmounted(() => {
-  console.log('GameOwner - onUnmounted called, cleaning up resources')
   
   // Stop connection health check first
   stopConnectionHealthCheck()
@@ -1339,7 +1222,6 @@ onUnmounted(() => {
   delete (window as any).deleteControlPoint
   delete (window as any).showTeamChangeToast
   
-  console.log('GameOwner - cleanup completed')
 })
 
 </script>

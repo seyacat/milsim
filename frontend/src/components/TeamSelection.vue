@@ -79,16 +79,11 @@ const availableTeams = computed(() => {
 })
 
 const selectTeam = (teamId: string) => {
-  console.log('TeamSelection - selectTeam called with:', teamId)
-  console.log('TeamSelection - props.socket:', props.socket)
-  console.log('TeamSelection - currentGameData:', currentGameData.value)
   
   // Get the socket value (it's a ref)
   const socket = props.socket?.value || props.socket
   const currentGame = currentGameData.value
   
-  console.log('TeamSelection - Extracted socket:', socket)
-  console.log('TeamSelection - Extracted currentGame:', currentGame)
   
   if (!socket) {
     console.error('TeamSelection - Socket not available')
@@ -123,18 +118,12 @@ const selectTeam = (teamId: string) => {
   const teamName = teamNames[teamId] || teamId
   
   // Enviar selección de equipo al servidor
-  console.log('TeamSelection - Sending team selection to server')
-  console.log('TeamSelection - Game ID:', currentGame.id)
-  console.log('TeamSelection - Team ID:', teamId)
   
   try {
     // Find current player to get playerId
     const currentPlayer = currentGame.players?.find(p => p.user?.id === props.currentUser?.id)
     const playerId = currentPlayer?.id
     
-    console.log('TeamSelection - Current player:', currentPlayer)
-    console.log('TeamSelection - Player ID:', playerId)
-    console.log('TeamSelection - User ID:', props.currentUser?.id)
     
     socket.emit('gameAction', {
       gameId: currentGame.id,
@@ -145,7 +134,6 @@ const selectTeam = (teamId: string) => {
         playerId: playerId
       }
     })
-    console.log('TeamSelection - Socket emit successful')
   } catch (error) {
     console.error('TeamSelection - Socket emit error:', error)
     addToast({ message: 'Error al enviar selección', type: 'error' })
@@ -153,7 +141,6 @@ const selectTeam = (teamId: string) => {
   }
   
   // Cerrar el diálogo inmediatamente después de la selección
-  console.log('TeamSelection - Closing dialog')
   props.onTeamSelected(teamId)
   
   // Wait for the backend to confirm the team change via WebSocket
@@ -168,7 +155,6 @@ const setupSocketListeners = () => {
   // Listen for game updates that might include team count changes
   socket.on('gameUpdate', (data: { game: any; type?: string }) => {
     if (data.game) {
-      console.log('TeamSelection - Game update received:', data.game)
       currentGameData.value = data.game
     }
   })
@@ -176,7 +162,6 @@ const setupSocketListeners = () => {
   // Listen for team count updates
   socket.on('gameAction', (data: { action: string; data: any }) => {
     if (data.action === 'teamCountUpdated' && data.data.game) {
-      console.log('TeamSelection - Team count updated:', data.data.game)
       currentGameData.value = data.data.game
     }
   })

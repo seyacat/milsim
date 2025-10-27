@@ -6,7 +6,7 @@
  * 2. Si el console.log está dentro de un catch, cambiarlo por console.error
  * 3. Si el console.log deja un bloque vacío, no borrarlo
  *
- * Soporta archivos JavaScript (.js) y TypeScript (.ts, .tsx)
+ * Soporta archivos JavaScript (.js), TypeScript (.ts, .tsx) y Vue (.vue)
  */
 
 const fs = require('fs');
@@ -22,19 +22,32 @@ class ConsoleLogRemover {
     }
 
     /**
-     * Procesa un archivo JavaScript o TypeScript
+     * Procesa un archivo JavaScript, TypeScript o Vue
      */
     processFile(filePath) {
         try {
             const content = fs.readFileSync(filePath, 'utf8');
-            const originalLines = content.split('\n');
-            const processedLines = this.processLines(originalLines);
             
-            if (JSON.stringify(originalLines) !== JSON.stringify(processedLines)) {
-                fs.writeFileSync(filePath, processedLines.join('\n'), 'utf8');
-                this.modifiedFiles++;
+            // Para archivos Vue, procesar solo el contenido dentro de <script> tags
+            if (filePath.endsWith('.vue')) {
+                const processedContent = this.processVueFile(content);
+                if (processedContent !== content) {
+                    fs.writeFileSync(filePath, processedContent, 'utf8');
+                    this.modifiedFiles++;
+                } else {
+                    console.log(`Sin cambios: ${filePath}`);
+                }
             } else {
-                console.log(`Sin cambios: ${filePath}`);
+                // Para archivos JS/TS, procesar normalmente
+                const originalLines = content.split('\n');
+                const processedLines = this.processLines(originalLines);
+                
+                if (JSON.stringify(originalLines) !== JSON.stringify(processedLines)) {
+                    fs.writeFileSync(filePath, processedLines.join('\n'), 'utf8');
+                    this.modifiedFiles++;
+                } else {
+                    console.log(`Sin cambios: ${filePath}`);
+                }
             }
             
             this.processedFiles++;
@@ -243,8 +256,8 @@ class ConsoleLogRemover {
                         traverseDirectory(fullPath);
                     }
                 } else {
-                    // Incluir archivos JavaScript y TypeScript
-                    if ((item.endsWith('.js') || item.endsWith('.ts') || item.endsWith('.tsx')) &&
+                    // Incluir archivos JavaScript, TypeScript y Vue
+                    if ((item.endsWith('.js') || item.endsWith('.ts') || item.endsWith('.tsx') || item.endsWith('.vue')) &&
                         !item.endsWith('.test.js') && !item.endsWith('.test.ts') &&
                         !item.endsWith('.spec.js') && !item.endsWith('.spec.ts') &&
                         !item.endsWith('.d.ts')) {
@@ -275,6 +288,69 @@ class ConsoleLogRemover {
     /**
      * Muestra el resumen de cambios
      */
+    /**
+     * Procesa un archivo Vue, extrayendo y procesando solo el contenido dentro de <script> tags
+     */
+    processVueFile(content) {
+        const lines = content.split('\n');
+        let inScriptTag = false;
+        let scriptStartIndex = -1;
+        let scriptEndIndex = -1;
+        let scriptContent = [];
+        
+        // Encontrar el bloque <script>
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            
+            if (line.includes('<script') && !line.includes('</script>')) {
+                inScriptTag = true;
+                scriptStartIndex = i;
+                continue;
+            }
+            
+            if (inScriptTag && line.includes('</script>')) {
+                inScriptTag = false;
+                scriptEndIndex = i;
+                break;
+            }
+            
+            if (inScriptTag) {
+                scriptContent.push(line);
+            }
+        }
+        
+        // Si no se encontró un bloque <script>, retornar el contenido original
+        if (scriptStartIndex === -1 || scriptEndIndex === -1) {
+            return content;
+        }
+        
+        // Procesar el contenido del script
+        const processedScriptLines = this.processLines(scriptContent);
+        
+        // Si no hay cambios, retornar el contenido original
+        if (JSON.stringify(scriptContent) === JSON.stringify(processedScriptLines)) {
+            return content;
+        }
+        
+        // Reconstruir el archivo Vue con el script procesado
+        const result = [];
+        
+        // Agregar líneas antes del script
+        for (let i = 0; i < scriptStartIndex + 1; i++) {
+            result.push(lines[i]);
+        }
+        
+        // Agregar el script procesado
+        result.push(...processedScriptLines);
+        
+        // Agregar líneas después del script
+        for (let i = scriptEndIndex; i < lines.length; i++) {
+            result.push(lines[i]);
+        }
+        
+        return result.join('\n');
+    }
+
     printSummary() {
     }
 }

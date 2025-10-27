@@ -251,12 +251,10 @@ const handleToggleBombChallenge = () => {
 
 const handleTypeChange = (event: Event) => {
   // Type change would be handled by the parent component
-  console.log('Type changed:', (event.target as HTMLSelectElement).value)
 }
 
 const handleNameChange = (event: Event) => {
   // Name change would be handled by the parent component
-  console.log('Name changed:', (event.target as HTMLInputElement).value)
 }
 
 const handleClose = () => {
