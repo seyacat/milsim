@@ -24,7 +24,7 @@ export class GameResultsService {
   ) {}
 
   // Get game results report with team times per control point and player capture stats
-  async getGameResultsReport(gameId: number): Promise<{
+  async getGameResultsReport(gameInstanceId: number): Promise<{
     controlPoints: Array<{
       id: number;
       name: string;
@@ -53,12 +53,13 @@ export class GameResultsService {
       teamTotals: { [team: string]: number };
     };
   }> {
-    const game = await this.gamesRepository.findOne({
-      where: { id: gameId },
-      relations: ['controlPoints'],
+    // Get game instance to find the associated game
+    const gameInstance = await this.gameInstanceRepository.findOne({
+      where: { id: gameInstanceId },
+      relations: ['game', 'game.controlPoints'],
     });
 
-    if (!game || !game.instanceId) {
+    if (!gameInstance || !gameInstance.game) {
       return {
         controlPoints: [],
         teamTotals: {},
@@ -73,9 +74,11 @@ export class GameResultsService {
       };
     }
 
+    const game = gameInstance.game;
+
     // Get all teams in the game instance
     const players = await this.playersRepository.find({
-      where: { gameInstance: { id: game.instanceId } },
+      where: { gameInstance: { id: gameInstanceId } },
       relations: ['user'],
     });
 
@@ -98,7 +101,7 @@ export class GameResultsService {
     // Get all game history events for capture counting
     const history = await this.gameHistoryRepository.find({
       where: {
-        gameInstance: { id: game.instanceId },
+        gameInstance: { id: gameInstanceId },
       },
       order: { timestamp: 'ASC' },
     });
@@ -119,7 +122,7 @@ export class GameResultsService {
         for (const team of teams) {
           const teamTime = await this.timerCalculationService.calculateTeamHoldTime(
             controlPoint.id,
-            game.instanceId,
+            gameInstanceId,
             team,
           );
           teamTimes[team] = teamTime;
@@ -173,15 +176,15 @@ export class GameResultsService {
 
     // Calculate total game duration from game history
     const gameDuration = await this.timerCalculationService.calculateElapsedTimeFromEvents(
-      game.instanceId,
+      gameInstanceId,
     );
 
     // Get player capture statistics
-    const playerCaptureStats = await this.getPlayerCaptureStats(game.instanceId);
+    const playerCaptureStats = await this.getPlayerCaptureStats(gameInstanceId);
 
     // Get position challenge statistics
     const positionChallengeStats = await this.positionChallengeService.getPositionChallengeStats(
-      game.instanceId,
+      gameInstanceId,
     );
 
     return {

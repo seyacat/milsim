@@ -130,6 +130,7 @@ interface Props {
   onClose: () => void
   currentGame?: Game | null
   gameId?: string | number
+  isGameInstance?: boolean
 }
 
 const props = defineProps<Props>()
@@ -166,7 +167,18 @@ const loadGameResults = async () => {
   
   try {
     const gameId = typeof props.gameId === 'string' ? parseInt(props.gameId) : props.gameId
-    const resultsData = await GameService.getGameResults(gameId)
+    
+    // Use the same endpoint for both game IDs and game instance IDs
+    // The backend now expects game instance IDs for the results endpoint
+    // For active games, we need to get the instance ID from the currentGame
+    let instanceId = gameId
+    
+    if (!props.isGameInstance && props.currentGame?.instanceId) {
+      // This is an active game, use the instance ID from the current game
+      instanceId = props.currentGame.instanceId
+    }
+    
+    const resultsData = await GameService.getGameResults(instanceId)
     results.value = resultsData
   } catch (err) {
     console.error('Error loading game results:', err)

@@ -754,7 +754,7 @@ export class GamesService {
   }
 
   // Game Results - delegate to GameResultsService
-  async getGameResultsReport(gameId: number): Promise<{
+  async getGameResultsReport(gameInstanceId: number): Promise<{
     controlPoints: Array<{
       id: number;
       name: string;
@@ -781,7 +781,7 @@ export class GamesService {
       teamTotals: { [team: string]: number };
     };
   }> {
-    return this.gameResultsService.getGameResultsReport(gameId);
+    return this.gameResultsService.getGameResultsReport(gameInstanceId);
   }
 
   // Server recovery methods
@@ -911,4 +911,5 @@ export class GamesService {
       order: { createdAt: 'DESC' },
     });
   }
+
 }

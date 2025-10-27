@@ -1,7 +1,12 @@
 <template>
   <div class="container">
     <div class="header flex justify-between items-center">
-      <h1>Game History</h1>
+      <div>
+        <h1>Game History</h1>
+        <p v-if="gameInstances.length > 0" class="game-name">
+          Game: {{ gameInstances[0]?.game?.name || 'Unknown' }}
+        </p>
+      </div>
       <button class="btn btn-secondary" @click="goBack">
         Back to Dashboard
       </button>
@@ -10,16 +15,6 @@
     <div class="card">
       <div class="filter-section">
         <div class="filter-controls">
-          <div class="filter-group">
-            <label class="filter-label">Filter by Game:</label>
-            <select v-model="selectedGameId" class="filter-select" @change="loadGameInstances">
-              <option value="">All Games</option>
-              <option v-for="game in availableGames" :key="game.id" :value="game.id">
-                {{ game.name }}
-              </option>
-            </select>
-          </div>
-          
           <div class="filter-group">
             <label class="filter-label">Sort by Date:</label>
             <select v-model="sortOrder" class="filter-select" @change="sortInstances">
@@ -63,7 +58,6 @@
           >
             <div class="instance-card-header">
               <span class="instance-name">{{ instance.name }}</span>
-              <span class="instance-game">Game: {{ instance.game?.name || 'Unknown' }}</span>
               <span :class="`status-${instance.status}`">Status: {{ instance.status }}</span>
               <span class="instance-players">Players: {{ instance.players?.length || 0 }}</span>
               <span class="instance-date">{{ formatDate(instance.createdAt) }}</span>
@@ -87,6 +81,7 @@
       :isOpen="showResultsDialog"
       :onClose="closeResultsDialog"
       :gameId="selectedInstanceId"
+      :isGameInstance="true"
     />
   </div>
 </template>
@@ -103,7 +98,6 @@ const router = useRouter()
 const { addToast } = useToast()
 
 const gameInstances = ref<GameInstance[]>([])
-const availableGames = ref<Game[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const showResultsDialog = ref(false)
@@ -118,29 +112,27 @@ onMounted(() => {
   if (gameId) {
     selectedGameId.value = gameId
   }
-  loadAvailableGames()
   loadGameInstances()
 })
 
-const loadAvailableGames = async () => {
-  try {
-    const gamesData = await GameService.getGames()
-    availableGames.value = gamesData
-  } catch (err) {
-    console.error('Error loading available games:', err)
-  }
-}
 
 const loadGameInstances = async () => {
   try {
     loading.value = true
     error.value = null
     
+    // Always filter by the specific game from URL parameter
     const gameId = selectedGameId.value ? parseInt(selectedGameId.value) : undefined
+    if (!gameId) {
+      error.value = 'No game ID provided'
+      loading.value = false
+      return
+    }
+    
     const instancesData = await GameService.getGameInstances(gameId)
     
     // Filter only finished instances for history
-    gameInstances.value = instancesData.filter(instance => 
+    gameInstances.value = instancesData.filter(instance =>
       instance.status === 'finished' || instance.status === 'stopped'
     )
     
@@ -227,6 +219,13 @@ const formatDate = (dateString: string): string => {
   color: var(--text);
   font-size: 1.8rem;
   font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.game-name {
+  color: var(--text-muted);
+  font-size: 1rem;
+  margin: 0;
 }
 
 .flex {

@@ -80,6 +80,7 @@
         :onClose="() => showResultsDialog = false"
         :currentGame="currentGame"
         :gameId="gameId"
+        :isGameInstance="false"
       />
 
     </div>

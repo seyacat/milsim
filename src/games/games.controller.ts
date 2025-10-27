@@ -242,4 +242,5 @@ export class GamesController {
 
     return this.gamesService.getGameInstancesByGame(+id);
   }
+
 }
