@@ -1100,6 +1100,7 @@ onMounted(async () => {
       ;(window as any).mapInstance = mapInstance.value
       ;(window as any).socketRef = socketRef.value
       ;(window as any).currentGame = currentGame.value
+      ;(window as any).emitGameAction = emitGameAction
       
       // Initialize player markers AFTER map is ready
       playerMarkersComposable.value = usePlayerMarkers({
@@ -1226,6 +1227,7 @@ onUnmounted(() => {
   delete (window as any).editControlPoint
   delete (window as any).deleteControlPoint
   delete (window as any).showTeamChangeToast
+  delete (window as any).emitGameAction
   
 })
 

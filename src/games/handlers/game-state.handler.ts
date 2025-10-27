@@ -329,4 +329,35 @@ export class GameStateHandler {
       );
     }
   }
+
+  async handleUpdateGameName(
+    client: Socket,
+    gameId: number,
+    data: any,
+    connectedUsers: Map<string, any>,
+    server: any,
+  ) {
+    const user = connectedUsers.get(client.id);
+    if (user) {
+      try {
+        const game = await this.gamesService.findOne(gameId, user.id);
+        if (game.owner && game.owner.id === user.id) {
+          const updatedGame = await this.gamesService.updateGame(gameId, { name: data.name }, user.id);
+          // Get the complete game with player relations for broadcasting
+          const gameWithPlayers: Game = await this.gamesService.findOne(gameId, user.id);
+          this.broadcastUtilities.broadcastGameNameUpdated(
+            gameId,
+            gameWithPlayers,
+            server,
+            client.id,
+          );
+        }
+      } catch (error: any) {
+        client.emit('gameActionError', {
+          action: 'updateGameName',
+          error: error.message,
+        });
+      }
+    }
+  }
 }

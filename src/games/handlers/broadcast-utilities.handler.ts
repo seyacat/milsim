@@ -101,6 +101,24 @@ export class BroadcastUtilitiesHandler {
   }
 
   /**
+   * Broadcast game name updated events
+   */
+  broadcastGameNameUpdated(
+    gameId: number,
+    game: Game,
+    server: any,
+    from: string = 'server',
+  ): void {
+    const eventData: GameTimeUpdatedEvent = {
+      game,
+      from,
+      timestamp: new Date().toISOString(),
+    };
+
+    server.to(`game_${gameId}`).emit('gameNameUpdated', eventData);
+  }
+
+  /**
    * Broadcast control point created events
    */
   broadcastControlPointCreated(

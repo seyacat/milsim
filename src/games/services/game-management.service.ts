@@ -169,6 +169,18 @@ export class GameManagementService {
     // Update the game with new data
     if (updateData.name !== undefined) {
       game.name = updateData.name;
+      
+      // Also update the game instance name if the game is running
+      if (game.status === 'running' && game.instanceId) {
+        const gameInstance = await this.gameInstancesRepository.findOne({
+          where: { id: game.instanceId },
+        });
+        
+        if (gameInstance) {
+          gameInstance.name = updateData.name;
+          await this.gameInstancesRepository.save(gameInstance);
+        }
+      }
     }
 
     const updatedGame = await this.gamesRepository.save(game);
