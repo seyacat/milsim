@@ -354,6 +354,32 @@ export const useMap = () => {
     }
   }
 
+  const updatePositionCircle = async (controlPoint: ControlPoint) => {
+    if (!mapInstance.value || !controlPoint.minDistance) return null
+
+    try {
+      const circle = positionCircles.value.get(controlPoint.id)
+      if (!circle) {
+        return await createPositionCircle(controlPoint)
+      }
+
+      // Update the circle radius with the new minDistance
+      circle.setRadius(controlPoint.minDistance)
+      
+      // Update the pie chart bounds if it exists
+      const marker = controlPointMarkers.value.get(controlPoint.id)
+      if (marker && marker.pieSvg) {
+        // Remove existing pie chart and create a new one with updated bounds
+        await createPositionChallengePieChart(marker, controlPoint, circle)
+      }
+
+      return circle
+    } catch (error) {
+      console.error('Error updating position circle:', error)
+      return null
+    }
+  }
+
   const createPositionChallengePieChart = async (marker: any, controlPoint: ControlPoint, positionCircle: any) => {
     
     if (!mapInstance.value) {
@@ -531,13 +557,10 @@ export const useMap = () => {
 
       // Handle position circles and PIE charts
       if (controlPoint.hasPositionChallenge && controlPoint.minDistance) {
-        let circle = positionCircles.value.get(controlPoint.id)
-        if (!circle) {
-          // Create new position circle if it doesn't exist
-          circle = await createPositionCircle(controlPoint)
-          if (circle) {
-            positionCircles.value.set(controlPoint.id, circle)
-          }
+        // Always update the position circle with the current minDistance
+        const circle = await updatePositionCircle(controlPoint)
+        if (circle) {
+          positionCircles.value.set(controlPoint.id, circle)
         }
         
         // Create or update PIE chart for position challenge
@@ -673,13 +696,10 @@ export const useMap = () => {
 
       // Handle position circles and PIE charts when position challenge is toggled
       if (controlPoint.hasPositionChallenge && controlPoint.minDistance) {
-        let circle = positionCircles.value.get(controlPoint.id)
-        if (!circle) {
-          // Create new position circle if it doesn't exist
-          circle = await createPositionCircle(controlPoint)
-          if (circle) {
-            positionCircles.value.set(controlPoint.id, circle)
-          }
+        // Always update the position circle with the current minDistance
+        const circle = await updatePositionCircle(controlPoint)
+        if (circle) {
+          positionCircles.value.set(controlPoint.id, circle)
         }
         
         // Create or update PIE chart for position challenge
@@ -928,6 +948,7 @@ export const useMap = () => {
     centerOnPosition,
     renderControlPoints,
     updateControlPointMarker,
+    updatePositionCircle,
     updatePositionChallengePieChart,
     processPendingPositionChallengeUpdates,
     enableControlPointDrag,
