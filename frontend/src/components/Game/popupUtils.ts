@@ -210,14 +210,17 @@ export const createPopupContent = (
         </div>
         
         <div class="action-buttons" style="margin-top: 15px; display: flex; gap: 5px; justify-content: space-between">
-          <button class="btn btn-move" title="Mover punto" style="background: rgba(33, 150, 243, 0.2); border: 1px solid #2196F3; color: #2196F3; padding: 8px 12px; border-radius: 4px; font-size: 12px; cursor: pointer">
+          <button class="btn btn-move" title="Mover punto" style="background: rgba(33, 150, 243, 0.2); border: 1px solid #2196F3; color: #2196F3; padding: 10px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; flex: 1">
             Mover
           </button>
-          <button class="btn btn-primary" style="background: #2196F3; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px; cursor: pointer">
+          <button class="btn btn-primary" style="background: #2196F3; color: white; border: none; padding: 10px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; flex: 1">
             Actualizar
           </button>
-          <button class="btn btn-danger" style="background: #F44336; color: white; border: none; padding: 8px 12px; border-radius: 4px; font-size: 12px; cursor: pointer">
+          <button class="btn btn-danger" style="background: #F44336; color: white; border: none; padding: 10px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; flex: 1">
             Eliminar
+          </button>
+          <button class="btn btn-close" style="background: #9E9E9E; color: white; border: none; padding: 10px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; flex: 1">
+            Cerrar
           </button>
         </div>
       </div>
@@ -228,6 +231,7 @@ export const createPopupContent = (
   const moveButton = container.querySelector('.btn-move')
   const updateButton = container.querySelector('.btn-primary')
   const deleteButton = container.querySelector('.btn-danger')
+  const closeButton = container.querySelector('.btn-close')
   const teamButtons = container.querySelectorAll('.team-buttons .btn')
   const positionCheckbox = container.querySelector(`#positionChallenge_${controlPoint.id}`) as HTMLInputElement
   const codeCheckbox = container.querySelector(`#codeChallenge_${controlPoint.id}`) as HTMLInputElement
@@ -285,6 +289,17 @@ export const createPopupContent = (
   if (deactivateBombButton) {
     deactivateBombButton.addEventListener('click', () => {
       handlers.handleDeactivateBomb(controlPoint.id)
+    })
+  }
+
+  // Handle close button
+  if (closeButton) {
+    closeButton.addEventListener('click', () => {
+      // Close the popup using the global map instance
+      const map = (window as any).mapInstance
+      if (map) {
+        map.closePopup()
+      }
     })
   }
   
@@ -362,7 +377,7 @@ export const createPlayerPopupContent = (controlPoint: ControlPoint): HTMLElemen
         
         <!-- Close button -->
         <div style="margin-top: 15px">
-          <button class="player-btn player-btn-secondary" id="closePlayerPopupBtn_${controlPoint.id}">
+          <button class="player-btn player-btn-secondary" id="closePlayerPopupBtn_${controlPoint.id}" style="padding: 10px 16px; font-size: 12px;">
             Cerrar
           </button>
         </div>

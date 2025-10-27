@@ -378,6 +378,25 @@ export const useMap = () => {
         return await createPositionCircle(controlPoint)
       }
 
+      // Validate coordinates and convert to numbers if needed
+      const lat = typeof controlPoint.latitude === 'string'
+        ? parseFloat(controlPoint.latitude)
+        : controlPoint.latitude
+      const lng = typeof controlPoint.longitude === 'string'
+        ? parseFloat(controlPoint.longitude)
+        : controlPoint.longitude
+
+      if (isNaN(lat) || isNaN(lng)) {
+        console.error('Invalid coordinates for position circle:', controlPoint.id, controlPoint.name, lat, lng)
+        return null
+      }
+
+      // Update the circle position if coordinates changed
+      const currentLatLng = circle.getLatLng()
+      if (currentLatLng.lat !== lat || currentLatLng.lng !== lng) {
+        circle.setLatLng([lat, lng])
+      }
+
       // Update the circle radius with the new minDistance
       circle.setRadius(controlPoint.minDistance)
       
@@ -621,6 +640,22 @@ export const useMap = () => {
 
     try {
       const L = await import('leaflet')
+      
+      // Validate coordinates and convert to numbers if needed
+      const lat = typeof controlPoint.latitude === 'string'
+        ? parseFloat(controlPoint.latitude)
+        : controlPoint.latitude
+      const lng = typeof controlPoint.longitude === 'string'
+        ? parseFloat(controlPoint.longitude)
+        : controlPoint.longitude
+
+      // Update marker position if coordinates changed
+      if (!isNaN(lat) && !isNaN(lng)) {
+        const currentLatLng = marker.getLatLng()
+        if (currentLatLng.lat !== lat || currentLatLng.lng !== lng) {
+          marker.setLatLng([lat, lng])
+        }
+      }
       
       // Get updated control point icon properties
       const { iconColor, iconEmoji } = getControlPointIcon(controlPoint)

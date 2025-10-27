@@ -499,7 +499,6 @@ body {
 .control-point-edit-menu {
   min-width: 280px;
   max-width: 320px;
-  background: black;
 }
 
 .control-point-edit-content {
@@ -528,7 +527,7 @@ body {
   color: #ccc;
   padding: 0;
   width: 24px;
-  height: 24px;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -823,7 +822,7 @@ body {
 
 /* Map Controls Panel - Black background 80%, no blur */
 .game-panel.map-controls-panel {
-  background: rgba(0, 0, 0, 0.8);
+  background: transparent;
   backdrop-filter: none;
   padding: 10px;
   top: 10px;

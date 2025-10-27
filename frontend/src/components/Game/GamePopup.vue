@@ -294,7 +294,7 @@ const handleClose = () => {
   color: #666;
   padding: 0;
   width: 24px;
-  height: 24px;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: center;
