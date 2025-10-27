@@ -205,7 +205,22 @@ export class GameManagementService {
 
     // Update team count
     game.teamCount = teamCount;
-    return this.gamesRepository.save(game);
+    const updatedGame = await this.gamesRepository.save(game);
+    
+    // Load players from the active game instance if it exists to preserve player data
+    if (updatedGame.instanceId) {
+      const gameInstance = await this.gameInstancesRepository.findOne({
+        where: { id: updatedGame.instanceId },
+        relations: ['players', 'players.user'],
+      });
+      if (gameInstance && gameInstance.players) {
+        updatedGame.players = gameInstance.players;
+      }
+    } else {
+      updatedGame.players = [];
+    }
+    
+    return updatedGame;
   }
 
   async updateActiveConnections(gameId: number, connectionCount: number): Promise<Game> {

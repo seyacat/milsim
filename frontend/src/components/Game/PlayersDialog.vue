@@ -100,6 +100,7 @@ watch(() => props.isOpen, (isOpen) => {
 
 // Update players data when props change
 watch(() => props.players, (players) => {
+  console.log('PlayersDialog - props.players changed:', players?.length, 'players')
   if (players) {
     playersData.value = [...players].sort((a, b) =>
       (a.user?.name || '').localeCompare(b.user?.name || '')
@@ -109,18 +110,34 @@ watch(() => props.players, (players) => {
   }
 }, { immediate: true })
 
+// Watch for team count changes to ensure players data is preserved
+watch(() => props.teamCount, (newCount, oldCount) => {
+  console.log('PlayersDialog - teamCount changed:', oldCount, '->', newCount)
+  console.log('PlayersDialog - current playersData:', playersData.value.length, 'players')
+})
+
 // Listen for player team updates via WebSocket
 const setupSocketListeners = () => {
   if (!props.socket) return
 
   // Listen for game updates that might include player team changes
   props.socket.on('gameUpdate', (data: { game: any; type?: string }) => {
+    console.log('PlayersDialog - gameUpdate received:', data)
     if (data.game && data.game.players) {
+      console.log('PlayersDialog - updating players data from gameUpdate:', data.game.players.length, 'players')
       // Update local players data with the latest from server
       playersData.value = [...data.game.players].sort((a, b) =>
         (a.user?.name || '').localeCompare(b.user?.name || '')
       )
+    } else {
+      console.log('PlayersDialog - gameUpdate received but no players data:', data)
     }
+  })
+
+  // Listen for specific player team updated events
+  props.socket.on('playerTeamUpdated', (data: { playerId: number; userId: number; team: TeamColor; userName?: string }) => {
+    console.log('PlayersDialog - playerTeamUpdated event received:', data)
+    updatePlayerTeamInLocalData(data.playerId, data.team)
   })
 }
 
@@ -138,6 +155,7 @@ const cleanupSocketListeners = () => {
   if (!props.socket) return
   
   props.socket.off('gameUpdate')
+  props.socket.off('playerTeamUpdated')
 }
 
 onMounted(() => {

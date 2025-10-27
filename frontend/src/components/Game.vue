@@ -226,6 +226,11 @@ watch(() => currentPositionFromComposable.value, (position) => {
   }
 })
 
+// Watch for changes in currentGame.players to debug team count changes
+watch(() => currentGame.value?.players, (players) => {
+  console.log('Game.vue - currentGame.players changed:', players?.length || 0, 'players')
+}, { deep: true })
+
 const gameId = route.params.gameId as string
 const defaultTimeValue = 1200 // 20 minutes
 
@@ -475,7 +480,9 @@ const onGameUpdate = (game: Game) => {
     previousStatus,
     newStatus: game.status,
     gameId: game.id,
-    instanceId: game.instanceId
+    instanceId: game.instanceId,
+    playersCount: game.players?.length || 0,
+    controlPointsCount: game.controlPoints?.length || 0
   })
   
   // Force update the game state to ensure reactivity
