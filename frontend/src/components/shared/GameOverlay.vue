@@ -70,7 +70,7 @@
       </select>
     </div>
 
-    <!-- +1 and -1 minute buttons for owner when game is running -->
+    <!-- +1, -1, and INF buttons for owner when game is running -->
     <div v-if="currentGame.status === 'running' && isOwner" class="time-buttons-container">
       <button
         class="add-time-btn"
@@ -85,6 +85,13 @@
         title="Quitar 1 minuto al tiempo total"
       >
         -1
+      </button>
+      <button
+        class="inf-time-btn"
+        @click="setTimeUndefined"
+        title="Establecer tiempo indefinido"
+      >
+        ∞
       </button>
     </div>
   </div>
@@ -277,6 +284,19 @@ const removeOneMinute = () => {
     addToast({ message: 'Error al quitar tiempo', type: 'error' })
   }
 }
+
+const setTimeUndefined = () => {
+  if (!props.isOwner) return
+  
+  // Use global window object to access emitGameAction from parent component
+  if (window.emitGameAction) {
+    window.emitGameAction(props.currentGame.id, 'setTimeUndefined', {})
+    addToast({ message: 'Tiempo establecido como indefinido', type: 'success' })
+  } else {
+    console.error('emitGameAction not available')
+    addToast({ message: 'Error al establecer tiempo indefinido', type: 'error' })
+  }
+}
 </script>
 
 <style scoped>
@@ -413,5 +433,25 @@ const removeOneMinute = () => {
 
 .remove-time-btn:active {
   background-color: #bd2130;
+}
+
+.inf-time-btn {
+  padding: 8px 16px;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.inf-time-btn:hover {
+  background-color: #5a6268;
+}
+
+.inf-time-btn:active {
+  background-color: #545b62;
 }
 </style>

@@ -693,6 +693,69 @@ export class GamesService {
     return game;
   }
 
+  async setTimeUndefined(gameId: number): Promise<Game> {
+    const game = await this.findOne(gameId);
+    
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    // Update both game and game instance entities to keep them synchronized
+    game.totalTime = null;
+    await this.gamesRepository.save(game);
+
+    // Update the appropriate entity based on game status
+    if (game.status === 'running' && game.instanceId) {
+      // Update game instance when game is running
+      const gameInstance = await this.gameInstancesRepository.findOne({
+        where: { id: game.instanceId },
+      });
+
+      if (gameInstance) {
+        // Set totalTime to null (indefinite)
+        gameInstance.totalTime = null;
+        await this.gameInstancesRepository.save(gameInstance);
+        
+        // Stop the current timer and start a new one with null totalTime
+        this.timerManagementService.stopGameTimer(gameId);
+        await this.timerManagementService.startGameTimer(gameId, null, gameInstance.id);
+        
+        // Also restart control point timers to ensure everything is synchronized
+        await this.timerManagementService.startAllControlPointTimers(gameId);
+        
+        // Broadcast the updated time
+        this.timerManagementService.broadcastTimeAdded(gameId);
+      }
+    } else {
+      // Also update the current game instance if it exists to keep them synchronized
+      if (game.instanceId) {
+        const gameInstance = await this.gameInstancesRepository.findOne({
+          where: { id: game.instanceId },
+        });
+        
+        if (gameInstance) {
+          gameInstance.totalTime = null;
+          await this.gameInstancesRepository.save(gameInstance);
+        }
+      }
+      
+      // For stopped games, reset timers to zero since there are no active timers
+      this.timerManagementService.resetTimersToZero(gameId);
+    }
+
+    // Log game history
+    if (game.instanceId) {
+      await this.gameManagementService.addGameHistory(game.instanceId, 'time_set_undefined', {
+        timestamp: new Date(),
+      });
+    }
+
+    // Force broadcast game update to ensure frontend receives the updated totalTime
+    await this.broadcastGameUpdateWithPlayers(gameId);
+
+    return game;
+  }
+
   async updateGameTime(gameId: number, timeInSeconds: number, userId: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },

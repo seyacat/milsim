@@ -324,6 +324,43 @@ export class GameStateHandler {
     }
   }
 
+  async handleSetTimeUndefined(
+    client: Socket,
+    gameId: number,
+    data: any,
+    connectedUsers: Map<string, any>,
+    server: any,
+  ) {
+    const user = connectedUsers.get(client.id);
+    if (user) {
+      try {
+        const game = await this.gamesService.findOne(gameId, user.id);
+        if (game.owner && game.owner.id === user.id) {
+          const updatedGame = await this.gamesService.setTimeUndefined(gameId);
+          // Get the complete game with player relations for broadcasting
+          const gameWithPlayers: Game = await this.gamesService.findOne(gameId, user.id);
+          this.broadcastUtilities.broadcastTimeAdded(
+            gameId,
+            gameWithPlayers,
+            server,
+            client.id,
+          );
+          
+          // Also send immediate time update to ensure timers are synchronized
+          const timeData = await this.gamesService.getGameTime(gameId);
+          if (timeData) {
+            await this.broadcastUtilities.broadcastTimeUpdate(gameId, timeData, server);
+          }
+        }
+      } catch (error: any) {
+        client.emit('gameActionError', {
+          action: 'setTimeUndefined',
+          error: error.message,
+        });
+      }
+    }
+  }
+
   async handleUpdateGameTime(
     client: Socket,
     gameId: number,

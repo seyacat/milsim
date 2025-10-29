@@ -413,6 +413,12 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           );
           break;
 
+        case 'setTimeUndefined':
+          await this.gameStateHandler.handleSetTimeUndefined(
+            client, gameId, data, this.connectedUsers, this.server
+          );
+          break;
+
         case 'updateGameTime':
           await this.gameStateHandler.handleUpdateGameTime(
             client, gameId, data, this.connectedUsers, this.server
