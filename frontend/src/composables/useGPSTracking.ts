@@ -104,7 +104,7 @@ export const useGPSTracking = (
     }
 
     timeout.value = setTimeout(() => {
-      gpsStatus.value = 'Inactivo - Sin señal GPS por 1 minuto'
+      gpsStatus.value = 'Inactivo'
       isSendingPeriodicUpdates.value = false // Detener envío periódico al backend
     }, config.timeoutDuration)
   }

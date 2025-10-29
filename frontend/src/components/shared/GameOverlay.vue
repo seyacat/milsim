@@ -41,17 +41,15 @@
         
         <!-- Timer display for running state -->
         <div v-if="currentGame.status === 'running'">
-          Tiempo transcurrido: <span>{{ formatTime(currentGame.playedTime) }}</span>
+          Tiempo: <span>{{ formatTime(currentGame.playedTime) }}</span>
         </div>
         <div v-if="currentGame.status === 'running' && currentGame.totalTime && currentGame.totalTime > 0">
-          Tiempo restante: <span>{{ formatTime(currentGame.remainingTime) }}</span>
+          Restante: <span>{{ formatTime(currentGame.remainingTime) }}</span>
         </div>
       </div>
     </div>
     
-    <div class="game-details">
-      GPS: <span>{{ gpsStatus }}</span>
-    </div>
+    
 
     <!-- Time selector for stopped state - Only for owner -->
     <div v-if="currentGame.status === 'stopped' && isOwner" class="time-select-container">
