@@ -637,6 +637,18 @@ export class GamesService {
       // Update game entity when game is stopped - this is what the dropdown uses
       game.totalTime = effectiveTime;
       await this.gamesRepository.save(game);
+      
+      // Also update the current game instance if it exists to keep them synchronized
+      if (game.instanceId) {
+        const gameInstance = await this.gameInstancesRepository.findOne({
+          where: { id: game.instanceId },
+        });
+        
+        if (gameInstance) {
+          gameInstance.totalTime = effectiveTime;
+          await this.gameInstancesRepository.save(gameInstance);
+        }
+      }
     }
 
     // Update timer if exists
