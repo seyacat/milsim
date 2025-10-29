@@ -181,9 +181,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Get updated game data
       const updatedGame = await this.gamesService.findOne(gameId, user.id);
 
-      // Notify all clients about the updated player list
-      // Broadcast to all players to ensure team management shows updated players
-      this.broadcastGameUpdate(gameId, updatedGame);
+      // Do NOT broadcast game update when player joins as it may reset timers
+      // Player list updates are handled through other mechanisms
 
       // Check if user is owner and send stored positions
       const currentGame = await this.gamesService.findOne(gameId, user.id);
