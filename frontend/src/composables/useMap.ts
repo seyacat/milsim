@@ -77,7 +77,7 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
       
       // Initialize map with animations enabled (better UX)
       mapInstance.value = L.map(mapRef.value, {
-        zoomControl: true,
+        zoomControl: false,
         maxZoom: 22,
         minZoom: 1
       }).setView([0, 0], 13)
