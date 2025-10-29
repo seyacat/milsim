@@ -237,6 +237,11 @@ export class ControlPointManagementService {
       throw new NotFoundException('Game instance not found');
     }
 
+    // Check if game is running - code challenges only work when game is running
+    if (game.status !== 'running') {
+      throw new ConflictException('Los puntos de control solo pueden ser tomados con códigos cuando el juego está en ejecución');
+    }
+
     const player = await this.playersRepository.findOne({
       where: {
         gameInstance: { id: game.instanceId },
