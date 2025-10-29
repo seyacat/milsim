@@ -49,13 +49,14 @@ const setupLeafletErrorHandler = () => {
   }
 }
 
-export const useMap = () => {
+export const useMap = (currentGame?: any, currentUser?: any) => {
   const mapInstance = ref<any>(null)
   const mapRef = ref<HTMLDivElement | null>(null)
   const controlPointMarkers = ref<Map<number, any>>(new Map())
   const positionCircles = ref<Map<number, any>>(new Map())
   const pieCharts = ref<Map<number, any>>(new Map())
   const pendingPositionChallengeUpdates = ref<Map<number, Record<string, number>>>(new Map())
+  const openPlayerPopups = ref<Map<number, HTMLElement>>(new Map())
 
   const initializeMap = async (onMapClick: (latlng: { lat: number; lng: number }) => void) => {
     if (!mapRef.value) return
@@ -339,17 +340,22 @@ export const useMap = () => {
         })
       } else {
         // Player view - with challenge inputs
-        // Get current user's team from global window object
-        const currentGame = (window as any).currentGame
-        const currentUser = (window as any).currentUser
+        // Get current user's team from passed parameters or global window object
+        const gameData = currentGame?.value || (window as any).currentGame
+        const userData = currentUser?.value || (window as any).currentUser
         let userTeam = 'none'
         
-        if (currentGame && currentUser) {
-          const currentPlayer = currentGame.players?.find((p: any) => p.user?.id === currentUser.id)
-          userTeam = currentPlayer?.team || 'none'
+        if (gameData && userData) {
+          // Try multiple ways to get the user's team
+          const currentPlayer = gameData.players?.find((p: any) => p.user?.id === userData.id)
+          userTeam = currentPlayer?.team || userData.team || 'none'
         }
         
+        console.log('Creating player popup with team:', userTeam, 'for control point:', controlPoint.id, 'gameData:', gameData, 'userData:', userData)
         const popupContent = createPlayerPopupContent(controlPoint, userTeam)
+        
+        // Store reference to open popup for potential updates
+        openPlayerPopups.value.set(controlPoint.id, popupContent)
         marker.bindPopup(popupContent, {
           closeOnClick: false,
           autoClose: false,
@@ -861,17 +867,22 @@ export const useMap = () => {
         })
       } else {
         // Player view - with challenge inputs
-        // Get current user's team from global window object
-        const currentGame = (window as any).currentGame
-        const currentUser = (window as any).currentUser
+        // Get current user's team from passed parameters or global window object
+        const gameData = currentGame?.value || (window as any).currentGame
+        const userData = currentUser?.value || (window as any).currentUser
         let userTeam = 'none'
         
-        if (currentGame && currentUser) {
-          const currentPlayer = currentGame.players?.find((p: any) => p.user?.id === currentUser.id)
-          userTeam = currentPlayer?.team || 'none'
+        if (gameData && userData) {
+          // Try multiple ways to get the user's team
+          const currentPlayer = gameData.players?.find((p: any) => p.user?.id === userData.id)
+          userTeam = currentPlayer?.team || userData.team || 'none'
         }
         
+        console.log('Updating player popup with team:', userTeam, 'for control point:', controlPoint.id, 'gameData:', gameData, 'userData:', userData)
         const popupContent = createPlayerPopupContent(controlPoint, userTeam)
+        
+        // Store reference to open popup for potential updates
+        openPlayerPopups.value.set(controlPoint.id, popupContent)
         marker.bindPopup(popupContent, {
           closeOnClick: false,
           autoClose: false,
@@ -1099,6 +1110,41 @@ export const useMap = () => {
     destroyMap()
   })
 
+  // Function to update team colors in all open player popups
+  const updatePlayerPopupTeamColors = (userTeam?: string) => {
+    // If no team provided, detect it from available sources
+    if (!userTeam) {
+      const gameData = currentGame?.value || (window as any).currentGame
+      const userData = currentUser?.value || (window as any).currentUser
+      
+      if (gameData && userData) {
+        const currentPlayer = gameData.players?.find((p: any) => p.user?.id === userData.id)
+        userTeam = currentPlayer?.team || userData.team || 'none'
+      } else {
+        userTeam = 'none'
+      }
+    }
+    
+    console.log('Updating all player popup colors to team:', userTeam)
+    
+    // Update all open player popups
+    openPlayerPopups.value.forEach((popupElement, controlPointId) => {
+      const buttons = popupElement.querySelectorAll('.player-btn')
+      buttons.forEach(button => {
+        // Skip close button - it should always be gray
+        if (button.id && button.id.includes('closePlayerPopupBtn')) {
+          button.classList.remove('team-blue', 'team-red', 'team-green', 'team-yellow')
+          button.classList.add('team-none')
+        } else {
+          // Remove existing team classes
+          button.classList.remove('team-blue', 'team-red', 'team-green', 'team-yellow', 'team-none')
+          // Add new team class
+          button.classList.add(`team-${userTeam || 'none'}`)
+        }
+      })
+    })
+  }
+
   return {
     mapInstance,
     mapRef,
@@ -1106,6 +1152,7 @@ export const useMap = () => {
     positionCircles,
     pieCharts,
     pendingPositionChallengeUpdates,
+    openPlayerPopups,
     initializeMap,
     setMapView,
     centerOnPosition,
@@ -1117,6 +1164,7 @@ export const useMap = () => {
     enableControlPointDrag,
     disableControlPointDrag,
     closePopup,
+    updatePlayerPopupTeamColors,
     destroyMap
   }
 }

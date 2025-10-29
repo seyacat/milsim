@@ -418,6 +418,7 @@
 .control-point-create-container {
   display: flex;
   justify-content: center;
+  padding: var(--spacing-md) 0;
 }
 
 .btn-create-control-point {
@@ -765,22 +766,79 @@
   opacity: 0.8;
 }
 
-.player-btn-primary {
-  background: var(--info);
-  color: var(--text-primary);
+/* Team-specific player buttons - higher specificity */
+.control-point-player-menu .player-btn.team-blue {
+  background: var(--info) !important;
+  color: var(--text-primary) !important;
 }
 
-.player-btn-danger {
-  background: var(--danger);
-  color: var(--text-primary);
+.control-point-player-menu .player-btn.team-red {
+  background: var(--danger) !important;
+  color: var(--text-primary) !important;
 }
 
-.player-btn-warning {
-  background: var(--warning);
-  color: var(--text-primary);
+.control-point-player-menu .player-btn.team-green {
+  background: var(--success) !important;
+  color: var(--text-primary) !important;
 }
 
-.player-btn-secondary {
-  background: var(--border);
-  color: var(--text-primary);
+.control-point-player-menu .player-btn.team-yellow {
+  background: var(--warning) !important;
+  color: var(--secondary) !important;
+}
+
+.control-point-player-menu .player-btn.team-none {
+  background: var(--text-muted) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Override existing button styles for team buttons */
+.control-point-player-menu .player-btn.team-blue,
+.control-point-player-menu .player-btn.team-red,
+.control-point-player-menu .player-btn.team-green,
+.control-point-player-menu .player-btn.team-yellow,
+.control-point-player-menu .player-btn.team-none {
+  border: none !important;
+  padding: var(--spacing-md) var(--spacing-lg) !important;
+  border-radius: var(--radius-sm) !important;
+  font-size: var(--font-size-base) !important;
+  font-weight: bold !important;
+  width: 100% !important;
+  margin-bottom: var(--spacing-md) !important;
+  cursor: pointer !important;
+  transition: opacity 0.2s ease !important;
+}
+
+.control-point-player-menu .player-btn.team-blue:hover,
+.control-point-player-menu .player-btn.team-red:hover,
+.control-point-player-menu .player-btn.team-green:hover,
+.control-point-player-menu .player-btn.team-yellow:hover,
+.control-point-player-menu .player-btn.team-none:hover {
+  opacity: 0.8 !important;
+}
+
+/* Force team colors to override any other styles */
+.control-point-player-menu .player-btn.team-blue {
+  background: var(--info) !important;
+  color: var(--text-primary) !important;
+}
+
+.control-point-player-menu .player-btn.team-red {
+  background: var(--danger) !important;
+  color: var(--text-primary) !important;
+}
+
+.control-point-player-menu .player-btn.team-green {
+  background: var(--success) !important;
+  color: var(--text-primary) !important;
+}
+
+.control-point-player-menu .player-btn.team-yellow {
+  background: var(--warning) !important;
+  color: var(--secondary) !important;
+}
+
+.control-point-player-menu .player-btn.team-none {
+  background: var(--text-muted) !important;
+  color: var(--text-primary) !important;
 }

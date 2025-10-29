@@ -415,12 +415,70 @@ const connect = () => {
     onPositionChallengeUpdate: handlePositionChallengeUpdate,
     onControlPointTeamAssigned: handleControlPointTeamAssigned,
     onPlayerTeamUpdated: (data: any) => {
-      // This callback is handled by usePlayerMarkers composable
-      // No need to duplicate the logic here
+      console.log('WebSocketManager - Player team updated received:', data)
+      // Update the current user's team in the global state to trigger reactivity
+      if (data.userId === props.currentUser?.id && data.team) {
+        console.log('WebSocketManager - Updating current user team to:', data.team)
+        // Update the current user's team to trigger reactivity
+        if (props.currentUser) {
+          props.currentUser.team = data.team
+        }
+        // Also update the current game's players array to trigger the watcher
+        if (props.currentGame?.players) {
+          const playerIndex = props.currentGame.players.findIndex(p => p.user?.id === data.userId)
+          if (playerIndex !== -1) {
+            props.currentGame.players[playerIndex].team = data.team
+            // Force reactivity by reassigning the array
+            props.currentGame.players = [...props.currentGame.players]
+          }
+        }
+        // Update the global window object that popup creation uses
+        if ((window as any).currentUser) {
+          (window as any).currentUser.team = data.team
+        }
+        // Update existing popup colors immediately
+        if (props.mapInstance?.value?.updatePlayerPopupTeamColors) {
+          props.mapInstance.value.updatePlayerPopupTeamColors(data.team)
+        }
+        // Force update all control point markers to recreate popups with new team colors
+        if (props.currentGame?.controlPoints) {
+          console.log('WebSocketManager - Forcing control point marker recreation due to team change')
+          // This will trigger the watcher in Game.vue to recreate markers
+          props.currentGame.controlPoints = [...props.currentGame.controlPoints]
+        }
+      }
     },
     onGameAction: (data: any) => {
       if (data.action === 'playerTeamUpdated' && data.data) {
         console.log('WebSocketManager - Direct gameAction playerTeamUpdated received:', data.data)
+        // Handle the same way as the dedicated event
+        if (data.data.userId === props.currentUser?.id && data.data.team) {
+          console.log('WebSocketManager - Updating current user team to:', data.data.team)
+          if (props.currentUser) {
+            props.currentUser.team = data.data.team
+          }
+          if (props.currentGame?.players) {
+            const playerIndex = props.currentGame.players.findIndex(p => p.user?.id === data.data.userId)
+            if (playerIndex !== -1) {
+              props.currentGame.players[playerIndex].team = data.data.team
+              props.currentGame.players = [...props.currentGame.players]
+            }
+          }
+          // Update the global window object that popup creation uses
+          if ((window as any).currentUser) {
+            (window as any).currentUser.team = data.data.team
+          }
+          // Update existing popup colors immediately
+          if (props.mapInstance?.value?.updatePlayerPopupTeamColors) {
+            props.mapInstance.value.updatePlayerPopupTeamColors(data.data.team)
+          }
+          // Force update all control point markers to recreate popups with new team colors
+          if (props.currentGame?.controlPoints) {
+            console.log('WebSocketManager - Forcing control point marker recreation due to team change')
+            // This will trigger the watcher in Game.vue to recreate markers
+            props.currentGame.controlPoints = [...props.currentGame.controlPoints]
+          }
+        }
       }
     },
     onControlPointTaken: handleControlPointTaken,

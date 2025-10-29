@@ -137,6 +137,19 @@ const route = useRoute()
 const router = useRouter()
 const { addToast } = useToast()
 
+// State
+const currentUser = ref<User | null>(null)
+const currentGame = ref<Game | null>(null)
+const isLoading = ref(true)
+const showPlayersDialog = ref(false)
+const showResultsDialog = ref(false)
+const showTeamSelection = ref(false)
+const teamCount = ref(2)
+const gpsStatus = ref('Desconectado')
+const currentPosition = ref<any>(null)
+const isOwner = ref(false)
+const isDraggingControlPoint = ref(false)
+
 // Composables
 const {
   mapInstance,
@@ -152,7 +165,7 @@ const {
   disableControlPointDrag,
   closePopup,
   destroyMap
-} = useMap()
+} = useMap(currentGame, currentUser)
 
 const {
   createControlPoint,
@@ -187,18 +200,6 @@ const bombTimersComposable = ref<any>(null)
 // WebSocket manager ref
 const webSocketManager = ref<any>(null)
 
-// State
-const currentUser = ref<User | null>(null)
-const currentGame = ref<Game | null>(null)
-const isLoading = ref(true)
-const showPlayersDialog = ref(false)
-const showResultsDialog = ref(false)
-const showTeamSelection = ref(false)
-const teamCount = ref(2)
-const gpsStatus = ref('Desconectado')
-const currentPosition = ref<any>(null)
-const isOwner = ref(false)
-const isDraggingControlPoint = ref(false)
 
 // Player markers composable - will be initialized after map is ready
 const playerMarkersComposable = ref<any>(null)
@@ -241,6 +242,49 @@ watch(() => currentPositionFromComposable.value, (position) => {
 // Watch for changes in currentGame.players to debug team count changes
 watch(() => currentGame.value?.players, (players) => {
 }, { deep: true })
+
+// Watch for changes in current user's team to update popup button colors
+watch(() => {
+  // Check multiple sources for user team to ensure reactivity
+  const currentPlayer = currentGame.value?.players?.find(p => p.user?.id === currentUser.value?.id)
+  const userTeam = currentUser.value?.team
+  const playerTeam = currentPlayer?.team
+  
+  console.log('Team watcher - userTeam:', userTeam, 'playerTeam:', playerTeam)
+  
+  // Return the most reliable team value
+  return playerTeam || userTeam || 'none'
+}, (newTeam, oldTeam) => {
+  if (newTeam !== oldTeam) {
+    console.log('User team changed from', oldTeam, 'to', newTeam, '- updating control point markers')
+    
+    // Update global window object for popup creation
+    if ((window as any).currentUser) {
+      (window as any).currentUser.team = newTeam
+    }
+    
+    // Force update all control point markers to recreate popups with new team colors
+    if (currentGame.value?.controlPoints) {
+      const handlers = isOwner.value ? {
+        handleControlPointMove,
+        handleControlPointUpdate: handleControlPointUpdateWrapper,
+        handleControlPointDelete: handleControlPointDeleteWrapper,
+        handleAssignTeam: handleAssignTeamWrapper,
+        handleTogglePositionChallenge: handleTogglePositionChallengeWrapper,
+        handleToggleCodeChallenge: handleToggleCodeChallengeWrapper,
+        handleToggleBombChallenge: handleToggleBombChallengeWrapper,
+        handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
+        handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
+        handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
+        handleActivateBomb: handleActivateBombWrapper,
+        handleDeactivateBomb: handleDeactivateBombWrapper
+      } : {}
+      
+      console.log('Recreating control point markers with team:', newTeam)
+      renderControlPoints(currentGame.value.controlPoints, handlers)
+    }
+  }
+}, { deep: true, immediate: true })
 
 // Watch for changes in currentGame to update defaultTimeValue
 watch(() => currentGame.value, (game) => {

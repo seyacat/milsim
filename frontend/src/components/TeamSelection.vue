@@ -140,11 +140,24 @@ const selectTeam = (teamId: string) => {
     return
   }
   
+  // Update the current user's team immediately for instant reactivity
+  if (props.currentUser) {
+    props.currentUser.team = teamId as any // Type assertion to bypass TypeScript error
+  }
+  
+  // Update the global window object for popup creation
+  if ((window as any).currentUser) {
+    (window as any).currentUser.team = teamId
+  }
+  
   // Cerrar el diálogo inmediatamente después de la selección
   props.onTeamSelected(teamId)
   
-  // Wait for the backend to confirm the team change via WebSocket
+  // Show immediate feedback
+  addToast({ message: `Te has unido al equipo ${teamName}`, type: 'success' })
+  
   // The marker will be updated when the playerTeamUpdated event is received
+  // but we've already updated the local state for immediate reactivity
 }
 
 // Listen for WebSocket updates

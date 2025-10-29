@@ -334,7 +334,7 @@ export const createPlayerPopupContent = (controlPoint: ControlPoint, userTeam?: 
             <h5 style="margin: 0 0 8px 0; font-size: 14px; color: #ccc">Desafío de Código</h5>
             <div class="player-form-group">
               <input type="text" id="playerCodeInput_${controlPoint.id}" class="player-form-input" placeholder="Ingresar código" style="font-size: 16px; padding: 12px; height: 48px; margin-bottom: 10px;">
-              <button class="player-btn player-btn-primary" id="submitCodeBtn_${controlPoint.id}" style="margin-bottom: 10px;">
+              <button class="player-btn team-${userTeam || 'none'}" id="submitCodeBtn_${controlPoint.id}">
                 Ingresar Código
               </button>
             </div>
@@ -349,7 +349,7 @@ export const createPlayerPopupContent = (controlPoint: ControlPoint, userTeam?: 
               <!-- Bomb is active - show deactivation input -->
               <div class="player-form-group">
                 <input type="text" id="playerDisarmCodeInput_${controlPoint.id}" class="player-form-input" placeholder="Código de desactivación" style="font-size: 16px; padding: 12px; height: 48px; margin-bottom: 10px;">
-                <button class="player-btn player-btn-danger" id="deactivateBombBtn_${controlPoint.id}" style="background: ${getTeamColor(userTeam || 'none')}; margin-bottom: 10px;">
+                <button class="player-btn team-${userTeam || 'none'}" id="deactivateBombBtn_${controlPoint.id}">
                   Desactivar
                 </button>
               </div>
@@ -357,7 +357,7 @@ export const createPlayerPopupContent = (controlPoint: ControlPoint, userTeam?: 
               <!-- Bomb is not active - show activation input -->
               <div class="player-form-group">
                 <input type="text" id="playerArmCodeInput_${controlPoint.id}" class="player-form-input" placeholder="Código de activación" style="font-size: 16px; padding: 12px; height: 48px; margin-bottom: 10px;">
-                <button class="player-btn player-btn-warning" id="activateBombBtn_${controlPoint.id}" style="background: ${getTeamColor(userTeam || 'none')}; margin-bottom: 10px;">
+                <button class="player-btn team-${userTeam || 'none'}" id="activateBombBtn_${controlPoint.id}">
                   Activar
                 </button>
               </div>
@@ -377,13 +377,16 @@ export const createPlayerPopupContent = (controlPoint: ControlPoint, userTeam?: 
         
         <!-- Close button -->
         <div style="margin-top: 15px">
-          <button class="player-btn player-btn-secondary" id="closePlayerPopupBtn_${controlPoint.id}" style="padding: 10px 16px; font-size: 12px; margin-bottom: 10px;">
+          <button class="player-btn team-none" id="closePlayerPopupBtn_${controlPoint.id}">
             Cerrar
           </button>
         </div>
       </div>
     </div>
   `
+  
+  // Store the user team for potential updates
+  ;(container as any).userTeam = userTeam || 'none'
   
   // Add event listeners for player actions
   const codeInput = container.querySelector(`#playerCodeInput_${controlPoint.id}`) as HTMLInputElement
@@ -483,4 +486,19 @@ export const createPlayerPopupContent = (controlPoint: ControlPoint, userTeam?: 
   }
   
   return container
+}
+
+// Function to update button colors in an existing popup
+export const updatePlayerPopupTeamColors = (popupElement: HTMLElement, userTeam: string): void => {
+  if (!popupElement) return
+  
+  const buttons = popupElement.querySelectorAll('.player-btn')
+  buttons.forEach(button => {
+    // Remove existing team classes
+    button.classList.remove('team-blue', 'team-red', 'team-green', 'team-yellow', 'team-none')
+    // Add new team class
+    button.classList.add(`team-${userTeam || 'none'}`)
+  })
+  
+  console.log('Updated popup button colors to team:', userTeam)
 }
