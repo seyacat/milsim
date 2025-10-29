@@ -261,6 +261,14 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           ...timeData,
           controlPointTimes,
         });
+        
+        // Also broadcast time update to all players to ensure synchronization
+        // This prevents timers from resetting when new players join
+        await this.broadcastTimeUpdate(gameId, {
+          remainingTime: timeData.remainingTime,
+          playedTime: timeData.playedTime,
+          totalTime: timeData.totalTime,
+        });
       }
     } catch (error: any) {
       console.error('[JOIN_GAME_WS] Error joining game:', error);
