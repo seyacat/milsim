@@ -113,12 +113,12 @@ export const createPopupContent = (
         
         <div class="form-group">
           <label class="form-label">Asignar Equipo:</label>
-          <div class="team-buttons" style="display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap">
-            <button class="btn btn-none" style="background: #9E9E9E; color: white; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px; opacity: ${!controlPoint.ownedByTeam || controlPoint.ownedByTeam === 'none' ? 1 : 0.7}">
-              Ninguno
+          <div class="team-buttons" style="display: flex; gap: 2px; margin-top: 5px; flex-wrap: nowrap; justify-content: space-between">
+            <button class="btn btn-none" style="background: #9E9E9E; color: white; border: none; padding: 5px 2px; border-radius: 3px; font-size: 11px; opacity: ${!controlPoint.ownedByTeam || controlPoint.ownedByTeam === 'none' ? 1 : 0.7}; flex: 1; min-width: 0; white-space: nowrap">
+              N/A
             </button>
             ${getAvailableTeams().map(team => `
-              <button class="btn btn-${team}" style="background: ${getTeamColor(team)}; color: ${team === 'yellow' ? 'black' : 'white'}; border: none; padding: 5px 10px; border-radius: 3px; font-size: 12px; opacity: ${controlPoint.ownedByTeam === team ? 1 : 0.7}">
+              <button class="btn btn-${team}" style="background: ${getTeamColor(team)}; color: ${team === 'yellow' ? 'black' : 'white'}; border: none; padding: 5px 2px; border-radius: 3px; font-size: 11px; opacity: ${controlPoint.ownedByTeam === team ? 1 : 0.7}; flex: 1; min-width: 0; white-space: nowrap">
                 ${getTeamName(team)}
               </button>
             `).join('')}
@@ -276,6 +276,9 @@ export const createPopupContent = (
                    button.classList.contains('btn-green') ? 'green' :
                    button.classList.contains('btn-yellow') ? 'yellow' : 'none'
       handlers.handleAssignTeam(controlPoint.id, team)
+      
+      // Update button styles to highlight selected team
+      updateTeamButtonStyles(container, team)
     })
   })
 
@@ -486,6 +489,39 @@ export const createPlayerPopupContent = (controlPoint: ControlPoint, userTeam?: 
   }
   
   return container
+}
+
+// Function to update team button styles in edit popup
+const updateTeamButtonStyles = (container: HTMLElement, selectedTeam: string): void => {
+  const teamButtons = container.querySelectorAll('.team-buttons .btn')
+  
+  teamButtons.forEach(button => {
+    const isNoneButton = button.classList.contains('btn-none')
+    const isBlueButton = button.classList.contains('btn-blue')
+    const isRedButton = button.classList.contains('btn-red')
+    const isGreenButton = button.classList.contains('btn-green')
+    const isYellowButton = button.classList.contains('btn-yellow')
+    
+    const buttonTeam = isNoneButton ? 'none' :
+                      isBlueButton ? 'blue' :
+                      isRedButton ? 'red' :
+                      isGreenButton ? 'green' :
+                      isYellowButton ? 'yellow' : 'none'
+    
+    // Update opacity to highlight selected team
+    const opacity = buttonTeam === selectedTeam ? 1 : 0.7
+    const buttonElement = button as HTMLElement
+    buttonElement.style.opacity = opacity.toString()
+    
+    // Add border to highlight selected team
+    if (buttonTeam === selectedTeam) {
+      buttonElement.style.border = '2px solid white'
+      buttonElement.style.boxShadow = '0 0 5px rgba(255, 255, 255, 0.5)'
+    } else {
+      buttonElement.style.border = 'none'
+      buttonElement.style.boxShadow = 'none'
+    }
+  })
 }
 
 // Function to update button colors in an existing popup

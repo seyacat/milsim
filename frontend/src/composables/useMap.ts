@@ -333,8 +333,8 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
         // Owner view - with edit controls
         const popupContent = createPopupContent(controlPoint, (marker as any)._leaflet_id, handlers)
         marker.bindPopup(popupContent, {
-          closeOnClick: false,
-          autoClose: false,
+          closeOnClick: true,
+          autoClose: true,
           closeButton: true
         })
       } else {
@@ -355,14 +355,24 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
         // Store reference to open popup for potential updates
         openPlayerPopups.value.set(controlPoint.id, popupContent)
         marker.bindPopup(popupContent, {
-          closeOnClick: false,
-          autoClose: false,
+          closeOnClick: true,
+          autoClose: true,
           closeButton: true
         })
       }
 
       // Store reference to enable drag later
       ;(marker as any).controlPointId = controlPoint.id
+
+      // Add event listener to close other popups when this one opens
+      marker.on('popupopen', () => {
+        // Close all other open popups
+        controlPointMarkers.value.forEach((otherMarker, otherControlPointId) => {
+          if (otherControlPointId !== controlPoint.id && otherMarker.getPopup()?.isOpen()) {
+            otherMarker.closePopup()
+          }
+        })
+      })
 
       marker.addTo(mapInstance.value)
       return marker
@@ -859,8 +869,8 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
         // Owner view - with edit controls
         const popupContent = createPopupContent(controlPoint, marker._leaflet_id, handlers)
         marker.bindPopup(popupContent, {
-          closeOnClick: false,
-          autoClose: false,
+          closeOnClick: true,
+          autoClose: true,
           closeButton: true
         })
       } else {
@@ -881,8 +891,8 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
         // Store reference to open popup for potential updates
         openPlayerPopups.value.set(controlPoint.id, popupContent)
         marker.bindPopup(popupContent, {
-          closeOnClick: false,
-          autoClose: false,
+          closeOnClick: true,
+          autoClose: true,
           closeButton: true
         })
       }

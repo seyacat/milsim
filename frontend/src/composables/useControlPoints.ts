@@ -30,6 +30,61 @@ export const useControlPoints = () => {
 
   const onControlPointTeamAssigned = (data: ControlPointTeamAssignedEvent) => {
     console.log('Control point team assigned:', data)
+    
+    // Update the popup to reflect the new team assignment
+    if (data.controlPoint && data.controlPoint.id && data.controlPoint.ownedByTeam) {
+      // Find the control point marker and update its popup
+      const map = (window as any).mapInstance
+      if (map) {
+        // Get all open popups
+        const popups = map._popups || []
+        for (const popup of popups) {
+          const popupElement = popup._contentNode || popup._content
+          if (popupElement && popupElement.classList.contains(`cp-${data.controlPoint.id}`)) {
+            // Update the ownership section in the popup
+            const ownershipStatus = popupElement.querySelector('.ownership-status')
+            const teamButtons = popupElement.querySelectorAll('.team-buttons .btn')
+            
+            if (ownershipStatus) {
+              ownershipStatus.textContent = `Controlado por: ${getTeamName(data.controlPoint.ownedByTeam)}`
+              ownershipStatus.style.background = getTeamColor(data.controlPoint.ownedByTeam)
+            }
+            
+            // Update team button styles
+            if (teamButtons.length > 0) {
+              teamButtons.forEach((button: Element) => {
+                const isNoneButton = button.classList.contains('btn-none')
+                const isBlueButton = button.classList.contains('btn-blue')
+                const isRedButton = button.classList.contains('btn-red')
+                const isGreenButton = button.classList.contains('btn-green')
+                const isYellowButton = button.classList.contains('btn-yellow')
+                
+                const buttonTeam = isNoneButton ? 'none' :
+                                  isBlueButton ? 'blue' :
+                                  isRedButton ? 'red' :
+                                  isGreenButton ? 'green' :
+                                  isYellowButton ? 'yellow' : 'none'
+                
+                // Update opacity to highlight selected team
+                const opacity = buttonTeam === data.controlPoint.ownedByTeam ? 1 : 0.7
+                const buttonElement = button as HTMLElement
+                buttonElement.style.opacity = opacity.toString()
+                
+                // Add border to highlight selected team
+                if (buttonTeam === data.controlPoint.ownedByTeam) {
+                  buttonElement.style.border = '2px solid white'
+                  buttonElement.style.boxShadow = '0 0 5px rgba(255, 255, 255, 0.5)'
+                } else {
+                  buttonElement.style.border = 'none'
+                  buttonElement.style.boxShadow = 'none'
+                }
+              })
+            }
+            break
+          }
+        }
+      }
+    }
   }
 
   const onControlPointTaken = (data: ControlPointTakenEvent) => {
@@ -368,4 +423,27 @@ export const useControlPoints = () => {
     onBombActivated,
     onBombDeactivated
   }
+}
+
+// Helper functions for team display
+const getTeamColor = (team: string | null): string => {
+  const colors: Record<string, string> = {
+    'blue': '#2196F3',
+    'red': '#F44336',
+    'green': '#4CAF50',
+    'yellow': '#FFC107',
+    'none': '#9E9E9E'
+  }
+  return colors[team || 'none'] || '#9E9E9E'
+}
+
+const getTeamName = (team: string): string => {
+  const teamNames: Record<string, string> = {
+    'blue': 'Azul',
+    'red': 'Rojo',
+    'green': 'Verde',
+    'yellow': 'Amarillo',
+    'none': 'Ninguno'
+  }
+  return teamNames[team] || team
 }
