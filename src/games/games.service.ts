@@ -21,6 +21,7 @@ import { ControlPointManagementService } from './services/control-point-manageme
 import { TimerManagementService } from './services/timer-management.service';
 import { BombManagementService } from './services/bomb-management.service';
 import { GameResultsService } from './services/game-results.service';
+import { BroadcastUtilitiesHandler } from './handlers/broadcast-utilities.handler';
 
 @Injectable()
 export class GamesService {
@@ -465,12 +466,23 @@ export class GamesService {
     // Reset all control points to have no team (ownedByTeam = null)
     if (game.controlPoints && game.controlPoints.length > 0) {
       for (const controlPoint of game.controlPoints) {
-        await this.controlPointManagementService.updateControlPoint(
+        const updatedControlPoint = await this.controlPointManagementService.updateControlPoint(
           controlPoint.id,
           {
             ownedByTeam: null,
           },
         );
+
+        // Broadcast the updated control point to all clients using the specific control point team assigned event
+        if (this.gamesGateway) {
+          // Use the broadcast utilities handler to send the specific control point team assigned event
+          const broadcastHandler = new BroadcastUtilitiesHandler(this);
+          broadcastHandler.broadcastControlPointTeamAssigned(
+            gameId,
+            updatedControlPoint,
+            this.gamesGateway.server,
+          );
+        }
       }
     }
 
