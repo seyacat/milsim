@@ -545,13 +545,29 @@ export class GamesService {
       });
 
       if (gameInstance) {
-        // Add seconds to totalTime (handle null/undefined as 0)
-        const currentTotalTime = gameInstance.totalTime || 0;
-        gameInstance.totalTime = currentTotalTime + seconds;
+        const wasIndefinite = gameInstance.totalTime === null;
+        
+        // If current totalTime is null (indefinite), calculate elapsed time and add 1 minute
+        if (wasIndefinite) {
+          const elapsedTime = await this.timerCalculationService.calculateElapsedTimeFromEvents(gameInstance.id);
+          gameInstance.totalTime = elapsedTime + seconds; // Set totalTime to elapsed time + 1 minute
+        } else {
+          // Add seconds to totalTime (handle undefined as 0)
+          const currentTotalTime = gameInstance.totalTime || 0;
+          gameInstance.totalTime = currentTotalTime + seconds;
+        }
+        
         await this.gameInstancesRepository.save(gameInstance);
         
-        // Update the active timer in memory
-        this.timerManagementService.addTimeToGameTimer(gameId, seconds);
+        // If we converted from indefinite to definite, we need to restart the timer completely
+        if (wasIndefinite) {
+          // Stop the current timer and start a new one with the new totalTime
+          this.timerManagementService.stopGameTimer(gameId);
+          await this.timerManagementService.startGameTimer(gameId, gameInstance.totalTime, gameInstance.id);
+        } else {
+          // Update the active timer in memory
+          this.timerManagementService.addTimeToGameTimer(gameId, seconds);
+        }
         
         // Broadcast the updated time without resetting control point timers
         this.timerManagementService.broadcastTimeAdded(gameId);
