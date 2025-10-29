@@ -347,6 +347,9 @@ const handleClose = () => {
 
 .challenge-toggle input[type="checkbox"] {
   margin: 0;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
 }
 
 .action-buttons {

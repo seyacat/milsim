@@ -24,12 +24,13 @@
           />
         </div>
         <div style="display: flex; gap: 10px; align-items: center">
-          <label class="checkbox-label" style="display: flex; align-items: center; gap: 5px">
+          <label class="checkbox-label" style="display: flex; align-items: center; gap: 10px">
             <input
               type="checkbox"
               v-model="showOnlyOwnGames"
+              style="width: 20px; height: 20px"
             />
-            <span style="font-size: 12px">Show only my games</span>
+            <span>Mostrar solo mis juegos</span>
           </label>
         </div>
       </div>
@@ -48,13 +49,19 @@
           @click="enterGame(game)"
         >
           <div class="game-card-header">
-            <span class="game-name">{{ game.name }}</span>
-            <span class="game-owner">Owner: {{ game.owner?.name || 'Unknown' }}</span>
-            <span :class="`status-${game.status}`">Status: {{ game.status }}</span>
-            <span>Players: {{ game.activeConnections || 0 }}</span>
+            <div class="game-info-column">
+              <div class="game-info-row">
+                <span class="game-name">{{ game.name }}</span>
+                <span class="game-owner">Propietario: {{ game.owner?.name || 'Unknown' }}</span>
+              </div>
+              <div class="game-info-row">
+                <span :class="`status-${game.status}`">Estado: {{ game.status }}</span>
+                <span>Jugadores: {{ game.activeConnections || 0 }}</span>
+              </div>
+            </div>
             <div class="game-card-actions">
               <button
-                class="btn btn-info btn-sm"
+                class="btn btn-success"
                 @click.stop="viewGameHistory(game.id)"
                 title="View Game History"
               >
@@ -62,7 +69,7 @@
               </button>
               <button
                 v-if="isGameOwner(game)"
-                class="btn btn-danger btn-sm"
+                class="btn btn-danger"
                 @click.stop="deleteGame(game.id)"
                 title="Delete game"
               >
@@ -230,47 +237,7 @@ const logout = () => {
   cursor: pointer;
 }
 
-.btn {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
 
-.btn-success {
-  background: var(--success);
-  color: white;
-}
-
-.btn-success:hover {
-  background: var(--success-dark);
-}
-
-.btn-danger {
-  background: var(--danger);
-  color: white;
-}
-
-.btn-danger:hover {
-  background: var(--danger-dark);
-}
-
-.btn-info {
-  background: var(--info);
-  color: white;
-}
-
-.btn-info:hover {
-  background: var(--info-dark);
-}
-
-.btn-sm {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.8rem;
-}
 
 .history-icon {
   font-size: 1.2rem;
@@ -319,8 +286,41 @@ const logout = () => {
   color: var(--info);
 }
 
+.game-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.game-info-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.game-info-row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.game-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--font-size-lg);
+}
+
+.game-owner {
+  color: var(--text-muted);
+  font-size: var(--font-size-base);
+}
+
 .game-card-actions {
   display: flex;
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 </style>

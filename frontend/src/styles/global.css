@@ -66,7 +66,7 @@
   width: 24px !important;
   height: 24px !important;
   text-align: center;
-  font-size: 16px;
+  font-size: var(--font-size-base);
   line-height: 24px;
   margin-left: -12px !important;
   margin-top: -12px !important;
@@ -90,7 +90,7 @@
   display: block;
   position: relative;
   z-index: 2;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   line-height: 24px;
   text-align: center;
 }
@@ -118,33 +118,33 @@
 
 /* Current user marker - circle with black border, team color fill, and person emoji */
 .leaflet-marker-icon.player-marker.current-user::before {
-  border: 2px solid #000000 !important;
+  border: 2px solid var(--secondary) !important;
 }
 
 /* Team colors for current user markers with black border */
 .player-marker.current-user.blue::before {
   background: rgba(52, 152, 219, 0.5) !important;
-  border: 2px solid #000000 !important;
+  border: 2px solid var(--secondary) !important;
 }
 
 .player-marker.current-user.red::before {
   background: rgba(231, 76, 60, 0.5) !important;
-  border: 2px solid #000000 !important;
+  border: 2px solid var(--secondary) !important;
 }
 
 .player-marker.current-user.green::before {
   background: rgba(39, 174, 96, 0.5) !important;
-  border: 2px solid #000000 !important;
+  border: 2px solid var(--secondary) !important;
 }
 
 .player-marker.current-user.yellow::before {
   background: rgba(241, 196, 15, 0.5) !important;
-  border: 2px solid #000000 !important;
+  border: 2px solid var(--secondary) !important;
 }
 
 .player-marker.current-user.none::before {
   background: rgba(149, 165, 166, 0.5) !important;
-  border: 2px solid #000000 !important;
+  border: 2px solid var(--secondary) !important;
 }
 
 /* Current user marker - circle with black border, team color fill, and person emoji */
@@ -154,7 +154,7 @@
   width: 24px !important;
   height: 24px !important;
   text-align: center;
-  font-size: 16px;
+  font-size: var(--font-size-base);
   line-height: 24px;
   margin-left: -12px !important;
   margin-top: -12px !important;
@@ -182,7 +182,7 @@
   height: 24px;
   border-radius: 50%;
   background: rgba(128, 128, 128, 0.5);
-  border: 2px solid #000000;
+  border: 2px solid var(--secondary);
   z-index: 1;
 }
 
@@ -191,7 +191,7 @@
   display: block;
   position: relative;
   z-index: 2;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   line-height: 24px;
   text-align: center;
 }
@@ -199,34 +199,34 @@
 /* Team colors for current user marker */
 .user-marker.blue::before {
   background: rgba(52, 152, 219, 0.5) !important;
-  border: 2px solid #000000;
+  border: 2px solid var(--secondary);
 }
 
 .user-marker.red::before {
   background: rgba(231, 76, 60, 0.5) !important;
-  border: 2px solid #000000;
+  border: 2px solid var(--secondary);
 }
 
 .user-marker.green::before {
   background: rgba(39, 174, 96, 0.5) !important;
-  border: 2px solid #000000;
+  border: 2px solid var(--secondary);
 }
 
 .user-marker.yellow::before {
   background: rgba(241, 196, 15, 0.5) !important;
-  border: 2px solid #000000;
+  border: 2px solid var(--secondary);
 }
 
 .user-marker.none::before {
   background: rgba(149, 165, 166, 0.5) !important;
-  border: 2px solid #000000;
+  border: 2px solid var(--secondary);
 }
 
 /* Leaflet Popup Styles */
 .leaflet-popup-content-wrapper {
   background: rgba(0, 0, 0, 0.8) !important;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg) !important;
   padding: 0;
   color: white;
   backdrop-filter: blur(10px);
@@ -251,27 +251,27 @@
 }
 
 .control-point-edit-content {
-  padding: 10px;
+  padding: var(--spacing-md);
 }
 
 .header-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: var(--spacing-lg);
 }
 
 .edit-title {
   margin: 0;
   color: white;
-  font-size: 16px;
+  font-size: var(--font-size-base);
   font-weight: bold;
 }
 
 .btn-close {
   background: none;
   border: none;
-  font-size: 18px;
+  font-size: var(--font-size-lg);
   cursor: pointer;
   color: #ccc;
   padding: 0;
@@ -288,23 +288,23 @@
 }
 
 .form-group {
-  margin-bottom: 12px;
+  margin-bottom: var(--spacing-md);
 }
 
 .form-label {
   display: block;
-  margin-bottom: 4px;
-  font-size: 12px;
+  margin-bottom: var(--spacing-xs);
+  font-size: var(--font-size-sm);
   color: #ccc;
   font-weight: bold;
 }
 
 .form-input {
   width: 100%;
-  padding: 6px 8px;
+  padding: var(--spacing-sm) var(--spacing-md);
   border: 1px solid #444;
-  border-radius: 4px;
-  font-size: 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
   box-sizing: border-box;
   background: #333;
   color: white;
@@ -312,31 +312,34 @@
 
 .team-buttons {
   display: flex;
-  gap: 5px;
-  margin-top: 5px;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
   flex-wrap: wrap;
 }
 
 .challenge-toggle {
-  margin-bottom: 8px;
+  margin-bottom: var(--spacing-md);
 }
 
 .challenge-toggle label {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 12px;
+  gap: var(--spacing-md);
+  font-size: var(--font-size-sm);
   color: #ccc;
 }
 
 .challenge-toggle input[type="checkbox"] {
   margin: 0;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
 }
 
 .action-buttons {
-  margin-top: 15px;
+  margin-top: var(--spacing-lg);
   display: flex;
-  gap: 5px;
+  gap: var(--spacing-sm);
   justify-content: space-between;
 }
 
@@ -351,26 +354,26 @@
 
 /* Control Point Info Popup Styles (for player view) */
 .control-point-info-popup {
-  padding: 10px;
+  padding: var(--spacing-md);
   min-width: 200px;
 }
 
 .control-point-info-popup h4 {
-  margin: 0 0 8px 0;
+  margin: 0 0 var(--spacing-md) 0;
   color: white;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: bold;
 }
 
 .control-point-info-popup .team-info {
   margin: 0;
   color: #ccc;
-  font-size: 12px;
+  font-size: var(--font-size-sm);
 }
 
 .control-point-info-popup .challenge-info {
-  margin: 4px 0 0 0;
-  font-size: 11px;
+  margin: var(--spacing-xs) 0 0 0;
+  font-size: var(--font-size-sm);
   font-weight: bold;
 }
 
@@ -388,9 +391,9 @@
 
 /* Debug Info Styles */
 .debug-info {
-  padding: 10px;
-  margin: 10px;
-  border-radius: 4px;
+  padding: var(--spacing-md);
+  margin: var(--spacing-md);
+  border-radius: var(--radius-sm);
   font-weight: bold;
   text-align: center;
 }
@@ -412,8 +415,8 @@
 }
 
 .btn-create-control-point {
-  padding: 8px 16px;
-  margin: 0 10px 0 5px;
+  padding: var(--spacing-md) var(--spacing-xl);
+  margin: 0 var(--spacing-md) 0 var(--spacing-sm);
   background: #4CAF50;
   color: white;
   border: none;
@@ -458,9 +461,9 @@
 .game-panel {
   position: absolute;
   z-index: 1000;
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   max-width: 300px;
-  padding: 15px;
+  padding: var(--spacing-lg);
   color: white;
 }
 
@@ -468,16 +471,16 @@
 .game-panel.game-overlay-panel {
   background: rgba(0, 0, 0, 0.8);
   backdrop-filter: none;
-  top: 10px;
-  left: 10px;
+  top: var(--spacing-md);
+  left: var(--spacing-md);
 }
 
 /* Location Info Panel - Black background 80% */
 .game-panel.location-info-panel {
   background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(10px);
-  bottom: 20px;
-  left: 20px;
+  bottom: var(--spacing-xl);
+  left: var(--spacing-xl);
   font-family: var(--font-family);
   font-size: var(--font-size-sm);
   line-height: 1.4;
@@ -485,7 +488,7 @@
 
 /* Location Info Panel specific styles to match Game Overlay */
 .game-panel.location-info-panel div {
-  margin-bottom: 5px;
+  margin-bottom: var(--spacing-sm);
   color: var(--text-primary);
 }
 
@@ -495,19 +498,19 @@
 }
 
 .game-panel.location-info-panel .time-select-container {
-  margin-top: 10px;
+  margin-top: var(--spacing-md);
 }
 
 .game-panel.location-info-panel .panel-label {
   color: var(--text-primary);
-  margin-bottom: 3px;
+  margin-bottom: var(--spacing-xs);
 }
 
 .game-panel.location-info-panel .panel-select {
   width: 100%;
-  padding: 4px 6px;
-  border-radius: 3px;
-  font-size: 12px;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-size-sm);
   background: #333;
   color: white;
   border: 1px solid #666;
@@ -517,25 +520,25 @@
 .game-panel.map-controls-panel {
   background: transparent;
   backdrop-filter: none;
-  padding: 10px;
-  top: 10px;
-  right: 10px;
+  padding: var(--spacing-md);
+  top: var(--spacing-md);
+  right: var(--spacing-md);
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: var(--spacing-sm);
   .btn.btn-secondary {
     background-color: rgba(0, 0, 0, 0.8);
     width: 45px;
     height: 45px;
-    border-radius: 6px;
+    border-radius: var(--radius-md);
   }
 }
 
 
 /* Game Info Styles */
 .game-info h2 {
-  margin: 0 0 5px 0;
-  font-size: 16px;
+  margin: 0 0 var(--spacing-sm) 0;
+  font-size: var(--font-size-base);
   color: #4CAF50;
 }
 
@@ -548,13 +551,13 @@
 .game-title-container {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-md);
 }
 
 .edit-pencil {
   color: #4CAF50;
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   transition: all 0.2s ease;
   opacity: 0.7;
   transform: translateY(-3px);
@@ -566,31 +569,31 @@
 
 /* Team Info */
 .team-info {
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   font-weight: bold;
   color: #1976d2;
 }
 
 /* Info Panel Styles */
 .info-panel {
-  padding: 15px;
-  border-radius: 8px;
+  padding: var(--spacing-lg);
+  border-radius: var(--radius-lg);
   max-width: 300px;
   background: rgba(0, 0, 0, 0.8);
   color: white;
 }
 
 .info-panel h3 {
-  margin: 0 0 12px 0;
-  font-size: 16px;
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: var(--font-size-base);
   border-bottom: 1px solid #eee;
-  padding-bottom: 8px;
+  padding-bottom: var(--spacing-md);
   color: white;
 }
 
 .info-item {
-  margin-bottom: 8px;
-  font-size: 14px;
+  margin-bottom: var(--spacing-md);
+  font-size: var(--font-size-sm);
   line-height: 1.4;
 }
 
@@ -606,9 +609,9 @@
 .control-group {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-  border-radius: 8px;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
+  border-radius: var(--radius-lg);
   background: transparent;
 }
 
@@ -624,7 +627,7 @@
   transition: all 0.2s ease;
   background: rgba(0, 0, 0, 0.8);
   color: white;
-  font-size: 16px;
+  font-size: var(--font-size-base);
   font-weight: bold;
 }
 
@@ -643,15 +646,15 @@
 }
 
 .icon {
-  font-size: 16px;
+  font-size: var(--font-size-base);
 }
 
 /* Form Elements for Panels */
 .panel-select {
   width: 100%;
-  padding: 5px;
-  border-radius: 3px;
-  font-size: 12px;
+  padding: var(--spacing-sm);
+  border-radius: var(--radius-xs);
+  font-size: var(--font-size-sm);
 }
 
 .panel-select.owner {
@@ -667,9 +670,9 @@
 }
 
 .panel-label {
-  font-size: 12px;
+  font-size: var(--font-size-sm);
   display: block;
-  margin-bottom: 5px;
+  margin-bottom: var(--spacing-sm);
 }
 
 .panel-label.owner {
@@ -686,8 +689,8 @@
   max-width: 300px;
   background: rgba(0, 0, 0, 0.95);
   border: 2px solid #4CAF50;
-  border-radius: 8px;
-  padding: 15px;
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
   color: white;
   font-family: Arial, sans-serif;
 }
@@ -695,31 +698,31 @@
 .control-point-player-content {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--spacing-md);
 }
 
 .player-title {
-  margin: 0 0 10px 0;
+  margin: 0 0 var(--spacing-md) 0;
   color: white;
-  font-size: 16px;
+  font-size: var(--font-size-base);
   font-weight: bold;
   text-align: center;
 }
 
 .challenge-section {
   border-top: 1px solid #444;
-  padding-top: 10px;
+  padding-top: var(--spacing-md);
 }
 
 .challenge-section h5 {
-  margin: 0 0 8px 0;
-  font-size: 14px;
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: var(--font-size-sm);
   color: #ccc;
   font-weight: bold;
 }
 
 .player-form-group {
-  margin-bottom: 10px;
+  margin-bottom: var(--spacing-md);
 }
 
 .player-form-input {
@@ -741,9 +744,9 @@
   cursor: pointer;
   transition: opacity 0.2s ease;
   border: none;
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 12px;
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
   font-weight: bold;
   width: 100%;
 }

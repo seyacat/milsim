@@ -28,7 +28,7 @@ body {
   justify-content: center;
   align-items: center;
   height: 100vh;
-  font-size: 18px;
+  font-size: var(--font-size-lg);
 }
 
 /* CSS Variables - Matching original military theme */
@@ -63,7 +63,6 @@ body {
   
   /* Typography */
   --font-family: 'Arial', sans-serif;
-  --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
   --font-size-lg: 1.125rem;
   --font-size-xl: 1.25rem;
@@ -71,18 +70,17 @@ body {
   --font-size-3xl: 1.875rem;
   
   /* Spacing */
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
+  --spacing-xs: 0.5rem;
   --spacing-md: 1rem;
   --spacing-lg: 1.5rem;
   --spacing-xl: 2rem;
   --spacing-2xl: 3rem;
   
   /* Border Radius */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-xl: 1rem;
+  --radius: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
   
   /* Shadows */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -96,10 +94,10 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-sm) var(--spacing-lg);
+  padding: var(--spacing-md) var(--spacing-xl);
   border: none;
   border-radius: var(--radius);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-lg);
   font-weight: 500;
   text-decoration: none;
   cursor: pointer;
@@ -166,10 +164,6 @@ body {
   background: var(--warning-dark);
 }
 
-.btn-sm {
-  padding: var(--spacing-xs) var(--spacing-md);
-  font-size: var(--font-size-sm);
-}
 
 /* Card Styles */
 .card {
@@ -204,7 +198,7 @@ body {
 }
 
 .gap-2 {
-  gap: var(--spacing-sm);
+  gap: var(--spacing-md);
 }
 
 /* Form Styles */
@@ -221,12 +215,12 @@ body {
 
 .form-input {
   width: 100%;
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-lg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--text-primary);
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-lg);
   transition: border-color 0.2s ease;
 }
 
@@ -240,14 +234,14 @@ body {
 .games-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1rem;
+  gap: var(--spacing-md);
 }
 
 .game-card {
   background: var(--background);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 1rem;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -260,7 +254,7 @@ body {
 .empty-state {
   text-align: center;
   color: var(--text-muted);
-  padding: 2rem;
+  padding: var(--spacing-xl);
   font-style: italic;
 }
 
@@ -285,12 +279,15 @@ body {
 .checkbox-label {
   display: flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-md);
   cursor: pointer;
 }
 
 .checkbox-label input[type="checkbox"] {
   margin: 0;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
 }
 
 /* Responsive Design */
@@ -313,7 +310,7 @@ body {
 /* Dashboard Styles */
 .dashboard-header {
   display: flex;
-  gap: 15px;
+  gap: var(--spacing-lg);
   align-items: center;
   flex-wrap: wrap;
 }
@@ -329,51 +326,51 @@ body {
 
 .filter-container {
   display: flex;
-  gap: 10px;
+  gap: var(--spacing-md);
   align-items: center;
 }
 
 .filter-label {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--spacing-md);
 }
 
 .filter-text {
-  font-size: 12px;
+  font-size: var(--font-size-base);
 }
 
 .divider {
   height: 1px;
   background: var(--border);
-  margin: 15px 0;
+  margin: var(--spacing-lg) 0;
 }
 
 .game-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 12px;
+  font-size: var(--font-size-base);
   color: var(--text-muted);
 }
 
 .game-name {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--font-size-base);
 }
 
 .game-owner {
-  font-size: 12px;
+  font-size: var(--font-size-base);
 }
 
 /* Game History Styles */
 .filter-section {
-  margin-bottom: 1rem;
+  margin-bottom: var(--spacing-md);
 }
 
 .filter-controls {
   display: flex;
-  gap: 2rem;
+  gap: var(--spacing-xl);
   align-items: center;
   flex-wrap: wrap;
 }
@@ -381,29 +378,30 @@ body {
 .filter-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--spacing-md);
 }
 
 .filter-label {
-  color: var(--text);
+  color: var(--text-primary);
   font-weight: 500;
-  font-size: 0.9rem;
+  font-size: var(--font-size-base);
 }
 
 .filter-select {
-  padding: 0.5rem;
+  padding: var(--spacing-md);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius);
   background: var(--background);
-  color: var(--text);
+  color: var(--text-primary);
   min-width: 150px;
+  font-size: var(--font-size-base);
 }
 
 .loading-state,
 .error-state,
 .empty-state {
   text-align: center;
-  padding: 3rem;
+  padding: var(--spacing-2xl);
   color: var(--text-muted);
   font-style: italic;
 }
@@ -416,22 +414,22 @@ body {
   max-height: 60vh;
   overflow-y: auto;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--background);
 }
 
 .instances-grid {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  padding: 1rem;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md);
 }
 
 .instance-card {
   background: var(--card-background);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 1rem;
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -445,26 +443,26 @@ body {
 
 .instance-card-header {
   display: flex;
-  gap: 1rem;
+  gap: var(--spacing-md);
   align-items: center;
   flex-wrap: wrap;
 }
 
 .instance-name {
   font-weight: 600;
-  color: var(--text);
+  color: var(--text-primary);
 }
 
 .instance-game,
 .instance-players,
 .instance-date {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: var(--font-size-base);
 }
 
 .instance-card-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: var(--spacing-md);
 }
 
 /* Scrollbar styling */
@@ -474,12 +472,12 @@ body {
 
 .instances-container::-webkit-scrollbar-track {
   background: var(--background);
-  border-radius: 4px;
+  border-radius: var(--radius);
 }
 
 .instances-container::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius);
 }
 
 .instances-container::-webkit-scrollbar-thumb:hover {

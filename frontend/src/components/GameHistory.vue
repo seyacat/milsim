@@ -65,7 +65,7 @@
             
             <div class="instance-card-actions">
               <button
-                class="btn btn-primary btn-sm"
+                class="btn btn-primary"
                 @click="showGameResults(instance.id)"
                 title="View Results"
               >
@@ -101,7 +101,7 @@ const gameInstances = ref<GameInstance[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const showResultsDialog = ref(false)
-const selectedInstanceId = ref<number | null>(null)
+const selectedInstanceId = ref<number | undefined>(undefined)
 const selectedGameId = ref<string>('')
 const sortOrder = ref<'asc' | 'desc'>('desc')
 const dateRange = ref<string>('all')
@@ -191,7 +191,7 @@ const showGameResults = (instanceId: number) => {
 
 const closeResultsDialog = () => {
   showResultsDialog.value = false
-  selectedInstanceId.value = null
+  selectedInstanceId.value = undefined
 }
 
 const goBack = () => {
@@ -348,38 +348,8 @@ const formatDate = (dateString: string): string => {
   gap: 0.5rem;
 }
 
-.btn {
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
 
-.btn-primary {
-  background: var(--primary);
-  color: white;
-}
 
-.btn-primary:hover {
-  background: var(--primary-dark);
-}
-
-.btn-secondary {
-  background: var(--secondary);
-  color: white;
-}
-
-.btn-secondary:hover {
-  background: var(--secondary-dark);
-}
-
-.btn-sm {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.8rem;
-}
 
 .status-finished {
   color: var(--success);
