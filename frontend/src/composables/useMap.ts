@@ -203,7 +203,6 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
     // Check if marker already exists to prevent duplicates
     const existingMarker = controlPointMarkers.value.get(controlPoint.id)
     if (existingMarker) {
-      console.log('Marker already exists for control point:', controlPoint.id)
       return existingMarker
     }
 
@@ -351,7 +350,6 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
           userTeam = currentPlayer?.team || userData.team || 'none'
         }
         
-        console.log('Creating player popup with team:', userTeam, 'for control point:', controlPoint.id, 'gameData:', gameData, 'userData:', userData)
         const popupContent = createPlayerPopupContent(controlPoint, userTeam)
         
         // Store reference to open popup for potential updates
@@ -878,7 +876,6 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
           userTeam = currentPlayer?.team || userData.team || 'none'
         }
         
-        console.log('Updating player popup with team:', userTeam, 'for control point:', controlPoint.id, 'gameData:', gameData, 'userData:', userData)
         const popupContent = createPlayerPopupContent(controlPoint, userTeam)
         
         // Store reference to open popup for potential updates
@@ -1125,7 +1122,6 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
       }
     }
     
-    console.log('Updating all player popup colors to team:', userTeam)
     
     // Update all open player popups
     openPlayerPopups.value.forEach((popupElement, controlPointId) => {
@@ -1142,6 +1138,27 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
           button.classList.add(`team-${userTeam || 'none'}`)
         }
       })
+    })
+  }
+
+  // Function to update timer display in open popups for a specific control point
+  const updatePopupTimerDisplay = (controlPointId: number, timeText: string): void => {
+    
+    // Buscar todos los popups abiertos y encontrar el que tiene la clase del control point
+    const popupElements = document.querySelectorAll('.leaflet-popup-content')
+    
+    popupElements.forEach(popupElement => {
+      // Buscar por clase específica del control point
+      const cpClass = `cp-${controlPointId}`
+      const cpElement = popupElement.querySelector(`.${cpClass}`)
+      
+      if (cpElement) {
+        // Encontramos el popup del control point, ahora buscar el elemento del timer
+        const timerElement = popupElement.querySelector('.hold-time') as HTMLElement
+        if (timerElement && timerElement.textContent?.includes('Tiempo:')) {
+          timerElement.textContent = `Tiempo: ${timeText}`
+        }
+      }
     })
   }
 
@@ -1165,6 +1182,7 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
     disableControlPointDrag,
     closePopup,
     updatePlayerPopupTeamColors,
+    updatePopupTimerDisplay,
     destroyMap
   }
 }

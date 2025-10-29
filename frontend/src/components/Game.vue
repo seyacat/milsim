@@ -101,6 +101,10 @@
         :on-team-selection-change="(show) => showTeamSelection = show"
         :on-results-dialog-change="(show) => showResultsDialog = show"
         :on-position-challenge-update="updatePositionChallengePieChart"
+        :update-control-point-times="updateControlPointTimes"
+        :update-individual-control-point-time="updateIndividualControlPointTime"
+        :handle-game-state-change="handleGameStateChange"
+        :stop-control-point-timer-interval="stopControlPointTimerInterval"
       />
     </div>
   </div>
@@ -164,6 +168,7 @@ const {
   enableControlPointDrag,
   disableControlPointDrag,
   closePopup,
+  updatePopupTimerDisplay,
   destroyMap
 } = useMap(currentGame, currentUser)
 
@@ -192,7 +197,7 @@ const {
   updateAllTimerDisplays,
   handleGameStateChange,
   stopControlPointTimerInterval
-} = useControlPointTimers()
+} = useControlPointTimers(updatePopupTimerDisplay)
 
 // Bomb timers composable - will be initialized after currentGame is available
 const bombTimersComposable = ref<any>(null)
@@ -250,13 +255,11 @@ watch(() => {
   const userTeam = currentUser.value?.team
   const playerTeam = currentPlayer?.team
   
-  console.log('Team watcher - userTeam:', userTeam, 'playerTeam:', playerTeam)
   
   // Return the most reliable team value
   return playerTeam || userTeam || 'none'
 }, (newTeam, oldTeam) => {
   if (newTeam !== oldTeam) {
-    console.log('User team changed from', oldTeam, 'to', newTeam, '- updating control point markers')
     
     // Update global window object for popup creation
     if ((window as any).currentUser) {
@@ -280,7 +283,6 @@ watch(() => {
         handleDeactivateBomb: handleDeactivateBombWrapper
       } : {}
       
-      console.log('Recreating control point markers with team:', newTeam)
       renderControlPoints(currentGame.value.controlPoints, handlers)
     }
   }
@@ -338,10 +340,6 @@ const onMapClick = async (latlng: { lat: number; lng: number }) => {
   
   // Add global function for the button
   ;(window as any).createControlPoint = (lat: number, lng: number) => {
-    console.log('Map click createControlPoint called with:', lat, lng)
-    console.log('webSocketManager.value:', webSocketManager.value)
-    console.log('webSocketManager.value?.socketRef:', webSocketManager.value?.socketRef)
-    console.log('webSocketManager.value?.socketRef?.connected:', webSocketManager.value?.socketRef?.connected)
     createControlPoint(webSocketManager.value?.socketRef, currentGame, lat, lng)
     mapInstance.value?.closePopup()
   }
@@ -472,9 +470,6 @@ const handleControlPointMove = (controlPointId: number, markerId: number) => {
 }
 
 const handleControlPointUpdateWrapper = (controlPointId: number, markerId: number) => {
-  console.log('handleControlPointUpdateWrapper called with:', controlPointId, markerId)
-  console.log('webSocketManager.value:', webSocketManager.value)
-  console.log('webSocketManager.value?.socketRef?.value:', webSocketManager.value?.socketRef?.value)
   
   if (!webSocketManager.value?.socketRef) {
     console.error('WebSocket not connected in handleControlPointUpdateWrapper')
@@ -775,10 +770,6 @@ const onError = (error: string) => {
 
 // Global functions for control point popup buttons
 const setupGlobalFunctions = () => {
-  console.log('Setting up global functions...')
-  console.log('webSocketManager.value:', webSocketManager.value)
-  console.log('webSocketManager.value?.socketRef:', webSocketManager.value?.socketRef)
-  console.log('webSocketManager.value?.socketRef?.value:', webSocketManager.value?.socketRef?.value)
   
   // Check if WebSocketManager is connected
   if (!webSocketManager.value?.socketRef) {
@@ -788,12 +779,10 @@ const setupGlobalFunctions = () => {
   }
   
   ;(window as any).socketRef = () => {
-    console.log('Global socketRef called, returning:', webSocketManager.value?.socketRef)
     return webSocketManager.value?.socketRef
   }
   
   ;(window as any).createControlPoint = (lat: number, lng: number) => {
-    console.log('Global createControlPoint called with:', lat, lng)
     createControlPoint(webSocketManager.value?.socketRef, currentGame, lat, lng)
     if (mapInstance.value) {
       mapInstance.value.closePopup()
@@ -801,12 +790,10 @@ const setupGlobalFunctions = () => {
   }
   
   ;(window as any).editControlPoint = (controlPointId: number) => {
-    console.log('Global editControlPoint called with:', controlPointId)
     addToast({ message: 'Funcionalidad de edición en desarrollo', type: 'info' })
   }
   
   ;(window as any).deleteControlPoint = (controlPointId: number) => {
-    console.log('Global deleteControlPoint called with:', controlPointId)
     if (confirm('¿Estás seguro de que quieres eliminar este punto de control?')) {
       handleControlPointDeleteWrapper(controlPointId, 0)
     }
@@ -814,66 +801,51 @@ const setupGlobalFunctions = () => {
   
   // Global function to show team change toast
   ;(window as any).showTeamChangeToast = (message: string) => {
-    console.log('Global showTeamChangeToast called with:', message)
     addToast({ message, type: 'success' })
   }
   ;(window as any).currentGame = currentGame.value
   ;(window as any).emitGameAction = (gameId: number, action: string, data?: any) => {
-    console.log('Global emitGameAction called with:', gameId, action, data)
     webSocketManager.value?.emitAction(gameId, action, data)
   }
   
   // Control point action functions for popupUtils
   ;(window as any).handleControlPointMove = (controlPointId: number, markerId: number) => {
-    console.log('Global handleControlPointMove called with:', controlPointId, markerId)
     handleControlPointMove(controlPointId, markerId)
   }
   ;(window as any).handleControlPointUpdate = (controlPointId: number, markerId: number) => {
-    console.log('Global handleControlPointUpdate called with:', controlPointId, markerId)
     handleControlPointUpdateWrapper(controlPointId, markerId)
   }
   ;(window as any).handleControlPointDelete = (controlPointId: number, markerId: number) => {
-    console.log('Global handleControlPointDelete called with:', controlPointId, markerId)
     handleControlPointDeleteWrapper(controlPointId, markerId)
   }
   ;(window as any).handleAssignTeam = (controlPointId: number, team: string) => {
-    console.log('Global handleAssignTeam called with:', controlPointId, team)
     handleAssignTeamWrapper(controlPointId, team)
   }
   ;(window as any).handleTogglePositionChallenge = (controlPointId: number) => {
-    console.log('Global handleTogglePositionChallenge called with:', controlPointId)
     handleTogglePositionChallengeWrapper(controlPointId)
   }
   ;(window as any).handleToggleCodeChallenge = (controlPointId: number) => {
-    console.log('Global handleToggleCodeChallenge called with:', controlPointId)
     handleToggleCodeChallengeWrapper(controlPointId)
   }
   ;(window as any).handleToggleBombChallenge = (controlPointId: number) => {
-    console.log('Global handleToggleBombChallenge called with:', controlPointId)
     handleToggleBombChallengeWrapper(controlPointId)
   }
   ;(window as any).handleUpdatePositionChallenge = (controlPointId: number, radius: number) => {
-    console.log('Global handleUpdatePositionChallenge called with:', controlPointId, radius)
     handleUpdatePositionChallengeWrapper(controlPointId, radius)
   }
   ;(window as any).handleUpdateCodeChallenge = (controlPointId: number, code: string) => {
-    console.log('Global handleUpdateCodeChallenge called with:', controlPointId, code)
     handleUpdateCodeChallengeWrapper(controlPointId, code)
   }
   ;(window as any).handleUpdateBombChallenge = (controlPointId: number, time: number) => {
-    console.log('Global handleUpdateBombChallenge called with:', controlPointId, time)
     handleUpdateBombChallengeWrapper(controlPointId, time)
   }
   ;(window as any).handleActivateBomb = (controlPointId: number) => {
-    console.log('Global handleActivateBomb called with:', controlPointId)
     handleActivateBombWrapper(controlPointId)
   }
   ;(window as any).handleDeactivateBomb = (controlPointId: number) => {
-    console.log('Global handleDeactivateBomb called with:', controlPointId)
     handleDeactivateBombWrapper(controlPointId)
   }
   
-  console.log('Global functions setup complete')
 }
 
 // Lifecycle

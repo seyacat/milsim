@@ -7,7 +7,7 @@ export interface ControlPointTimeData {
   currentTeam: string | null
 }
 
-export const useControlPointTimers = () => {
+export const useControlPointTimers = (updatePopupTimerDisplay?: (controlPointId: number, timeText: string) => void) => {
   const controlPointTimes = ref<Record<number, ControlPointTimeData>>({})
   const localTimerRef = ref<NodeJS.Timeout | null>(null)
 
@@ -66,6 +66,11 @@ export const useControlPointTimers = () => {
       
       timerElement.textContent = timeText
       timerElement.style.display = 'block'
+      
+      // Update popup content for open popups if function is provided
+      if (updatePopupTimerDisplay) {
+        updatePopupTimerDisplay(controlPointId, timeText)
+      }
     } else if (currentGame?.status === 'stopped') {
       // Only hide timers when game is explicitly stopped
       timerElement.style.display = 'none'

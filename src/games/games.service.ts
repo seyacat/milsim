@@ -410,7 +410,6 @@ export class GamesService {
       throw new ConflictException('Solo el propietario del juego puede finalizarlo');
     }
 
-    console.log(`[END_GAME] Ending game ${gameId} for user ${userId}, current status: ${game.status}`);
 
     // Add game ended event to history if there's an active instance
     if (game.instanceId) {
@@ -425,10 +424,8 @@ export class GamesService {
     game.status = 'finished';
     const updatedGame = await this.gamesRepository.save(game);
 
-    console.log(`[END_GAME] Game ${gameId} status updated to: ${updatedGame.status}`);
 
     // Stop all timers immediately
-    console.log(`[END_GAME] Stopping timers for game ${gameId}`);
     this.timerManagementService.stopGameTimer(gameId);
     this.timerManagementService.stopAllControlPointTimers(gameId);
     this.stopPositionChallengeInterval(gameId);
@@ -439,7 +436,6 @@ export class GamesService {
     // Force broadcast game update to ensure all players receive the state change
     await this.broadcastGameUpdateWithPlayers(gameId);
 
-    console.log(`[END_GAME] Game ${gameId} ended successfully`);
 
     return updatedGame;
   }

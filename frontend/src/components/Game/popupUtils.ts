@@ -83,7 +83,7 @@ export const createPopupContent = (
   
   // Create the popup HTML structure
   container.innerHTML = `
-    <div class="control-point-edit-menu">
+    <div class="control-point-edit-menu cp-${controlPoint.id}">
       <div class="control-point-edit-content">
         <h4 class="edit-title">Editar Punto</h4>
         
@@ -210,16 +210,16 @@ export const createPopupContent = (
         </div>
         
         <div class="action-buttons" style="margin-top: 15px; display: flex; gap: 5px; justify-content: space-between">
-          <button class="btn btn-move" title="Mover punto" style="background: rgba(33, 150, 243, 0.2); border: 1px solid #2196F3; color: #2196F3; padding: 10px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; flex: 1">
+          <button class="btn btn-move" title="Mover punto" style="background: rgba(33, 150, 243, 0.2); border: 1px solid #2196F3; color: #2196F3; padding: 8px 6px; border-radius: 4px; font-size: 11px; cursor: pointer; flex: 1; white-space: nowrap; min-width: 0">
             Mover
           </button>
-          <button class="btn btn-primary" style="background: #2196F3; color: white; border: none; padding: 10px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; flex: 1">
+          <button class="btn btn-primary" style="background: #2196F3; color: white; border: none; padding: 8px 6px; border-radius: 4px; font-size: 11px; cursor: pointer; flex: 1; white-space: nowrap; min-width: 0">
             Actualizar
           </button>
-          <button class="btn btn-danger" style="background: #F44336; color: white; border: none; padding: 10px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; flex: 1">
+          <button class="btn btn-danger" style="background: #F44336; color: white; border: none; padding: 8px 6px; border-radius: 4px; font-size: 11px; cursor: pointer; flex: 1; white-space: nowrap; min-width: 0">
             Eliminar
           </button>
-          <button class="btn btn-close" style="background: #9E9E9E; color: white; border: none; padding: 10px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; flex: 1">
+          <button class="btn btn-close" style="background: #9E9E9E; color: white; border: none; padding: 8px 6px; border-radius: 4px; font-size: 11px; cursor: pointer; flex: 1; white-space: nowrap; min-width: 0">
             Cerrar
           </button>
         </div>
@@ -313,7 +313,7 @@ export const createPlayerPopupContent = (controlPoint: ControlPoint, userTeam?: 
   
   // Create the player popup HTML structure
   container.innerHTML = `
-    <div class="control-point-player-menu">
+    <div class="control-point-player-menu cp-${controlPoint.id}">
       <div class="control-point-player-content">
         <h4 class="player-title">${controlPoint.name || 'Punto de Control'}</h4>
         
@@ -500,5 +500,5 @@ export const updatePlayerPopupTeamColors = (popupElement: HTMLElement, userTeam:
     button.classList.add(`team-${userTeam || 'none'}`)
   })
   
-  console.log('Updated popup button colors to team:', userTeam)
 }
+

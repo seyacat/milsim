@@ -6,7 +6,6 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useWebSocket } from '../composables/useWebSocket.js'
 import { useToast } from '../composables/useToast.js'
-import { useControlPointTimers } from '../composables/useControlPointTimers.js'
 import { useBombTimers } from '../composables/useBombTimers.js'
 import { User, Game, ControlPoint, TeamColor } from '../types/index.js'
 import {
@@ -34,7 +33,11 @@ interface Props {
   onError: (error: string) => void
   onTeamSelectionChange?: (show: boolean) => void
   onResultsDialogChange?: (show: boolean) => void
-  onPositionChallengeUpdate?: (controlPointId: number, teamPoints: Record<string, number>) => void
+  onPositionChallengeUpdate?: (controlPointId: number, teamPoints: Record<string, number>) => void,
+  updateControlPointTimes?: (controlPointTimesFromGameTime: any[], currentGame: any) => void,
+  updateIndividualControlPointTime?: (controlPointId: number, currentHoldTime: number, currentTeam: string | null) => void,
+  handleGameStateChange?: (currentGame: any) => void,
+  stopControlPointTimerInterval?: () => void
 }
 
 const props = defineProps<Props>()
@@ -49,13 +52,6 @@ const {
   forceReconnect
 } = useWebSocket()
 
-const {
-  updateControlPointTimes,
-  updateIndividualControlPointTime,
-  updateAllTimerDisplays,
-  handleGameStateChange,
-  stopControlPointTimerInterval
-} = useControlPointTimers()
 
 
 // Local timer state
@@ -130,11 +126,10 @@ const updateLocalTimerFromServer = (data: TimeUpdateEvent | GameTimeEvent) => {
 const handleGameUpdate = (game: Game) => {
   const previousStatus = props.currentGame?.status
   
-  console.log(`[WebSocketManager] Game update received - status: ${game.status}, previous: ${previousStatus}`)
   
   // Call the parent handler to update the game state
   props.onGameUpdate(game)
-  handleGameStateChange(game)
+  props.handleGameStateChange?.(game)
   props.bombTimersComposable?.handleGameStateChange(game)
   
   // Timer displays are updated by the local timer interval in useControlPointTimers
@@ -142,10 +137,8 @@ const handleGameUpdate = (game: Game) => {
   
   // Handle local timer based on game status
   if (game.status === 'running') {
-    console.log(`[WebSocketManager] Starting local timer for game ${game.id}`)
     startLocalTimer()
   } else {
-    console.log(`[WebSocketManager] Stopping local timer for game ${game.id}, status: ${game.status}`)
     stopLocalTimer()
   }
   
@@ -153,10 +146,9 @@ const handleGameUpdate = (game: Game) => {
   
   // Stop local timer when game is finished
   if (game.status === 'finished') {
-    console.log(`[WebSocketManager] Game finished - ensuring all timers are stopped for game ${game.id}`)
     stopLocalTimer()
     // Also ensure control point timer interval is stopped
-    stopControlPointTimerInterval()
+    props.stopControlPointTimerInterval?.()
   }
 
   // Close results dialog when game transitions from finished to stopped (restart)
@@ -206,10 +198,10 @@ const handleGameTime = (data: GameTimeEvent | any) => {
   // Support both formats: array of control point times AND individual control point updates
   if (data.controlPointTimes && Array.isArray(data.controlPointTimes)) {
     // Format: array of control point times from gameTime/timeUpdate events
-    updateControlPointTimes(data.controlPointTimes, props.currentGame)
+    props.updateControlPointTimes?.(data.controlPointTimes, props.currentGame)
   } else if (data.controlPointId && data.currentHoldTime !== undefined) {
     // Format: individual control point time update from controlPointTimeUpdate events
-    updateIndividualControlPointTime(data.controlPointId, data.currentHoldTime, data.currentTeam)
+    props.updateIndividualControlPointTime?.(data.controlPointId, data.currentHoldTime, data.currentTeam)
   } else {
   }
   
@@ -224,7 +216,7 @@ const handleTimeUpdate = (data: TimeUpdateEvent) => {
   
   // Handle control point timer updates from server
   if (data.controlPointTimes && Array.isArray(data.controlPointTimes)) {
-    updateControlPointTimes(data.controlPointTimes, props.currentGame)
+    props.updateControlPointTimes?.(data.controlPointTimes, props.currentGame)
   }
   
   // Timer displays are updated by the local timer interval in useControlPointTimers
@@ -240,7 +232,6 @@ const handleActiveBombTimers = (data: any) => {
 }
 
 const handlePositionChallengeUpdate = (data: any) => {
-  console.log('[WebSocketManager] handlePositionChallengeUpdate received:', data)
   if (data.controlPointId && data.teamPoints) {
     props.onPositionChallengeUpdate?.(data.controlPointId, data.teamPoints)
   } else {
@@ -415,10 +406,8 @@ const connect = () => {
     onPositionChallengeUpdate: handlePositionChallengeUpdate,
     onControlPointTeamAssigned: handleControlPointTeamAssigned,
     onPlayerTeamUpdated: (data: any) => {
-      console.log('WebSocketManager - Player team updated received:', data)
       // Update the current user's team in the global state to trigger reactivity
       if (data.userId === props.currentUser?.id && data.team) {
-        console.log('WebSocketManager - Updating current user team to:', data.team)
         // Update the current user's team to trigger reactivity
         if (props.currentUser) {
           props.currentUser.team = data.team
@@ -442,7 +431,6 @@ const connect = () => {
         }
         // Force update all control point markers to recreate popups with new team colors
         if (props.currentGame?.controlPoints) {
-          console.log('WebSocketManager - Forcing control point marker recreation due to team change')
           // This will trigger the watcher in Game.vue to recreate markers
           props.currentGame.controlPoints = [...props.currentGame.controlPoints]
         }
@@ -450,10 +438,8 @@ const connect = () => {
     },
     onGameAction: (data: any) => {
       if (data.action === 'playerTeamUpdated' && data.data) {
-        console.log('WebSocketManager - Direct gameAction playerTeamUpdated received:', data.data)
         // Handle the same way as the dedicated event
         if (data.data.userId === props.currentUser?.id && data.data.team) {
-          console.log('WebSocketManager - Updating current user team to:', data.data.team)
           if (props.currentUser) {
             props.currentUser.team = data.data.team
           }
@@ -474,7 +460,6 @@ const connect = () => {
           }
           // Force update all control point markers to recreate popups with new team colors
           if (props.currentGame?.controlPoints) {
-            console.log('WebSocketManager - Forcing control point marker recreation due to team change')
             // This will trigger the watcher in Game.vue to recreate markers
             props.currentGame.controlPoints = [...props.currentGame.controlPoints]
           }

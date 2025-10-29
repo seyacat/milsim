@@ -50,18 +50,12 @@ export const useControlPoints = () => {
     lat: number,
     lng: number
   ) => {
-    console.log('createControlPoint function called')
-    console.log('socketRef:', socketRef)
-    console.log('socketRef?.connected:', socketRef?.connected)
-    console.log('currentGame.value:', currentGame?.value)
     
     if (!socketRef || !currentGame?.value) {
-      console.log('createControlPoint: Missing socketRef or currentGame')
       return
     }
 
     try {
-      console.log('Emitting createControlPoint gameAction')
       socketRef.emit('gameAction', {
         gameId: currentGame.value.id,
         action: 'createControlPoint',
@@ -85,11 +79,7 @@ export const useControlPoints = () => {
     controlPointId: number,
     mapInstance: any
   ) => {
-    console.log('handleControlPointUpdate called with:', controlPointId)
-    console.log('socketRef:', socketRef)
-    console.log('currentGame:', currentGame)
     if (!socketRef || !currentGame.value) {
-      console.log('Missing socketRef or currentGame')
       return
     }
 
@@ -107,10 +97,6 @@ export const useControlPoints = () => {
       const armedCodeInput = document.getElementById(`controlPointArmedCode_${controlPointId}`) as HTMLInputElement
       const disarmedCodeInput = document.getElementById(`controlPointDisarmedCode_${controlPointId}`) as HTMLInputElement
       
-      console.log('DOM elements found:')
-      console.log('typeSelect:', typeSelect)
-      console.log('nameInput:', nameInput)
-      console.log('positionChallengeCheckbox:', positionChallengeCheckbox)
 
       // Validate required fields
       if (!nameInput?.value.trim()) {
@@ -319,18 +305,12 @@ export const useControlPoints = () => {
     currentGame: any,
     controlPointId: number
   ) => {
-    console.log('handleActivateBomb called with:', controlPointId)
-    console.log('socketRef:', socketRef)
-    console.log('socketRef?.connected:', socketRef?.connected)
-    console.log('currentGame.value:', currentGame?.value)
     
     if (!socketRef || !currentGame?.value) {
-      console.log('handleActivateBomb: Missing socketRef or currentGame')
       return
     }
 
     try {
-      console.log('Emitting activateBombAsOwner gameAction')
       // For owner, use activateBombAsOwner which doesn't require code
       socketRef.emit('gameAction', {
         gameId: currentGame.value.id,
@@ -349,18 +329,12 @@ export const useControlPoints = () => {
     currentGame: any,
     controlPointId: number
   ) => {
-    console.log('handleDeactivateBomb called with:', controlPointId)
-    console.log('socketRef:', socketRef)
-    console.log('socketRef?.connected:', socketRef?.connected)
-    console.log('currentGame.value:', currentGame?.value)
     
     if (!socketRef || !currentGame?.value) {
-      console.log('handleDeactivateBomb: Missing socketRef or currentGame')
       return
     }
 
     try {
-      console.log('Emitting deactivateBombAsOwner gameAction')
       // For owner, use deactivateBombAsOwner which doesn't require code
       socketRef.emit('gameAction', {
         gameId: currentGame.value.id,

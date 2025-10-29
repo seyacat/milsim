@@ -156,10 +156,8 @@ export class TimerManagementService {
   stopGameTimer(gameId: number): void {
     const timer = this.gameTimers.get(gameId);
     if (timer && timer.intervalId) {
-      console.log(`[TIMER_MANAGEMENT] Stopping game timer for game ${gameId}`);
       clearInterval(timer.intervalId);
       this.gameTimers.delete(gameId);
-      console.log(`[TIMER_MANAGEMENT] Game timer for game ${gameId} stopped successfully`);
     } else {
       console.log(`[TIMER_MANAGEMENT] No active game timer found for game ${gameId}`);
     }
@@ -373,10 +371,8 @@ export class TimerManagementService {
   stopControlPointTimer(controlPointId: number): void {
     const timer = this.controlPointTimers.get(controlPointId);
     if (timer && timer.intervalId) {
-      console.log(`[TIMER_MANAGEMENT] Stopping control point timer for control point ${controlPointId}`);
       clearInterval(timer.intervalId);
       this.controlPointTimers.delete(controlPointId);
-      console.log(`[TIMER_MANAGEMENT] Control point timer for control point ${controlPointId} stopped successfully`);
     } else {
       console.log(`[TIMER_MANAGEMENT] No active control point timer found for control point ${controlPointId}`);
     }
@@ -439,7 +435,6 @@ export class TimerManagementService {
 
   // Stop all control point timers for a game
   stopAllControlPointTimers(gameId: number): void {
-    console.log(`[TIMER_MANAGEMENT] Stopping all control point timers for game ${gameId}`);
     const game = this.gamesRepository
       .findOne({
         where: { id: gameId },
@@ -447,11 +442,9 @@ export class TimerManagementService {
       })
       .then(game => {
         if (game && game.controlPoints) {
-          console.log(`[TIMER_MANAGEMENT] Found ${game.controlPoints.length} control points for game ${gameId}`);
           for (const controlPoint of game.controlPoints) {
             this.stopControlPointTimer(controlPoint.id);
           }
-          console.log(`[TIMER_MANAGEMENT] All control point timers for game ${gameId} stopped`);
         } else {
           console.log(`[TIMER_MANAGEMENT] No control points found for game ${gameId}`);
         }
@@ -674,10 +667,8 @@ export class TimerManagementService {
   private stopPositionChallengeProcessing(gameId: number): void {
     const interval = this.positionChallengeTimers.get(gameId);
     if (interval) {
-      console.log(`[TIMER_MANAGEMENT] Stopping position challenge processing for game ${gameId}`);
       clearInterval(interval);
       this.positionChallengeTimers.delete(gameId);
-      console.log(`[TIMER_MANAGEMENT] Position challenge processing for game ${gameId} stopped successfully`);
     } else {
       console.log(`[TIMER_MANAGEMENT] No active position challenge processing found for game ${gameId}`);
     }
