@@ -216,7 +216,7 @@ const formatDate = (dateString: string): string => {
 }
 
 .header h1 {
-  color: var(--text);
+  color: var(--text-primary);
   font-size: 1.8rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
@@ -266,7 +266,7 @@ const formatDate = (dateString: string): string => {
 }
 
 .filter-label {
-  color: var(--text);
+  color: var(--text-primary);
   font-weight: 500;
   font-size: 0.9rem;
 }
@@ -276,7 +276,7 @@ const formatDate = (dateString: string): string => {
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--background);
-  color: var(--text);
+  color: var(--text-primary);
   min-width: 150px;
 }
 
@@ -333,7 +333,7 @@ const formatDate = (dateString: string): string => {
 
 .instance-name {
   font-weight: 600;
-  color: var(--text);
+  color: var(--text-primary);
 }
 
 .instance-game,

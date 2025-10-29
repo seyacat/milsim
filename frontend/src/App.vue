@@ -35,12 +35,14 @@ defineExpose({
 </script>
 
 <style>
+@import './styles/pages.css';
+
 .loading {
   display: flex;
   justify-content: center;
   align-items: center;
   height: 100vh;
   font-size: 18px;
-  color: var(--text);
+  color: var(--text-primary);
 }
 </style>

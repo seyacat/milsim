@@ -181,7 +181,7 @@ const logout = () => {
 }
 
 .header h1 {
-  color: var(--text);
+  color: var(--text-primary);
   font-size: 1.8rem;
   font-weight: 600;
 }
@@ -215,7 +215,7 @@ const logout = () => {
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--background);
-  color: var(--text);
+  color: var(--text-primary);
   font-size: 1rem;
   transition: border-color 0.2s ease;
 }
@@ -226,7 +226,7 @@ const logout = () => {
 }
 
 .checkbox-label {
-  color: var(--text);
+  color: var(--text-primary);
   cursor: pointer;
 }
 

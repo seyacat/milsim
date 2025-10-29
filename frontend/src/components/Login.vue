@@ -99,7 +99,7 @@ const handleSubmit = async () => {
 .login-title {
   text-align: center;
   margin-bottom: 2rem;
-  color: var(--text);
+  color: var(--text-primary);
   font-size: 1.5rem;
   font-weight: 600;
 }
@@ -118,7 +118,7 @@ const handleSubmit = async () => {
 
 .form-label {
   font-weight: 500;
-  color: var(--text);
+  color: var(--text-primary);
   font-size: 0.9rem;
 }
 
@@ -127,7 +127,7 @@ const handleSubmit = async () => {
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--card-background);
-  color: var(--text);
+  color: var(--text-primary);
   font-size: 1rem;
   transition: border-color 0.2s ease;
 }
