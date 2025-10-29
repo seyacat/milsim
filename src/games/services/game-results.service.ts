@@ -136,17 +136,21 @@ export class GameResultsService {
                  event.data?.controlPointId === controlPoint.id
       );
 
-      // Track previous team for each control point
-      let previousTeam: string | null = null;
+      // Track previous team for each control point - start with 'none' for initial state
+      let previousTeam: string | null = 'none';
       
       for (const event of controlPointEvents) {
         const currentTeam = event.data?.team;
         if (!currentTeam) continue;
 
-        // Count as capture if:
-        // 1. Previous team was different, OR
-        // 2. It's the first event after game start (initialState: true)
-        if (previousTeam !== currentTeam || event.data?.initialState) {
+        // Count as capture only when:
+        // 1. Previous team was 'none' and current team is not 'none', OR
+        // 2. Previous team was different from current team (and both are not 'none')
+        const isCaptureFromNone = previousTeam === 'none' && currentTeam !== 'none';
+        const isCaptureFromDifferentTeam = previousTeam !== null && previousTeam !== 'none' &&
+                                          currentTeam !== 'none' && previousTeam !== currentTeam;
+        
+        if (isCaptureFromNone || isCaptureFromDifferentTeam) {
           teamCaptures[currentTeam] = (teamCaptures[currentTeam] || 0) + 1;
         }
         
@@ -271,16 +275,28 @@ export class GameResultsService {
       }
     }
 
+    // Track previous team for each control point to determine if capture should be counted
+    // Start with 'none' for all control points initially
+    const controlPointPreviousTeams = new Map<number, string | null>();
+    
     // Count captures per player - separate code and position challenge captures
+    // Only count captures when the previous capture was by a different team
     for (const event of captureEvents) {
       const { userId, team, controlPointId, positionChallenge, playerIds, userName } = event.data;
 
-      if (!team) {
+      if (!team || !controlPointId) {
         continue;
       }
 
+      // Get previous team for this control point (default to 'none' if not set)
+      const previousTeam = controlPointPreviousTeams.get(controlPointId) || 'none';
+      
+      // Determine if this should count as a capture:
+      // Only count if previous team was different (and not the same team capturing again)
+      const shouldCountCapture = previousTeam !== team;
+      
       // For position challenge captures, use the playerIds array from the event
-      if (positionChallenge && playerIds && Array.isArray(playerIds)) {
+      if (positionChallenge && playerIds && Array.isArray(playerIds) && shouldCountCapture) {
         // Count each player in the position challenge as capturing the point
         for (const playerId of playerIds) {
           const player = playerStats.get(playerId);
@@ -288,19 +304,22 @@ export class GameResultsService {
             player.positionCaptureCount++;
           }
         }
-      } else if (userId) {
+      } else if (userId && shouldCountCapture) {
         // Regular code challenge capture with userId
         const player = playerStats.get(userId);
         if (player) {
           player.codeCaptureCount++;
         }
-      } else if (userName) {
+      } else if (userName && shouldCountCapture) {
         // Code challenge capture with userName but no userId - try to find player by name
         const player = Array.from(playerStats.values()).find(p => p.userName === userName);
         if (player) {
           player.codeCaptureCount++;
         }
       }
+      
+      // Update the previous team for this control point
+      controlPointPreviousTeams.set(controlPointId, team);
     }
 
     // Count bomb deactivations per player - only count deactivations by opposing teams

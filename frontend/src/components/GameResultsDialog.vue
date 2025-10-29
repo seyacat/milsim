@@ -51,7 +51,7 @@
                 <thead>
                   <tr>
                     <th>Punto de Control</th>
-                    <th v-for="team in results.teams" :key="team">
+                    <th v-for="team in results.teams" :key="team" colspan="2">
                       <div class="game-results-team">
                         <div :class="`team-color ${team}`"></div>
                         {{ team.toUpperCase() }}
@@ -62,15 +62,17 @@
                 <tbody>
                   <tr v-for="cp in results.controlPoints" :key="cp.id">
                     <td>{{ cp.name }}</td>
-                    <td v-for="team in results.teams" :key="team">
-                      {{ formatTime(cp.teamTimes?.[team] || 0) }}
-                    </td>
+                    <template v-for="team in results.teams" :key="team">
+                      <td>{{ formatTime(cp.teamTimes?.[team] || 0) }}</td>
+                      <td>{{ cp.teamCaptures?.[team] || 0 }}</td>
+                    </template>
                   </tr>
                   <tr class="totals-row">
                     <td><strong>TOTAL</strong></td>
-                    <td v-for="team in results.teams" :key="team">
-                      <strong>{{ formatTime(results.teamTotals?.[team] || 0) }}</strong>
-                    </td>
+                    <template v-for="team in results.teams" :key="team">
+                      <td><strong>{{ formatTime(results.teamTotals?.[team] || 0) }}</strong></td>
+                      <td><strong>{{ results.teamCaptureTotals?.[team] || 0 }}</strong></td>
+                    </template>
                   </tr>
                 </tbody>
               </table>
@@ -142,7 +144,10 @@ const error = ref<string | null>(null)
 const sortedPlayerStats = computed(() => {
   if (!results.value?.playerCaptureStats) return []
   
-  return [...results.value.playerCaptureStats].sort((a, b) =>
+  return [...results.value.playerCaptureStats].map(player => ({
+    ...player,
+    captureCount: (player.codeCaptureCount || 0) + (player.positionCaptureCount || 0)
+  })).sort((a, b) =>
     (b.captureCount || 0) - (a.captureCount || 0)
   )
 })
