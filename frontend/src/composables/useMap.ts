@@ -339,7 +339,17 @@ export const useMap = () => {
         })
       } else {
         // Player view - with challenge inputs
-        const popupContent = createPlayerPopupContent(controlPoint)
+        // Get current user's team from global window object
+        const currentGame = (window as any).currentGame
+        const currentUser = (window as any).currentUser
+        let userTeam = 'none'
+        
+        if (currentGame && currentUser) {
+          const currentPlayer = currentGame.players?.find((p: any) => p.user?.id === currentUser.id)
+          userTeam = currentPlayer?.team || 'none'
+        }
+        
+        const popupContent = createPlayerPopupContent(controlPoint, userTeam)
         marker.bindPopup(popupContent, {
           closeOnClick: false,
           autoClose: false,
@@ -851,7 +861,17 @@ export const useMap = () => {
         })
       } else {
         // Player view - with challenge inputs
-        const popupContent = createPlayerPopupContent(controlPoint)
+        // Get current user's team from global window object
+        const currentGame = (window as any).currentGame
+        const currentUser = (window as any).currentUser
+        let userTeam = 'none'
+        
+        if (currentGame && currentUser) {
+          const currentPlayer = currentGame.players?.find((p: any) => p.user?.id === currentUser.id)
+          userTeam = currentPlayer?.team || 'none'
+        }
+        
+        const popupContent = createPlayerPopupContent(controlPoint, userTeam)
         marker.bindPopup(popupContent, {
           closeOnClick: false,
           autoClose: false,

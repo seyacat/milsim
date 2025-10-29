@@ -691,9 +691,9 @@
 
 /* Control Point Player Popup Styles */
 .control-point-player-menu {
-  min-width: 250px;
-  max-width: 300px;
-  background: rgba(0, 0, 0, 0.95);
+  min-width: 280px;
+  max-width: 320px;
+  background: transparent;
   border: 2px solid var(--success);
   border-radius: var(--radius-lg);
   padding: var(--spacing-lg);
@@ -733,17 +733,20 @@
 
 .player-form-input {
   width: 100%;
-  padding: var(--spacing-xs) var(--spacing-sm);
+  padding: var(--spacing-md);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-lg);
   box-sizing: border-box;
   background: var(--surface);
   color: var(--text-primary);
+  height: 48px;
+  margin-bottom: var(--spacing-md);
 }
 
 .player-form-input::placeholder {
   color: var(--text-muted);
+  font-size: var(--font-size-sm);
 }
 
 .player-btn {
@@ -752,9 +755,10 @@
   border: none;
   padding: var(--spacing-md) var(--spacing-lg);
   border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
   font-weight: bold;
   width: 100%;
+  margin-bottom: var(--spacing-md);
 }
 
 .player-btn:hover {
