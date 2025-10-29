@@ -6,7 +6,7 @@ import {
   forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Game } from '../entities/game.entity';
 import { GameInstance } from '../entities/game-instance.entity';
 import { GameHistory } from '../entities/game-history.entity';
@@ -35,6 +35,7 @@ export class GameManagementService {
 
   async findAll(): Promise<Game[]> {
     return this.gamesRepository.find({
+      where: { deletedAt: IsNull() },
       relations: ['owner'],
       order: { createdAt: 'DESC' },
     });
@@ -42,7 +43,7 @@ export class GameManagementService {
 
   async findOne(id: number, userId?: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
-      where: { id },
+      where: { id, deletedAt: IsNull() },
       relations: ['owner', 'controlPoints'],
     });
     if (!game) {
@@ -119,7 +120,7 @@ export class GameManagementService {
 
   async deleteGame(gameId: number, userId: number): Promise<void> {
     const game = await this.gamesRepository.findOne({
-      where: { id: gameId },
+      where: { id: gameId, deletedAt: IsNull() },
       relations: ['controlPoints', 'owner'],
     });
 
@@ -132,28 +133,13 @@ export class GameManagementService {
       throw new ConflictException('Solo el propietario del juego puede eliminarlo');
     }
 
-    // Delete related players from game instance
-    const gameInstance = await this.gameInstancesRepository.findOne({
-      where: { game: { id: gameId } },
-      relations: ['players'],
-    });
-    
-    if (gameInstance && gameInstance.players && gameInstance.players.length > 0) {
-      await this.playersRepository.remove(gameInstance.players);
-    }
-
-    // Delete related control points
-    if (game.controlPoints && game.controlPoints.length > 0) {
-      await this.controlPointsRepository.remove(game.controlPoints);
-    }
-
-    // Delete the game
-    await this.gamesRepository.delete(gameId);
+    // Soft delete the game using TypeORM's softDelete
+    await this.gamesRepository.softDelete(gameId);
   }
 
   async updateGame(gameId: number, updateData: { name?: string }, userId: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
-      where: { id: gameId },
+      where: { id: gameId, deletedAt: IsNull() },
       relations: ['owner', 'controlPoints'],
     });
 
@@ -197,7 +183,7 @@ export class GameManagementService {
 
   async updateTeamCount(gameId: number, teamCount: number, userId: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
-      where: { id: gameId },
+      where: { id: gameId, deletedAt: IsNull() },
       relations: ['owner'],
     });
 
@@ -244,7 +230,7 @@ export class GameManagementService {
 
   async updateActiveConnections(gameId: number, connectionCount: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
-      where: { id: gameId },
+      where: { id: gameId, deletedAt: IsNull() },
     });
 
     if (!game) {
@@ -258,7 +244,7 @@ export class GameManagementService {
   // Game Instance methods
   async createGameInstance(gameId: number): Promise<GameInstance> {
     const game = await this.gamesRepository.findOne({
-      where: { id: gameId },
+      where: { id: gameId, deletedAt: IsNull() },
     });
 
     if (!game) {
@@ -288,7 +274,7 @@ export class GameManagementService {
 
   async getGameInstance(gameId: number): Promise<GameInstance | null> {
     const game = await this.gamesRepository.findOne({
-      where: { id: gameId },
+      where: { id: gameId, deletedAt: IsNull() },
     });
 
     if (!game || !game.instanceId) {
@@ -300,6 +286,7 @@ export class GameManagementService {
       relations: ['history'],
     });
   }
+
 
   // Game History methods - delegate to TimerCalculationService
   async addGameHistory(

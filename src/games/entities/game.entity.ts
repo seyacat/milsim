@@ -7,6 +7,7 @@ import {
   OneToMany,
   ManyToOne,
   JoinColumn,
+  DeleteDateColumn,
 } from 'typeorm';
 import { User } from '../../auth/entities/user.entity';
 import { ControlPoint } from './control-point.entity';
@@ -47,6 +48,9 @@ export class Game {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @DeleteDateColumn({ nullable: true })
+  deletedAt: Date | null;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'ownerId' })
