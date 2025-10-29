@@ -25,12 +25,22 @@ import { GameResultsService } from './services/game-results.service';
 @Injectable()
 export class GamesService {
   /**
-   * Helper method to broadcast game update with player relations
+   * Helper method to broadcast game update with player relations and current timer values
    */
   private async broadcastGameUpdateWithPlayers(gameId: number): Promise<void> {
     if (this.gamesGateway) {
       try {
         const gameWithPlayers: Game = await this.findOne(gameId);
+        
+        // Get current timer values and add them to the game object
+        const currentTime = await this.timerManagementService.getGameTime(gameId);
+        if (currentTime) {
+          // Add timer values to the game object for the broadcast
+          (gameWithPlayers as any).remainingTime = currentTime.remainingTime;
+          (gameWithPlayers as any).playedTime = currentTime.playedTime;
+          (gameWithPlayers as any).totalTime = currentTime.totalTime;
+        }
+        
         this.gamesGateway.broadcastGameUpdate(gameId, gameWithPlayers);
       } catch (error) {
         console.error(`Error broadcasting game update for game ${gameId}:`, error);
@@ -69,7 +79,18 @@ export class GamesService {
   }
 
   async findOne(id: number, userId?: number): Promise<Game> {
-    return this.gameManagementService.findOne(id, userId);
+    const game = await this.gameManagementService.findOne(id, userId);
+    
+    // Get current timer values and add them to the game object
+    const currentTime = await this.timerManagementService.getGameTime(id);
+    if (currentTime) {
+      // Add timer values to the game object
+      (game as any).remainingTime = currentTime.remainingTime;
+      (game as any).playedTime = currentTime.playedTime;
+      (game as any).totalTime = currentTime.totalTime;
+    }
+    
+    return game;
   }
 
   async create(gameData: Partial<Game>, ownerId: number): Promise<Game> {
@@ -304,8 +325,15 @@ export class GamesService {
     // Stop position challenge interval
     this.stopPositionChallengeInterval(gameId);
 
-    // Reset timers to zero on pause
-    this.timerManagementService.resetTimersToZero(gameId);
+    // Broadcast final time update before pausing to ensure frontend has correct values
+    const currentTime = await this.timerManagementService.getGameTime(gameId);
+    if (currentTime && this.gamesGateway) {
+      this.gamesGateway.broadcastTimeUpdate(gameId, {
+        remainingTime: currentTime.remainingTime,
+        playedTime: currentTime.playedTime,
+        totalTime: currentTime.totalTime,
+      });
+    }
 
     // Force broadcast game update to ensure all players receive the state change
     // This is critical to ensure players respect pause state after restart
@@ -349,8 +377,15 @@ export class GamesService {
     // Start position challenge interval
     this.startPositionChallengeInterval(gameId);
 
-    // Reset timers to zero on resume
-    this.timerManagementService.resetTimersToZero(gameId);
+    // Broadcast current time update after resuming to ensure frontend has correct values
+    const currentTime = await this.timerManagementService.getGameTime(gameId);
+    if (currentTime && this.gamesGateway) {
+      this.gamesGateway.broadcastTimeUpdate(gameId, {
+        remainingTime: currentTime.remainingTime,
+        playedTime: currentTime.playedTime,
+        totalTime: currentTime.totalTime,
+      });
+    }
 
     // Force broadcast game update to ensure all players receive the state change
     // This is critical to ensure players respect pause state after restart
@@ -394,8 +429,8 @@ export class GamesService {
     // Stop position challenge interval
     this.stopPositionChallengeInterval(gameId);
 
-    // Reset timers to zero on game end
-    this.timerManagementService.resetTimersToZero(gameId);
+    // Broadcast current timer state on game end
+    this.timerManagementService.broadcastCurrentTimers(gameId);
 
     // Force broadcast game update to ensure all players receive the state change
     await this.broadcastGameUpdateWithPlayers(gameId);
@@ -460,10 +495,8 @@ export class GamesService {
     // This is critical to ensure players respect pause state after restart
     await this.broadcastGameUpdateWithPlayers(gameId);
 
-    // Reset timers to zero to ensure timers are hidden when game transitions from finished to stopped
-    this.timerManagementService.resetTimersToZero(gameId).catch(error => {
-      console.error(`Error broadcasting timer updates for game ${gameId}:`, error);
-    });
+    // Broadcast current timer state when game transitions from finished to stopped
+    this.timerManagementService.broadcastCurrentTimers(gameId);
 
     return updatedGame;
   }
@@ -495,8 +528,8 @@ export class GamesService {
     // Stop timer if exists
     this.timerManagementService.stopGameTimer(gameId);
 
-    // Reset timers to zero on automatic game end
-    this.timerManagementService.resetTimersToZero(gameId);
+    // Broadcast current timer state on automatic game end
+    this.timerManagementService.broadcastCurrentTimers(gameId);
 
     // BROADCAST GAME STATE CHANGE FORCEFULLY TO ALL PLAYERS
     if (this.gamesGateway) {
@@ -590,8 +623,8 @@ export class GamesService {
         }
       }
       
-      // For stopped games, reset timers to zero since there are no active timers
-      this.timerManagementService.resetTimersToZero(gameId);
+      // For stopped games, broadcast current timer state
+      this.timerManagementService.broadcastCurrentTimers(gameId);
     }
 
     // Log game history
@@ -673,8 +706,8 @@ export class GamesService {
         }
       }
       
-      // For stopped games, reset timers to zero since there are no active timers
-      this.timerManagementService.resetTimersToZero(gameId);
+      // For stopped games, broadcast current timer state
+      this.timerManagementService.broadcastCurrentTimers(gameId);
     }
 
     // Log game history
@@ -739,8 +772,8 @@ export class GamesService {
         }
       }
       
-      // For stopped games, reset timers to zero since there are no active timers
-      this.timerManagementService.resetTimersToZero(gameId);
+      // For stopped games, broadcast current timer state
+      this.timerManagementService.broadcastCurrentTimers(gameId);
     }
 
     // Log game history
@@ -809,8 +842,8 @@ export class GamesService {
       // Note: This would need to be implemented in TimerManagementService
     }
 
-    // Reset timers to zero when updating game time
-    this.timerManagementService.resetTimersToZero(gameId);
+    // Broadcast current timer state when updating game time
+    this.timerManagementService.broadcastCurrentTimers(gameId);
 
     // Force broadcast game update to ensure frontend receives the updated totalTime
     await this.broadcastGameUpdateWithPlayers(gameId);

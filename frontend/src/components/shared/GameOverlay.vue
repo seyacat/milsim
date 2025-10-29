@@ -39,11 +39,11 @@
           Usuario: <span>{{ currentUser.name }}</span>
         </div>
         
-        <!-- Timer display for running state -->
-        <div v-if="currentGame.status === 'running'">
+        <!-- Timer display for running and paused states -->
+        <div v-if="currentGame.status === 'running' || currentGame.status === 'paused'">
           Tiempo: <span>{{ formatTime(currentGame.playedTime) }}</span>
         </div>
-        <div v-if="currentGame.status === 'running' && currentGame.totalTime && currentGame.totalTime > 0">
+        <div v-if="(currentGame.status === 'running' || currentGame.status === 'paused') && currentGame.totalTime && currentGame.totalTime > 0">
           Restante: <span>{{ formatTime(currentGame.remainingTime) }}</span>
         </div>
       </div>
@@ -241,7 +241,7 @@ const handleTimeSelect = () => {
 
 const formatTime = (seconds: number): string => {
   // Handle null, undefined, or invalid values
-  if (!seconds || seconds <= 0) return '0:00'
+  if (seconds === null || seconds === undefined || seconds < 0) return '0:00'
   
   // Ensure seconds is a valid number
   const validSeconds = Math.max(0, Math.floor(Number(seconds)))

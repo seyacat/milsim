@@ -187,15 +187,36 @@ export class TimerManagementService {
         }
       }
 
-      // Always broadcast control point times
-      const controlPointTimes = await this.getControlPointTimes(gameId);
-      if (controlPointTimes.length > 0) {
+      // Control point times are automatically included in the broadcastTimeUpdate method
+      // No need for separate broadcast that would override timer values
+    }
+  }
+
+  // Broadcast current timer values without resetting them
+  async broadcastCurrentTimers(gameId: number): Promise<void> {
+    const timer = this.gameTimers.get(gameId);
+    if (this.gamesGateway) {
+      // Always broadcast current game time values
+      if (timer) {
         this.gamesGateway.broadcastTimeUpdate(gameId, {
-          remainingTime: null, // Will be populated by broadcastTimeUpdate
-          totalTime: null, // Will be populated by broadcastTimeUpdate
-          playedTime: 0, // Will be populated by broadcastTimeUpdate
+          remainingTime: timer.remainingTime,
+          playedTime: timer.elapsedTime,
+          totalTime: timer.totalTime,
         });
+      } else {
+        // Get time data from database when no active timer exists
+        const timeData = await this.getGameTime(gameId);
+        if (timeData) {
+          this.gamesGateway.broadcastTimeUpdate(gameId, {
+            remainingTime: timeData.remainingTime,
+            playedTime: timeData.playedTime,
+            totalTime: timeData.totalTime,
+          });
+        }
       }
+
+      // Control point times are automatically included in the broadcastTimeUpdate method
+      // No need for separate broadcast that would override timer values
     }
   }
 
