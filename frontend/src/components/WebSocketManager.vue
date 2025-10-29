@@ -147,9 +147,8 @@ const handleGameUpdate = (game: Game) => {
   
   // Timer displays are updated by Game.vue after game state changes
   
-  // Show results dialog automatically when game is finished for all users
+  // Stop local timer when game is finished
   if (game.status === 'finished') {
-    props.onResultsDialogChange?.(true)
     stopLocalTimer()
   }
 
