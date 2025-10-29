@@ -442,7 +442,7 @@ export class GamesService {
   async restartGame(gameId: number, userId: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
-      relations: ['owner'],
+      relations: ['owner', 'controlPoints'],
     });
 
     if (!game) {
@@ -461,6 +461,18 @@ export class GamesService {
 
     // Create new game instance and assign it to the game
     const gameInstance = await this.gameManagementService.createGameInstance(gameId);
+
+    // Reset all control points to have no team (ownedByTeam = null)
+    if (game.controlPoints && game.controlPoints.length > 0) {
+      for (const controlPoint of game.controlPoints) {
+        await this.controlPointManagementService.updateControlPoint(
+          controlPoint.id,
+          {
+            ownedByTeam: null,
+          },
+        );
+      }
+    }
 
     // Update game status to stopped and set new instanceId
     game.status = 'stopped';
