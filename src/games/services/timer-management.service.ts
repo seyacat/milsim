@@ -164,8 +164,8 @@ export class TimerManagementService {
     this.stopPositionChallengeProcessing(gameId);
   }
 
-  // Force broadcast time update (used for important events)
-  async forceTimeBroadcast(gameId: number): Promise<void> {
+  // Reset timers to zero and broadcast (used when game transitions from stopped to running)
+  async resetTimersToZero(gameId: number): Promise<void> {
     const timer = this.gameTimers.get(gameId);
     if (this.gamesGateway) {
       // Always broadcast game time update
@@ -242,6 +242,32 @@ export class TimerManagementService {
     } catch (error) {
       console.error(`Error calculating game time for game ${gameId}:`, error);
       return null;
+    }
+  }
+
+  // Add time to active game timer
+  addTimeToGameTimer(gameId: number, seconds: number): void {
+    const timer = this.gameTimers.get(gameId);
+    if (timer && timer.totalTime !== null) {
+      // Update the total time and remaining time
+      timer.totalTime += seconds;
+      if (timer.remainingTime !== null) {
+        timer.remainingTime += seconds;
+      }
+    }
+  }
+
+  // Broadcast time update when time is added (doesn't reset timers)
+  broadcastTimeAdded(gameId: number): void {
+    const timer = this.gameTimers.get(gameId);
+    if (this.gamesGateway && timer) {
+      // Broadcast only the updated time without affecting control point timers
+      // Use direct broadcast to avoid mixing with control point times
+      this.gamesGateway.broadcastGameTimeOnly(gameId, {
+        remainingTime: timer.remainingTime,
+        playedTime: timer.elapsedTime,
+        totalTime: timer.totalTime,
+      });
     }
   }
 

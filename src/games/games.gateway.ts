@@ -629,6 +629,26 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.broadcastUtilitiesHandler.broadcastTimeUpdate(gameId, timeData, this.server);
   }
 
+  // Method to broadcast only game time updates without control point times
+  broadcastGameTimeOnly(
+    gameId: number,
+    timeData: {
+      remainingTime: number | null;
+      playedTime: number;
+      totalTime: number | null;
+    },
+  ): void {
+    // Use direct broadcast to avoid mixing with control point times
+    const eventData = {
+      ...timeData,
+      controlPointTimes: [], // Empty array to avoid affecting control point timers
+      from: 'server',
+      timestamp: new Date().toISOString(),
+    };
+    
+    this.server.to(`game_${gameId}`).emit('timeUpdate', eventData);
+  }
+
   // Method to broadcast control point time updates to all connected clients in a game
   async broadcastControlPointTimeUpdate(
     controlPointId: number,

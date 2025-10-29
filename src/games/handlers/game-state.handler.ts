@@ -271,6 +271,12 @@ export class GameStateHandler {
             server,
             client.id,
           );
+          
+          // Also send immediate time update to ensure timers are synchronized
+          const timeData = await this.gamesService.getGameTime(gameId);
+          if (timeData) {
+            await this.broadcastUtilities.broadcastTimeUpdate(gameId, timeData, server);
+          }
         }
       } catch (error: any) {
         client.emit('gameActionError', {
