@@ -525,8 +525,8 @@ export class GamesService {
     return updatedGame;
   }
 
-  // End game automatically when time expires (system action)
-  async endGameAutomatically(gameId: number): Promise<Game> {
+  // Pause game automatically when time expires (system action)
+  async pauseGameAutomatically(gameId: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },
       relations: ['owner', 'controlPoints'],
@@ -536,23 +536,27 @@ export class GamesService {
       throw new NotFoundException('Game not found');
     }
 
-    // Add game ended event to history if there's an active instance
+    // Add game paused event to history if there's an active instance
     if (game.instanceId) {
-      await this.gameManagementService.addGameHistory(game.instanceId, 'game_ended_automatically', {
+      await this.gameManagementService.addGameHistory(game.instanceId, 'game_paused_automatically', {
         gameId,
-        endedBy: 'system',
+        pausedBy: 'system',
         timestamp: new Date(),
       });
     }
 
-    // Update game status to finished (keep instanceId for game summary)
-    game.status = 'finished';
+    // Update game status to paused (keep instanceId for game summary)
+    game.status = 'paused';
     const updatedGame = await this.gamesRepository.save(game);
 
-    // Stop timer if exists
-    this.timerManagementService.stopGameTimer(gameId);
+    // Pause timer if exists (don't stop it completely)
+    this.timerManagementService.pauseGameTimer(gameId);
+    // Pause all control point timers
+    this.timerManagementService.pauseAllControlPointTimers(gameId);
+    // Stop position challenge interval
+    this.stopPositionChallengeInterval(gameId);
 
-    // Broadcast current timer state on automatic game end
+    // Broadcast current timer state on automatic game pause
     this.timerManagementService.broadcastCurrentTimers(gameId);
 
     // BROADCAST GAME STATE CHANGE FORCEFULLY TO ALL PLAYERS

@@ -29,7 +29,7 @@ export interface BombTimeData {
 }
 
 export interface TimeEvent {
-  type: 'game_started' | 'game_paused' | 'game_resumed';
+  type: 'game_started' | 'game_paused' | 'game_resumed' | 'game_paused_automatically';
   timestamp: Date;
 }
 
@@ -93,7 +93,7 @@ export class TimerCalculationService {
     const history = await this.getGameHistoryWithCache(gameInstanceId);
 
     const timeEvents = history.filter(record =>
-      ['game_started', 'game_paused', 'game_resumed'].includes(record.eventType),
+      ['game_started', 'game_paused', 'game_resumed', 'game_paused_automatically'].includes(record.eventType),
     );
 
     if (timeEvents.length === 0) return 0;
@@ -113,7 +113,7 @@ export class TimerCalculationService {
       if (event.eventType === 'game_started' || event.eventType === 'game_resumed') {
         currentGameState = 'running';
         lastEventTime = event.timestamp;
-      } else if (event.eventType === 'game_paused') {
+      } else if (event.eventType === 'game_paused' || event.eventType === 'game_paused_automatically') {
         if (currentGameState === 'running' && lastEventTime) {
           const segmentTime = Math.floor(
             (event.timestamp.getTime() - lastEventTime.getTime()) / 1000,
@@ -147,11 +147,11 @@ export class TimerCalculationService {
     const history = await this.getGameHistoryWithCache(gameInstanceId);
 
     const filteredHistory = history.filter(record =>
-      ['game_started', 'game_paused', 'game_resumed'].includes(record.eventType),
+      ['game_started', 'game_paused', 'game_resumed', 'game_paused_automatically'].includes(record.eventType),
     );
 
     return filteredHistory.map(record => ({
-      type: record.eventType as 'game_started' | 'game_paused' | 'game_resumed',
+      type: record.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_paused_automatically',
       timestamp: record.timestamp,
     }));
   }
@@ -186,12 +186,12 @@ export class TimerCalculationService {
         })),
       ...history
         .filter(event =>
-          ['game_started', 'game_paused', 'game_resumed', 'game_ended', 'game_ended_automatically'].includes(event.eventType),
+          ['game_started', 'game_paused', 'game_resumed', 'game_ended', 'game_paused_automatically'].includes(event.eventType),
         )
         .map(event => ({
           type: 'game_state' as const,
           timestamp: event.timestamp,
-          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended' | 'game_ended_automatically',
+          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended' | 'game_paused_automatically',
         })),
     ];
 
@@ -211,7 +211,7 @@ export class TimerCalculationService {
           if (currentTeam && currentTeam === currentOwnerTeam) {
             currentHoldStart = event.timestamp;
           }
-        } else if (event.state === 'game_paused' || event.state === 'game_ended' || event.state === 'game_ended_automatically') {
+        } else if (event.state === 'game_paused' || event.state === 'game_ended' || event.state === 'game_paused_automatically') {
           if (currentHoldStart && currentTeam === currentOwnerTeam) {
             const intervalTime = Math.floor(
               (event.timestamp.getTime() - currentHoldStart.getTime()) / 1000,
@@ -276,12 +276,12 @@ export class TimerCalculationService {
         })),
       ...history
         .filter(event =>
-          ['game_started', 'game_paused', 'game_resumed', 'game_ended', 'game_ended_automatically'].includes(event.eventType),
+          ['game_started', 'game_paused', 'game_resumed', 'game_ended', 'game_paused_automatically'].includes(event.eventType),
         )
         .map(event => ({
           type: 'game_state' as const,
           timestamp: event.timestamp,
-          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended' | 'game_ended_automatically',
+          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended' | 'game_paused_automatically',
         })),
     ];
 
@@ -328,7 +328,7 @@ export class TimerCalculationService {
           if (currentTeam && currentTeam === team) {
             currentHoldStart = event.timestamp;
           }
-        } else if (event.state === 'game_paused' || event.state === 'game_ended' || event.state === 'game_ended_automatically') {
+        } else if (event.state === 'game_paused' || event.state === 'game_ended' || event.state === 'game_paused_automatically') {
           if (currentHoldStart && currentTeam === team) {
             const intervalTime = Math.floor(
               (event.timestamp.getTime() - currentHoldStart.getTime()) / 1000,
@@ -388,12 +388,12 @@ export class TimerCalculationService {
         })),
       ...history
         .filter(event =>
-          ['game_started', 'game_paused', 'game_resumed', 'game_ended', 'game_ended_automatically'].includes(event.eventType),
+          ['game_started', 'game_paused', 'game_resumed', 'game_ended', 'game_paused_automatically'].includes(event.eventType),
         )
         .map(event => ({
           type: 'game_state' as const,
           timestamp: event.timestamp,
-          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended' | 'game_ended_automatically',
+          state: event.eventType as 'game_started' | 'game_paused' | 'game_resumed' | 'game_ended' | 'game_paused_automatically',
         })),
     ];
 
@@ -418,7 +418,7 @@ export class TimerCalculationService {
           if (bombActive && bombStartTime) {
             currentActiveStart = event.timestamp;
           }
-        } else if (event.state === 'game_paused' || event.state === 'game_ended' || event.state === 'game_ended_automatically') {
+        } else if (event.state === 'game_paused' || event.state === 'game_ended' || event.state === 'game_paused_automatically') {
           if (currentActiveStart && bombActive) {
             const intervalTime = Math.floor(
               (event.timestamp.getTime() - currentActiveStart.getTime()) / 1000,

@@ -17,7 +17,7 @@ interface GameTimer {
   intervalId?: NodeJS.Timeout;
   isRunning: boolean;
   timeEvents: Array<{
-    type: 'game_started' | 'game_paused' | 'game_resumed';
+    type: 'game_started' | 'game_paused' | 'game_resumed' | 'game_paused_automatically';
     timestamp: Date;
   }>; // Track time events for accurate calculation
 }
@@ -109,10 +109,10 @@ export class TimerManagementService {
               timer.remainingTime <= 0
             ) {
               // Time's up - end the game automatically (system action)
-              // Stop the timer immediately to prevent further updates
-              this.stopGameTimer(gameId);
+              // Pause the timer immediately to prevent further updates
+              this.pauseGameTimer(gameId);
               
-              this.gamesService.endGameAutomatically(gameId)
+              this.gamesService.pauseGameAutomatically(gameId)
                 .then(() => {
                 })
                 .catch(error => {
