@@ -842,3 +842,35 @@
   background: var(--text-muted) !important;
   color: var(--text-primary) !important;
 }
+
+/* Close section for player popup */
+.control-point-player-menu .close-section {
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--border);
+}
+
+/* Player marker popup styles */
+.leaflet-popup-content-wrapper .leaflet-popup-content {
+  padding: var(--spacing-md) !important;
+  text-align: center !important;
+  line-height: 1.4 !important;
+}
+
+.leaflet-popup-content-wrapper .leaflet-popup-content strong {
+  color: var(--text-primary) !important;
+  font-size: var(--font-size-base) !important;
+  display: block !important;
+  margin-bottom: var(--spacing-xs) !important;
+}
+
+.leaflet-popup-content-wrapper .leaflet-popup-content br + br {
+  margin-top: var(--spacing-xs) !important;
+}
+
+.leaflet-popup-content-wrapper .leaflet-popup-content small {
+  color: var(--text-muted) !important;
+  font-size: var(--font-size-sm) !important;
+  display: block !important;
+  margin-top: var(--spacing-xs) !important;
+}

@@ -319,10 +319,10 @@ export const createPlayerPopupContent = (controlPoint: ControlPoint, userTeam?: 
         
         ${controlPoint.ownedByTeam ? `
           <div class="ownership-section">
-            <div class="ownership-status" style="background: ${getTeamColor(controlPoint.ownedByTeam)}; color: white; padding: 5px; border-radius: 4px; margin-bottom: 10px; text-align: center; font-weight: bold">
+            <div class="ownership-status" style="background: ${getTeamColor(controlPoint.ownedByTeam)}; color: white; padding: 8px; border-radius: 4px; margin-bottom: 12px; text-align: center; font-weight: bold">
               Controlado por: ${getTeamName(controlPoint.ownedByTeam)}
             </div>
-            <div class="hold-time" style="font-size: 12px; color: #ccc; text-align: center; margin-bottom: 10px">
+            <div class="hold-time" style="font-size: 12px; color: var(--text-muted); text-align: center; margin-bottom: 12px; padding: 4px 0">
               Tiempo: ${controlPoint.displayTime || '00:00'}
             </div>
           </div>
@@ -330,10 +330,10 @@ export const createPlayerPopupContent = (controlPoint: ControlPoint, userTeam?: 
         
         <!-- Code Challenge Input -->
         ${controlPoint.hasCodeChallenge ? `
-          <div class="challenge-section" style="margin-bottom: 15px">
-            <h5 style="margin: 0 0 8px 0; font-size: 14px; color: #ccc">Desafío de Código</h5>
+          <div class="challenge-section">
+            <h5>Desafío de Código</h5>
             <div class="player-form-group">
-              <input type="text" id="playerCodeInput_${controlPoint.id}" class="player-form-input" placeholder="Ingresar código" style="font-size: 16px; padding: 12px; height: 48px; margin-bottom: 10px;">
+              <input type="text" id="playerCodeInput_${controlPoint.id}" class="player-form-input" placeholder="Ingresar código">
               <button class="player-btn team-${userTeam || 'none'}" id="submitCodeBtn_${controlPoint.id}">
                 Ingresar Código
               </button>
@@ -343,12 +343,12 @@ export const createPlayerPopupContent = (controlPoint: ControlPoint, userTeam?: 
         
         <!-- Bomb Challenge Inputs -->
         ${controlPoint.hasBombChallenge ? `
-          <div class="challenge-section" style="margin-bottom: 15px">
-            <h5 style="margin: 0 0 8px 0; font-size: 14px; color: #ccc">Desafío de Bomba</h5>
+          <div class="challenge-section">
+            <h5>Desafío de Bomba</h5>
             ${controlPoint.bombStatus?.isActive ? `
               <!-- Bomb is active - show deactivation input -->
               <div class="player-form-group">
-                <input type="text" id="playerDisarmCodeInput_${controlPoint.id}" class="player-form-input" placeholder="Código de desactivación" style="font-size: 16px; padding: 12px; height: 48px; margin-bottom: 10px;">
+                <input type="text" id="playerDisarmCodeInput_${controlPoint.id}" class="player-form-input" placeholder="Código de desactivación">
                 <button class="player-btn team-${userTeam || 'none'}" id="deactivateBombBtn_${controlPoint.id}">
                   Desactivar
                 </button>
@@ -356,7 +356,7 @@ export const createPlayerPopupContent = (controlPoint: ControlPoint, userTeam?: 
             ` : `
               <!-- Bomb is not active - show activation input -->
               <div class="player-form-group">
-                <input type="text" id="playerArmCodeInput_${controlPoint.id}" class="player-form-input" placeholder="Código de activación" style="font-size: 16px; padding: 12px; height: 48px; margin-bottom: 10px;">
+                <input type="text" id="playerArmCodeInput_${controlPoint.id}" class="player-form-input" placeholder="Código de activación">
                 <button class="player-btn team-${userTeam || 'none'}" id="activateBombBtn_${controlPoint.id}">
                   Activar
                 </button>
@@ -368,15 +368,15 @@ export const createPlayerPopupContent = (controlPoint: ControlPoint, userTeam?: 
         <!-- Position Challenge Info -->
         ${controlPoint.hasPositionChallenge ? `
           <div class="challenge-section">
-            <h5 style="margin: 0 0 8px 0; font-size: 14px; color: #ccc">Desafío de Posición</h5>
-            <p style="font-size: 12px; color: #999; margin: 0">
+            <h5>Desafío de Posición</h5>
+            <p>
               Acércate al punto para capturarlo automáticamente
             </p>
           </div>
         ` : ''}
         
         <!-- Close button -->
-        <div style="margin-top: 15px">
+        <div class="close-section">
           <button class="player-btn team-none" id="closePlayerPopupBtn_${controlPoint.id}">
             Cerrar
           </button>

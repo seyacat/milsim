@@ -299,29 +299,29 @@ const setTimeUndefined = () => {
 
 <style scoped>
 .time-select-container {
-  margin-top: 10px;
+  margin-top: var(--spacing-md);
 }
 
 .game-title-container {
   position: relative;
-  margin-bottom: 10px;
+  margin-bottom: var(--spacing-md);
 }
 
 .game-name-display {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-md);
 }
 
 .game-name-display h2 {
   margin: 0;
-  font-size: 1.2rem;
-  color: white;
+  font-size: var(--font-size-base);
+  color: var(--success);
 }
 
 .edit-pencil {
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: var(--font-size-sm);
   opacity: 0.7;
   transition: opacity 0.2s;
   user-select: none;
@@ -334,122 +334,136 @@ const setTimeUndefined = () => {
 .game-name-edit {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-md);
 }
 
 .game-name-input {
-  padding: 4px 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 1.2rem;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-base);
   font-weight: bold;
   width: 200px;
   outline: none;
-  background-color: black;
-  color: white;
+  background-color: var(--surface);
+  color: var(--text-primary);
 }
 
 .game-name-input:focus {
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+  border-color: var(--info);
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25);
 }
 
 .edit-actions {
   display: flex;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .btn-save, .btn-cancel {
-  padding: 4px 8px;
+  padding: var(--spacing-xs) var(--spacing-sm);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: var(--font-size-sm);
   transition: background-color 0.2s;
 }
 
 .btn-save {
-  background-color: #28a745;
-  color: white;
+  background-color: var(--success);
+  color: var(--text-primary);
 }
 
 .btn-save:hover {
-  background-color: #218838;
+  background-color: var(--success-dark);
 }
 
 .btn-cancel {
-  background-color: #dc3545;
-  color: white;
+  background-color: var(--danger);
+  color: var(--text-primary);
 }
 
 .btn-cancel:hover {
-  background-color: #c82333;
+  background-color: var(--danger-dark);
 }
 
 .time-buttons-container {
-  margin-top: 10px;
+  margin-top: var(--spacing-md);
   display: flex;
   justify-content: center;
-  gap: 10px;
+  gap: var(--spacing-md);
 }
 
 .add-time-btn {
-  padding: 8px 16px;
-  background-color: #28a745;
-  color: white;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: var(--success);
+  color: var(--text-primary);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 1rem;
+  font-size: var(--font-size-base);
   font-weight: bold;
   transition: background-color 0.2s;
 }
 
 .add-time-btn:hover {
-  background-color: #218838;
+  background-color: var(--success-dark);
 }
 
 .add-time-btn:active {
-  background-color: #1e7e34;
+  background-color: var(--success-dark);
 }
 
 .remove-time-btn {
-  padding: 8px 16px;
-  background-color: #dc3545;
-  color: white;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: var(--danger);
+  color: var(--text-primary);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 1rem;
+  font-size: var(--font-size-base);
   font-weight: bold;
   transition: background-color 0.2s;
 }
 
 .remove-time-btn:hover {
-  background-color: #c82333;
+  background-color: var(--danger-dark);
 }
 
 .remove-time-btn:active {
-  background-color: #bd2130;
+  background-color: var(--danger-dark);
 }
 
 .inf-time-btn {
-  padding: 8px 16px;
-  background-color: #6c757d;
-  color: white;
+  padding: var(--spacing-md) var(--spacing-lg);
+  background-color: var(--text-muted);
+  color: var(--text-primary);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 1rem;
+  font-size: var(--font-size-base);
   font-weight: bold;
   transition: background-color 0.2s;
 }
 
 .inf-time-btn:hover {
-  background-color: #5a6268;
+  background-color: var(--text-muted);
 }
 
 .inf-time-btn:active {
-  background-color: #545b62;
+  background-color: var(--text-muted);
+}
+.game-details {
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.game-details div {
+  margin-bottom: var(--spacing-sm);
+  color: var(--text-primary);
+}
+
+.game-details span {
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 </style>
