@@ -532,36 +532,11 @@ export class GamesService {
   }
 
   async addTime(gameId: number, seconds: number): Promise<Game> {
-    const timer = await this.timerManagementService.getGameTime(gameId);
-    if (!timer) {
-      throw new Error('No hay un temporizador activo para este juego');
-    }
-
-    // Handle negative time (removing time)
-    if (seconds < 0) {
-      // For limited games, ensure we don't go below elapsed time
-      if (timer.totalTime !== null && timer.remainingTime !== null) {
-        const newTotalTime = Math.max(timer.playedTime, timer.totalTime + seconds);
-        const newRemainingTime = Math.max(0, timer.remainingTime + seconds);
-
-        // Update timer
-        // Note: This would need to be implemented in TimerManagementService
-      } else {
-        // For indefinite games, cannot remove time
-        throw new Error('No se puede quitar tiempo de un juego indefinido');
-      }
-    } else {
-      // Handle positive time (adding time)
-      if (timer.totalTime !== null && timer.remainingTime !== null) {
-        // Update timer
-        // Note: This would need to be implemented in TimerManagementService
-      } else {
-        // If game was indefinite (null or 0), now it becomes limited
-        // Note: This would need to be implemented in TimerManagementService
-      }
-    }
-
     const game = await this.findOne(gameId);
+    
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
 
     // Update the appropriate entity based on game status
     if (game.status === 'running' && game.instanceId) {
@@ -571,21 +546,28 @@ export class GamesService {
       });
 
       if (gameInstance) {
-        // Ensure we're not setting NaN values
-        if (timer.totalTime !== null && !isNaN(timer.totalTime)) {
-          gameInstance.totalTime = timer.totalTime;
-        }
-
+        // Add seconds to totalTime (handle null/undefined as 0)
+        const currentTotalTime = gameInstance.totalTime || 0;
+        gameInstance.totalTime = currentTotalTime + seconds;
         await this.gameInstancesRepository.save(gameInstance);
       }
     } else {
       // Update game entity when game is stopped
-      // Ensure we're not setting NaN values
-      if (timer.totalTime !== null && !isNaN(timer.totalTime)) {
-        game.totalTime = timer.totalTime;
-      }
-
+      const currentTotalTime = game.totalTime || 0;
+      game.totalTime = currentTotalTime + seconds;
       await this.gamesRepository.save(game);
+      
+      // Also update the current game instance if it exists to keep them synchronized
+      if (game.instanceId) {
+        const gameInstance = await this.gameInstancesRepository.findOne({
+          where: { id: game.instanceId },
+        });
+        
+        if (gameInstance) {
+          gameInstance.totalTime = game.totalTime;
+          await this.gameInstancesRepository.save(gameInstance);
+        }
+      }
     }
 
     // Force broadcast the updated time
@@ -596,10 +578,13 @@ export class GamesService {
       const minutesAdded = seconds / 60;
       await this.gameManagementService.addGameHistory(game.instanceId, 'time_added', {
         minutesAdded: minutesAdded,
-        newTotalTime: timer.totalTime,
-        newRemainingTime: timer.remainingTime,
+        secondsAdded: seconds,
+        timestamp: new Date(),
       });
     }
+
+    // Force broadcast game update to ensure frontend receives the updated totalTime
+    await this.broadcastGameUpdateWithPlayers(gameId);
 
     return game;
   }

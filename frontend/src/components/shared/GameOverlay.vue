@@ -69,6 +69,17 @@
         <option value="0">indefinido</option>
       </select>
     </div>
+
+    <!-- +1 minute button for owner when game is running -->
+    <div v-if="currentGame.status === 'running' && isOwner" class="add-time-container">
+      <button
+        class="add-time-btn"
+        @click="addOneMinute"
+        title="Agregar 1 minuto al tiempo total"
+      >
+        +1
+      </button>
+    </div>
   </div>
 </template>
 
@@ -233,6 +244,19 @@ const formatTime = (seconds: number): string => {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
   }
 }
+
+const addOneMinute = () => {
+  if (!props.isOwner) return
+  
+  // Use global window object to access emitGameAction from parent component
+  if (window.emitGameAction) {
+    window.emitGameAction(props.currentGame.id, 'addTime', { seconds: 60 })
+    addToast({ message: 'Se agregó 1 minuto al tiempo total', type: 'success' })
+  } else {
+    console.error('emitGameAction not available')
+    addToast({ message: 'Error al agregar tiempo', type: 'error' })
+  }
+}
 </script>
 
 <style scoped>
@@ -322,5 +346,31 @@ const formatTime = (seconds: number): string => {
 
 .btn-cancel:hover {
   background-color: #c82333;
+}
+
+.add-time-container {
+  margin-top: 10px;
+  display: flex;
+  justify-content: center;
+}
+
+.add-time-btn {
+  padding: 8px 16px;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.add-time-btn:hover {
+  background-color: #218838;
+}
+
+.add-time-btn:active {
+  background-color: #1e7e34;
 }
 </style>
