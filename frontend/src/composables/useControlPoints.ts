@@ -319,19 +319,28 @@ export const useControlPoints = () => {
     currentGame: any,
     controlPointId: number
   ) => {
-    if (socketRef && currentGame.value) {
-      try {
-        // For owner, use activateBombAsOwner which doesn't require code
-        socketRef.emit('gameAction', {
-          gameId: currentGame.value.id,
-          action: 'activateBombAsOwner',
-          data: { controlPointId }
-        })
-        addToast({ message: 'Bomba activada', type: 'success' })
-      } catch (error) {
-        console.error('Error activating bomb:', error)
-        addToast({ message: 'Error al activar bomba', type: 'error' })
-      }
+    console.log('handleActivateBomb called with:', controlPointId)
+    console.log('socketRef:', socketRef)
+    console.log('socketRef?.connected:', socketRef?.connected)
+    console.log('currentGame.value:', currentGame?.value)
+    
+    if (!socketRef || !currentGame?.value) {
+      console.log('handleActivateBomb: Missing socketRef or currentGame')
+      return
+    }
+
+    try {
+      console.log('Emitting activateBombAsOwner gameAction')
+      // For owner, use activateBombAsOwner which doesn't require code
+      socketRef.emit('gameAction', {
+        gameId: currentGame.value.id,
+        action: 'activateBombAsOwner',
+        data: { controlPointId }
+      })
+      addToast({ message: 'Bomba activada', type: 'success' })
+    } catch (error) {
+      console.error('Error activating bomb:', error)
+      addToast({ message: 'Error al activar bomba', type: 'error' })
     }
   }
 
@@ -340,19 +349,28 @@ export const useControlPoints = () => {
     currentGame: any,
     controlPointId: number
   ) => {
-    if (socketRef && currentGame.value) {
-      try {
-        // For owner, use deactivateBombAsOwner which doesn't require code
-        socketRef.emit('gameAction', {
-          gameId: currentGame.value.id,
-          action: 'deactivateBombAsOwner',
-          data: { controlPointId }
-        })
-        addToast({ message: 'Bomba desactivada', type: 'success' })
-      } catch (error) {
-        console.error('Error deactivating bomb:', error)
-        addToast({ message: 'Error al desactivar bomba', type: 'error' })
-      }
+    console.log('handleDeactivateBomb called with:', controlPointId)
+    console.log('socketRef:', socketRef)
+    console.log('socketRef?.connected:', socketRef?.connected)
+    console.log('currentGame.value:', currentGame?.value)
+    
+    if (!socketRef || !currentGame?.value) {
+      console.log('handleDeactivateBomb: Missing socketRef or currentGame')
+      return
+    }
+
+    try {
+      console.log('Emitting deactivateBombAsOwner gameAction')
+      // For owner, use deactivateBombAsOwner which doesn't require code
+      socketRef.emit('gameAction', {
+        gameId: currentGame.value.id,
+        action: 'deactivateBombAsOwner',
+        data: { controlPointId }
+      })
+      addToast({ message: 'Bomba desactivada', type: 'success' })
+    } catch (error) {
+      console.error('Error deactivating bomb:', error)
+      addToast({ message: 'Error al desactivar bomba', type: 'error' })
     }
   }
 

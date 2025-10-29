@@ -425,11 +425,24 @@ const handleControlPointUpdateWrapper = (controlPointId: number, markerId: numbe
   console.log('handleControlPointUpdateWrapper called with:', controlPointId, markerId)
   console.log('webSocketManager.value:', webSocketManager.value)
   console.log('webSocketManager.value?.socketRef?.value:', webSocketManager.value?.socketRef?.value)
-  handleControlPointUpdate(webSocketManager.value?.socketRef?.value, currentGame, controlPointId, mapInstance)
+  
+  if (!webSocketManager.value?.socketRef) {
+    console.error('WebSocket not connected in handleControlPointUpdateWrapper')
+    addToast({ message: 'Error: WebSocket no conectado', type: 'error' })
+    return
+  }
+  
+  handleControlPointUpdate(webSocketManager.value?.socketRef, currentGame, controlPointId, mapInstance)
 }
 
 const handleControlPointDeleteWrapper = (controlPointId: number, markerId: number) => {
-  handleControlPointDelete(webSocketManager.value?.socketRef?.value, currentGame, controlPointId, mapInstance)
+  if (!webSocketManager.value?.socketRef) {
+    console.error('WebSocket not connected in handleControlPointDeleteWrapper')
+    addToast({ message: 'Error: WebSocket no conectado', type: 'error' })
+    return
+  }
+  
+  handleControlPointDelete(webSocketManager.value?.socketRef, currentGame, controlPointId, mapInstance)
 }
 
 const handleAssignTeamWrapper = (controlPointId: number, team: string) => {
@@ -461,14 +474,32 @@ const handleUpdateBombChallengeWrapper = (controlPointId: number, time: number) 
 }
 
 const createControlPointWrapper = (lat: number, lng: number) => {
-  createControlPoint(webSocketManager.value?.socketRef?.value, currentGame, lat, lng)
+  if (!webSocketManager.value?.socketRef) {
+    console.error('WebSocket not connected in createControlPointWrapper')
+    addToast({ message: 'Error: WebSocket no conectado', type: 'error' })
+    return
+  }
+  
+  createControlPoint(webSocketManager.value?.socketRef, currentGame, lat, lng)
 }
 
 const handleActivateBombWrapper = (controlPointId: number) => {
+  if (!webSocketManager.value?.socketRef) {
+    console.error('WebSocket not connected in handleActivateBombWrapper')
+    addToast({ message: 'Error: WebSocket no conectado', type: 'error' })
+    return
+  }
+  
   handleActivateBomb(webSocketManager.value?.socketRef, currentGame, controlPointId)
 }
 
 const handleDeactivateBombWrapper = (controlPointId: number) => {
+  if (!webSocketManager.value?.socketRef) {
+    console.error('WebSocket not connected in handleDeactivateBombWrapper')
+    addToast({ message: 'Error: WebSocket no conectado', type: 'error' })
+    return
+  }
+  
   handleDeactivateBomb(webSocketManager.value?.socketRef, currentGame, controlPointId)
 }
 
@@ -695,14 +726,25 @@ const onError = (error: string) => {
 // Global functions for control point popup buttons
 const setupGlobalFunctions = () => {
   console.log('Setting up global functions...')
+  console.log('webSocketManager.value:', webSocketManager.value)
+  console.log('webSocketManager.value?.socketRef:', webSocketManager.value?.socketRef)
+  console.log('webSocketManager.value?.socketRef?.value:', webSocketManager.value?.socketRef?.value)
+  
+  // Check if WebSocketManager is connected
+  if (!webSocketManager.value?.socketRef) {
+    console.warn('WebSocketManager not connected yet, retrying in 500ms...')
+    setTimeout(setupGlobalFunctions, 500)
+    return
+  }
   
   ;(window as any).socketRef = () => {
-    return webSocketManager.value?.socketRef?.value
+    console.log('Global socketRef called, returning:', webSocketManager.value?.socketRef)
+    return webSocketManager.value?.socketRef
   }
   
   ;(window as any).createControlPoint = (lat: number, lng: number) => {
     console.log('Global createControlPoint called with:', lat, lng)
-    createControlPoint(webSocketManager.value?.socketRef?.value, currentGame, lat, lng)
+    createControlPoint(webSocketManager.value?.socketRef, currentGame, lat, lng)
     if (mapInstance.value) {
       mapInstance.value.closePopup()
     }
@@ -724,12 +766,6 @@ const setupGlobalFunctions = () => {
   ;(window as any).showTeamChangeToast = (message: string) => {
     console.log('Global showTeamChangeToast called with:', message)
     addToast({ message, type: 'success' })
-  }
-
-  // WebSocket functions for popupUtils
-  ;(window as any).socketRef = () => {
-    console.log('Global socketRef called, returning:', webSocketManager.value?.socketRef)
-    return webSocketManager.value?.socketRef
   }
   ;(window as any).currentGame = currentGame.value
   ;(window as any).emitGameAction = (gameId: number, action: string, data?: any) => {
@@ -858,7 +894,6 @@ onMounted(async () => {
       
       // Set global variables for player popup access
       ;(window as any).mapInstance = mapInstance.value
-      ;(window as any).socketRef = () => webSocketManager.value?.socketRef
       ;(window as any).currentGame = currentGame.value
       ;(window as any).emitGameAction = (gameId: number, action: string, data?: any) => {
         webSocketManager.value?.emitAction(gameId, action, data)
@@ -899,7 +934,10 @@ onMounted(async () => {
       // Do NOT call updateAllTimerDisplays here to avoid duplicate updates
     }, 100)
 
-    setupGlobalFunctions()
+    // Wait for WebSocketManager to connect before setting up global functions
+    setTimeout(() => {
+      setupGlobalFunctions()
+    }, 1000)
 
   } catch (error) {
     console.error('Error initializing game:', error)
@@ -953,7 +991,6 @@ onUnmounted(() => {
   delete (window as any).deleteControlPoint
   delete (window as any).showTeamChangeToast
   delete (window as any).emitGameAction
-  delete (window as any).socketRef
   delete (window as any).currentGame
   delete (window as any).handleControlPointMove
   delete (window as any).handleControlPointUpdate

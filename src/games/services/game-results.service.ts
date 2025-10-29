@@ -56,7 +56,7 @@ export class GameResultsService {
     // Get game instance to find the associated game
     const gameInstance = await this.gameInstanceRepository.findOne({
       where: { id: gameInstanceId },
-      relations: ['game', 'game.controlPoints'],
+      relations: ['game'],
     });
 
     if (!gameInstance || !gameInstance.game) {
@@ -98,7 +98,7 @@ export class GameResultsService {
       teamCaptures: { [team: string]: number };
     }> = [];
 
-    // Get all game history events for capture counting
+    // Get all game history events for capture counting and control point reconstruction
     const history = await this.gameHistoryRepository.find({
       where: {
         gameInstance: { id: gameInstanceId },
@@ -106,58 +106,59 @@ export class GameResultsService {
       order: { timestamp: 'ASC' },
     });
 
-    // Calculate team times and captures for each control point
-    if (game.controlPoints) {
-      for (const controlPoint of game.controlPoints) {
-        const teamTimes: { [team: string]: number } = {};
-        const teamCaptures: { [team: string]: number } = {};
-        
-        // Initialize all teams with 0 time and 0 captures
-        for (const team of teams) {
-          teamTimes[team] = 0;
-          teamCaptures[team] = 0;
-        }
+    // Reconstruct control points from history events instead of depending on current control points
+    const controlPointsFromHistory = this.reconstructControlPointsFromHistory(history);
 
-        // Calculate time for each team from game history
-        for (const team of teams) {
-          const teamTime = await this.timerCalculationService.calculateTeamHoldTime(
-            controlPoint.id,
-            gameInstanceId,
-            team,
-          );
-          teamTimes[team] = teamTime;
-        }
-
-        // Calculate captures for each team
-        const controlPointEvents = history.filter(
-          event => event.eventType === 'control_point_taken' &&
-                   event.data?.controlPointId === controlPoint.id
-        );
-
-        // Track previous team for each control point
-        let previousTeam: string | null = null;
-        
-        for (const event of controlPointEvents) {
-          const currentTeam = event.data?.team;
-          if (!currentTeam) continue;
-
-          // Count as capture if:
-          // 1. Previous team was different, OR
-          // 2. It's the first event after game start (initialState: true)
-          if (previousTeam !== currentTeam || event.data?.initialState) {
-            teamCaptures[currentTeam] = (teamCaptures[currentTeam] || 0) + 1;
-          }
-          
-          previousTeam = currentTeam;
-        }
-
-        controlPointsReport.push({
-          id: controlPoint.id,
-          name: controlPoint.name,
-          teamTimes,
-          teamCaptures,
-        });
+    // Calculate team times and captures for each control point from history
+    for (const controlPoint of controlPointsFromHistory) {
+      const teamTimes: { [team: string]: number } = {};
+      const teamCaptures: { [team: string]: number } = {};
+      
+      // Initialize all teams with 0 time and 0 captures
+      for (const team of teams) {
+        teamTimes[team] = 0;
+        teamCaptures[team] = 0;
       }
+
+      // Calculate time for each team from game history
+      for (const team of teams) {
+        const teamTime = await this.timerCalculationService.calculateTeamHoldTime(
+          controlPoint.id,
+          gameInstanceId,
+          team,
+        );
+        teamTimes[team] = teamTime;
+      }
+
+      // Calculate captures for each team
+      const controlPointEvents = history.filter(
+        event => event.eventType === 'control_point_taken' &&
+                 event.data?.controlPointId === controlPoint.id
+      );
+
+      // Track previous team for each control point
+      let previousTeam: string | null = null;
+      
+      for (const event of controlPointEvents) {
+        const currentTeam = event.data?.team;
+        if (!currentTeam) continue;
+
+        // Count as capture if:
+        // 1. Previous team was different, OR
+        // 2. It's the first event after game start (initialState: true)
+        if (previousTeam !== currentTeam || event.data?.initialState) {
+          teamCaptures[currentTeam] = (teamCaptures[currentTeam] || 0) + 1;
+        }
+        
+        previousTeam = currentTeam;
+      }
+
+      controlPointsReport.push({
+        id: controlPoint.id,
+        name: controlPoint.name,
+        teamTimes,
+        teamCaptures,
+      });
     }
 
     // Calculate team totals
@@ -182,9 +183,10 @@ export class GameResultsService {
     // Get player capture statistics
     const playerCaptureStats = await this.getPlayerCaptureStats(gameInstanceId);
 
-    // Get position challenge statistics
-    const positionChallengeStats = await this.positionChallengeService.getPositionChallengeStats(
+    // Get position challenge statistics using historical control points
+    const positionChallengeStats = await this.getPositionChallengeStatsFromHistory(
       gameInstanceId,
+      controlPointsFromHistory,
     );
 
     return {
@@ -355,5 +357,130 @@ export class GameResultsService {
     const playerStatsArray = Array.from(playerStats.values());
 
     return { players: playerStatsArray };
+  }
+
+  /**
+   * Reconstruct control points from game history events
+   * This ensures reports work even after control points are deleted
+   */
+  private reconstructControlPointsFromHistory(history: GameHistory[]): Array<{ id: number; name: string }> {
+    const controlPointsMap = new Map<number, { id: number; name: string }>();
+
+    // Find all control point events and extract control point information
+    for (const event of history) {
+      if (event.eventType === 'control_point_taken' && event.data?.controlPointId) {
+        const controlPointId = event.data.controlPointId;
+        const controlPointName = event.data.controlPointName || `Control Point ${controlPointId}`;
+        
+        if (!controlPointsMap.has(controlPointId)) {
+          controlPointsMap.set(controlPointId, {
+            id: controlPointId,
+            name: controlPointName,
+          });
+        }
+      } else if (event.eventType === 'position_challenge_scored' && event.data?.controlPointId) {
+        const controlPointId = event.data.controlPointId;
+        const controlPointName = event.data.controlPointName || `Control Point ${controlPointId}`;
+        
+        if (!controlPointsMap.has(controlPointId)) {
+          controlPointsMap.set(controlPointId, {
+            id: controlPointId,
+            name: controlPointName,
+          });
+        }
+      } else if (event.eventType === 'bomb_activated' && event.data?.controlPointId) {
+        const controlPointId = event.data.controlPointId;
+        const controlPointName = event.data.controlPointName || `Control Point ${controlPointId}`;
+        
+        if (!controlPointsMap.has(controlPointId)) {
+          controlPointsMap.set(controlPointId, {
+            id: controlPointId,
+            name: controlPointName,
+          });
+        }
+      } else if (event.eventType === 'bomb_deactivated' && event.data?.controlPointId) {
+        const controlPointId = event.data.controlPointId;
+        const controlPointName = event.data.controlPointName || `Control Point ${controlPointId}`;
+        
+        if (!controlPointsMap.has(controlPointId)) {
+          controlPointsMap.set(controlPointId, {
+            id: controlPointId,
+            name: controlPointName,
+          });
+        }
+      } else if (event.eventType === 'bomb_exploded' && event.data?.controlPointId) {
+        const controlPointId = event.data.controlPointId;
+        const controlPointName = event.data.controlPointName || `Control Point ${controlPointId}`;
+        
+        if (!controlPointsMap.has(controlPointId)) {
+          controlPointsMap.set(controlPointId, {
+            id: controlPointId,
+            name: controlPointName,
+          });
+        }
+      }
+    }
+
+    return Array.from(controlPointsMap.values());
+  }
+
+  /**
+   * Get position challenge statistics from history using reconstructed control points
+   */
+  private async getPositionChallengeStatsFromHistory(
+    gameInstanceId: number,
+    controlPoints: Array<{ id: number; name: string }>,
+  ): Promise<{
+    controlPoints: Array<{
+      id: number;
+      name: string;
+      teamPoints: { [team: string]: number };
+    }>;
+    teamTotals: { [team: string]: number };
+  }> {
+    const history = await this.timerCalculationService.getGameHistoryWithCache(gameInstanceId);
+
+    const positionChallengeEvents = history.filter(
+      event => event.eventType === 'position_challenge_scored' && event.data,
+    );
+
+    const controlPointStats = new Map<number, { name: string; teamPoints: Map<string, number> }>();
+    const teamTotals = new Map<string, number>();
+
+    // Initialize control point stats with reconstructed control points
+    for (const cp of controlPoints) {
+      controlPointStats.set(cp.id, {
+        name: cp.name,
+        teamPoints: new Map<string, number>(),
+      });
+    }
+
+    for (const event of positionChallengeEvents) {
+      const { controlPointId, controlPointName, players } = event.data;
+
+      // Only process events for control points that we have reconstructed
+      if (!controlPointStats.has(controlPointId)) {
+        continue;
+      }
+
+      const cpStats = controlPointStats.get(controlPointId)!;
+
+      for (const player of players) {
+        const currentPoints = cpStats.teamPoints.get(player.team) || 0;
+        cpStats.teamPoints.set(player.team, currentPoints + player.points);
+
+        const currentTeamTotal = teamTotals.get(player.team) || 0;
+        teamTotals.set(player.team, currentTeamTotal + player.points);
+      }
+    }
+
+    return {
+      controlPoints: Array.from(controlPointStats.entries()).map(([id, stats]) => ({
+        id,
+        name: stats.name,
+        teamPoints: Object.fromEntries(stats.teamPoints),
+      })),
+      teamTotals: Object.fromEntries(teamTotals),
+    };
   }
 }
