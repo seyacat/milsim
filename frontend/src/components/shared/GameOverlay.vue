@@ -70,14 +70,21 @@
       </select>
     </div>
 
-    <!-- +1 minute button for owner when game is running -->
-    <div v-if="currentGame.status === 'running' && isOwner" class="add-time-container">
+    <!-- +1 and -1 minute buttons for owner when game is running -->
+    <div v-if="currentGame.status === 'running' && isOwner" class="time-buttons-container">
       <button
         class="add-time-btn"
         @click="addOneMinute"
         title="Agregar 1 minuto al tiempo total"
       >
         +1
+      </button>
+      <button
+        class="remove-time-btn"
+        @click="removeOneMinute"
+        title="Quitar 1 minuto al tiempo total"
+      >
+        -1
       </button>
     </div>
   </div>
@@ -257,6 +264,19 @@ const addOneMinute = () => {
     addToast({ message: 'Error al agregar tiempo', type: 'error' })
   }
 }
+
+const removeOneMinute = () => {
+  if (!props.isOwner) return
+  
+  // Use global window object to access emitGameAction from parent component
+  if (window.emitGameAction) {
+    window.emitGameAction(props.currentGame.id, 'removeTime', { seconds: 60 })
+    addToast({ message: 'Se quitó 1 minuto al tiempo total', type: 'success' })
+  } else {
+    console.error('emitGameAction not available')
+    addToast({ message: 'Error al quitar tiempo', type: 'error' })
+  }
+}
 </script>
 
 <style scoped>
@@ -348,10 +368,11 @@ const addOneMinute = () => {
   background-color: #c82333;
 }
 
-.add-time-container {
+.time-buttons-container {
   margin-top: 10px;
   display: flex;
   justify-content: center;
+  gap: 10px;
 }
 
 .add-time-btn {
@@ -372,5 +393,25 @@ const addOneMinute = () => {
 
 .add-time-btn:active {
   background-color: #1e7e34;
+}
+
+.remove-time-btn {
+  padding: 8px 16px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.remove-time-btn:hover {
+  background-color: #c82333;
+}
+
+.remove-time-btn:active {
+  background-color: #bd2130;
 }
 </style>

@@ -610,6 +610,89 @@ export class GamesService {
     return game;
   }
 
+  async removeTime(gameId: number, seconds: number): Promise<Game> {
+    const game = await this.findOne(gameId);
+    
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    // Update the appropriate entity based on game status
+    if (game.status === 'running' && game.instanceId) {
+      // Update game instance when game is running
+      const gameInstance = await this.gameInstancesRepository.findOne({
+        where: { id: game.instanceId },
+      });
+
+      if (gameInstance) {
+        // If current totalTime is null (indefinite), do nothing
+        if (gameInstance.totalTime === null) {
+          return game; // No action for indefinite time
+        }
+
+        // Calculate elapsed time to check if subtraction is valid
+        const elapsedTime = await this.timerCalculationService.calculateElapsedTimeFromEvents(gameInstance.id);
+        const currentTotalTime = gameInstance.totalTime || 0;
+        
+        // Check if subtraction would make totalTime less than elapsed time
+        if (currentTotalTime - seconds < elapsedTime) {
+          return game; // Do nothing if result would be less than elapsed time
+        }
+
+        // Subtract seconds from totalTime
+        gameInstance.totalTime = currentTotalTime - seconds;
+        await this.gameInstancesRepository.save(gameInstance);
+        
+        // Update the active timer in memory
+        this.timerManagementService.addTimeToGameTimer(gameId, -seconds);
+        
+        // Broadcast the updated time without resetting control point timers
+        this.timerManagementService.broadcastTimeAdded(gameId);
+      }
+    } else {
+      // Update game entity when game is stopped
+      const currentTotalTime = game.totalTime || 0;
+      
+      // For stopped games, check if subtraction would make totalTime negative
+      if (currentTotalTime - seconds < 0) {
+        return game; // Do nothing if result would be negative
+      }
+      
+      game.totalTime = currentTotalTime - seconds;
+      await this.gamesRepository.save(game);
+      
+      // Also update the current game instance if it exists to keep them synchronized
+      if (game.instanceId) {
+        const gameInstance = await this.gameInstancesRepository.findOne({
+          where: { id: game.instanceId },
+        });
+        
+        if (gameInstance) {
+          gameInstance.totalTime = game.totalTime;
+          await this.gameInstancesRepository.save(gameInstance);
+        }
+      }
+      
+      // For stopped games, reset timers to zero since there are no active timers
+      this.timerManagementService.resetTimersToZero(gameId);
+    }
+
+    // Log game history
+    if (game.instanceId) {
+      const minutesRemoved = seconds / 60;
+      await this.gameManagementService.addGameHistory(game.instanceId, 'time_removed', {
+        minutesRemoved: minutesRemoved,
+        secondsRemoved: seconds,
+        timestamp: new Date(),
+      });
+    }
+
+    // Force broadcast game update to ensure frontend receives the updated totalTime
+    await this.broadcastGameUpdateWithPlayers(gameId);
+
+    return game;
+  }
+
   async updateGameTime(gameId: number, timeInSeconds: number, userId: number): Promise<Game> {
     const game = await this.gamesRepository.findOne({
       where: { id: gameId },

@@ -407,6 +407,12 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
           );
           break;
 
+        case 'removeTime':
+          await this.gameStateHandler.handleRemoveTime(
+            client, gameId, data, this.connectedUsers, this.server
+          );
+          break;
+
         case 'updateGameTime':
           await this.gameStateHandler.handleUpdateGameTime(
             client, gameId, data, this.connectedUsers, this.server
