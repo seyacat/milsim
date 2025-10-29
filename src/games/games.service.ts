@@ -213,9 +213,9 @@ export class GamesService {
       gameInstance = await this.gameManagementService.createGameInstance(gameId);
     }
 
-    // Update game instance with start time and totalTime from game entity
+    // Update game instance with start time and ensure totalTime is synchronized with game entity
     gameInstance.gameStartTime = new Date();
-    gameInstance.totalTime = game.totalTime; // Sync with game.totalTime for game logic
+    gameInstance.totalTime = game.totalTime; // Ensure synchronization with game.totalTime for game logic
     await this.gameInstancesRepository.save(gameInstance);
 
     // Update game status and set instanceId (if not already set)
@@ -430,8 +430,8 @@ export class GamesService {
     // Update game status to stopped and set new instanceId
     game.status = 'stopped';
     game.instanceId = gameInstance.id;
-    // Keep the game's totalTime value for the dropdown synchronization
-    // The game.totalTime should remain unchanged so the dropdown shows the correct value
+    // The game.totalTime remains unchanged for dropdown synchronization
+    // The gameInstance.totalTime is already synchronized by createGameInstance
     const updatedGame = await this.gamesRepository.save(game);
 
     // Include all connected players in the new game instance
@@ -647,6 +647,9 @@ export class GamesService {
 
     // Force broadcast the updated time
     this.timerManagementService.forceTimeBroadcast(gameId);
+
+    // Force broadcast game update to ensure frontend receives the updated totalTime
+    await this.broadcastGameUpdateWithPlayers(gameId);
 
     return game;
   }

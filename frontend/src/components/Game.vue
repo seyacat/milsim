@@ -18,7 +18,6 @@
         :current-user="currentUser"
         :current-game="currentGame"
         :gps-status="gpsStatusFromComposable"
-        :default-time-value="defaultTimeValue"
         :is-owner="isOwner"
         @time-select="updateGameTime"
       />
@@ -243,8 +242,15 @@ watch(() => currentPositionFromComposable.value, (position) => {
 watch(() => currentGame.value?.players, (players) => {
 }, { deep: true })
 
+// Watch for changes in currentGame to update defaultTimeValue
+watch(() => currentGame.value, (game) => {
+  if (game) {
+    defaultTimeValue.value = game.totalTime
+  }
+}, { immediate: true })
+
 const gameId = route.params.gameId as string
-const defaultTimeValue = 1200 // 20 minutes
+const defaultTimeValue = ref<number | null>(null)
 
 // Map event handlers
 const onMapClick = async (latlng: { lat: number; lng: number }) => {
@@ -867,6 +873,7 @@ onMounted(async () => {
     currentUser.value = user
     currentGame.value = game
     teamCount.value = game.teamCount || 2
+    defaultTimeValue.value = game.totalTime
 
 
     // Initialize map after component is mounted and data is loaded

@@ -265,9 +265,8 @@ export class GameManagementService {
       throw new NotFoundException('Game not found');
     }
 
-    // Create a new game instance with the same settings as the game
-    // IMPORTANT: gameInstance.totalTime should be synchronized with game.totalTime for game logic
-    // but the dropdown uses game.totalTime independently
+    // Create a new game instance with ALL the same settings as the game
+    // This ensures complete synchronization between game and game instance
     const gameInstance = this.gameInstancesRepository.create({
       name: game.name,
       description: game.description,

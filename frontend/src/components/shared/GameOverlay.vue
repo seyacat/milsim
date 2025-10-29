@@ -83,7 +83,6 @@ const props = defineProps<{
   currentUser: User
   currentGame: Game
   gpsStatus: string
-  defaultTimeValue?: number
   isOwner?: boolean
 }>()
 
@@ -91,12 +90,19 @@ const emit = defineEmits<{
   timeSelect: [timeInSeconds: number]
 }>()
 
-const selectedTime = ref<string>('1200')
+const selectedTime = ref<string>('')
 const isUserSelecting = ref(false)
 const lastGameId = ref<string | number | null>(null)
 const isEditingGameName = ref(false)
 const editedGameName = ref('')
 const gameNameInput = ref<HTMLInputElement | null>(null)
+
+// Initialize selectedTime with current game totalTime when component mounts
+if (props.currentGame?.totalTime !== undefined && props.currentGame?.totalTime !== null) {
+  selectedTime.value = props.currentGame.totalTime.toString()
+} else {
+  selectedTime.value = '0' // indefinite time
+}
 
 // Watch for game instance changes to reset selection state
 watch(() => props.currentGame?.id, (newGameId) => {
@@ -107,26 +113,34 @@ watch(() => props.currentGame?.id, (newGameId) => {
 })
 
 // Watch for changes in currentGame.totalTime to keep dropdown synchronized
-// Only update if the user is not currently selecting a value OR if the game instance changed
-watch(() => props.currentGame?.totalTime, (newTotalTime, oldTotalTime) => {
+// Always update when game.totalTime changes, regardless of user selection
+watch(() => props.currentGame?.totalTime, (newTotalTime) => {
   const currentGameId = props.currentGame?.id
   
   // Always update when game instance changes (restart/new game)
   if (currentGameId !== lastGameId.value) {
     lastGameId.value = currentGameId
     isUserSelecting.value = false
-    if (newTotalTime !== undefined && newTotalTime !== null) {
-      selectedTime.value = newTotalTime.toString()
-    } else if (props.defaultTimeValue !== undefined) {
-      selectedTime.value = props.defaultTimeValue.toString()
-    }
   }
-  // Update only if user is not selecting and value actually changed
-  else if (!isUserSelecting.value && newTotalTime !== oldTotalTime) {
-    if (newTotalTime !== undefined && newTotalTime !== null) {
-      selectedTime.value = newTotalTime.toString()
-    } else if (props.defaultTimeValue !== undefined) {
-      selectedTime.value = props.defaultTimeValue.toString()
+  
+  // Always update the dropdown to reflect the current game.totalTime
+  // This ensures the dropdown is always synchronized with the game state
+  if (newTotalTime !== undefined && newTotalTime !== null) {
+    selectedTime.value = newTotalTime.toString()
+  } else {
+    // Handle null/undefined (indefinite time) - use '0' which corresponds to "indefinido" option
+    selectedTime.value = '0'
+  }
+}, { immediate: true })
+
+// Also watch for the entire currentGame object to handle initial load
+watch(() => props.currentGame, (newGame) => {
+  if (newGame) {
+    // Update selectedTime when the game object is first loaded
+    if (newGame.totalTime !== undefined && newGame.totalTime !== null) {
+      selectedTime.value = newGame.totalTime.toString()
+    } else {
+      selectedTime.value = '0' // indefinite time
     }
   }
 }, { immediate: true })

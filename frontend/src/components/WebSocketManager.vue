@@ -212,6 +212,7 @@ const handleGameTime = (data: GameTimeEvent | any) => {
   // Do NOT call updateAllTimerDisplays here to avoid duplicate updates
 }
 
+
 const handleTimeUpdate = (data: TimeUpdateEvent) => {
   
   // Update local timer with server data - ALWAYS use server values
