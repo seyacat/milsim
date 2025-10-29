@@ -97,7 +97,7 @@ const resumeGame = () => {
 <style scoped>
 .control-panel {
   position: absolute;
-  bottom: 20px;
+  bottom: 5em;
   right: 20px;
   z-index: 1000;
   display: flex;

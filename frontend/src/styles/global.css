@@ -37,6 +37,7 @@
   
   /* Typography */
   --font-family: 'Arial', sans-serif;
+  --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
   --font-size-lg: 1.125rem;
@@ -474,6 +475,146 @@
   color: white;
 }
 
+/* Adjust location info panel text */
+  .game-panel.location-info-panel {
+    bottom: 1em;
+    left: 1.25em !important;
+  }
+
+/* Mobile responsive styles for panels */
+@media (max-width: 768px) {
+  .game-panel {
+    max-width: 10em;
+    padding: 0.5em;
+    font-size: var(--font-size-sm);
+  }
+  
+  .game-panel.game-overlay-panel {
+    top: 0.25em;
+    left: 1.25em !important;
+    padding: 0.5em !important;
+  }
+  
+  .game-panel.location-info-panel {
+    bottom: 5em !important;
+    left: 1.25em !important;
+    padding: 0.5em !important;
+    margin: 0 !important;
+  }
+  
+  .game-panel.map-controls-panel {
+    top: 0.25em;
+    right: 0.25em;
+  }
+  
+  /* Adjust button sizes in map controls for mobile */
+  .game-panel.map-controls-panel .btn.btn-secondary {
+    width: 2.5em;
+    height: 2.5em;
+    font-size: var(--font-size-sm);
+  }
+  
+  /* Adjust game info text sizes for mobile */
+  .game-info h2 {
+    font-size: var(--font-size-sm);
+  }
+  
+  .game-details {
+    font-size: var(--font-size-xs);
+  }
+  
+  /* Adjust time buttons for mobile */
+  .time-buttons-container {
+    gap: 0.25em;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .add-time-btn,
+  .remove-time-btn,
+  .inf-time-btn {
+    padding: 0.25em 0.5em;
+    font-size: var(--font-size-xs);
+    min-width: 2.5em;
+    flex: 1;
+    max-width: 3em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
+  
+  /* Adjust location info panel text */
+  .game-panel.location-info-panel {
+    font-size: var(--font-size-xs);
+  }
+  
+  /* Adjust control panel for mobile */
+  .control-panel {
+    bottom: 5em;
+    right: 0.25em;
+    min-width: 8em;
+  }
+  
+  .control-panel .btn {
+    padding: 0.5em 0.75em;
+    font-size: var(--font-size-sm);
+  }
+  
+  /* Additional mobile adjustments for game overlay */
+  .game-title-container {
+    margin-bottom: 0.5em;
+  }
+  
+  .game-name-display {
+    gap: 0.5em;
+  }
+  
+  .game-name-display h2 {
+    font-size: var(--font-size-sm);
+    word-break: break-word;
+  }
+  
+  .edit-pencil {
+    font-size: var(--font-size-xs);
+  }
+  
+  .game-details div {
+    margin-bottom: 0.25em;
+  }
+  
+  /* Adjust time selector for mobile */
+  .time-select-container {
+    margin-top: 0.5em;
+  }
+  
+  .panel-select {
+    font-size: var(--font-size-xs);
+    padding: 0.25em;
+  }
+  
+  .panel-label {
+    font-size: var(--font-size-xs);
+    margin-bottom: 0.25em;
+  }
+  
+  /* Adjust game name edit for mobile */
+  .game-name-input {
+    width: 8em;
+    font-size: var(--font-size-sm);
+    padding: 0.25em;
+  }
+  
+  .edit-actions {
+    gap: 0.25em;
+  }
+  
+  .btn-save, .btn-cancel {
+    padding: 0.25em;
+    font-size: var(--font-size-xs);
+  }
+}
+
 /* Game Overlay Panel - Transparent background (black 0%) */
 .game-panel.game-overlay-panel {
   background: rgba(0, 0, 0, 0.8);
@@ -486,8 +627,6 @@
 .game-panel.location-info-panel {
   background: rgba(0, 0, 0, 0.8);
   backdrop-filter: blur(10px);
-  bottom: var(--spacing-xl);
-  left: var(--spacing-xl);
   font-family: var(--font-family);
   font-size: var(--font-size-sm);
   line-height: 1.4;
@@ -874,3 +1013,4 @@
   display: block !important;
   margin-top: var(--spacing-xs) !important;
 }
+

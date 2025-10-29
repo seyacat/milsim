@@ -15,6 +15,7 @@
 
       <!-- Game Overlay - Top Left -->
       <GameOverlay
+        v-if="!isPopupOpen"
         :current-user="currentUser"
         :current-game="currentGame"
         :gps-status="gpsStatusFromComposable"
@@ -24,12 +25,14 @@
 
       <!-- Location Info - Bottom Left -->
       <LocationInfoPanel
+        v-if="!isPopupOpen"
         :gps-status="gpsStatusFromComposable"
         :current-position="currentPositionFromComposable"
       />
 
       <!-- Map Controls - Top Right -->
       <MapControlsPanel
+        v-if="!isPopupOpen"
         :current-position="currentPositionFromComposable"
         :is-owner="isOwner"
         :current-game="currentGame"
@@ -42,7 +45,7 @@
 
       <!-- Control Panel - Bottom Right (Only for Owner) -->
       <ControlPanel
-        v-if="isOwner"
+        v-if="isOwner && !isPopupOpen"
         :current-game="currentGame"
         @start-game="startGame"
         @pause-game="pauseGame"
@@ -153,6 +156,7 @@ const gpsStatus = ref('Desconectado')
 const currentPosition = ref<any>(null)
 const isOwner = ref(false)
 const isDraggingControlPoint = ref(false)
+const isPopupOpen = ref(false)
 
 // Composables
 const {
@@ -848,6 +852,24 @@ const setupGlobalFunctions = () => {
   
 }
 
+// Popup event listeners
+const setupPopupListeners = () => {
+  if (!mapInstance.value) {
+    setTimeout(setupPopupListeners, 500)
+    return
+  }
+
+  // Listen for popup open events
+  mapInstance.value.on('popupopen', () => {
+    isPopupOpen.value = true
+  })
+
+  // Listen for popup close events
+  mapInstance.value.on('popupclose', () => {
+    isPopupOpen.value = false
+  })
+}
+
 // Lifecycle
 onMounted(async () => {
   try {
@@ -961,6 +983,11 @@ onMounted(async () => {
     setTimeout(() => {
       setupGlobalFunctions()
     }, 1000)
+
+    // Set up popup event listeners
+    setTimeout(() => {
+      setupPopupListeners()
+    }, 1500)
 
   } catch (error) {
     console.error('Error initializing game:', error)
