@@ -68,8 +68,8 @@
       </select>
     </div>
 
-    <!-- +1, -1, and INF buttons for owner when game is running -->
-    <div v-if="currentGame.status === 'running' && isOwner" class="time-buttons-container">
+    <!-- +1, -1, and INF buttons for owner when game is running or paused -->
+    <div v-if="(currentGame.status === 'running' || currentGame.status === 'paused') && isOwner" class="time-buttons-container">
       <button
         class="add-time-btn"
         @click="addOneMinute"

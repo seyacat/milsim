@@ -599,7 +599,7 @@ export class GamesService {
     }
 
     // Update the appropriate entity based on game status
-    if (game.status === 'running' && game.instanceId) {
+    if ((game.status === 'running' || game.status === 'paused') && game.instanceId) {
       // Update game instance when game is running
       const gameInstance = await this.gameInstancesRepository.findOne({
         where: { id: game.instanceId },
@@ -679,7 +679,7 @@ export class GamesService {
     }
 
     // Update the appropriate entity based on game status
-    if (game.status === 'running' && game.instanceId) {
+    if ((game.status === 'running' || game.status === 'paused') && game.instanceId) {
       // Update game instance when game is running
       const gameInstance = await this.gameInstancesRepository.findOne({
         where: { id: game.instanceId },
@@ -766,7 +766,7 @@ export class GamesService {
     await this.gamesRepository.save(game);
 
     // Update the appropriate entity based on game status
-    if (game.status === 'running' && game.instanceId) {
+    if ((game.status === 'running' || game.status === 'paused') && game.instanceId) {
       // Update game instance when game is running
       const gameInstance = await this.gameInstancesRepository.findOne({
         where: { id: game.instanceId },
