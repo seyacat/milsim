@@ -50,10 +50,19 @@ export const useControlPoints = () => {
     lat: number,
     lng: number
   ) => {
-    if (!socketRef.value || !currentGame.value) return
+    console.log('createControlPoint function called')
+    console.log('socketRef:', socketRef)
+    console.log('socketRef?.connected:', socketRef?.connected)
+    console.log('currentGame.value:', currentGame?.value)
+    
+    if (!socketRef || !currentGame?.value) {
+      console.log('createControlPoint: Missing socketRef or currentGame')
+      return
+    }
 
     try {
-      socketRef.value.emit('gameAction', {
+      console.log('Emitting createControlPoint gameAction')
+      socketRef.emit('gameAction', {
         gameId: currentGame.value.id,
         action: 'createControlPoint',
         data: {
@@ -76,7 +85,13 @@ export const useControlPoints = () => {
     controlPointId: number,
     mapInstance: any
   ) => {
-    if (!socketRef.value || !currentGame.value) return
+    console.log('handleControlPointUpdate called with:', controlPointId)
+    console.log('socketRef:', socketRef)
+    console.log('currentGame:', currentGame)
+    if (!socketRef || !currentGame.value) {
+      console.log('Missing socketRef or currentGame')
+      return
+    }
 
     try {
       // Get form values from DOM - read ALL values even if inputs are hidden
@@ -91,6 +106,11 @@ export const useControlPoints = () => {
       const bombTimeSelect = document.getElementById(`controlPointBombTime_${controlPointId}`) as HTMLSelectElement
       const armedCodeInput = document.getElementById(`controlPointArmedCode_${controlPointId}`) as HTMLInputElement
       const disarmedCodeInput = document.getElementById(`controlPointDisarmedCode_${controlPointId}`) as HTMLInputElement
+      
+      console.log('DOM elements found:')
+      console.log('typeSelect:', typeSelect)
+      console.log('nameInput:', nameInput)
+      console.log('positionChallengeCheckbox:', positionChallengeCheckbox)
 
       // Validate required fields
       if (!nameInput?.value.trim()) {
@@ -169,7 +189,7 @@ export const useControlPoints = () => {
       ;(updateData as any).disarmedCode = disarmedCode || null
 
       // Send update via WebSocket following the original structure
-      socketRef.value.emit('gameAction', {
+      socketRef.emit('gameAction', {
         gameId: currentGame.value.id,
         action: 'updateControlPoint',
         data: updateData
@@ -193,9 +213,9 @@ export const useControlPoints = () => {
     controlPointId: number,
     mapInstance: any
   ) => {
-    if (socketRef.value && currentGame.value) {
+    if (socketRef && currentGame.value) {
       try {
-        socketRef.value.emit('gameAction', {
+        socketRef.emit('gameAction', {
           gameId: currentGame.value.id,
           action: 'deleteControlPoint',
           data: { controlPointId }
@@ -218,9 +238,9 @@ export const useControlPoints = () => {
     controlPointId: number,
     team: string
   ) => {
-    if (socketRef.value && currentGame.value) {
+    if (socketRef && currentGame.value) {
       try {
-        socketRef.value.emit('gameAction', {
+        socketRef.emit('gameAction', {
           gameId: currentGame.value.id,
           action: 'assignControlPointTeam',
           data: { controlPointId, team: team === 'none' ? null : team }
@@ -239,7 +259,7 @@ export const useControlPoints = () => {
     controlPointId: number,
     challengeType: 'position' | 'code' | 'bomb'
   ) => {
-    if (socketRef.value && currentGame.value) {
+    if (socketRef && currentGame.value) {
       try {
         const actionMap = {
           position: 'togglePositionChallenge',
@@ -247,7 +267,7 @@ export const useControlPoints = () => {
           bomb: 'toggleBombChallenge'
         }
 
-        socketRef.value.emit('gameAction', {
+        socketRef.emit('gameAction', {
           gameId: currentGame.value.id,
           action: actionMap[challengeType],
           data: { controlPointId }
@@ -267,7 +287,7 @@ export const useControlPoints = () => {
     challengeType: 'position' | 'code' | 'bomb',
     value: any
   ) => {
-    if (socketRef.value && currentGame.value) {
+    if (socketRef && currentGame.value) {
       try {
         const actionMap = {
           position: 'updatePositionChallenge',
@@ -281,7 +301,7 @@ export const useControlPoints = () => {
           bomb: { controlPointId, time: value }
         }
 
-        socketRef.value.emit('gameAction', {
+        socketRef.emit('gameAction', {
           gameId: currentGame.value.id,
           action: actionMap[challengeType],
           data: dataMap[challengeType]
@@ -299,10 +319,10 @@ export const useControlPoints = () => {
     currentGame: any,
     controlPointId: number
   ) => {
-    if (socketRef.value && currentGame.value) {
+    if (socketRef && currentGame.value) {
       try {
         // For owner, use activateBombAsOwner which doesn't require code
-        socketRef.value.emit('gameAction', {
+        socketRef.emit('gameAction', {
           gameId: currentGame.value.id,
           action: 'activateBombAsOwner',
           data: { controlPointId }
@@ -320,10 +340,10 @@ export const useControlPoints = () => {
     currentGame: any,
     controlPointId: number
   ) => {
-    if (socketRef.value && currentGame.value) {
+    if (socketRef && currentGame.value) {
       try {
         // For owner, use deactivateBombAsOwner which doesn't require code
-        socketRef.value.emit('gameAction', {
+        socketRef.emit('gameAction', {
           gameId: currentGame.value.id,
           action: 'deactivateBombAsOwner',
           data: { controlPointId }

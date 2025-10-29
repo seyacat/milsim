@@ -19,7 +19,7 @@ interface UseGPSTrackingReturn {
 
 export const useGPSTracking = (
   currentGame: Ref<Game | null>,
-  socket: Ref<Socket | null> | Socket | null,
+  socket: Ref<Socket | null> | Socket | null | (() => Socket | null),
   onPositionUpdate?: (position: PositionUpdateData) => void
 ): UseGPSTrackingReturn => {
   const gpsStatus = ref('Desconectado')
@@ -43,7 +43,17 @@ export const useGPSTracking = (
 
   // Notificar posición al backend
   const notifyPositionToBackend = (position: PositionUpdateData) => {
-    const actualSocket = socket && typeof socket === 'object' && 'value' in socket ? socket.value : socket
+    let actualSocket: Socket | null = null
+    
+    // Handle different socket types
+    if (typeof socket === 'function') {
+      actualSocket = socket()
+    } else if (socket && typeof socket === 'object' && 'value' in socket) {
+      actualSocket = socket.value
+    } else {
+      actualSocket = socket as Socket | null
+    }
+    
     if (actualSocket && currentGame.value) {
       actualSocket.emit('gameAction', {
         gameId: currentGame.value.id,
@@ -126,7 +136,17 @@ export const useGPSTracking = (
     // Usar la posición actual o la última posición conocida
     const positionToSend = currentPosition.value || lastKnownPosition.value
     
-    const actualSocket = socket && typeof socket === 'object' && 'value' in socket ? socket.value : socket
+    let actualSocket: Socket | null = null
+    
+    // Handle different socket types
+    if (typeof socket === 'function') {
+      actualSocket = socket()
+    } else if (socket && typeof socket === 'object' && 'value' in socket) {
+      actualSocket = socket.value
+    } else {
+      actualSocket = socket as Socket | null
+    }
+    
     if (positionToSend && actualSocket && currentGame.value) {
       const isLastKnown = !currentPosition.value
       actualSocket.emit('gameAction', {
@@ -221,7 +241,14 @@ export const useGPSTracking = (
 
   // Iniciar automáticamente el seguimiento cuando el juego esté disponible
   watch([currentGame, () => {
-    return socket && typeof socket === 'object' && 'value' in socket ? socket.value : socket
+    // Handle different socket types
+    if (typeof socket === 'function') {
+      return socket()
+    } else if (socket && typeof socket === 'object' && 'value' in socket) {
+      return socket.value
+    } else {
+      return socket as Socket | null
+    }
   }], ([game, sock]) => {
     if (game && sock && watchId.value === null) {
       startGPSTracking()

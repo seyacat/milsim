@@ -295,15 +295,20 @@ export const useGameOwner = (): UseGameOwnerReturn => {
   }
 
   const updateTeamCount = (count: number) => {
-    if (!currentGame.value || !socketRef.value) return
+    if (!currentGame.value) return
     
-    socketRef.value.emit('gameAction', {
-      gameId: currentGame.value.id,
-      action: 'updateTeamCount',
-      data: {
-        teamCount: count
+    try {
+      const { emitGameAction } = useWebSocket()
+      const success = emitGameAction(currentGame.value.id, 'updateTeamCount', { teamCount: count })
+      if (success) {
+        addToast({ message: 'Número de equipos actualizado', type: 'success' })
+      } else {
+        addToast({ message: 'Error al actualizar el número de equipos', type: 'error' })
       }
-    })
+    } catch (error) {
+      console.error('Error updating team count:', error)
+      addToast({ message: 'Error al actualizar el número de equipos', type: 'error' })
+    }
   }
 
   const enableGameNameEdit = () => {
@@ -311,23 +316,28 @@ export const useGameOwner = (): UseGameOwnerReturn => {
   }
 
   const createControlPoint = (lat: number, lng: number) => {
-    if (!socketRef.value || !currentGame.value) return
+    if (!currentGame.value) return
 
     const name = `Punto ${Math.round(lat * 10000)}-${Math.round(lng * 10000)}`
     
-    socketRef.value.emit('gameAction', {
-      gameId: currentGame.value.id,
-      action: 'createControlPoint',
-      data: {
+    try {
+      const { emitGameAction } = useWebSocket()
+      const success = emitGameAction(currentGame.value.id, 'createControlPoint', {
         name,
         description: '',
         latitude: lat,
         longitude: lng,
         gameId: currentGame.value.id
+      })
+      if (success) {
+        addToast({ message: 'Punto de control creado', type: 'success' })
+      } else {
+        addToast({ message: 'Error al crear el punto de control', type: 'error' })
       }
-    })
-
-    addToast({ message: 'Punto de control creado', type: 'success' })
+    } catch (error) {
+      console.error('Error creating control point:', error)
+      addToast({ message: 'Error al crear el punto de control', type: 'error' })
+    }
   }
 
   const handleMapClick = (latlng: { lat: number; lng: number }) => {
@@ -353,7 +363,7 @@ export const useGameOwner = (): UseGameOwnerReturn => {
     userMarkerRef,
     playerMarkersRef,
     controlPointMarkersRef,
-    socket: socketRef.value,
+    socket: null,
     startGame,
     pauseGame,
     resumeGame,

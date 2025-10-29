@@ -400,8 +400,9 @@ export const createPlayerPopupContent = (controlPoint: ControlPoint): HTMLElemen
       const code = codeInput.value.trim()
       if (code) {
         // Emit takeControlPoint event with code
-        if ((window as any).socketRef) {
-          (window as any).socketRef.emit('gameAction', {
+        const socketRef = (window as any).socketRef?.()
+        if (socketRef) {
+          socketRef.emit('gameAction', {
             gameId: (window as any).currentGame?.id,
             action: 'takeControlPoint',
             data: {
@@ -425,8 +426,9 @@ export const createPlayerPopupContent = (controlPoint: ControlPoint): HTMLElemen
       const armedCode = armCodeInput.value.trim()
       if (armedCode) {
         // Emit activateBomb event with armed code
-        if ((window as any).socketRef) {
-          (window as any).socketRef.emit('gameAction', {
+        const socketRef = (window as any).socketRef?.()
+        if (socketRef) {
+          socketRef.emit('gameAction', {
             gameId: (window as any).currentGame?.id,
             action: 'activateBomb',
             data: {
@@ -450,8 +452,9 @@ export const createPlayerPopupContent = (controlPoint: ControlPoint): HTMLElemen
       const disarmedCode = disarmCodeInput.value.trim()
       if (disarmedCode) {
         // Emit deactivateBomb event with disarmed code
-        if ((window as any).socketRef) {
-          (window as any).socketRef.emit('gameAction', {
+        const socketRef = (window as any).socketRef?.()
+        if (socketRef) {
+          socketRef.emit('gameAction', {
             gameId: (window as any).currentGame?.id,
             action: 'deactivateBomb',
             data: {

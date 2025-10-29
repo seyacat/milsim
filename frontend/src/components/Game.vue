@@ -55,10 +55,10 @@
 
       <!-- Team Selection (Only for Players in stopped state) -->
       <TeamSelection
-        v-if="!isOwner && showTeamSelection && currentGame?.status === 'stopped' && currentUser && socketRef"
+        v-if="!isOwner && showTeamSelection && currentGame?.status === 'stopped' && currentUser && webSocketManager?.socketRef"
         :currentGame="currentGame"
         :currentUser="currentUser"
-        :socket="socketRef"
+        :socket="webSocketManager?.socketRef"
         :onTeamSelected="hideTeamSelection"
       />
 
@@ -68,7 +68,7 @@
         :isOpen="showPlayersDialog"
         :players="currentGame.players || []"
         :currentGameId="currentGame.id"
-        :socket="socketRef"
+        :socket="webSocketManager?.socketRef"
         :teamCount="teamCount"
         @close="showPlayersDialog = false"
         @teamCountChange="updateTeamCount"
@@ -83,6 +83,26 @@
         :isGameInstance="false"
       />
 
+      <!-- WebSocket Manager (invisible component) -->
+      <WebSocketManager
+        ref="webSocketManager"
+        :game-id="gameId"
+        :current-game="currentGame"
+        :current-user="currentUser"
+        :is-owner="isOwner"
+        :map-instance="mapInstance"
+        :player-markers-composable="playerMarkersComposable"
+        :bomb-timers-composable="bombTimersComposable"
+        :on-game-update="onGameUpdate"
+        :on-control-point-created="onControlPointCreated"
+        :on-control-point-updated="onControlPointUpdated"
+        :on-control-point-deleted="onControlPointDeleted"
+        :on-join-success="onJoinSuccess"
+        :on-error="onError"
+        :on-team-selection-change="(show) => showTeamSelection = show"
+        :on-results-dialog-change="(show) => showResultsDialog = show"
+        :on-position-challenge-update="updatePositionChallengePieChart"
+      />
     </div>
   </div>
 </template>
@@ -93,17 +113,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { AuthService } from '../services/auth.js'
 import { GameService } from '../services/game.js'
 import { User, Game, ControlPoint } from '../types/index.js'
-import {
-  ControlPointTakenEvent,
-  BombActivatedEvent,
-  BombDeactivatedEvent,
-  ControlPointTeamAssignedEvent,
-  TimeUpdateEvent,
-  GameTimeEvent
-} from '../types/websocket-events.js'
 import { useToast } from '../composables/useToast.js'
 import { useMap } from '../composables/useMap'
-import { useWebSocket } from '../composables/useWebSocket'
 import { useControlPoints } from '../composables/useControlPoints'
 import { useControlPointTimers } from '../composables/useControlPointTimers'
 import { useBombTimers } from '../composables/useBombTimers'
@@ -116,6 +127,7 @@ import ControlPanel from './Game/ControlPanel.vue'
 import PlayersDialog from './Game/PlayersDialog.vue'
 import GameResultsDialog from './GameResultsDialog.vue'
 import TeamSelection from './TeamSelection.vue'
+import WebSocketManager from './WebSocketManager.vue'
 
 // Import Leaflet CSS
 import 'leaflet/dist/leaflet.css'
@@ -142,15 +154,6 @@ const {
   closePopup,
   destroyMap
 } = useMap()
-
-const {
-  socketRef,
-  connectWebSocket,
-  emitGameAction,
-  disconnectWebSocket,
-  checkConnection,
-  forceReconnect
-} = useWebSocket()
 
 const {
   createControlPoint,
@@ -182,6 +185,9 @@ const {
 // Bomb timers composable - will be initialized after currentGame is available
 const bombTimersComposable = ref<any>(null)
 
+// WebSocket manager ref
+const webSocketManager = ref<any>(null)
+
 // State
 const currentUser = ref<User | null>(null)
 const currentGame = ref<Game | null>(null)
@@ -193,16 +199,13 @@ const teamCount = ref(2)
 const gpsStatus = ref('Desconectado')
 const currentPosition = ref<any>(null)
 const isOwner = ref(false)
-const localTimerInterval = ref<NodeJS.Timeout | null>(null)
-const lastTimeUpdate = ref<Date | null>(null)
-const connectionHealthInterval = ref<NodeJS.Timeout | null>(null)
 const isDraggingControlPoint = ref(false)
 
 // Player markers composable - will be initialized after map is ready
 const playerMarkersComposable = ref<any>(null)
 
 // GPS tracking for owner
-const gpsTrackingComposable = useGPSTracking(currentGame, socketRef, (position) => {
+const gpsTrackingComposable = useGPSTracking(currentGame, () => webSocketManager.value?.socketRef, (position) => {
   // Callback para actualizar el marcador del jugador local inmediatamente
   if (playerMarkersComposable.value && currentUser.value) {
     playerMarkersComposable.value.updatePlayerMarker({
@@ -285,7 +288,11 @@ const onMapClick = async (latlng: { lat: number; lng: number }) => {
   
   // Add global function for the button
   ;(window as any).createControlPoint = (lat: number, lng: number) => {
-    createControlPoint(socketRef, currentGame, lat, lng)
+    console.log('Map click createControlPoint called with:', lat, lng)
+    console.log('webSocketManager.value:', webSocketManager.value)
+    console.log('webSocketManager.value?.socketRef:', webSocketManager.value?.socketRef)
+    console.log('webSocketManager.value?.socketRef?.connected:', webSocketManager.value?.socketRef?.connected)
+    createControlPoint(webSocketManager.value?.socketRef, currentGame, lat, lng)
     mapInstance.value?.closePopup()
   }
 }
@@ -321,19 +328,19 @@ const centerOnSite = async () => {
 // Game actions
 const startGame = () => {
   if (!currentGame.value) return
-  emitGameAction(currentGame.value.id, 'startGame')
+  webSocketManager.value?.emitAction(currentGame.value.id, 'startGame')
   addToast({ message: 'Juego iniciado', type: 'success' })
 }
 
 const pauseGame = () => {
   if (!currentGame.value) return
-  emitGameAction(currentGame.value.id, 'pauseGame')
+  webSocketManager.value?.emitAction(currentGame.value.id, 'pauseGame')
   addToast({ message: 'Juego pausado', type: 'success' })
 }
 
 const endGame = () => {
   if (!currentGame.value) return
-  emitGameAction(currentGame.value.id, 'endGame')
+  webSocketManager.value?.emitAction(currentGame.value.id, 'endGame')
   addToast({ message: 'Juego finalizado', type: 'success' })
   // Show results dialog after a short delay to allow server to process results
   setTimeout(() => {
@@ -343,89 +350,32 @@ const endGame = () => {
 
 const restartGame = () => {
   if (!currentGame.value) return
-  emitGameAction(currentGame.value.id, 'restartGame')
+  webSocketManager.value?.emitAction(currentGame.value.id, 'restartGame')
   addToast({ message: 'Juego reiniciado', type: 'success' })
 }
 
 const resumeGame = () => {
   if (!currentGame.value) return
-  emitGameAction(currentGame.value.id, 'resumeGame')
+  webSocketManager.value?.emitAction(currentGame.value.id, 'resumeGame')
   addToast({ message: 'Juego reanudado', type: 'success' })
 }
 
 const updateGameTime = (timeInSeconds: number) => {
   if (!currentGame.value) return
-  emitGameAction(currentGame.value.id, 'updateGameTime', { timeInSeconds })
+  webSocketManager.value?.emitAction(currentGame.value.id, 'updateGameTime', { timeInSeconds })
   addToast({ message: 'Tiempo actualizado', type: 'success' })
 }
 
 const updateTeamCount = (count: number) => {
   teamCount.value = count
   if (currentGame.value) {
-    emitGameAction(currentGame.value.id, 'updateTeamCount', { teamCount: count })
+    webSocketManager.value?.emitAction(currentGame.value.id, 'updateTeamCount', { teamCount: count })
   }
 }
 
 // Team selection handler
 const hideTeamSelection = () => {
   showTeamSelection.value = false
-}
-
-// Local timer functions
-const startLocalTimer = () => {
-  stopLocalTimer()
-  
-  localTimerInterval.value = setInterval(() => {
-    if (currentGame.value && currentGame.value.status === 'running') {
-      // Always increment played time locally by 1 second
-      // Server updates will override this value when received
-      if (currentGame.value.playedTime !== undefined && currentGame.value.playedTime !== null) {
-        currentGame.value.playedTime += 1
-      } else {
-        currentGame.value.playedTime = 1
-      }
-      
-      // Decrement remaining time if it exists and is not null
-      if (currentGame.value.remainingTime !== undefined && currentGame.value.remainingTime !== null) {
-        currentGame.value.remainingTime = Math.max(0, currentGame.value.remainingTime - 1)
-      }
-      
-      // Force reactivity by reassigning the object
-      currentGame.value = { ...currentGame.value }
-    }
-  }, 1000)
-}
-
-const stopLocalTimer = () => {
-  if (localTimerInterval.value) {
-    clearInterval(localTimerInterval.value)
-    localTimerInterval.value = null
-  }
-}
-
-const updateLocalTimerFromServer = (data: TimeUpdateEvent | GameTimeEvent) => {
-  // Update last time update timestamp
-  lastTimeUpdate.value = new Date()
-  
-  // Update game state with server data - ALWAYS use server values directly
-  if (currentGame.value) {
-    
-    // Always use server values when provided, with proper null handling
-    if (data.remainingTime !== undefined) {
-      currentGame.value.remainingTime = data.remainingTime
-    }
-    if (data.totalTime !== undefined) {
-      currentGame.value.totalTime = data.totalTime
-    }
-    if (data.playedTime !== undefined) {
-      currentGame.value.playedTime = data.playedTime
-    } else {
-      // Ensure playedTime always has a value
-      currentGame.value.playedTime = currentGame.value.playedTime || 0
-    }
-    // Force reactivity by reassigning the object
-    currentGame.value = { ...currentGame.value }
-  }
 }
 
 // Control point handlers
@@ -453,7 +403,7 @@ const handleControlPointMove = (controlPointId: number, markerId: number) => {
       
       // Update control point position via WebSocket
       if (currentGame.value) {
-        emitGameAction(currentGame.value.id, 'updateControlPointPosition', {
+        webSocketManager.value?.emitAction(currentGame.value.id, 'updateControlPointPosition', {
           controlPointId,
           latitude: newLatLng.lat,
           longitude: newLatLng.lng
@@ -472,52 +422,54 @@ const handleControlPointMove = (controlPointId: number, markerId: number) => {
 }
 
 const handleControlPointUpdateWrapper = (controlPointId: number, markerId: number) => {
-  handleControlPointUpdate(socketRef, currentGame, controlPointId, mapInstance)
+  console.log('handleControlPointUpdateWrapper called with:', controlPointId, markerId)
+  console.log('webSocketManager.value:', webSocketManager.value)
+  console.log('webSocketManager.value?.socketRef?.value:', webSocketManager.value?.socketRef?.value)
+  handleControlPointUpdate(webSocketManager.value?.socketRef?.value, currentGame, controlPointId, mapInstance)
 }
 
 const handleControlPointDeleteWrapper = (controlPointId: number, markerId: number) => {
-  handleControlPointDelete(socketRef, currentGame, controlPointId, mapInstance)
+  handleControlPointDelete(webSocketManager.value?.socketRef?.value, currentGame, controlPointId, mapInstance)
 }
 
 const handleAssignTeamWrapper = (controlPointId: number, team: string) => {
-  handleAssignTeam(socketRef, currentGame, controlPointId, team)
+  handleAssignTeam(webSocketManager.value?.socketRef, currentGame, controlPointId, team)
 }
 
 const handleTogglePositionChallengeWrapper = (controlPointId: number) => {
-  handleToggleChallenge(socketRef, currentGame, controlPointId, 'position')
+  handleToggleChallenge(webSocketManager.value?.socketRef, currentGame, controlPointId, 'position')
 }
 
 const handleToggleCodeChallengeWrapper = (controlPointId: number) => {
-  handleToggleChallenge(socketRef, currentGame, controlPointId, 'code')
+  handleToggleChallenge(webSocketManager.value?.socketRef, currentGame, controlPointId, 'code')
 }
 
 const handleToggleBombChallengeWrapper = (controlPointId: number) => {
-  handleToggleChallenge(socketRef, currentGame, controlPointId, 'bomb')
+  handleToggleChallenge(webSocketManager.value?.socketRef, currentGame, controlPointId, 'bomb')
 }
 
 const handleUpdatePositionChallengeWrapper = (controlPointId: number, radius: number) => {
-  handleUpdateChallenge(socketRef, currentGame, controlPointId, 'position', radius)
+  handleUpdateChallenge(webSocketManager.value?.socketRef, currentGame, controlPointId, 'position', radius)
 }
 
 const handleUpdateCodeChallengeWrapper = (controlPointId: number, code: string) => {
-  handleUpdateChallenge(socketRef, currentGame, controlPointId, 'code', code)
+  handleUpdateChallenge(webSocketManager.value?.socketRef, currentGame, controlPointId, 'code', code)
 }
 
 const handleUpdateBombChallengeWrapper = (controlPointId: number, time: number) => {
-  handleUpdateChallenge(socketRef, currentGame, controlPointId, 'bomb', time)
+  handleUpdateChallenge(webSocketManager.value?.socketRef, currentGame, controlPointId, 'bomb', time)
 }
 
 const createControlPointWrapper = (lat: number, lng: number) => {
-  createControlPoint(socketRef, currentGame, lat, lng)
-  showControlPointMenu.value = false
+  createControlPoint(webSocketManager.value?.socketRef?.value, currentGame, lat, lng)
 }
 
 const handleActivateBombWrapper = (controlPointId: number) => {
-  handleActivateBomb(socketRef, currentGame, controlPointId)
+  handleActivateBomb(webSocketManager.value?.socketRef, currentGame, controlPointId)
 }
 
 const handleDeactivateBombWrapper = (controlPointId: number) => {
-  handleDeactivateBomb(socketRef, currentGame, controlPointId)
+  handleDeactivateBomb(webSocketManager.value?.socketRef, currentGame, controlPointId)
 }
 
 // WebSocket callbacks
@@ -534,15 +486,9 @@ const onGameUpdate = (game: Game) => {
   // Force update the game state to ensure reactivity
   // Always use server values for game state
   currentGame.value = { ...game }
-  handleGameStateChange(game)
+  // handleGameStateChange is now called by WebSocketManager to avoid duplicates
   bombTimersComposable.value?.handleGameStateChange(game)
   
-  // Handle local timer based on game status
-  if (game.status === 'running') {
-    startLocalTimer()
-  } else {
-    stopLocalTimer()
-  }
   
   // Force UI update for player controls to ensure pause state is respected
   // This is especially important after restart to ensure the player respects pause state
@@ -551,7 +497,7 @@ const onGameUpdate = (game: Game) => {
     currentGame.value = { ...currentGame.value }
     
     // Additional check: ensure the timer is stopped when game is paused
-    stopLocalTimer()
+    webSocketManager.value?.stopLocalTimer()
     
     // Force a small delay to ensure Vue reactivity updates the UI
     setTimeout(() => {
@@ -605,17 +551,13 @@ const onGameUpdate = (game: Game) => {
   
   // Player markers are automatically updated by the composable via WebSocket events
   // No need to manually call updatePlayerMarkers() here as it would clear existing markers
-  // Update timers after markers are rendered and game state changes
-  // Use currentGame.value instead of game parameter to ensure we have the latest control points
-  setTimeout(() => {
-    updateAllTimerDisplays(currentGame.value)
-    bombTimersComposable.value?.updateAllBombTimerDisplays(currentGame.value)
-  }, 100)
+  // Timer displays are updated by the local timer interval in useControlPointTimers
+  // Do NOT call updateAllTimerDisplays here to avoid duplicate updates
+  // Bomb timer displays are updated by the bomb timers composable
 
   // Show results dialog automatically when game is finished for all users
   if (game.status === 'finished') {
     showResultsDialog.value = true
-    stopLocalTimer()
   }
 
   // Close results dialog when game transitions from finished to stopped (restart)
@@ -625,8 +567,8 @@ const onGameUpdate = (game: Game) => {
     // Clear all bomb timers completely when game transitions from finished to stopped
     bombTimersComposable.value?.clearAllBombTimers()
     
-    // Hide all timers when game transitions from finished to stopped
-    updateAllTimerDisplays(game)
+    // Timer displays are updated by the local timer interval in useControlPointTimers
+    // Do NOT call updateAllTimerDisplays here to avoid duplicate updates
   }
 
   // Show team selection when game transitions to stopped state and player doesn't have a team
@@ -680,11 +622,8 @@ const onControlPointCreated = (controlPoint: ControlPoint) => {
       } : {}
       
       renderControlPoints(currentGame.value.controlPoints, handlers)
-      // Update timers after markers are rendered
-      setTimeout(() => {
-        updateAllTimerDisplays(currentGame.value)
-        bombTimersComposable.value?.updateAllBombTimerDisplays(currentGame.value)
-      }, 100)
+      // Timer displays are updated by the local timer interval in useControlPointTimers
+      // Do NOT call updateAllTimerDisplays here to avoid duplicate updates
     }
   }
 }
@@ -713,11 +652,8 @@ const onControlPointUpdated = (controlPoint: ControlPoint) => {
     
     // Update the specific control point marker instead of re-rendering all
     updateControlPointMarker(controlPoint, handlers)
-    // Update timers after marker is updated
-    setTimeout(() => {
-      updateAllTimerDisplays(currentGame.value)
-      bombTimersComposable.value?.updateAllBombTimerDisplays(currentGame.value)
-    }, 100)
+    // Timer displays are updated by the local timer interval in useControlPointTimers
+    // Do NOT call updateAllTimerDisplays here to avoid duplicate updates
   }
 }
 
@@ -743,11 +679,8 @@ const onControlPointDeleted = (controlPointId: number) => {
     } : {}
     
     renderControlPoints(currentGame.value.controlPoints, handlers)
-    // Update timers after markers are rendered
-    setTimeout(() => {
-      updateAllTimerDisplays(currentGame.value)
-      bombTimersComposable.value?.updateAllBombTimerDisplays(currentGame.value)
-    }, 100)
+    // Timer displays are updated by the local timer interval in useControlPointTimers
+    // Do NOT call updateAllTimerDisplays here to avoid duplicate updates
   }
 }
 
@@ -761,18 +694,27 @@ const onError = (error: string) => {
 
 // Global functions for control point popup buttons
 const setupGlobalFunctions = () => {
+  console.log('Setting up global functions...')
+  
+  ;(window as any).socketRef = () => {
+    return webSocketManager.value?.socketRef?.value
+  }
+  
   ;(window as any).createControlPoint = (lat: number, lng: number) => {
-    createControlPoint(socketRef, currentGame, lat, lng)
+    console.log('Global createControlPoint called with:', lat, lng)
+    createControlPoint(webSocketManager.value?.socketRef?.value, currentGame, lat, lng)
     if (mapInstance.value) {
       mapInstance.value.closePopup()
     }
   }
   
   ;(window as any).editControlPoint = (controlPointId: number) => {
+    console.log('Global editControlPoint called with:', controlPointId)
     addToast({ message: 'Funcionalidad de edición en desarrollo', type: 'info' })
   }
   
   ;(window as any).deleteControlPoint = (controlPointId: number) => {
+    console.log('Global deleteControlPoint called with:', controlPointId)
     if (confirm('¿Estás seguro de que quieres eliminar este punto de control?')) {
       handleControlPointDeleteWrapper(controlPointId, 0)
     }
@@ -780,8 +722,72 @@ const setupGlobalFunctions = () => {
   
   // Global function to show team change toast
   ;(window as any).showTeamChangeToast = (message: string) => {
+    console.log('Global showTeamChangeToast called with:', message)
     addToast({ message, type: 'success' })
   }
+
+  // WebSocket functions for popupUtils
+  ;(window as any).socketRef = () => {
+    console.log('Global socketRef called, returning:', webSocketManager.value?.socketRef)
+    return webSocketManager.value?.socketRef
+  }
+  ;(window as any).currentGame = currentGame.value
+  ;(window as any).emitGameAction = (gameId: number, action: string, data?: any) => {
+    console.log('Global emitGameAction called with:', gameId, action, data)
+    webSocketManager.value?.emitAction(gameId, action, data)
+  }
+  
+  // Control point action functions for popupUtils
+  ;(window as any).handleControlPointMove = (controlPointId: number, markerId: number) => {
+    console.log('Global handleControlPointMove called with:', controlPointId, markerId)
+    handleControlPointMove(controlPointId, markerId)
+  }
+  ;(window as any).handleControlPointUpdate = (controlPointId: number, markerId: number) => {
+    console.log('Global handleControlPointUpdate called with:', controlPointId, markerId)
+    handleControlPointUpdateWrapper(controlPointId, markerId)
+  }
+  ;(window as any).handleControlPointDelete = (controlPointId: number, markerId: number) => {
+    console.log('Global handleControlPointDelete called with:', controlPointId, markerId)
+    handleControlPointDeleteWrapper(controlPointId, markerId)
+  }
+  ;(window as any).handleAssignTeam = (controlPointId: number, team: string) => {
+    console.log('Global handleAssignTeam called with:', controlPointId, team)
+    handleAssignTeamWrapper(controlPointId, team)
+  }
+  ;(window as any).handleTogglePositionChallenge = (controlPointId: number) => {
+    console.log('Global handleTogglePositionChallenge called with:', controlPointId)
+    handleTogglePositionChallengeWrapper(controlPointId)
+  }
+  ;(window as any).handleToggleCodeChallenge = (controlPointId: number) => {
+    console.log('Global handleToggleCodeChallenge called with:', controlPointId)
+    handleToggleCodeChallengeWrapper(controlPointId)
+  }
+  ;(window as any).handleToggleBombChallenge = (controlPointId: number) => {
+    console.log('Global handleToggleBombChallenge called with:', controlPointId)
+    handleToggleBombChallengeWrapper(controlPointId)
+  }
+  ;(window as any).handleUpdatePositionChallenge = (controlPointId: number, radius: number) => {
+    console.log('Global handleUpdatePositionChallenge called with:', controlPointId, radius)
+    handleUpdatePositionChallengeWrapper(controlPointId, radius)
+  }
+  ;(window as any).handleUpdateCodeChallenge = (controlPointId: number, code: string) => {
+    console.log('Global handleUpdateCodeChallenge called with:', controlPointId, code)
+    handleUpdateCodeChallengeWrapper(controlPointId, code)
+  }
+  ;(window as any).handleUpdateBombChallenge = (controlPointId: number, time: number) => {
+    console.log('Global handleUpdateBombChallenge called with:', controlPointId, time)
+    handleUpdateBombChallengeWrapper(controlPointId, time)
+  }
+  ;(window as any).handleActivateBomb = (controlPointId: number) => {
+    console.log('Global handleActivateBomb called with:', controlPointId)
+    handleActivateBombWrapper(controlPointId)
+  }
+  ;(window as any).handleDeactivateBomb = (controlPointId: number) => {
+    console.log('Global handleDeactivateBomb called with:', controlPointId)
+    handleDeactivateBombWrapper(controlPointId)
+  }
+  
+  console.log('Global functions setup complete')
 }
 
 // Lifecycle
@@ -826,274 +832,6 @@ onMounted(async () => {
     currentGame.value = game
     teamCount.value = game.teamCount || 2
 
-    // Initialize WebSocket
-    connectWebSocket(parseInt(gameId), {
-      onGameUpdate,
-      onControlPointCreated,
-      onControlPointUpdated,
-      onControlPointDeleted,
-      onJoinSuccess,
-      onError,
-      onGameTime: (data: GameTimeEvent | any) => {
-        // Update local timer with server data
-        updateLocalTimerFromServer(data)
-        
-        // Handle control point timer updates from server
-        // Support both formats: array of control point times AND individual control point updates
-        if (data.controlPointTimes && Array.isArray(data.controlPointTimes)) {
-          // Format: array of control point times from gameTime/timeUpdate events
-          updateControlPointTimes(data.controlPointTimes, currentGame.value)
-          // Update timers after markers are rendered
-          setTimeout(() => {
-            updateAllTimerDisplays(currentGame.value)
-          }, 100)
-        } else if (data.controlPointId && data.currentHoldTime !== undefined) {
-          // Format: individual control point time update from controlPointTimeUpdate events
-          updateIndividualControlPointTime(data.controlPointId, data.currentHoldTime, data.currentTeam)
-          // Update timers after markers are rendered
-          setTimeout(() => {
-            updateAllTimerDisplays(currentGame.value)
-          }, 100)
-        }
-      },
-      onTimeUpdate: (data: TimeUpdateEvent) => {
-        
-        // Update local timer with server data - ALWAYS use server values
-        updateLocalTimerFromServer(data)
-        
-        // Handle control point timer updates from server
-        if (data.controlPointTimes && Array.isArray(data.controlPointTimes)) {
-          updateControlPointTimes(data.controlPointTimes, currentGame.value)
-          // Update timers after markers are rendered
-          setTimeout(() => {
-            updateAllTimerDisplays(currentGame.value)
-          }, 100)
-        }
-      },
-      onPlayerPosition: (data: any) => {
-        // This callback is handled by usePlayerMarkers composable
-        // No need to duplicate the logic here
-      },
-      onBombTimeUpdate: (data: any) => {
-        bombTimersComposable.value?.handleBombTimeUpdate(data)
-      },
-      onActiveBombTimers: (data: any) => {
-        bombTimersComposable.value?.handleActiveBombTimers(data)
-      },
-      onPositionChallengeUpdate: (data: any) => {
-        if (data.controlPointId && data.teamPoints) {
-          updatePositionChallengePieChart(data.controlPointId, data.teamPoints)
-        } else {
-          console.log('POSITION_CHALLENGE_UPDATE missing required data:', data)
-        }
-      },
-      onControlPointUpdated: (controlPoint: ControlPoint) => {
-        if (controlPoint) {
-          // Only pass handlers for owners, players should get empty handlers
-          const handlers = isOwner.value ? {
-            handleControlPointMove,
-            handleControlPointUpdate: handleControlPointUpdateWrapper,
-            handleControlPointDelete: handleControlPointDeleteWrapper,
-            handleAssignTeam: handleAssignTeamWrapper,
-            handleTogglePositionChallenge: handleTogglePositionChallengeWrapper,
-            handleToggleCodeChallenge: handleToggleCodeChallengeWrapper,
-            handleToggleBombChallenge: handleToggleBombChallengeWrapper,
-            handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
-            handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
-            handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
-            handleActivateBomb: handleActivateBombWrapper,
-            handleDeactivateBomb: handleDeactivateBombWrapper
-          } : {}
-          
-          updateControlPointMarker(controlPoint, handlers)
-        }
-      },
-      onControlPointTeamAssigned: (data: ControlPointTeamAssignedEvent) => {
-        if (data.controlPoint) {
-          // Only pass handlers for owners, players should get empty handlers
-          const handlers = isOwner.value ? {
-            handleControlPointMove,
-            handleControlPointUpdate: handleControlPointUpdateWrapper,
-            handleControlPointDelete: handleControlPointDeleteWrapper,
-            handleAssignTeam: handleAssignTeamWrapper,
-            handleTogglePositionChallenge: handleTogglePositionChallengeWrapper,
-            handleToggleCodeChallenge: handleToggleCodeChallengeWrapper,
-            handleToggleBombChallenge: handleToggleBombChallengeWrapper,
-            handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
-            handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
-            handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
-            handleActivateBomb: handleActivateBombWrapper,
-            handleDeactivateBomb: handleDeactivateBombWrapper
-          } : {}
-          
-          updateControlPointMarker(data.controlPoint, handlers)
-        } else {
-          console.log('GameOwner - Control point team assigned - no controlPoint in data')
-        }
-      },
-      // Add direct listener for playerTeamUpdated events
-      onGameAction: (data: any) => {
-        if (data.action === 'playerTeamUpdated' && data.data) {
-          console.log('GameOwner - Direct gameAction playerTeamUpdated received:', data.data)
-        }
-      },
-      // Handle player team updates
-      onPlayerTeamUpdated: (data: any) => {
-        // This callback is handled by usePlayerMarkers composable
-        // No need to duplicate the logic here
-      },
-      // Handle control point taken events
-      onControlPointTaken: (data: ControlPointTakenEvent) => {
-        
-        // The control point data is directly in data.controlPoint (not nested)
-        const controlPointData = data.controlPoint
-        
-        
-        if (!controlPointData) {
-          return
-        }
-
-        // Validate required fields
-        if (!controlPointData.id || !controlPointData.name || !controlPointData.latitude || !controlPointData.longitude) {
-          console.error('GameOwner - Invalid control point data received:', controlPointData)
-          return
-        }
-
-        // Convert team string to TeamColor with validation
-        const validTeams: TeamColor[] = ['blue', 'red', 'green', 'yellow', 'none']
-        const teamColor: TeamColor | undefined = data.team && validTeams.includes(data.team as TeamColor)
-          ? data.team as TeamColor
-          : undefined
-
-        const controlPoint: ControlPoint = {
-          id: controlPointData.id,
-          name: controlPointData.name,
-          description: controlPointData.description || undefined,
-          latitude: parseFloat(controlPointData.latitude.toString()),
-          longitude: parseFloat(controlPointData.longitude.toString()),
-          type: controlPointData.type as 'site' | 'control_point',
-          ownedByTeam: teamColor && teamColor !== 'none' ? teamColor : undefined,
-          hasBombChallenge: Boolean(controlPointData.hasBombChallenge),
-          hasPositionChallenge: Boolean(controlPointData.hasPositionChallenge),
-          hasCodeChallenge: Boolean(controlPointData.hasCodeChallenge),
-          bombTimer: undefined,
-          bombStatus: controlPointData.bombStatus ? {
-            isActive: controlPointData.bombStatus.isActive,
-            remainingTime: controlPointData.bombStatus.remainingTime || 0,
-            totalTime: controlPointData.bombTime || 0,
-            activatedByUserId: controlPointData.bombStatus.activatedByUserId,
-            activatedByUserName: controlPointData.bombStatus.activatedByUserName,
-            activatedByTeam: controlPointData.bombStatus.activatedByTeam
-          } : undefined,
-          currentTeam: undefined,
-          currentHoldTime: undefined,
-          displayTime: undefined,
-          lastTimeUpdate: undefined,
-          minDistance: controlPointData.minDistance || undefined,
-          minAccuracy: controlPointData.minAccuracy || undefined,
-          code: controlPointData.code || undefined,
-          bombTime: controlPointData.bombTime || undefined,
-          armedCode: controlPointData.armedCode || undefined,
-          disarmedCode: controlPointData.disarmedCode || undefined
-        }
-
-        
-        // Only pass handlers for owners, players should get empty handlers
-        const handlers = isOwner.value ? {
-          handleControlPointMove,
-          handleControlPointUpdate: handleControlPointUpdateWrapper,
-          handleControlPointDelete: handleControlPointDeleteWrapper,
-          handleAssignTeam: handleAssignTeamWrapper,
-          handleTogglePositionChallenge: handleTogglePositionChallengeWrapper,
-          handleToggleCodeChallenge: handleToggleCodeChallengeWrapper,
-          handleToggleBombChallenge: handleToggleBombChallengeWrapper,
-          handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
-          handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
-          handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
-          handleActivateBomb: handleActivateBombWrapper,
-          handleDeactivateBomb: handleDeactivateBombWrapper
-        } : {}
-        
-        updateControlPointMarker(controlPoint, handlers)
-      },
-      // Handle bomb activated events
-      onBombActivated: (data: BombActivatedEvent) => {
-        
-        // Find the control point in the current game
-        const controlPointData = currentGame.value?.controlPoints?.find(cp => cp.id === data.controlPointId)
-        
-        if (!controlPointData) {
-          return
-        }
-
-        // Update the control point with bomb activation status
-        const controlPoint: ControlPoint = {
-          ...controlPointData,
-          bombStatus: {
-            isActive: true,
-            remainingTime: data.controlPoint?.bombStatus?.remainingTime || controlPointData.bombTime || 300,
-            totalTime: controlPointData.bombTime || 300,
-            activatedByUserId: data.userId,
-            activatedByUserName: data.userName,
-            activatedByTeam: data.controlPoint?.ownedByTeam || controlPointData.ownedByTeam
-          }
-        }
-
-        
-        // Only pass handlers for owners, players should get empty handlers
-        const handlers = isOwner.value ? {
-          handleControlPointMove,
-          handleControlPointUpdate: handleControlPointUpdateWrapper,
-          handleControlPointDelete: handleControlPointDeleteWrapper,
-          handleAssignTeam: handleAssignTeamWrapper,
-          handleTogglePositionChallenge: handleTogglePositionChallengeWrapper,
-          handleToggleCodeChallenge: handleToggleCodeChallengeWrapper,
-          handleToggleBombChallenge: handleToggleBombChallengeWrapper,
-          handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
-          handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
-          handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
-          handleActivateBomb: handleActivateBombWrapper,
-          handleDeactivateBomb: handleDeactivateBombWrapper
-        } : {}
-        
-        updateControlPointMarker(controlPoint, handlers)
-      },
-      // Handle bomb deactivated events
-      onBombDeactivated: (data: BombDeactivatedEvent) => {
-        
-        // Find the control point in the current game
-        const controlPointData = currentGame.value?.controlPoints?.find(cp => cp.id === data.controlPointId)
-        
-        if (!controlPointData) {
-          return
-        }
-
-        // Update the control point with bomb deactivation status
-        const controlPoint: ControlPoint = {
-          ...controlPointData,
-          bombStatus: undefined // Clear bomb status when deactivated
-        }
-
-        
-        // Only pass handlers for owners, players should get empty handlers
-        const handlers = isOwner.value ? {
-          handleControlPointMove,
-          handleControlPointUpdate: handleControlPointUpdateWrapper,
-          handleControlPointDelete: handleControlPointDeleteWrapper,
-          handleAssignTeam: handleAssignTeamWrapper,
-          handleTogglePositionChallenge: handleTogglePositionChallengeWrapper,
-          handleToggleCodeChallenge: handleToggleCodeChallengeWrapper,
-          handleToggleBombChallenge: handleToggleBombChallengeWrapper,
-          handleUpdatePositionChallenge: handleUpdatePositionChallengeWrapper,
-          handleUpdateCodeChallenge: handleUpdateCodeChallengeWrapper,
-          handleUpdateBombChallenge: handleUpdateBombChallengeWrapper,
-          handleActivateBomb: handleActivateBombWrapper,
-          handleDeactivateBomb: handleDeactivateBombWrapper
-        } : {}
-        
-        updateControlPointMarker(controlPoint, handlers)
-      }
-    })
 
     // Initialize map after component is mounted and data is loaded
     await nextTick()
@@ -1120,16 +858,18 @@ onMounted(async () => {
       
       // Set global variables for player popup access
       ;(window as any).mapInstance = mapInstance.value
-      ;(window as any).socketRef = socketRef.value
+      ;(window as any).socketRef = () => webSocketManager.value?.socketRef
       ;(window as any).currentGame = currentGame.value
-      ;(window as any).emitGameAction = emitGameAction
+      ;(window as any).emitGameAction = (gameId: number, action: string, data?: any) => {
+        webSocketManager.value?.emitAction(gameId, action, data)
+      }
       
       // Initialize player markers AFTER map is ready
       playerMarkersComposable.value = usePlayerMarkers({
         game: currentGame,
         map: mapInstance,
         currentUser,
-        socket: socketRef,
+        socket: () => webSocketManager.value?.socketRef,
         isOwner: isOwner.value
       })
       
@@ -1146,26 +886,20 @@ onMounted(async () => {
       bombTimersComposable.value = useBombTimers(currentGame)
       
       // Setup bomb timer listeners
-      if (socketRef.value) {
-        bombTimersComposable.value.setupBombTimerListeners(socketRef.value)
+      if (webSocketManager.value?.socketRef) {
+        bombTimersComposable.value.setupBombTimerListeners(webSocketManager.value.socketRef)
       }
       
       // Request active bomb timers
       if (currentGame.value) {
-        bombTimersComposable.value.requestActiveBombTimers(socketRef.value, currentGame.value.id)
+        bombTimersComposable.value.requestActiveBombTimers(webSocketManager.value?.socketRef, currentGame.value.id)
       }
       
-      // Update timers after initial markers are rendered
-      setTimeout(() => {
-        updateAllTimerDisplays(currentGame.value)
-        bombTimersComposable.value?.updateAllBombTimerDisplays(currentGame.value)
-      }, 100)
+      // Timer displays are updated by the local timer interval in useControlPointTimers
+      // Do NOT call updateAllTimerDisplays here to avoid duplicate updates
     }, 100)
 
     setupGlobalFunctions()
-    
-    // Start connection health check
-    startConnectionHealthCheck()
 
   } catch (error) {
     console.error('Error initializing game:', error)
@@ -1176,46 +910,14 @@ onMounted(async () => {
   }
 })
 
-// Connection health check with enhanced reconnection logic
-const startConnectionHealthCheck = () => {
-  stopConnectionHealthCheck()
-  connectionHealthInterval.value = setInterval(() => {
-    if (socketRef.value && !socketRef.value.connected) {
-      
-      // Force a full reconnection instead of just checking
-      forceReconnect()
-      
-      // Also try to refresh the game state after reconnection
-      setTimeout(() => {
-        if (socketRef.value?.connected && currentGame.value) {
-          // Request fresh game state to ensure synchronization
-          socketRef.value.emit('getGameState', { gameId: currentGame.value.id })
-        }
-      }, 2000)
-    }
-  }, 15000) // Check every 15 seconds
-}
-
-const stopConnectionHealthCheck = () => {
-  if (connectionHealthInterval.value) {
-    clearInterval(connectionHealthInterval.value)
-    connectionHealthInterval.value = null
-  }
-}
 
 onUnmounted(() => {
-  
-  // Stop connection health check first
-  stopConnectionHealthCheck()
-  
-  // Stop local timer first
-  stopLocalTimer()
   
   // Stop GPS tracking first
   stopGPSTracking()
   
   // Disconnect WebSocket
-  disconnectWebSocket()
+  webSocketManager.value?.disconnect()
   
   // Clean up player markers if composable exists
   if (playerMarkersComposable.value) {
@@ -1245,11 +947,26 @@ onUnmounted(() => {
   destroyMap()
   
   // Clean up global functions
+  delete (window as any).socketRef
   delete (window as any).createControlPoint
   delete (window as any).editControlPoint
   delete (window as any).deleteControlPoint
   delete (window as any).showTeamChangeToast
   delete (window as any).emitGameAction
+  delete (window as any).socketRef
+  delete (window as any).currentGame
+  delete (window as any).handleControlPointMove
+  delete (window as any).handleControlPointUpdate
+  delete (window as any).handleControlPointDelete
+  delete (window as any).handleAssignTeam
+  delete (window as any).handleTogglePositionChallenge
+  delete (window as any).handleToggleCodeChallenge
+  delete (window as any).handleToggleBombChallenge
+  delete (window as any).handleUpdatePositionChallenge
+  delete (window as any).handleUpdateCodeChallenge
+  delete (window as any).handleUpdateBombChallenge
+  delete (window as any).handleActivateBomb
+  delete (window as any).handleDeactivateBomb
   
 })
 

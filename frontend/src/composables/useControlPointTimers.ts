@@ -25,7 +25,9 @@ export const useControlPointTimers = () => {
       controlPointTimes.value = updated
 
       // Start local timer interval if game is running
-      if (currentGame?.status === 'running' && !localTimerRef.value) {
+      if (currentGame?.status === 'running') {
+        // Always stop existing timer first to prevent duplicates
+        stopControlPointTimerInterval()
         startControlPointTimerInterval(currentGame)
       }
     }
@@ -47,7 +49,6 @@ export const useControlPointTimers = () => {
     const timerElement = document.getElementById(`timer_${controlPointId}`)
     const timeData = controlPointTimes.value[controlPointId]
     
-    
     if (!timerElement || !timeData) {
       if (timerElement) timerElement.style.display = 'none'
       return
@@ -57,11 +58,6 @@ export const useControlPointTimers = () => {
     // Hide timers only when game is stopped
     const shouldShow = timeData.currentTeam !== null && currentGame?.status !== 'stopped'
     
-    // Debug logging
-    if (currentGame?.status === 'stopped') {
-    }
-    
-    
     if (shouldShow) {
       // Format time as MM:SS
       const minutes = Math.floor(timeData.currentHoldTime / 60)
@@ -70,7 +66,8 @@ export const useControlPointTimers = () => {
       
       timerElement.textContent = timeText
       timerElement.style.display = 'block'
-    } else {
+    } else if (currentGame?.status === 'stopped') {
+      // Only hide timers when game is explicitly stopped
       timerElement.style.display = 'none'
     }
   }
@@ -99,12 +96,12 @@ export const useControlPointTimers = () => {
 
   // Start local timer interval for smooth updates
   const startControlPointTimerInterval = (currentGame: Game | null) => {
+    // Prevent multiple intervals from running simultaneously
     if (localTimerRef.value) {
       clearInterval(localTimerRef.value)
       localTimerRef.value = null
     }
-
-
+    
     localTimerRef.value = setInterval(() => {
       if (currentGame?.status === 'running') {
         // Increment all active control point timers by 1 second
@@ -112,13 +109,14 @@ export const useControlPointTimers = () => {
         
         Object.entries(controlPointTimes.value).forEach(([controlPointId, timeData]) => {
           // Only increment timers for control points that are owned
-          if (timeData.currentTeam !== null) {
+          if (timeData && timeData.currentTeam !== null) {
             const newHoldTime = timeData.currentHoldTime + 1
             updated[Number(controlPointId)] = {
               ...timeData,
               currentHoldTime: newHoldTime
             }
-          } else {
+          } else if (timeData) {
+            // Keep existing data for unowned control points
             updated[Number(controlPointId)] = timeData
           }
         })
@@ -141,7 +139,6 @@ export const useControlPointTimers = () => {
   // Handle game state changes
   const handleGameStateChange = (currentGame: Game | null) => {
     if (!currentGame) return
-
 
     if (currentGame.status === 'running') {
       // Always restart the timer when game goes to running state
