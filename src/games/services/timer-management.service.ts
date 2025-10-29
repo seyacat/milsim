@@ -326,18 +326,8 @@ export class TimerManagementService {
       });
 
       // Also broadcast all control point times to ensure frontend has complete state
-      const game = await this.gamesRepository.findOne({
-        where: { instanceId: gameInstanceId },
-      });
-      
-      if (game) {
-        const allControlPointTimes = await this.getControlPointTimes(game.id);
-        this.gamesGateway.broadcastTimeUpdate(game.id, {
-          remainingTime: null, // Will be populated by broadcastTimeUpdate
-          totalTime: null, // Will be populated by broadcastTimeUpdate
-          playedTime: 0, // Will be populated by broadcastTimeUpdate
-        });
-      }
+      // But do NOT broadcast game time update here as it will reset the game timer
+      // Control point times are handled separately through controlPointTimeUpdate events
     }
   }
 
@@ -382,14 +372,8 @@ export class TimerManagementService {
     }
 
     // Broadcast all control point times after starting all timers
-    if (this.gamesGateway) {
-      const allControlPointTimes = await this.getControlPointTimes(gameId);
-      this.gamesGateway.broadcastTimeUpdate(gameId, {
-        remainingTime: null, // Will be populated by broadcastTimeUpdate
-        totalTime: null, // Will be populated by broadcastTimeUpdate
-        playedTime: 0, // Will be populated by broadcastTimeUpdate
-      });
-    }
+    // But do NOT broadcast game time update here as it will reset the game timer
+    // Control point times are handled separately through controlPointTimeUpdate events
   }
 
   // Pause all control point timers for a game
