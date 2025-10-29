@@ -102,14 +102,6 @@ const updateLocalTimerFromServer = (data: TimeUpdateEvent | GameTimeEvent) => {
   // Update last time update timestamp
   lastTimeUpdate.value = new Date()
   
-  // Log timer update from server
-  console.log('[TIMER_DEBUG] Server timer update received:', {
-    remainingTime: data.remainingTime,
-    playedTime: data.playedTime,
-    totalTime: data.totalTime,
-    currentGameStatus: props.currentGame?.status
-  })
-  
   // Update game state with server data - ALWAYS use server values directly
   if (props.currentGame) {
     // Create a copy of the current game with updated time values
@@ -138,17 +130,6 @@ const updateLocalTimerFromServer = (data: TimeUpdateEvent | GameTimeEvent) => {
 const handleGameUpdate = (game: Game) => {
   const previousStatus = props.currentGame?.status
   
-  // Log game state change
-  console.log('[GAME_STATE_DEBUG] Game state change:', {
-    previousStatus,
-    newStatus: game.status,
-    timerValues: {
-      remainingTime: game.remainingTime,
-      playedTime: game.playedTime,
-      totalTime: game.totalTime
-    }
-  })
-  
   // Call the parent handler to update the game state
   props.onGameUpdate(game)
   handleGameStateChange(game)
@@ -159,10 +140,8 @@ const handleGameUpdate = (game: Game) => {
   
   // Handle local timer based on game status
   if (game.status === 'running') {
-    console.log('[TIMER_DEBUG] Starting local timer - game is running')
     startLocalTimer()
   } else {
-    console.log('[TIMER_DEBUG] Stopping local timer - game status:', game.status)
     stopLocalTimer()
   }
   
@@ -234,13 +213,6 @@ const handleGameTime = (data: GameTimeEvent | any) => {
 
 
 const handleTimeUpdate = (data: TimeUpdateEvent) => {
-  console.log('[TIMER_DEBUG] TimeUpdate event received:', {
-    remainingTime: data.remainingTime,
-    playedTime: data.playedTime,
-    totalTime: data.totalTime,
-    currentGameStatus: props.currentGame?.status
-  })
-  
   // Update local timer with server data - ALWAYS use server values
   updateLocalTimerFromServer(data)
   
@@ -474,7 +446,6 @@ watch(() => props.gameId, (newGameId, oldGameId) => {
 // Watch for currentGame changes to handle timer when game is already running
 watch(() => props.currentGame, (newGame, oldGame) => {
   if (newGame && newGame.status === 'running' && (!oldGame || oldGame.status !== 'running')) {
-    console.log('[TIMER_DEBUG] Starting local timer on game change - game is running')
     startLocalTimer()
   }
 }, { immediate: true })
@@ -497,7 +468,6 @@ onMounted(() => {
   
   // Start local timer if game is already running when component mounts
   if (props.currentGame?.status === 'running') {
-    console.log('[TIMER_DEBUG] Starting local timer on mount - game is already running')
     startLocalTimer()
   }
 })
