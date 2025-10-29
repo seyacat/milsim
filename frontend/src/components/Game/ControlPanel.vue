@@ -53,16 +53,7 @@
         </button>
       </template>
       
-      <template v-else>
-        <button
-          id="endGameBtn"
-          class="btn btn-danger"
-          @click="endGame"
-          style="display: block; width: 100%; margin-bottom: 10px"
-        >
-          Finalizar
-        </button>
-      </template>
+      <!-- Remove the v-else template that was showing Finalizar button in unexpected states -->
     </div>
   </div>
 </template>

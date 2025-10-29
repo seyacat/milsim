@@ -130,6 +130,8 @@ const updateLocalTimerFromServer = (data: TimeUpdateEvent | GameTimeEvent) => {
 const handleGameUpdate = (game: Game) => {
   const previousStatus = props.currentGame?.status
   
+  console.log(`[WebSocketManager] Game update received - status: ${game.status}, previous: ${previousStatus}`)
+  
   // Call the parent handler to update the game state
   props.onGameUpdate(game)
   handleGameStateChange(game)
@@ -140,8 +142,10 @@ const handleGameUpdate = (game: Game) => {
   
   // Handle local timer based on game status
   if (game.status === 'running') {
+    console.log(`[WebSocketManager] Starting local timer for game ${game.id}`)
     startLocalTimer()
   } else {
+    console.log(`[WebSocketManager] Stopping local timer for game ${game.id}, status: ${game.status}`)
     stopLocalTimer()
   }
   
@@ -149,7 +153,10 @@ const handleGameUpdate = (game: Game) => {
   
   // Stop local timer when game is finished
   if (game.status === 'finished') {
+    console.log(`[WebSocketManager] Game finished - ensuring all timers are stopped for game ${game.id}`)
     stopLocalTimer()
+    // Also ensure control point timer interval is stopped
+    stopControlPointTimerInterval()
   }
 
   // Close results dialog when game transitions from finished to stopped (restart)
