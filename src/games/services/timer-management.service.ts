@@ -236,7 +236,7 @@ export class TimerManagementService {
 
       return {
         remainingTime: gameInstance.totalTime ? Math.max(0, gameInstance.totalTime - elapsedTime) : null,
-        totalTime: game.totalTime, // Use game.totalTime for dropdown synchronization
+        totalTime: gameInstance.totalTime, // Use gameInstance.totalTime for timer synchronization
         playedTime: elapsedTime,
       };
     } catch (error) {
