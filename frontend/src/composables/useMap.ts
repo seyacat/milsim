@@ -1190,7 +1190,7 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
     }
     
     // Crecimiento progresivo desde zoom 16
-    const scaleFactor = 1 + (zoomLevel - targetZoom) * 0.3
+    const scaleFactor = 1 + (zoomLevel - targetZoom) * 0.2
     return Math.min(baseSize * scaleFactor, maxSize)
   }
 

@@ -65,8 +65,8 @@ export const useGameOwner = (): UseGameOwnerReturn => {
 
   const gameId = computed(() => route.params.gameId as string)
 
-  // WebSocket connection
-  const { socketRef, connectWebSocket, disconnectWebSocket } = useWebSocket()
+  // WebSocket connection - now uses singleton
+  const { socketRef, connectWebSocket, disconnectWebSocket, emitGameAction } = useWebSocket()
 
   // Map functionality
   const { updateControlPointMarker } = useMap()
@@ -158,8 +158,6 @@ export const useGameOwner = (): UseGameOwnerReturn => {
   const startGame = () => {
     if (!currentGame.value) return
     try {
-      // Use emitGameAction from useWebSocket composable
-      const { emitGameAction } = useWebSocket()
       const success = emitGameAction(currentGame.value.id, 'startGame')
       if (success) {
         addToast({ message: 'Juego iniciado', type: 'success' })
@@ -175,7 +173,6 @@ export const useGameOwner = (): UseGameOwnerReturn => {
   const pauseGame = () => {
     if (!currentGame.value) return
     try {
-      const { emitGameAction } = useWebSocket()
       const success = emitGameAction(currentGame.value.id, 'pauseGame')
       if (success) {
         addToast({ message: 'Juego pausado', type: 'success' })

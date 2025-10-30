@@ -500,7 +500,11 @@ const setupSocketListeners = (
   })
 }
 
-export const useWebSocket = () => {
+// Singleton instance
+let webSocketInstance: ReturnType<typeof createWebSocketComposable> | null = null
+
+const createWebSocketComposable = () => {
+  console.log('CREATING NEW WEBSOCKET COMPOSABLE INSTANCE')
   const socketRef = ref<Socket | null>(null)
   const isConnecting = ref(false)
   const { addToast } = useToast()
@@ -528,8 +532,10 @@ export const useWebSocket = () => {
       onBombDeactivated?: (data: BombDeactivatedEvent) => void
     }
   ) => {
+    console.log('connectWebSocket CALLED for gameId:', gameId, 'caller:', new Error().stack?.split('\n')[2])
     // Check if we already have a connection for this specific game
     const existingSocket = gameConnections.get(gameId)
+    console.log('connectWebSocket - gameId:', gameId, 'existingSocket:', !!existingSocket, 'connected:', existingSocket?.connected)
     if (existingSocket && existingSocket.connected) {
       socketRef.value = existingSocket
       const currentCount = gameConnectionCounts.get(gameId) || 0
@@ -573,6 +579,7 @@ export const useWebSocket = () => {
       })
       
       // Store the connection for this specific game
+      console.log('CREATING NEW WEBSOCKET CONNECTION for gameId:', gameId)
       gameConnections.set(gameId, socket)
       socketRef.value = socket
       const currentCount = gameConnectionCounts.get(gameId) || 0
@@ -696,4 +703,12 @@ export const useWebSocket = () => {
     checkConnection,
     forceReconnect
   }
+}
+
+export const useWebSocket = () => {
+  console.log('useWebSocket() called - instance exists:', !!webSocketInstance)
+  if (!webSocketInstance) {
+    webSocketInstance = createWebSocketComposable()
+  }
+  return webSocketInstance
 }
