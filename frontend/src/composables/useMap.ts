@@ -57,6 +57,7 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
   const pieCharts = ref<Map<number, any>>(new Map())
   const pendingPositionChallengeUpdates = ref<Map<number, Record<string, number>>>(new Map())
   const openPlayerPopups = ref<Map<number, HTMLElement>>(new Map())
+  const currentZoom = ref<number>(13)
 
   const initializeMap = async (onMapClick: (latlng: { lat: number; lng: number }) => void) => {
     if (!mapRef.value) return
@@ -113,6 +114,12 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
           // Only trigger onMapClick if no popup was open
           onMapClick(e.latlng)
         }
+      })
+
+      // Add zoom listener to update marker sizes
+      mapInstance.value.on('zoomend', () => {
+        currentZoom.value = mapInstance.value.getZoom()
+        updateAllMarkerSizes()
       })
 
     } catch (error) {
@@ -256,12 +263,15 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
       // Get control point icon properties based on type and challenges
       const { iconColor, iconEmoji } = getControlPointIcon(controlPoint)
 
+      // Calculate initial marker size based on current zoom
+      const initialSize = calculateMarkerSize(currentZoom.value)
+
       // Create marker with specific design based on control point properties
       const marker = L.marker([lat, lng], {
         draggable: false
       })
       
-      // Set custom icon
+      // Set custom icon with dynamic size
       const customIcon = L.divIcon({
         className: 'control-point-marker',
         html: `
@@ -308,12 +318,12 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
             <div style="
                 background: ${iconColor}80;
                 border-radius: 50%;
-                width: 20px;
-                height: 20px;
+                width: ${initialSize}px;
+                height: ${initialSize}px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 12px;
+                font-size: ${Math.max(12, initialSize * 0.6)}px;
                 color: white;
                 font-weight: bold;
                 box-shadow: 0 2px 5px rgba(0,0,0,0.3);
@@ -338,8 +348,8 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
                  ">00:00</div>
           </div>
         `,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10]
+        iconSize: [initialSize, initialSize],
+        iconAnchor: [initialSize / 2, initialSize / 2]
       })
       
       marker.setIcon(customIcon)
@@ -768,8 +778,10 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
       // Get updated control point icon properties
       const { iconColor, iconEmoji } = getControlPointIcon(controlPoint)
       
+      // Calculate current marker size based on zoom
+      const currentSize = calculateMarkerSize(currentZoom.value)
       
-      // Create updated custom icon
+      // Create updated custom icon with dynamic size
       const customIcon = L.divIcon({
         className: 'control-point-marker',
         html: `
@@ -816,12 +828,12 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
             <div style="
                 background: ${iconColor}80;
                 border-radius: 50%;
-                width: 20px;
-                height: 20px;
+                width: ${currentSize}px;
+                height: ${currentSize}px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 12px;
+                font-size: ${Math.max(12, currentSize * 0.6)}px;
                 color: white;
                 font-weight: bold;
                 box-shadow: 0 2px 5px rgba(0,0,0,0.3);
@@ -846,8 +858,8 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
                  ">00:00</div>
           </div>
         `,
-        iconSize: [20, 20],
-        iconAnchor: [10, 10]
+        iconSize: [currentSize, currentSize],
+        iconAnchor: [currentSize / 2, currentSize / 2]
       })
       
       marker.setIcon(customIcon)
@@ -1165,6 +1177,148 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
         }
       })
     })
+  }
+
+  // Function to calculate marker size based on zoom level
+  const calculateMarkerSize = (zoomLevel: number): number => {
+    const baseSize = 20 // Tamaño base
+    const targetZoom = 16 // Zoom donde empieza a crecer
+    const maxSize = 80 // Tamaño máximo
+    
+    if (zoomLevel < targetZoom) {
+      return baseSize
+    }
+    
+    // Crecimiento progresivo desde zoom 16
+    const scaleFactor = 1 + (zoomLevel - targetZoom) * 0.3
+    return Math.min(baseSize * scaleFactor, maxSize)
+  }
+
+  // Function to update all marker sizes based on current zoom
+  const updateAllMarkerSizes = async () => {
+    if (!mapInstance.value) return
+    
+    const markerSize = calculateMarkerSize(currentZoom.value)
+    
+    // Update control point markers
+    for (const [controlPointId, marker] of controlPointMarkers.value.entries()) {
+      await updateControlPointMarkerSize(marker, markerSize)
+    }
+  }
+
+  // Function to update individual control point marker size
+  const updateControlPointMarkerSize = async (marker: any, size: number) => {
+    if (!marker || !mapInstance.value) return
+    
+    try {
+      const L = await import('leaflet')
+      const controlPointId = marker.controlPointId
+      
+      // Find the control point data by iterating through the game data
+      let controlPointData: ControlPoint | null = null
+      
+      // Try to find control point in current game
+      if (currentGame?.value?.controlPoints) {
+        controlPointData = currentGame.value.controlPoints.find((cp: ControlPoint) => cp.id === controlPointId) || null
+      }
+      
+      // If not found, try to get from window object
+      if (!controlPointData && (window as any).currentGame?.controlPoints) {
+        controlPointData = (window as any).currentGame.controlPoints.find((cp: ControlPoint) => cp.id === controlPointId) || null
+      }
+      
+      if (!controlPointData) {
+        console.warn('Control point data not found for marker:', controlPointId)
+        return
+      }
+      
+      // Get current control point data
+      const { iconColor, iconEmoji } = getControlPointIcon(controlPointData)
+      
+      const customIcon = L.divIcon({
+        className: 'control-point-marker',
+        html: `
+          <div style="
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+          ">
+            <!-- Timer display above marker -->
+            <div class="control-point-timer"
+                 id="timer_${controlPointId}"
+                 style="
+                     position: absolute;
+                     top: -20px;
+                     left: 50%;
+                     transform: translateX(-50%);
+                     background: rgba(0, 0, 0, 0.7);
+                     color: white;
+                     padding: 2px 4px;
+                     border-radius: 3px;
+                     font-size: 10px;
+                     font-weight: bold;
+                     white-space: nowrap;
+                     display: none;
+                     z-index: 1000;
+                 ">00:00</div>
+            <!-- Position challenge bars -->
+            <div class="position-challenge-bars"
+                 id="position_challenge_bars_${controlPointId}"
+                 style="
+                     position: absolute;
+                     top: -45px;
+                     left: 50%;
+                     transform: translateX(-50%);
+                     display: none;
+                     flex-direction: column;
+                     gap: 2px;
+                     width: 40px;
+                     z-index: 1000;
+                 ">
+            </div>
+            <!-- Control point marker -->
+            <div style="
+                background: ${iconColor}80;
+                border-radius: 50%;
+                width: ${size}px;
+                height: ${size}px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: ${Math.max(12, size * 0.6)}px;
+                color: white;
+                font-weight: bold;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            ">${iconEmoji}</div>
+            <!-- Bomb timer display -->
+            <div class="bomb-timer"
+                 id="bomb_timer_${controlPointId}"
+                 style="
+                     position: absolute;
+                     bottom: -20px;
+                     left: 50%;
+                     transform: translateX(-50%);
+                     background: rgba(255, 87, 34, 0.9);
+                     color: white;
+                     padding: 2px 4px;
+                     border-radius: 3px;
+                     font-size: 10px;
+                     font-weight: bold;
+                     white-space: nowrap;
+                     display: none;
+                     z-index: 1000;
+                 ">00:00</div>
+          </div>
+        `,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2]
+      })
+      
+      marker.setIcon(customIcon)
+    } catch (error) {
+      console.error('Error updating marker size:', error)
+    }
   }
 
   // Function to update timer display in open popups for a specific control point
