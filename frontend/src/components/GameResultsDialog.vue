@@ -3,7 +3,6 @@
     <div class="game-results-dialog" @click.stop>
       <div class="game-results-header">
         <h3 class="game-results-title">Resumen del Juego</h3>
-        <p class="game-results-subtitle">¡Juego Finalizado!</p>
       </div>
       
       <div class="game-results-content">
