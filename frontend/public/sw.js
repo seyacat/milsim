@@ -2,7 +2,6 @@
 // This enables PWA functionality without storing any files
 
 self.addEventListener('install', (event) => {
-  console.log('Service Worker installed - caching completely disabled');
   // Skip waiting to activate immediately
   self.skipWaiting();
   
@@ -11,7 +10,6 @@ self.addEventListener('install', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          console.log('Deleting cache:', cacheName);
           return caches.delete(cacheName);
         })
       );
@@ -20,7 +18,6 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('Service Worker activated - clearing all caches');
   
   event.waitUntil(
     Promise.all([
@@ -28,7 +25,6 @@ self.addEventListener('activate', (event) => {
       caches.keys().then((cacheNames) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
-            console.log('Deleting cache during activation:', cacheName);
             return caches.delete(cacheName);
           })
         );
@@ -57,11 +53,9 @@ self.addEventListener('fetch', (event) => {
 
 // Prevent any background sync or other caching mechanisms
 self.addEventListener('sync', (event) => {
-  console.log('Sync event detected - ignoring');
   event.waitUntil(Promise.resolve());
 });
 
 self.addEventListener('push', (event) => {
-  console.log('Push event detected - ignoring');
   event.waitUntil(Promise.resolve());
 });

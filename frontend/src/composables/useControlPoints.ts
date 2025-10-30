@@ -29,7 +29,6 @@ export const useControlPoints = () => {
   }
 
   const onControlPointTeamAssigned = (data: ControlPointTeamAssignedEvent) => {
-    console.log('Control point team assigned:', data)
     
     // Update the popup to reflect the new team assignment
     if (data.controlPoint && data.controlPoint.id && data.controlPoint.ownedByTeam) {

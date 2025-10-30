@@ -7,7 +7,7 @@ if [ -f "$SCRIPT_DIR/.env" ]; then
 fi
 
 # Default values
-ENDPOINT=${UPTIME_ENDPOINT:-"http://127.0.0.1:6600/uptime"}
+ENDPOINT=${UPTIME_ENDPOINT:-"http://127.0.0.1:6600/api/uptime"}
 SHUTDOWN_THRESHOLD=${SHUTDOWN_THRESHOLD:-3600}  # 1 hour in seconds
 
 echo "Checking uptime endpoint: $ENDPOINT"

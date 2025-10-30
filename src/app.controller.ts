@@ -16,12 +16,12 @@ export class AppController {
     return res.redirect('/login.html');
   }
 
-  @Get('uptime')
+  @Get('api/uptime')
   getUptime() {
     return this.connectionTracker.getUptimeInfo();
   }
 
-  @Get('connection')
+  @Get('api/connection')
   registerConnection() {
     this.connectionTracker.registerConnection();
     return {

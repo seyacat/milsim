@@ -868,7 +868,6 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
     for (const [socketId, lastHeartbeat] of this.clientLastHeartbeat.entries()) {
       if (now - lastHeartbeat > HEARTBEAT_TIMEOUT) {
-        console.log(`[HEARTBEAT] Removing dead connection: ${socketId}, last heartbeat: ${new Date(lastHeartbeat).toISOString()}`);
         
         const client = this.server.sockets.sockets.get(socketId);
         if (client) {

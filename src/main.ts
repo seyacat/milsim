@@ -17,7 +17,7 @@ async function bootstrap() {
   // Enable WebSocket adapter
   app.useWebSocketAdapter(new IoAdapter(app));
 
-  // Serve static files from public2 directory at root path
+  // Serve static files from public directory at root path
   // This should come after controller routes to avoid conflicts
   app.useStaticAssets(join(process.cwd(), 'src', 'public'), {
     prefix: '/',
