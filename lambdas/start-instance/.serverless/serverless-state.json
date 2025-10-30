@@ -106,7 +106,7 @@
             "Properties": {
               "Code": {
                 "S3Bucket": "serverless-framework-deployments-us-east-1-13eb2331-055c",
-                "S3Key": "serverless/milsim/dev/1761785953189-2025-10-30T00:59:13.189Z/milsim.zip"
+                "S3Key": "serverless/milsim/dev/1761788021193-2025-10-30T01:33:41.193Z/milsim.zip"
               },
               "Handler": "index.handler",
               "Runtime": "nodejs18.x",
@@ -130,14 +130,14 @@
               "StartInstanceLogGroup"
             ]
           },
-          "StartInstanceLambdaVersionLV6p2mUBaVtlrCZOPJJnDYCem5CzmmuUJP7IkOQn6I": {
+          "StartInstanceLambdaVersion3pMhPsFlLDiKSn2BnqBVYEVsOnmg2CDIqNAnbRocd70": {
             "Type": "AWS::Lambda::Version",
             "DeletionPolicy": "Retain",
             "Properties": {
               "FunctionName": {
                 "Ref": "StartInstanceLambdaFunction"
               },
-              "CodeSha256": "Ju0z92rQw2s0RrhFElQbKtS9mRLs7dkGsIu3T9W9a/Q="
+              "CodeSha256": "N+U4ctB2LbDZ4ig2ZEgcfIJbyf/n4PBzUUrQEBnrH60="
             }
           },
           "ApiGatewayRestApi": {
@@ -249,7 +249,7 @@
               "StartInstanceLambdaPermissionApiGateway"
             ]
           },
-          "ApiGatewayDeployment1761785933697": {
+          "ApiGatewayDeployment1761788013764": {
             "Type": "AWS::ApiGateway::Deployment",
             "Properties": {
               "RestApiId": {
@@ -387,7 +387,7 @@
           "StartInstanceLambdaFunctionQualifiedArn": {
             "Description": "Current Lambda function version",
             "Value": {
-              "Ref": "StartInstanceLambdaVersionLV6p2mUBaVtlrCZOPJJnDYCem5CzmmuUJP7IkOQn6I"
+              "Ref": "StartInstanceLambdaVersion3pMhPsFlLDiKSn2BnqBVYEVsOnmg2CDIqNAnbRocd70"
             },
             "Export": {
               "Name": "sls-milsim-dev-StartInstanceLambdaFunctionQualifiedArn"
@@ -477,7 +477,7 @@
         "timeout": 6,
         "runtime": "nodejs18.x",
         "vpc": {},
-        "versionLogicalId": "StartInstanceLambdaVersionLV6p2mUBaVtlrCZOPJJnDYCem5CzmmuUJP7IkOQn6I"
+        "versionLogicalId": "StartInstanceLambdaVersion3pMhPsFlLDiKSn2BnqBVYEVsOnmg2CDIqNAnbRocd70"
       }
     },
     "configValidationMode": "warn",
@@ -503,7 +503,7 @@
     "artifact": "D:\\milsim\\lambdas\\start-instance\\.serverless\\milsim.zip"
   },
   "package": {
-    "artifactDirectoryName": "serverless/milsim/dev/1761785953189-2025-10-30T00:59:13.189Z",
+    "artifactDirectoryName": "serverless/milsim/dev/1761788021193-2025-10-30T01:33:41.193Z",
     "artifact": "milsim.zip"
   }
 }
