@@ -51,11 +51,11 @@ exports.handler = async (event) => {
         }
         // If instance is in any other state, continue to redirect
         
-        // Redirect to milsim_game.gato.click after all operations
+        // Redirect to game.gato.click after all operations
         return {
             statusCode: 302,
             headers: {
-                'Location': 'https://milsim_game.gato.click'
+                'Location': 'https://game.gato.click'
             },
             body: ''
         };
