@@ -94,7 +94,7 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: var(--spacing-md) var(--spacing-xl);
+  padding: 1.2em 1.8em;
   border: none;
   border-radius: var(--radius);
   font-size: var(--font-size-lg);
@@ -103,6 +103,8 @@ body {
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+  min-height: 3em;
+  line-height: 1;
 }
 
 .btn:disabled {
