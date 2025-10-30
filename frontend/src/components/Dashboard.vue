@@ -61,6 +61,13 @@
             </div>
             <div class="game-card-actions">
               <button
+                class="btn btn-primary"
+                @click.stop="enterGame(game)"
+                title="Entrar al juego"
+              >
+                🚪
+              </button>
+              <button
                 class="btn btn-success"
                 @click.stop="viewGameHistory(game.id)"
                 title="View Game History"
