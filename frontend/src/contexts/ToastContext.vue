@@ -64,11 +64,13 @@ provide('toast', toastContext)
 .toast-container {
   position: fixed;
   top: 20px;
-  right: 20px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 1000;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  align-items: center;
 }
 
 .toast {

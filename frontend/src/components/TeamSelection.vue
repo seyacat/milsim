@@ -222,11 +222,12 @@ watch(() => props.currentGame, (newGame) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
+  pointer-events: none;
 }
 
 .team-selection-dialog {
@@ -236,6 +237,7 @@ watch(() => props.currentGame, (newGame) => {
   width: 90%;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
   border: 1px solid #333;
+  pointer-events: auto;
 }
 
 .dialog-header {

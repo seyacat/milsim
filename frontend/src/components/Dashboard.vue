@@ -141,8 +141,17 @@ const filteredGames = computed(() => {
   })
   
   filtered.sort((a, b) => {
+    const dateA = new Date(a.updatedAt).getTime()
+    const dateB = new Date(b.updatedAt).getTime()
     const connectionsA = a.activeConnections || 0
     const connectionsB = b.activeConnections || 0
+    
+    // Primary sort: updatedAt descending (most recent first)
+    if (dateB !== dateA) {
+      return dateB - dateA
+    }
+    
+    // Secondary sort: activeConnections descending (most players first)
     return connectionsB - connectionsA
   })
   

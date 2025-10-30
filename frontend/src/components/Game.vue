@@ -54,6 +54,12 @@
         @resume-game="resumeGame"
       />
 
+      <!-- Player State Display - Bottom Right (Only for Players) -->
+      <PlayerStateDisplay
+        v-if="!isOwner && !isPopupOpen"
+        :current-game="currentGame"
+      />
+
 
       <!-- Team Selection (Only for Players in stopped state) -->
       <TeamSelection
@@ -130,6 +136,7 @@ import GameOverlay from './shared/GameOverlay.vue'
 import LocationInfoPanel from './shared/LocationInfoPanel.vue'
 import MapControlsPanel from './shared/MapControlsPanel.vue'
 import ControlPanel from './Game/ControlPanel.vue'
+import PlayerStateDisplay from './Game/PlayerStateDisplay.vue'
 import PlayersDialog from './Game/PlayersDialog.vue'
 import GameResultsDialog from './GameResultsDialog.vue'
 import TeamSelection from './TeamSelection.vue'

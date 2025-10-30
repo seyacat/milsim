@@ -206,12 +206,13 @@ watch(() => props.isOpen, (isOpen) => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
   padding: 20px;
+  pointer-events: none;
 }
 
 .game-results-dialog {
@@ -223,6 +224,7 @@ watch(() => props.isOpen, (isOpen) => {
   overflow-y: auto;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   border: 1px solid #333;
+  pointer-events: auto;
 }
 
 .game-results-header {

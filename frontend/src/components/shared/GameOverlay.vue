@@ -170,8 +170,8 @@ watch(() => props.currentGame, (newGame) => {
 
 const getStatusText = (status: string) => {
   const statusMap: Record<string, string> = {
-    stopped: 'Detenido',
-    running: 'En Ejecución',
+    stopped: 'Iniciando',
+    running: 'Jugando',
     paused: 'Pausado',
     finished: 'Finalizado'
   }

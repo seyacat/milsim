@@ -206,11 +206,12 @@ const onClose = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: transparent;
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 10000;
+  pointer-events: none;
 }
 
 .teams-dialog {
@@ -222,6 +223,7 @@ const onClose = () => {
   max-height: 80vh;
   overflow: hidden;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  pointer-events: auto;
 }
 
 .teams-dialog-header {

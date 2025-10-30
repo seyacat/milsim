@@ -225,7 +225,7 @@ export const useGPSTracking = (
       timeout.value = null
     }
 
-    gpsStatus.value = 'Detenido'
+    gpsStatus.value = 'Iniciando'
     currentPosition.value = null
     lastDetection.value = null
     lastKnownPosition.value = null
