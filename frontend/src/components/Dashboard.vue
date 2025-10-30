@@ -146,7 +146,7 @@ const filteredGames = computed(() => {
     return connectionsB - connectionsA
   })
   
-  return filtered.slice(0, 10)
+  return filtered.slice(0, 25)
 })
 
 onMounted(() => {
@@ -155,7 +155,11 @@ onMounted(() => {
 
 // Swipe refresh handlers
 const handleTouchStart = (e: TouchEvent) => {
-  if (window.scrollY === 0) {
+  // Only activate swipe refresh when at the very top of the games grid
+  const gamesGrid = document.querySelector('.games-grid') as HTMLElement
+  const isAtTop = gamesGrid && gamesGrid.scrollTop === 0
+  
+  if (isAtTop) {
     touchStartY.value = e.touches[0].clientY
     isDragging.value = true
   }
@@ -279,10 +283,24 @@ const logout = () => {
   margin: 0 auto;
   padding: 20px;
   transition: transform 0.2s ease;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .container.dragging {
   transition: none;
+}
+
+.header {
+  flex-shrink: 0;
+}
+
+.card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important for flex child scrolling */
 }
 
 .refresh-indicator {
@@ -381,6 +399,29 @@ const logout = () => {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  flex: 1;
+  overflow-y: auto;
+  max-height: 100%;
+  padding-right: 5px; /* Space for scrollbar */
+}
+
+/* Custom scrollbar styling */
+.games-grid::-webkit-scrollbar {
+  width: 6px;
+}
+
+.games-grid::-webkit-scrollbar-track {
+  background: var(--background);
+  border-radius: 3px;
+}
+
+.games-grid::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.games-grid::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 
 .game-card {
