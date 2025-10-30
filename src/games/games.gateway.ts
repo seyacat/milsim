@@ -117,6 +117,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
           .catch(error => {
             console.error(`[DISCONNECT] Error updating connections for game ${gameId}:`, error);
           });
+        
+        // Leave the game room when disconnecting
+        client.leave(`game_${gameId}`);
       }
     }
 
@@ -158,6 +161,23 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
         // Remove old connection from tracking
         this.connectedUsers.delete(existingSocketId);
         this.playerPositions.delete(user.id);
+      }
+
+      // Remove user from any previous game connections
+      for (const [prevGameId, connections] of this.gameConnections.entries()) {
+        if (connections.has(client.id) && prevGameId !== gameId) {
+          connections.delete(client.id);
+          client.leave(`game_${prevGameId}`);
+          
+          // Update active connections count for the previous game
+          const prevConnectionCount = connections.size;
+          this.gamesService
+            .updateActiveConnections(prevGameId, prevConnectionCount)
+            .then(() => {})
+            .catch(error => {
+              console.error(`[JOIN_GAME] Error updating connections for previous game ${prevGameId}:`, error);
+            });
+        }
       }
 
       // Join the room for this specific game
@@ -300,6 +320,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, O
 
       // Remove game connection
       this.gameConnections.get(gameId)?.delete(client.id);
+
+      // Remove player position data for this user
+      this.playerPositions.delete(user.id);
 
       // Update active connections count in the game
       const connectionCount = this.gameConnections.get(gameId)?.size || 0;

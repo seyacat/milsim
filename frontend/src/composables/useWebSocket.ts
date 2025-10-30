@@ -25,11 +25,10 @@ import {
 } from '../types/websocket-events.js'
 import { useToast } from './useToast.js'
 
-// Singleton pattern for WebSocket connection
-let globalSocketRef: Socket | null = null
-let globalIsConnecting = false
-let connectionCount = 0
-let globalReconnectAttempts = 0
+// Game-specific WebSocket connections
+const gameConnections = new Map<number, Socket>() // gameId -> Socket
+const gameConnectionCounts = new Map<number, number>() // gameId -> connection count
+const gameReconnectAttempts = new Map<number, number>() // gameId -> reconnect attempts
 const MAX_RECONNECT_ATTEMPTS = 5
 const RECONNECT_DELAY = 2000 // 2 seconds
 const HEARTBEAT_INTERVAL = 30000 // 30 seconds
@@ -103,8 +102,8 @@ const setupSocketListeners = (
   }
 
   socket.on('connect', () => {
-    globalIsConnecting = false
-    globalReconnectAttempts = 0 // Reset reconnection attempts on successful connection
+    // Reset reconnection attempts for this game on successful connection
+    gameReconnectAttempts.set(gameId, 0)
     
     // Start heartbeat when connected
     startHeartbeat()
@@ -209,8 +208,9 @@ const setupSocketListeners = (
     callbacks.onError(errorMessage)
     
     // Attempt reconnection
-    if (globalReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-      globalReconnectAttempts++
+    const currentAttempts = gameReconnectAttempts.get(gameId) || 0
+    if (currentAttempts < MAX_RECONNECT_ATTEMPTS) {
+      gameReconnectAttempts.set(gameId, currentAttempts + 1)
       setTimeout(() => {
         if (socket.disconnected) {
           socket.connect()
@@ -240,8 +240,9 @@ const setupSocketListeners = (
       callbacks.onError('Conexión perdida con el servidor')
       
       // Attempt reconnection for unexpected disconnections
-      if (reason === 'transport close' && globalReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-        globalReconnectAttempts++
+      const currentAttempts = gameReconnectAttempts.get(gameId) || 0
+      if (reason === 'transport close' && currentAttempts < MAX_RECONNECT_ATTEMPTS) {
+        gameReconnectAttempts.set(gameId, currentAttempts + 1)
         setTimeout(() => {
           if (socket.disconnected) {
             socket.connect()
@@ -527,33 +528,30 @@ export const useWebSocket = () => {
       onBombDeactivated?: (data: BombDeactivatedEvent) => void
     }
   ) => {
-    // Clean up any existing connection that might be in a bad state
-    if (globalSocketRef && (!globalSocketRef.connected || globalSocketRef.disconnected)) {
-      try {
-        globalSocketRef.disconnect()
-      } catch (error) {
-        console.error('Error cleaning up old socket:', error)
-      }
-      globalSocketRef = null
-      connectionCount = 0
-    }
-
-    // Usar la conexión global si ya existe y está realmente connected
-    if (globalSocketRef && globalSocketRef.connected) {
-      socketRef.value = globalSocketRef
-      connectionCount++
+    // Check if we already have a connection for this specific game
+    const existingSocket = gameConnections.get(gameId)
+    if (existingSocket && existingSocket.connected) {
+      socketRef.value = existingSocket
+      const currentCount = gameConnectionCounts.get(gameId) || 0
+      gameConnectionCounts.set(gameId, currentCount + 1)
       
-      // Configurar los callbacks en la conexión existente
-      setupSocketListeners(globalSocketRef, gameId, callbacks, addToast)
-      return globalSocketRef
+      // Configure callbacks on the existing connection
+      setupSocketListeners(existingSocket, gameId, callbacks, addToast)
+      return existingSocket
     }
 
-    // Si ya estamos conectando globalmente, no iniciar otra conexión
-    if (globalIsConnecting) {
-      return null
+    // Clean up any existing connection for this game that might be in a bad state
+    if (existingSocket && (!existingSocket.connected || existingSocket.disconnected)) {
+      try {
+        existingSocket.disconnect()
+      } catch (error) {
+        console.error('Error cleaning up old socket for game:', gameId, error)
+      }
+      gameConnections.delete(gameId)
+      gameConnectionCounts.delete(gameId)
+      gameReconnectAttempts.delete(gameId)
     }
 
-    globalIsConnecting = true
     isConnecting.value = true
 
     try {
@@ -573,17 +571,20 @@ export const useWebSocket = () => {
         reconnectionDelayMax: 10000,
         timeout: 20000
       })
-      globalSocketRef = socket
+      
+      // Store the connection for this specific game
+      gameConnections.set(gameId, socket)
       socketRef.value = socket
-      connectionCount++
+      const currentCount = gameConnectionCounts.get(gameId) || 0
+      gameConnectionCounts.set(gameId, currentCount + 1)
+      gameReconnectAttempts.set(gameId, 0)
 
-      // Configurar todos los listeners del socket
+      // Configure all socket listeners
       setupSocketListeners(socket, gameId, callbacks, addToast)
 
       return socket
     } catch (error) {
-      console.error('Failed to initialize WebSocket:', error)
-      globalIsConnecting = false
+      console.error('Failed to initialize WebSocket for game:', gameId, error)
       isConnecting.value = false
       addToast({ message: 'Error al inicializar WebSocket', type: 'error' })
       throw error
@@ -612,15 +613,27 @@ export const useWebSocket = () => {
 
   const disconnectWebSocket = () => {
     if (socketRef.value) {
-      connectionCount--
+      // Find which game this socket belongs to
+      let targetGameId: number | null = null
+      for (const [gameId, socket] of gameConnections.entries()) {
+        if (socket === socketRef.value) {
+          targetGameId = gameId
+          break
+        }
+      }
       
-      // Solo desconectar completamente si no hay más referencias
-      if (connectionCount <= 0) {
-        socketRef.value.disconnect()
-        globalSocketRef = null
-        globalIsConnecting = false
-        globalReconnectAttempts = 0
-        connectionCount = 0
+      if (targetGameId !== null) {
+        const currentCount = gameConnectionCounts.get(targetGameId) || 0
+        const newCount = Math.max(0, currentCount - 1)
+        gameConnectionCounts.set(targetGameId, newCount)
+        
+        // Only disconnect completely if no more references for this game
+        if (newCount <= 0) {
+          socketRef.value.disconnect()
+          gameConnections.delete(targetGameId)
+          gameConnectionCounts.delete(targetGameId)
+          gameReconnectAttempts.delete(targetGameId)
+        }
       }
       
       socketRef.value = null
