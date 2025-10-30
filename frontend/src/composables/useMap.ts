@@ -121,7 +121,7 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
     }
   }
 
-  const setMapView = async (controlPoints: ControlPoint[]) => {
+  const setMapView = async (controlPoints: ControlPoint[], gpsPosition?: { lat: number; lng: number }) => {
     if (!mapInstance.value) return
 
     try {
@@ -135,6 +135,7 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
         })
         
         if (validPoints.length > 0) {
+          // Use fitBounds to show all control points with max zoom limit of 16
           const bounds = L.latLngBounds(validPoints.map(cp => {
             const lat = typeof cp.latitude === 'string' ? parseFloat(cp.latitude) : cp.latitude
             const lng = typeof cp.longitude === 'string' ? parseFloat(cp.longitude) : cp.longitude
@@ -143,7 +144,8 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
           
           // Add error handling for fitBounds operation
           try {
-            mapInstance.value.fitBounds(bounds)
+            // Fit bounds with maximum zoom level of 16 to prevent excessive zoom
+            mapInstance.value.fitBounds(bounds, { maxZoom: 16 })
           } catch (fitBoundsError) {
             console.warn('Error in fitBounds operation, using fallback:', fitBoundsError)
             // Fallback to center view
@@ -151,10 +153,24 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
             mapInstance.value.setView([center.lat, center.lng], 13)
           }
         } else {
-          mapInstance.value.setView([0, 0], 2)
+          // No valid control points, check if GPS position is available
+          if (gpsPosition && !isNaN(gpsPosition.lat) && !isNaN(gpsPosition.lng)) {
+            // Zoom to GPS position with good zoom level
+            await centerOnPosition(gpsPosition.lat, gpsPosition.lng, 16)
+          } else {
+            // Fallback to global view
+            mapInstance.value.setView([0, 0], 2)
+          }
         }
       } else {
-        mapInstance.value.setView([0, 0], 2)
+        // No control points, check if GPS position is available
+        if (gpsPosition && !isNaN(gpsPosition.lat) && !isNaN(gpsPosition.lng)) {
+          // Zoom to GPS position with good zoom level
+          await centerOnPosition(gpsPosition.lat, gpsPosition.lng, 16)
+        } else {
+          // Fallback to global view
+          mapInstance.value.setView([0, 0], 2)
+        }
       }
     } catch (error) {
       console.error('Error setting map view:', error)

@@ -373,7 +373,11 @@ const centerOnSite = async () => {
     }
     
     // Fallback: center on all control points if no site is found
-    await setMapView(currentGame.value.controlPoints)
+    const gpsPosition = currentPositionFromComposable.value ? {
+      lat: currentPositionFromComposable.value.lat,
+      lng: currentPositionFromComposable.value.lng
+    } : undefined
+    await setMapView(currentGame.value.controlPoints, gpsPosition)
   }
 }
 
@@ -442,7 +446,7 @@ const handleControlPointMove = (controlPointId: number, markerId: number) => {
   const marker = controlPointMarkers.value.get(controlPointId)
   if (marker) {
     marker.off('dragend') // Remove any existing listeners
-    marker.on('dragend', (e) => {
+    marker.on('dragend', (e: any) => {
       // Set dragging flag to false after a small delay to ensure the map click event is processed first
       setTimeout(() => {
         isDraggingControlPoint.value = false
@@ -918,7 +922,12 @@ onMounted(async () => {
     await nextTick()
     setTimeout(async () => {
       await initializeMap(onMapClick)
-      await setMapView(currentGame.value?.controlPoints || [])
+      // Get GPS position if available to use for initial map view
+      const gpsPosition = currentPositionFromComposable.value ? {
+        lat: currentPositionFromComposable.value.lat,
+        lng: currentPositionFromComposable.value.lng
+      } : undefined
+      await setMapView(currentGame.value?.controlPoints || [], gpsPosition)
       // Only pass handlers for owners, players should get empty handlers
       const handlers = isOwner.value ? {
         handleControlPointMove,
