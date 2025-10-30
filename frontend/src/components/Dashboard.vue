@@ -1,5 +1,13 @@
 <template>
-  <div class="container">
+  <div
+    class="container"
+    :class="{ dragging: isDragging }"
+    :style="{ transform: `translateY(${pullDistance}px)` }"
+    ref="containerRef"
+    @touchstart="handleTouchStart"
+    @touchmove="handleTouchMove"
+    @touchend="handleTouchEnd"
+  >
     <div class="header flex justify-between items-center">
       <h1>Dashboard - Milsim Games</h1>
       <div class="flex gap-2">
@@ -10,6 +18,11 @@
           Logout
         </button>
       </div>
+    </div>
+    
+    <div class="refresh-indicator" :class="{ active: isRefreshing }">
+      <div class="refresh-spinner">⟳</div>
+      <span>{{ isRefreshing ? 'Actualizando...' : 'Soltar para actualizar' }}</span>
     </div>
     
     <div class="card">
@@ -106,6 +119,14 @@ const loading = ref(true)
 const searchTerm = ref('')
 const showOnlyOwnGames = ref(false)
 
+// Swipe refresh variables
+const containerRef = ref<HTMLElement>()
+const touchStartY = ref(0)
+const touchCurrentY = ref(0)
+const isDragging = ref(false)
+const isRefreshing = ref(false)
+const pullDistance = ref(0)
+
 const currentUser = computed(() => AuthService.getCurrentUser())
 
 const filteredGames = computed(() => {
@@ -131,6 +152,75 @@ const filteredGames = computed(() => {
 onMounted(() => {
   loadGames()
 })
+
+// Swipe refresh handlers
+const handleTouchStart = (e: TouchEvent) => {
+  if (window.scrollY === 0) {
+    touchStartY.value = e.touches[0].clientY
+    isDragging.value = true
+  }
+}
+
+const handleTouchMove = (e: TouchEvent) => {
+  if (!isDragging.value) return
+  
+  touchCurrentY.value = e.touches[0].clientY
+  const rawDistance = Math.max(0, touchCurrentY.value - touchStartY.value)
+  
+  // Apply extremely strong spring resistance: almost no movement after threshold
+  const MAX_PULL = 80
+  const RESISTANCE_FACTOR = 0.1 // Extremely strong resistance
+  
+  if (rawDistance <= MAX_PULL) {
+    pullDistance.value = rawDistance
+  } else {
+    // Apply extremely strong resistance after MAX_PULL
+    const extraDistance = rawDistance - MAX_PULL
+    pullDistance.value = MAX_PULL + (extraDistance * RESISTANCE_FACTOR)
+  }
+  
+  // Prevent scrolling when pulling down to refresh
+  if (pullDistance.value > 10) {
+    e.preventDefault()
+  }
+}
+
+const handleTouchEnd = () => {
+  if (!isDragging.value) return
+  
+  isDragging.value = false
+  
+  // Trigger refresh if pulled down enough
+  if (pullDistance.value > 80) {
+    isRefreshing.value = true
+    loadGames().finally(() => {
+      setTimeout(() => {
+        isRefreshing.value = false
+        pullDistance.value = 0
+      }, 500)
+    })
+  } else {
+    // Spring back animation
+    const startDistance = pullDistance.value
+    const startTime = Date.now()
+    const duration = 300 // ms
+    
+    const animateSpringBack = () => {
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      
+      // Ease out cubic function for smooth spring back
+      const easeOutCubic = 1 - Math.pow(1 - progress, 3)
+      pullDistance.value = startDistance * (1 - easeOutCubic)
+      
+      if (progress < 1) {
+        requestAnimationFrame(animateSpringBack)
+      }
+    }
+    
+    requestAnimationFrame(animateSpringBack)
+  }
+}
 
 const loadGames = async () => {
   try {
@@ -188,6 +278,43 @@ const logout = () => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
+  transition: transform 0.2s ease;
+}
+
+.container.dragging {
+  transition: none;
+}
+
+.refresh-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: var(--primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transform: translateY(-100%);
+  transition: transform 0.3s ease;
+  z-index: 1000;
+  font-weight: 500;
+}
+
+.refresh-indicator.active {
+  transform: translateY(0);
+}
+
+.refresh-spinner {
+  font-size: 1.5rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 .header {
