@@ -32,6 +32,8 @@ let connectionCount = 0
 let globalReconnectAttempts = 0
 const MAX_RECONNECT_ATTEMPTS = 5
 const RECONNECT_DELAY = 2000 // 2 seconds
+const HEARTBEAT_INTERVAL = 30000 // 30 seconds
+const HEARTBEAT_TIMEOUT = 10000 // 10 seconds
 
 // Función para configurar los listeners del socket
 const setupSocketListeners = (
@@ -59,9 +61,53 @@ const setupSocketListeners = (
   },
   addToast: any
 ) => {
+  let heartbeatInterval: NodeJS.Timeout | null = null
+  let heartbeatTimeout: NodeJS.Timeout | null = null
+
+  const startHeartbeat = () => {
+    // Clear any existing heartbeat
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval)
+    }
+    if (heartbeatTimeout) {
+      clearTimeout(heartbeatTimeout)
+    }
+
+    // Send heartbeat every 30 seconds
+    heartbeatInterval = setInterval(() => {
+      if (socket.connected) {
+        socket.emit('heartbeat', { timestamp: Date.now() })
+        
+        // Set timeout to detect if server doesn't respond
+        heartbeatTimeout = setTimeout(() => {
+          console.warn('Heartbeat timeout - server not responding')
+          addToast({ message: 'Servidor no responde, reconectando...', type: 'warning' })
+          socket.disconnect()
+          setTimeout(() => {
+            socket.connect()
+          }, 1000)
+        }, HEARTBEAT_TIMEOUT)
+      }
+    }, HEARTBEAT_INTERVAL)
+  }
+
+  const stopHeartbeat = () => {
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval)
+      heartbeatInterval = null
+    }
+    if (heartbeatTimeout) {
+      clearTimeout(heartbeatTimeout)
+      heartbeatTimeout = null
+    }
+  }
+
   socket.on('connect', () => {
     globalIsConnecting = false
     globalReconnectAttempts = 0 // Reset reconnection attempts on successful connection
+    
+    // Start heartbeat when connected
+    startHeartbeat()
     
     // Always rejoin the game when reconnecting to ensure we're in the right state
     socket.emit('joinGame', { gameId })
@@ -176,7 +222,18 @@ const setupSocketListeners = (
     }
   })
 
+  // Handle heartbeat response from server
+  socket.on('heartbeat_ack', (data: { timestamp: number }) => {
+    // Clear the timeout since server responded
+    if (heartbeatTimeout) {
+      clearTimeout(heartbeatTimeout)
+      heartbeatTimeout = null
+    }
+  })
+
   socket.on('disconnect', (reason) => {
+    // Stop heartbeat when disconnected
+    stopHeartbeat()
     
     if (reason === 'io server disconnect' || reason === 'transport close') {
       addToast({ message: 'Conexión perdida con el servidor', type: 'error' })
@@ -206,8 +263,6 @@ const setupSocketListeners = (
     
     
     // Debug the actual control point data structure
-    if (controlPointData) {
-    }
     
     // Validate that we have required coordinates
     const latitude = controlPointData?.latitude ? parseFloat(controlPointData.latitude.toString()) : 0

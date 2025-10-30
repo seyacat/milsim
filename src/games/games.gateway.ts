@@ -6,6 +6,7 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
+import { OnModuleDestroy } from '@nestjs/common';
 import { Inject, forwardRef } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { GamesService } from './games.service';
@@ -28,7 +29,7 @@ import { PlayerPositionData, PositionUpdateData } from './types/position-types';
     credentials: true,
   },
 })
-export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect, OnModuleDestroy {
   @WebSocketServer()
   server: Server;
 
@@ -36,6 +37,8 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private playerPositions = new Map<number, PlayerPositionData>(); // user.id -> position data
   private gameConnections = new Map<number, Set<string>>(); // gameId -> Set of socket IDs
   private gameIntervals = new Map<number, NodeJS.Timeout>(); // gameId -> interval ID
+  private clientLastHeartbeat = new Map<string, number>(); // socket.id -> last heartbeat timestamp
+  private heartbeatInterval: NodeJS.Timeout | null = null;
 
   private controlPointActionHandler: ControlPointActionHandler;
   private gameStateHandler: GameStateHandler;
@@ -52,6 +55,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly timerManagementService: TimerManagementService,
   ) {
     this.initializeHandlers();
+    this.startServerHeartbeat();
   }
 
   private initializeHandlers() {
@@ -82,6 +86,9 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // Store user data
       this.connectedUsers.set(client.id, user);
+      
+      // Initialize heartbeat tracking for this client
+      this.clientLastHeartbeat.set(client.id, Date.now());
 
       // Register connection for uptime tracking
       this.connectionTracker.registerConnection();
@@ -97,6 +104,7 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.playerPositions.delete(user.id);
     }
     this.connectedUsers.delete(client.id);
+    this.clientLastHeartbeat.delete(client.id);
 
     // Remove client from all game connections and update counts
     for (const [gameId, connections] of this.gameConnections.entries()) {
@@ -535,6 +543,15 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @SubscribeMessage('heartbeat')
+  handleHeartbeat(client: Socket, payload: { timestamp: number }) {
+    // Update last heartbeat timestamp for this client
+    this.clientLastHeartbeat.set(client.id, Date.now());
+    
+    // Respond to heartbeat to confirm connection is alive
+    client.emit('heartbeat_ack', { timestamp: payload.timestamp });
+  }
+
   @SubscribeMessage('getGameState')
   async handleGetGameState(client: Socket, payload: { gameId: number }) {
     const { gameId } = payload;
@@ -807,5 +824,45 @@ export class GamesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     return connectedUsersForGame;
+  }
+
+  /**
+   * Start server-side heartbeat to detect dead connections
+   */
+  private startServerHeartbeat(): void {
+    // Check for dead connections every 60 seconds
+    this.heartbeatInterval = setInterval(() => {
+      this.checkDeadConnections();
+    }, 60000);
+  }
+
+  /**
+   * Check for and remove dead connections
+   */
+  private checkDeadConnections(): void {
+    const now = Date.now();
+    const HEARTBEAT_TIMEOUT = 120000; // 2 minutes timeout
+
+    for (const [socketId, lastHeartbeat] of this.clientLastHeartbeat.entries()) {
+      if (now - lastHeartbeat > HEARTBEAT_TIMEOUT) {
+        console.log(`[HEARTBEAT] Removing dead connection: ${socketId}, last heartbeat: ${new Date(lastHeartbeat).toISOString()}`);
+        
+        const client = this.server.sockets.sockets.get(socketId);
+        if (client) {
+          client.disconnect();
+        }
+        
+        this.clientLastHeartbeat.delete(socketId);
+      }
+    }
+  }
+
+  /**
+   * Clean up heartbeat interval when gateway is destroyed
+   */
+  onModuleDestroy() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+    }
   }
 }
