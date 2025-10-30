@@ -13,7 +13,7 @@ plugins:
 
 custom:
   customDomain:
-    domainName: milsim.seyacat.com
+    domainName: milsim.gato.click
     basePath: ''
     stage: ${self:provider.stage}
     createRoute53Record: true
@@ -25,7 +25,7 @@ functions:
     handler: index.handler
     events:
       - http:
-          path: /start
+          path: /
           method: get
           cors: true
     iamRoleStatements:

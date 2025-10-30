@@ -38,40 +38,26 @@ exports.handler = async (event) => {
         
         // If instance is already running, do nothing
         if (currentState === 'running') {
-            return {
-                statusCode: 200,
-                body: JSON.stringify({
-                    message: `Instance ${instanceId} is already running`,
-                    state: currentState
-                })
-            };
+            // Continue to redirect
         }
-        
         // If instance is stopped, start it
-        if (currentState === 'stopped') {
+        else if (currentState === 'stopped') {
             const startParams = {
                 InstanceIds: [instanceId]
             };
             
             await ec2.startInstances(startParams).promise();
-            
-            return {
-                statusCode: 200,
-                body: JSON.stringify({
-                    message: `Instance ${instanceId} is starting`,
-                    previousState: currentState,
-                    newState: 'pending'
-                })
-            };
+            // Continue to redirect
         }
+        // If instance is in any other state, continue to redirect
         
-        // If instance is in any other state, return current state
+        // Redirect to milsim_game.gato.click after all operations
         return {
-            statusCode: 200,
-            body: JSON.stringify({
-                message: `Instance ${instanceId} is in state: ${currentState}`,
-                state: currentState
-            })
+            statusCode: 302,
+            headers: {
+                'Location': 'https://milsim_game.gato.click'
+            },
+            body: ''
         };
         
     } catch (error) {
