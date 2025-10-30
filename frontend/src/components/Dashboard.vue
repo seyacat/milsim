@@ -74,14 +74,14 @@
             </div>
             <div class="game-card-actions">
               <button
-                class="btn btn-primary"
+                class="btn btn-primary btn-small"
                 @click.stop="enterGame(game)"
                 title="Entrar al juego"
               >
                 🚪
               </button>
               <button
-                class="btn btn-success"
+                class="btn btn-success btn-small"
                 @click.stop="viewGameHistory(game.id)"
                 title="View Game History"
               >
@@ -89,7 +89,7 @@
               </button>
               <button
                 v-if="isGameOwner(game)"
-                class="btn btn-danger"
+                class="btn btn-danger btn-small"
                 @click.stop="deleteGame(game.id)"
                 title="Delete game"
               >
@@ -495,7 +495,22 @@ const logout = () => {
 
 .game-card-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.25rem;
   flex-shrink: 0;
+  max-width: 40%;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.btn-small {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  line-height: 1;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>
