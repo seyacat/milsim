@@ -99,8 +99,13 @@ export const usePlayerMarkers = ({ game, map, currentUser, socket, isOwner }: Us
       const isCurrentUser = userId === currentUser.value?.id
       const icon = createPlayerMarkerIcon(team, isCurrentUser)
       
-      marker = L.marker([lat, lng], { icon }).addTo(map.value)
+      marker = L.marker([lat, lng], { icon, title: userName || 'Jugador' }).addTo(map.value)
       playerMarkersRef.value.set(userId, marker)
+      const el = marker.getElement()
+      if (el) {
+        el.setAttribute('aria-label', `Jugador ${userName || ''}`)
+        el.setAttribute('role', 'img')
+      }
     } else {
       // Update existing marker position
       marker.setLatLng([lat, lng])

@@ -42,7 +42,7 @@
           Jugadores: <span>{{ currentGame.activeConnections || 0 }}</span>
         </div>
         <div>
-          Propietario: <span>{{ currentUser.name }}</span>
+          Propietario: <span>{{ currentGame.owner?.name || 'Unknown' }}</span>
         </div>
         <div>
           Usuario: <span>{{ currentUser.name }}</span>
@@ -82,6 +82,7 @@
       <button
         class="add-time-btn"
         @click="addOneMinute"
+        aria-label="Agregar 1 minuto"
         title="Agregar 1 minuto al tiempo total"
       >
         +1
@@ -89,6 +90,7 @@
       <button
         class="remove-time-btn"
         @click="removeOneMinute"
+        aria-label="Quitar 1 minuto"
         title="Quitar 1 minuto al tiempo total"
       >
         -1
@@ -96,6 +98,7 @@
       <button
         class="inf-time-btn"
         @click="setTimeUndefined"
+        aria-label="Tiempo indefinido"
         title="Establecer tiempo indefinido"
       >
         ∞

@@ -3,7 +3,7 @@
     <div class="teams-dialog" @click.stop>
       <div class="teams-dialog-header">
         <h3>Gestión de Equipos</h3>
-        <button class="close-btn" @click="onClose">×</button>
+        <button class="close-btn" @click="onClose" aria-label="Cerrar" title="Cerrar">×</button>
       </div>
 
       <div class="teams-dialog-content">
