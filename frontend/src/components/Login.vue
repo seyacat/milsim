@@ -9,6 +9,7 @@
             type="email"
             id="email"
             name="email"
+            autocomplete="email"
             class="form-input"
             required
             v-model="email"
@@ -21,6 +22,7 @@
             type="password"
             id="password"
             name="password"
+            autocomplete="current-password"
             class="form-input"
             required
             v-model="password"

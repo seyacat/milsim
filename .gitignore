@@ -1,7 +1,12 @@
 # compiled output
 /dist
-node_modules
+node_modules/
 /build
+*.tsbuildinfo
+
+# Vite / esbuild caches
+.vite/
+.cache/
 
 # Logs
 logs
@@ -56,3 +61,19 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /src/public
+/frontend/dist
+
+# Playwright MCP / Playwright artifacts
+/.playwright-mcp/
+/playwright-report/
+/test-results/
+
+# Serverless framework (lambdas)
+.serverless/
+lambdas/**/.env
+
+# Certificados / claves TLS de desarrollo (no commitear)
+*.pem
+*.key
+*.crt
+!ca-bundle.crt

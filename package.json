@@ -31,7 +31,8 @@
     "frontend:dev": "cd frontendSolidJS && npm run dev",
     "frontend:build": "cd frontendSolidJS && npm run build",
     "frontend:preview": "cd frontendSolidJS && npm run preview",
-    "build:all": "./build-all.sh"
+    "build:all": "./build-all.sh",
+    "seed:admin": "npx ts-node scripts/seed-admin.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

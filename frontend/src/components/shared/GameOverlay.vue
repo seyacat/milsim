@@ -4,7 +4,16 @@
       <div class="game-title-container">
         <div v-if="!isEditingGameName" class="game-name-display">
           <h2>{{ currentGame.name }}</h2>
-          <span v-if="isOwner" class="edit-pencil" @click="enableGameNameEdit" title="Editar nombre del juego">
+          <span
+            v-if="isOwner"
+            class="edit-pencil"
+            role="button"
+            tabindex="0"
+            aria-label="Editar nombre del juego"
+            title="Editar nombre del juego"
+            @click="enableGameNameEdit"
+            @keyup.enter="enableGameNameEdit"
+          >
             ✏️
           </span>
         </div>
@@ -20,8 +29,8 @@
             maxlength="50"
           />
           <div class="edit-actions">
-            <button @click="saveGameName" class="btn-save" title="Guardar">✓</button>
-            <button @click="cancelGameNameEdit" class="btn-cancel" title="Cancelar">✕</button>
+            <button @click="saveGameName" class="btn-save" aria-label="Guardar nombre" title="Guardar">✓</button>
+            <button @click="cancelGameNameEdit" class="btn-cancel" aria-label="Cancelar edición" title="Cancelar">✕</button>
           </div>
         </div>
       </div>

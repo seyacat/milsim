@@ -32,26 +32,25 @@ export class AuthService {
         throw new Error('Invalid response from server');
       }
       
-      // El backend devuelve el usuario directamente, no dentro de AuthResponse
-      // Extraemos el token del header Authorization
-      const authHeader = response.headers.get('Authorization');
-      let access_token = '';
-      
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        access_token = authHeader.substring(7);
-      } else {
-        console.log('AuthService.login: No se encontró token en el header');
+      // El backend devuelve el usuario con access_token dentro del body
+      // (también soportamos cabecera Authorization por compatibilidad).
+      let access_token: string = (data && data.access_token) || '';
+
+      if (!access_token) {
+        const authHeader = response.headers.get('Authorization');
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+          access_token = authHeader.substring(7);
+        }
       }
-      
+
       this.setToken(access_token);
       this.setUser(data);
-      
-      // Crear AuthResponse compatible
+
       const authResponse: AuthResponse = {
         access_token,
         user: data
       };
-      
+
       return authResponse;
     } catch (error) {
       console.error('AuthService.login error:', error);
@@ -88,15 +87,15 @@ export class AuthService {
         throw new Error('Invalid response from server');
       }
       
-      // El backend devuelve el usuario directamente, no dentro de AuthResponse
-      // Extraemos el token del header Authorization
-      const authHeader = response.headers.get('Authorization');
-      let access_token = '';
-      
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        access_token = authHeader.substring(7);
+      let access_token: string = (data && data.access_token) || '';
+
+      if (!access_token) {
+        const authHeader = response.headers.get('Authorization');
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+          access_token = authHeader.substring(7);
+        }
       }
-      
+
       this.setToken(access_token);
       this.setUser(data);
       

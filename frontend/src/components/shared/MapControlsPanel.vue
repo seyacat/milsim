@@ -1,21 +1,23 @@
 <template>
   <div class="game-panel map-controls-panel">
-    <button class="btn btn-secondary" @click="goBack" title="Volver al dashboard">←</button>
-    <button class="btn btn-secondary" @click="reloadPage" title="Recargar página">⟳</button>
+    <button class="btn btn-secondary" @click="goBack" aria-label="Volver al dashboard" title="Volver al dashboard">←</button>
+    <button class="btn btn-secondary" @click="reloadPage" aria-label="Recargar página" title="Recargar página">⟳</button>
     <button
       class="btn btn-secondary"
       @click="centerOnUser"
+      aria-label="Centrar en usuario"
       title="Centrar en usuario"
       :disabled="!currentPosition"
     >📍</button>
-    <button class="btn btn-secondary" @click="centerOnSite" title="Centrar en Site">🏠</button>
+    <button class="btn btn-secondary" @click="centerOnSite" aria-label="Centrar en Site" title="Centrar en Site">🏠</button>
     <button
       v-if="shouldShowTeamsButton"
       class="btn btn-secondary"
       @click="handleTeamsButton"
+      :aria-label="isOwner ? 'Gestionar equipos' : 'Seleccionar equipo'"
       :title="isOwner ? 'Gestionar equipos' : 'Seleccionar equipo'"
     >👥</button>
-    <button class="btn btn-secondary" @click="openGameResultsDialog" title="Ver resultados">📊</button>
+    <button class="btn btn-secondary" @click="openGameResultsDialog" aria-label="Ver resultados" title="Ver resultados">📊</button>
   </div>
 </template>
 

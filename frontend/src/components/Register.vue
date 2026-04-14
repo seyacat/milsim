@@ -5,11 +5,12 @@
       <form id="registerForm" class="register-form" @submit.prevent="handleSubmit">
         <div class="form-group">
           <label for="name" class="form-label">Nombre:</label>
-          <input 
-            type="text" 
-            id="name" 
-            name="name" 
-            class="form-input" 
+          <input
+            type="text"
+            id="name"
+            name="name"
+            autocomplete="name"
+            class="form-input"
             required
             v-model="name"
           />
@@ -17,11 +18,12 @@
         
         <div class="form-group">
           <label for="email" class="form-label">Email:</label>
-          <input 
-            type="email" 
-            id="email" 
-            name="email" 
-            class="form-input" 
+          <input
+            type="email"
+            id="email"
+            name="email"
+            autocomplete="email"
+            class="form-input"
             required
             v-model="email"
           />
@@ -29,12 +31,13 @@
         
         <div class="form-group">
           <label for="password" class="form-label">Contraseña:</label>
-          <input 
-            type="password" 
-            id="password" 
-            name="password" 
-            class="form-input" 
-            required 
+          <input
+            type="password"
+            id="password"
+            name="password"
+            autocomplete="new-password"
+            class="form-input"
+            required
             minlength="6"
             v-model="password"
           />
@@ -42,11 +45,12 @@
         
         <div class="form-group">
           <label for="confirmPassword" class="form-label">Confirmar Contraseña:</label>
-          <input 
-            type="password" 
-            id="confirmPassword" 
-            name="confirmPassword" 
-            class="form-input" 
+          <input
+            type="password"
+            id="confirmPassword"
+            name="confirmPassword"
+            autocomplete="new-password"
+            class="form-input"
             required
             v-model="confirmPassword"
           />

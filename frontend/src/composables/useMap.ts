@@ -83,25 +83,16 @@ export const useMap = (currentGame?: any, currentUser?: any) => {
         minZoom: 1
       }).setView([0, 0], 13)
 
-      // Add primary tile layer
-      const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      // Add OSM tile layer. OSM only serves tiles up to z=19, so cap
+      // requests with maxNativeZoom and let Leaflet upscale beyond that.
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 22,
+        maxNativeZoom: 19,
         minZoom: 1,
         errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
         noWrap: true
       }).addTo(mapInstance.value)
-
-      // Add fallback tile layer that always renders (even if pixelated)
-      const fallbackLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxNativeZoom: 19,
-        minZoom: 1,
-        noWrap: true
-      })
-
-      // Create layer group with fallback behavior
-      const layerGroup = L.layerGroup([osmLayer, fallbackLayer])
-      layerGroup.addTo(mapInstance.value)
 
       // Add click handler for creating control points and closing popups on blur
       mapInstance.value.on('click', (e: any) => {

@@ -59,7 +59,11 @@
           v-for="game in filteredGames"
           :key="game.id"
           class="game-card"
+          role="button"
+          tabindex="0"
+          :aria-label="`Abrir juego ${game.name}`"
           @click="enterGame(game)"
+          @keyup.enter="enterGame(game)"
         >
           <div class="game-card-header">
             <div class="game-info-column">
@@ -76,6 +80,7 @@
               <button
                 class="btn btn-primary btn-small"
                 @click.stop="enterGame(game)"
+                aria-label="Entrar al juego"
                 title="Entrar al juego"
               >
                 🚪
@@ -83,6 +88,7 @@
               <button
                 class="btn btn-success btn-small"
                 @click.stop="viewGameHistory(game.id)"
+                aria-label="Ver historial del juego"
                 title="View Game History"
               >
                 🕒
@@ -91,6 +97,7 @@
                 v-if="isGameOwner(game)"
                 class="btn btn-danger btn-small"
                 @click.stop="deleteGame(game.id)"
+                aria-label="Eliminar juego"
                 title="Delete game"
               >
                 🗑️
